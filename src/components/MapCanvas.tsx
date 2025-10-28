@@ -61,41 +61,48 @@ export const MapCanvas = () => {
 			if (layer.type === 'tile' || !layer.type) {
 				// Render tile layer
 				layer.tiles.forEach((tile) => {
-					// Try new multi-tileset system first
-					if (tile.tilesetId && tile.tileId && tile.tilesetId !== 'legacy') {
-						const tileset = getTilesetById(tile.tilesetId);
-						if (tileset?.imageData) {
-							const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
-							if (tileDefinition) {
-								const tileWidth = tileDefinition.width || tileset.tileWidth;
-								const tileHeight = tileDefinition.height || tileset.tileHeight;
+					if (!tile.tilesetId || !tile.tileId) return;
 
-								ctx.drawImage(
-									tileset.imageData,
-									tileDefinition.x,
-									tileDefinition.y,
-									tileWidth,
-									tileHeight,
-									tile.x * mapData.tileWidth,
-									tile.y * mapData.tileHeight,
-									tileWidth,
-									tileHeight,
-								);
-							}
+					const tileset = getTilesetById(tile.tilesetId);
+					if (!tileset?.imageData) return;
+
+					const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
+					if (tileDefinition) {
+						// Handle compound tiles with cellX/cellY
+						if (tileDefinition.width && tileDefinition.height && tile.cellX !== undefined && tile.cellY !== undefined) {
+							// This is a cell of a compound tile
+							// Calculate source position based on cell offset
+							const sourceX = tileDefinition.x + (tile.cellX * tileset.tileWidth);
+							const sourceY = tileDefinition.y + (tile.cellY * tileset.tileHeight);
+
+							ctx.drawImage(
+								tileset.imageData,
+								sourceX,
+								sourceY,
+								tileset.tileWidth,
+								tileset.tileHeight,
+								tile.x * mapData.tileWidth,
+								tile.y * mapData.tileHeight,
+								tileset.tileWidth,
+								tileset.tileHeight,
+							);
+						} else {
+							// Regular single tile
+							const tileWidth = tileDefinition.width || tileset.tileWidth;
+							const tileHeight = tileDefinition.height || tileset.tileHeight;
+
+							ctx.drawImage(
+								tileset.imageData,
+								tileDefinition.x,
+								tileDefinition.y,
+								tileWidth,
+								tileHeight,
+								tile.x * mapData.tileWidth,
+								tile.y * mapData.tileHeight,
+								tileWidth,
+								tileHeight,
+							);
 						}
-					} else if (tilesetImage && tile.tilesetX !== undefined && tile.tilesetY !== undefined) {
-						// Legacy single tileset rendering
-						ctx.drawImage(
-							tilesetImage,
-							tile.tilesetX * mapData.tileWidth,
-							tile.tilesetY * mapData.tileHeight,
-							mapData.tileWidth,
-							mapData.tileHeight,
-							tile.x * mapData.tileWidth,
-							tile.y * mapData.tileHeight,
-							mapData.tileWidth,
-							mapData.tileHeight,
-						);
 					}
 				});
 			} else if (layer.type === 'entity') {

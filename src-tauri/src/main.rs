@@ -260,9 +260,6 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                         .accelerator("CmdOrCtrl+O")
                         .build(app)?,
                     &MenuItemBuilder::with_id("new-tileset", "New Tileset")
-                        .accelerator("CmdOrCtrl+Shift+T")
-                        .build(app)?,
-                    &MenuItemBuilder::with_id("load-tileset", "Load Tileset")
                         .accelerator("CmdOrCtrl+T")
                         .build(app)?,
                     &MenuItemBuilder::with_id("save-project", "Save Project")
@@ -335,9 +332,6 @@ fn main() {
                         }
                         "new-tileset" => {
                             let _ = window.emit("menu:new-tileset", ());
-                        }
-                        "load-tileset" => {
-                            let _ = window.emit("menu:load-tileset", ());
                         }
                         "save-project" => {
                             let _ = window.emit("menu:save-project", ());
