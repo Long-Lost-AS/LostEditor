@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "name": "Buildingss",
+  "id": "tileset-1761674897852",
+  "imagePath": "TX Village Building.png",
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "tiles": [
+    {
+      "id": "tile_1761674904056",
+      "x": 64,
+      "y": 16,
+      "width": 208,
+      "height": 304
+    },
+    {
+      "id": "tile_1761675916025",
+      "x": 368,
+      "y": 0,
+      "width": 192,
+      "height": 352
+    },
+    {
+      "id": "tile_1761675960641",
+      "x": 48,
+      "y": 352,
+      "width": 224,
+      "height": 448
+    },
+    {
+      "id": "tile_1761676585458",
+      "x": 336,
+      "y": 384,
+      "width": 160,
+      "height": 320
+    },
+    {
+      "id": "tile_1761676961112",
+      "x": 560,
+      "y": 416,
+      "width": 160,
+      "height": 288
+    },
+    {
+      "id": "tile_1761677380398",
+      "x": 624,
+      "y": 96,
+      "width": 272,
+      "height": 224
+    }
+  ],
+  "entities": []
+}

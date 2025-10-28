@@ -2,7 +2,7 @@
   "version": "2.0",
   "name": "untitled",
   "tilesets": [
-    "TX_Village_Building.lostset"
+    "Buildingss.lostset"
   ],
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
   "mapData": {
@@ -12,7 +12,7 @@
     "tileHeight": 16,
     "layers": []
   },
-  "lastModified": "2025-10-28T17:15:55.275Z",
+  "lastModified": "2025-10-28T20:00:56.421Z",
   "openTabs": {
     "tabs": [
       {
@@ -40,22 +40,22 @@
         }
       },
       {
-        "id": "tileset-tab-tileset-1761671479857",
+        "id": "tileset-tab-tileset-1761674897852",
         "type": "tileset",
-        "title": "TX Village Building",
+        "title": "Buildingss",
         "isDirty": true,
-        "tilesetId": "tileset-1761671479857",
+        "tilesetId": "tileset-1761674897852",
         "viewState": {
-          "scale": 1.204803466796875,
+          "scale": 1.3818817138671875,
           "selectedTileRegion": {
-            "x": 39,
-            "y": 126,
-            "width": 1,
-            "height": 1
+            "x": 35,
+            "y": 26,
+            "width": 10,
+            "height": 18
           }
         }
       }
     ],
-    "activeTabId": "tileset-tab-tileset-1761671479857"
+    "activeTabId": "tileset-tab-tileset-1761674897852"
   }
 }
