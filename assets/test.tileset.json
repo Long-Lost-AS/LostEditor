@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "name": "New Tileset",
+  "id": "new_tileset",
+  "imagePath": "TX Village Building.png",
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "tiles": [
+    {
+      "id": "tile_3",
+      "x": 112,
+      "y": 80,
+      "width": 16,
+      "height": 16
+    }
+  ],
+  "entities": []
+}

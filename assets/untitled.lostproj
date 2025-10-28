@@ -1,0 +1,61 @@
+{
+  "version": "2.0",
+  "name": "untitled",
+  "tilesets": [
+    "TX_Village_Building.lostset"
+  ],
+  "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
+  "mapData": {
+    "width": 32,
+    "height": 32,
+    "tileWidth": 16,
+    "tileHeight": 16,
+    "layers": []
+  },
+  "lastModified": "2025-10-28T14:05:31.640Z",
+  "openTabs": {
+    "tabs": [
+      {
+        "id": "default-map",
+        "type": "map",
+        "title": "Untitled Map",
+        "isDirty": false,
+        "mapData": {
+          "width": 32,
+          "height": 32,
+          "tileWidth": 16,
+          "tileHeight": 16,
+          "layers": []
+        },
+        "viewState": {
+          "zoom": 2,
+          "panX": 0,
+          "panY": 0,
+          "currentLayerId": null,
+          "gridVisible": true,
+          "selectedTilesetId": null,
+          "selectedTileId": null,
+          "selectedEntityDefId": null,
+          "currentTool": "pencil"
+        }
+      },
+      {
+        "id": "tileset-tab-tileset-1761660208722",
+        "type": "tileset",
+        "title": "TX Village Building",
+        "isDirty": true,
+        "tilesetId": "tileset-1761660208722",
+        "viewState": {
+          "scale": 2,
+          "selectedTileRegion": {
+            "x": 4,
+            "y": 1,
+            "width": 13,
+            "height": 19
+          }
+        }
+      }
+    ],
+    "activeTabId": "tileset-tab-tileset-1761660208722"
+  }
+}
