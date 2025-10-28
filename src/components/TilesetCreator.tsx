@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { convertFileSrc } from '@tauri-apps/api/core'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
 import { TileDefinition, EntityDefinition, TilesetData } from '../types'
 import { fileManager } from '../managers/FileManager'
 import { CollisionEditor } from './CollisionEditor'
@@ -43,21 +46,21 @@ export const TilesetCreator = ({ isOpen, onClose, onSave }: TilesetCreatorProps)
 
   // Handle image selection
   const handleSelectImage = async () => {
-    if (typeof window.electron === 'undefined') return
-
-    const result = await window.electron.showOpenDialog({
-      title: 'Select Tileset Image',
-      filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp'] }
-      ],
-      properties: ['openFile']
+    const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
+      options: {
+        title: 'Select Tileset Image',
+        filters: [
+          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp'] }
+        ],
+        properties: ['openFile']
+      }
     })
 
     if (result.filePaths && result.filePaths.length > 0) {
       const imagePath = result.filePaths[0]
       setSourceImagePath(imagePath)
 
-      // Load image using local:// protocol
+      // Load image using Tauri's convertFileSrc
       const img = new Image()
       img.onload = () => {
         setSourceImage(img)
@@ -66,7 +69,7 @@ export const TilesetCreator = ({ isOpen, onClose, onSave }: TilesetCreatorProps)
         console.error('Failed to load image:', err)
         alert('Failed to load image')
       }
-      img.src = `local://${imagePath}`
+      img.src = convertFileSrc(imagePath)
     }
   }
 
@@ -282,12 +285,14 @@ export const TilesetCreator = ({ isOpen, onClose, onSave }: TilesetCreatorProps)
     }
 
     // Show save dialog
-    const result = await window.electron.showSaveDialog({
-      title: 'Save Tileset',
-      defaultPath: `${tilesetId}.lostset`,
-      filters: [
-        { name: 'Lost Editor Tileset', extensions: ['lostset'] }
-      ]
+    const result = await invoke<{ canceled: boolean; filePath?: string }>('show_save_dialog', {
+      options: {
+        title: 'Save Tileset',
+        defaultPath: `${tilesetId}.lostset`,
+        filters: [
+          { name: 'Lost Editor Tileset', extensions: ['lostset'] }
+        ]
+      }
     })
 
     if (!result.filePath) return
@@ -314,14 +319,14 @@ export const TilesetCreator = ({ isOpen, onClose, onSave }: TilesetCreatorProps)
 
     // Write file
     const jsonContent = JSON.stringify(tilesetData, null, 2)
-    const writeResult = await window.electron.writeFile(result.filePath, jsonContent)
 
-    if (writeResult.success) {
+    try {
+      await writeTextFile(result.filePath, jsonContent)
       // Pass the file path so it can be auto-loaded
       await onSave(result.filePath)
       onClose()
-    } else {
-      alert(`Failed to save tileset: ${writeResult.error}`)
+    } catch (error) {
+      alert(`Failed to save tileset: ${error}`)
     }
   }
 

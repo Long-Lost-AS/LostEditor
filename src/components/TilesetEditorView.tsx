@@ -42,61 +42,78 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
   // Draw tileset image on canvas
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !tilesetData.imageData) return
+    const container = containerRef.current
+    if (!canvas || !container || !tilesetData.imageData) return
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Set canvas size to match image
-    canvas.width = tilesetData.imageData.width
-    canvas.height = tilesetData.imageData.height
+    const draw = () => {
+      // Resize canvas to fill container
+      canvas.width = container.clientWidth
+      canvas.height = container.clientHeight
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw the tileset image
-    ctx.drawImage(tilesetData.imageData, 0, 0)
+      // Apply transforms for pan and zoom
+      ctx.save()
+      ctx.translate(pan.x, pan.y)
+      ctx.scale(viewState.scale, viewState.scale)
 
-    // Draw grid overlay
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-    ctx.lineWidth = 1
+      // Draw the tileset image
+      ctx.drawImage(tilesetData.imageData, 0, 0)
 
-    // Draw vertical lines
-    for (let x = 0; x < canvas.width; x += tilesetData.tileWidth) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, canvas.height)
-      ctx.stroke()
+      // Draw grid overlay
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+      ctx.lineWidth = 1 / viewState.scale
+
+      // Draw vertical lines
+      for (let x = 0; x <= tilesetData.imageData.width; x += tilesetData.tileWidth) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, tilesetData.imageData.height)
+        ctx.stroke()
+      }
+
+      // Draw horizontal lines
+      for (let y = 0; y <= tilesetData.imageData.height; y += tilesetData.tileHeight) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(tilesetData.imageData.width, y)
+        ctx.stroke()
+      }
+
+      // Draw tile selection
+      if (viewState.selectedTileRegion) {
+        const { x, y, width, height } = viewState.selectedTileRegion
+        ctx.fillStyle = 'rgba(100, 150, 255, 0.3)'
+        ctx.fillRect(
+          x * tilesetData.tileWidth,
+          y * tilesetData.tileHeight,
+          width * tilesetData.tileWidth,
+          height * tilesetData.tileHeight
+        )
+        ctx.strokeStyle = 'rgba(100, 150, 255, 0.8)'
+        ctx.lineWidth = 2 / viewState.scale
+        ctx.strokeRect(
+          x * tilesetData.tileWidth,
+          y * tilesetData.tileHeight,
+          width * tilesetData.tileWidth,
+          height * tilesetData.tileHeight
+        )
+      }
+
+      ctx.restore()
     }
 
-    // Draw horizontal lines
-    for (let y = 0; y < canvas.height; y += tilesetData.tileHeight) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(canvas.width, y)
-      ctx.stroke()
-    }
+    draw()
+    window.addEventListener('resize', draw)
 
-    // Draw tile selection
-    if (viewState.selectedTileRegion) {
-      const { x, y, width, height } = viewState.selectedTileRegion
-      ctx.fillStyle = 'rgba(100, 150, 255, 0.3)'
-      ctx.fillRect(
-        x * tilesetData.tileWidth,
-        y * tilesetData.tileHeight,
-        width * tilesetData.tileWidth,
-        height * tilesetData.tileHeight
-      )
-      ctx.strokeStyle = 'rgba(100, 150, 255, 0.8)'
-      ctx.lineWidth = 2
-      ctx.strokeRect(
-        x * tilesetData.tileWidth,
-        y * tilesetData.tileHeight,
-        width * tilesetData.tileWidth,
-        height * tilesetData.tileHeight
-      )
+    return () => {
+      window.removeEventListener('resize', draw)
     }
-  }, [tilesetData, viewState.selectedTileRegion])
+  }, [tilesetData, viewState.selectedTileRegion, pan, viewState.scale])
 
   // Setup wheel event listener for zoom and pan
   useEffect(() => {
@@ -107,9 +124,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
       e.preventDefault()
 
       if (e.ctrlKey) {
-        // Ctrl+wheel = Zoom
+        // Zoom towards mouse position
+        const rect = container.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
+        // Calculate world position at mouse before zoom
+        const worldX = (mouseX - panRef.current.x) / scaleRef.current
+        const worldY = (mouseY - panRef.current.y) / scaleRef.current
+
+        // Calculate new scale
         const delta = -e.deltaY * 0.01
         const newScale = Math.max(0.5, Math.min(8, scaleRef.current + delta))
+
+        // Adjust pan to keep world position under mouse
+        const newPanX = mouseX - worldX * newScale
+        const newPanY = mouseY - worldY * newScale
+
+        setPan({ x: newPanX, y: newPanY })
         updateTabData(tab.id, {
           viewState: { ...viewState, scale: newScale }
         })
@@ -134,16 +166,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
     const canvas = canvasRef.current
     if (!canvas) return { canvasX: 0, canvasY: 0 }
 
-    // Get canvas position after all CSS transforms
     const rect = canvas.getBoundingClientRect()
-
-    // Mouse position relative to the transformed canvas
     const x = screenX - rect.left
     const y = screenY - rect.top
 
-    // Convert from screen pixels to canvas pixels (accounting for scale)
-    const canvasX = (x / rect.width) * canvas.width
-    const canvasY = (y / rect.height) * canvas.height
+    // Account for pan and zoom transforms
+    const canvasX = (x - pan.x) / viewState.scale
+    const canvasY = (y - pan.y) / viewState.scale
 
     return { canvasX, canvasY }
   }
@@ -366,13 +395,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
             ref={canvasRef}
             className="tileset-canvas"
             style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              width: `${tilesetData.imageData.width}px`,
-              height: `${tilesetData.imageData.height}px`,
-              transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${viewState.scale})`,
-              transformOrigin: 'center',
+              width: '100%',
+              height: '100%',
               imageRendering: 'pixelated'
             }}
           />

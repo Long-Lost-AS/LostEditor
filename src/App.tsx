@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { EditorProvider, useEditor } from './context/EditorContext'
 import { Toolbar } from './components/Toolbar'
 import { TabBar } from './components/TabBar'
@@ -50,16 +53,16 @@ const AppContent = () => {
 
   // Handle creating a new tileset
   const handleNewTileset = async () => {
-    if (typeof window.electron === 'undefined') return
-
     // Show dialog to select image
-    const result = await window.electron.showOpenDialog({
-      title: 'Select Tileset Image',
-      filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] },
-        { name: 'All Files', extensions: ['*'] }
-      ],
-      properties: ['openFile']
+    const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
+      options: {
+        title: 'Select Tileset Image',
+        filters: [
+          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      }
     })
 
     if (!result.filePaths || result.filePaths.length === 0) return
@@ -68,7 +71,7 @@ const AppContent = () => {
 
     // Load the image to get dimensions
     const img = new Image()
-    img.src = `local://${imagePath}`
+    img.src = convertFileSrc(imagePath)
 
     await new Promise((resolve, reject) => {
       img.onload = resolve
@@ -113,63 +116,76 @@ const AppContent = () => {
   }
 
   useEffect(() => {
-    if (typeof window.electron === 'undefined') return
+    // Set up menu event listeners
+    const unlisteners: Array<() => void> = []
 
     // New Project
-    window.electron.onMenuNewProject(() => {
+    listen('menu:new-project', () => {
       newProjectRef.current()
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // Open Project - show dialog then load
-    window.electron.onMenuOpenProject(async () => {
-      const result = await window.electron.showOpenDialog({
-        title: 'Open Project',
-        filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }],
-        properties: ['openFile']
+    listen('menu:open-project', async () => {
+      const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
+        options: {
+          title: 'Open Project',
+          filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }],
+          properties: ['openFile']
+        }
       })
 
       if (result.filePaths && result.filePaths[0]) {
         await loadProjectRef.current(result.filePaths[0])
       }
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // Load recent project - no dialog, just load
-    window.electron.onAutoLoadProject(async (_event, filePath) => {
-      if (filePath) {
-        await loadProjectRef.current(filePath)
+    listen<string>('auto-load-project', (event) => {
+      if (event.payload) {
+        loadProjectRef.current(event.payload)
       }
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
+
+    listen<string>('menu:load-recent-project', (event) => {
+      if (event.payload) {
+        loadProjectRef.current(event.payload)
+      }
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // Save Project
-    window.electron.onMenuSaveProject(async () => {
+    listen('menu:save-project', async () => {
       await saveProjectRef.current()
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // Save Project As - show dialog then save
-    window.electron.onMenuSaveProjectAs(async () => {
-      const result = await window.electron.showSaveDialog({
-        title: 'Save Project As',
-        defaultPath: 'untitled.lostproj',
-        filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }]
+    listen('menu:save-project-as', async () => {
+      const result = await invoke<{ canceled: boolean; filePath?: string }>('show_save_dialog', {
+        options: {
+          title: 'Save Project As',
+          defaultPath: 'untitled.lostproj',
+          filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }]
+        }
       })
 
       if (result.filePath) {
         await saveProjectAsRef.current(result.filePath)
       }
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // New Tileset - create and open in tab
-    window.electron.onMenuNewTileset(async () => {
+    listen('menu:new-tileset', async () => {
       await handleNewTileset()
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
     // Note: Load Tileset removed - tilesets auto-load from project file
-    window.electron.onMenuLoadTileset(async () => {
+    listen('menu:load-tileset', async () => {
       // No-op: Tilesets are automatically loaded from project
-    })
+    }).then(unlisten => unlisteners.push(unlisten))
 
-    // Rebuild menu after listeners are set up
-    window.electron.rebuildMenu()
+    // Cleanup listeners on unmount
+    return () => {
+      unlisteners.forEach(unlisten => unlisten())
+    }
   }, [])
 
   const activeMapTab = getActiveMapTab()

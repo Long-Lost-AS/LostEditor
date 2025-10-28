@@ -25,6 +25,7 @@ export const MapCanvas = () => {
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartY, setDragStartY] = useState(0);
+	const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
@@ -137,7 +138,7 @@ export const MapCanvas = () => {
 		}
 
 		ctx.restore();
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById]);
+	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, canvasSize]);
 
 	// Render an entity with its hierarchy
 	const renderEntity = (
@@ -258,6 +259,7 @@ export const MapCanvas = () => {
 		const resizeCanvas = () => {
 			canvas.width = parent.clientWidth;
 			canvas.height = parent.clientHeight;
+			setCanvasSize({ width: parent.clientWidth, height: parent.clientHeight });
 		};
 
 		// Native wheel event listener (to allow preventDefault)
@@ -265,10 +267,25 @@ export const MapCanvas = () => {
 			e.preventDefault();
 
 			if (e.ctrlKey) {
-				// Pinch zoom
+				// Zoom towards mouse position
+				const rect = canvas.getBoundingClientRect();
+				const mouseX = e.clientX - rect.left;
+				const mouseY = e.clientY - rect.top;
+
+				// Calculate world position at mouse before zoom
+				const worldX = (mouseX - panXRef.current) / zoomRef.current;
+				const worldY = (mouseY - panYRef.current) / zoomRef.current;
+
+				// Calculate new zoom
 				const delta = -e.deltaY * 0.01;
 				const newZoom = Math.max(0.1, Math.min(10, zoomRef.current + delta));
+
+				// Adjust pan to keep world position under mouse
+				const newPanX = mouseX - worldX * newZoom;
+				const newPanY = mouseY - worldY * newZoom;
+
 				setZoom(newZoom);
+				setPan(newPanX, newPanY);
 			} else {
 				// Pan
 				setPan(panXRef.current - e.deltaX, panYRef.current - e.deltaY);
@@ -276,11 +293,17 @@ export const MapCanvas = () => {
 		};
 
 		resizeCanvas();
-		window.addEventListener("resize", resizeCanvas);
+
+		// Watch for parent container size changes
+		const resizeObserver = new ResizeObserver(() => {
+			resizeCanvas();
+		});
+		resizeObserver.observe(parent);
+
 		canvas.addEventListener("wheel", handleWheel, { passive: false });
 
 		return () => {
-			window.removeEventListener("resize", resizeCanvas);
+			resizeObserver.disconnect();
 			canvas.removeEventListener("wheel", handleWheel);
 		};
 	}, []);

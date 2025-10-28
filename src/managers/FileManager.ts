@@ -49,6 +49,16 @@ export class FileManager {
    * Convert an absolute path to a relative path from a specific directory
    */
   makeRelativeTo(fromDir: string, toPath: string): string {
+    // If toPath is not absolute, return as-is
+    if (!this.isAbsolute(toPath)) {
+      return toPath
+    }
+
+    // If fromDir is not absolute, can't make relative
+    if (!this.isAbsolute(fromDir)) {
+      return toPath
+    }
+
     // Simple relative path calculation
     const fromParts = fromDir.split(/[/\\]/).filter(Boolean)
     const toParts = toPath.split(/[/\\]/).filter(Boolean)
@@ -57,6 +67,12 @@ export class FileManager {
     let i = 0
     while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) {
       i++
+    }
+
+    // If no common base (e.g., different drives on Windows or paths from root),
+    // keep as absolute path
+    if (i === 0 && fromParts.length > 0 && toParts.length > 0) {
+      return toPath
     }
 
     // Build relative path

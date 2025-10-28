@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useRef, useCallback, ReactNode, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { MapData, Layer, Tool, Tile, ProjectData, TilesetData, EntityInstance, LayerType, AnyTab, MapTab, TilesetTab, TabState } from '../types'
 import { SettingsManager } from '../settings'
 import { tilesetManager } from '../managers/TilesetManager'
@@ -563,8 +565,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
   }, [tilesetImage])
 
   const saveProjectAs = useCallback(async (filePath: string) => {
-    if (typeof window.electron === 'undefined') return
-
     // Set project directory for relative paths
     const projectDir = fileManager.dirname(filePath)
     fileManager.setProjectDir(projectDir)
@@ -591,9 +591,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
           entities: tileset.entities
         }, null, 2)
 
-        const result = await window.electron.writeFile(tilesetFilePath, tilesetJson)
-        if (!result.success) {
-          alert(`Failed to save tileset ${tileset.name}: ${result.error}`)
+        try {
+          await writeTextFile(tilesetFilePath, tilesetJson)
+        } catch (error) {
+          alert(`Failed to save tileset ${tileset.name}: ${error}`)
           return
         }
 
@@ -653,9 +654,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     }
 
     const json = JSON.stringify(projectData, null, 2)
-    const result = await window.electron.writeFile(filePath, json)
 
-    if (result.success) {
+    try {
+      await writeTextFile(filePath, json)
       setCurrentProjectPath(filePath)
       setProjectName(fileManager.basename(filePath, '.lostproj'))
       setProjectModified(false)
@@ -663,19 +664,19 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       settingsManager.addRecentFile(filePath)
       settingsManager.setLastOpenedProject(filePath)
       await settingsManager.save()
-    } else {
-      alert(`Failed to save project: ${result.error}`)
+    } catch (error) {
+      alert(`Failed to save project: ${error}`)
     }
   }, [projectName, tilesetPath, mapData, tilesets, getTilesetAsDataURL, settingsManager, tabs, activeTabId])
 
   const saveProject = useCallback(async () => {
     if (!currentProjectPath) {
-      if (typeof window.electron === 'undefined') return
-
-      const result = await window.electron.showSaveDialog({
-        title: 'Save Project',
-        defaultPath: 'untitled.lostproj',
-        filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }]
+      const result = await invoke<{ canceled: boolean; filePath?: string }>('show_save_dialog', {
+        options: {
+          title: 'Save Project',
+          defaultPath: 'untitled.lostproj',
+          filters: [{ name: 'Lost Editor Project', extensions: ['lostproj'] }]
+        }
       })
 
       if (result.filePath) {
@@ -687,19 +688,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
   }, [currentProjectPath, saveProjectAs])
 
   const loadProject = useCallback(async (filePath: string) => {
-    if (typeof window.electron === 'undefined') return
-
-    const result = await window.electron.readFile(filePath)
-
-    if (!result.success) {
-      alert(`Failed to load project: ${result.error}`)
+    let data: string
+    try {
+      data = await readTextFile(filePath)
+    } catch (error) {
+      alert(`Failed to load project: ${error}`)
       settingsManager.removeRecentFile(filePath)
       await settingsManager.save()
       return
     }
 
     try {
-      const projectData: ProjectData = JSON.parse(result.data)
+      const projectData: ProjectData = JSON.parse(data)
 
       console.log('Loading project data:', projectData)
 

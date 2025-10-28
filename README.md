@@ -1,6 +1,6 @@
 # Lost Editor
 
-A 2D tile map editor built with Electron, TypeScript, and Canvas 2D - similar to Tiled.
+A 2D tile map editor built with Tauri, TypeScript, and Canvas 2D - similar to Tiled.
 
 ## Features
 
@@ -18,13 +18,13 @@ A 2D tile map editor built with Electron, TypeScript, and Canvas 2D - similar to
 
 ```bash
 npm install
-npm run electron:dev
+npm run tauri:dev
 ```
 
 ### Build
 
 ```bash
-npm run electron:build
+npm run tauri:build
 ```
 
 ## Usage
@@ -110,7 +110,7 @@ Maps are saved as JSON files with the following structure:
 
 ## Tech Stack
 
-- Electron - Desktop app framework
+- Tauri - Lightweight desktop app framework
 - TypeScript - Type-safe JavaScript
 - Vite - Build tool and dev server
 - Canvas 2D - Rendering engine

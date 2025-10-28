@@ -1,3 +1,5 @@
+import { convertFileSrc } from '@tauri-apps/api/core'
+import { readTextFile } from '@tauri-apps/plugin-fs'
 import { TilesetData, TileDefinition, EntityDefinition } from '../types'
 import { TilesetDataSchema } from '../schemas'
 import { fileManager } from './FileManager'
@@ -48,20 +50,16 @@ export class TilesetManager {
       // Resolve the full path
       const fullPath = fileManager.resolvePath(tilesetPath)
 
-      // Load the JSON file via Electron IPC
-      const response = await window.electron.readFile(fullPath)
-
-      if (!response.success || !response.data) {
-        throw new Error(`Failed to read tileset file: ${response.error || 'Unknown error'}`)
-      }
+      // Load the JSON file via Tauri FS plugin
+      const rawData = await readTextFile(fullPath)
 
       // Parse and validate the JSON with Zod
-      const rawJson = JSON.parse(response.data)
+      const rawJson = JSON.parse(rawData)
       const tilesetJson = TilesetDataSchema.parse(rawJson)
 
       // Load the tileset image
       const tilesetDir = fileManager.dirname(fullPath)  // Use fullPath, not tilesetPath
-      const imagePath = fileManager.join(tilesetDir, tilesetJson.imagePath)
+      const imagePath = fileManager.normalize(fileManager.join(tilesetDir, tilesetJson.imagePath))
 
       console.log('Loading tileset image:', { tilesetPath, fullPath, tilesetDir, relativeImagePath: tilesetJson.imagePath, finalImagePath: imagePath })
 
@@ -71,6 +69,7 @@ export class TilesetManager {
       const tileset: TilesetData = {
         ...tilesetJson,
         id: tilesetJson.id || this._generateId(tilesetPath),
+        imagePath: imagePath, // Use resolved absolute path, not the relative one from JSON
         imageData: imageElement
       }
 
@@ -96,8 +95,8 @@ export class TilesetManager {
         reject(new Error(`Failed to load image: ${imagePath}`))
       }
 
-      // Use the local:// protocol to load the image
-      img.src = `local://${imagePath}`
+      // Use Tauri's convertFileSrc to load the image
+      img.src = convertFileSrc(imagePath)
     })
   }
 

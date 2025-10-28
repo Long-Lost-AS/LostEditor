@@ -1,3 +1,6 @@
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
+import { appDataDir } from '@tauri-apps/api/path'
+
 export interface EditorSettings {
   gridVisible: boolean
   defaultMapWidth: number
@@ -71,18 +74,24 @@ export class SettingsManager {
   }
 
   async load(): Promise<void> {
-    if (typeof window.electron === 'undefined') return
-
-    const result = await window.electron.loadSettings()
-    if (result.success && result.data) {
-      this.fromJSON(result.data)
+    try {
+      const appDir = await appDataDir()
+      const settingsPath = `${appDir}/settings.json`
+      const data = await readTextFile(settingsPath)
+      this.fromJSON(data)
+    } catch (error) {
+      console.error('Failed to load settings:', error)
     }
   }
 
   async save(): Promise<void> {
-    if (typeof window.electron === 'undefined') return
-
-    const json = this.toJSON()
-    await window.electron.saveSettings(json)
+    try {
+      const appDir = await appDataDir()
+      const settingsPath = `${appDir}/settings.json`
+      const json = this.toJSON()
+      await writeTextFile(settingsPath, json)
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+    }
   }
 }

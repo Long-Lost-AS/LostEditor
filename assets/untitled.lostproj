@@ -12,7 +12,7 @@
     "tileHeight": 16,
     "layers": []
   },
-  "lastModified": "2025-10-28T14:05:31.640Z",
+  "lastModified": "2025-10-28T17:15:55.275Z",
   "openTabs": {
     "tabs": [
       {
@@ -40,22 +40,22 @@
         }
       },
       {
-        "id": "tileset-tab-tileset-1761660208722",
+        "id": "tileset-tab-tileset-1761671479857",
         "type": "tileset",
         "title": "TX Village Building",
         "isDirty": true,
-        "tilesetId": "tileset-1761660208722",
+        "tilesetId": "tileset-1761671479857",
         "viewState": {
-          "scale": 2,
+          "scale": 1.204803466796875,
           "selectedTileRegion": {
-            "x": 4,
-            "y": 1,
-            "width": 13,
-            "height": 19
+            "x": 39,
+            "y": 126,
+            "width": 1,
+            "height": 1
           }
         }
       }
     ],
-    "activeTabId": "tileset-tab-tileset-1761660208722"
+    "activeTabId": "tileset-tab-tileset-1761671479857"
   }
 }

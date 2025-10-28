@@ -1,0 +1,68 @@
+{
+  "productName": "Lost Editor",
+  "version": "0.1.0",
+  "identifier": "com.losteditor.dev",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Lost Editor",
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      },
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Main application capabilities",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "dialog:default",
+            "dialog:allow-message",
+            "fs:default",
+            "fs:allow-read-text-file",
+            "fs:allow-write-text-file",
+            "fs:allow-app-read",
+            "fs:allow-app-write",
+            "fs:allow-app-read-recursive",
+            "fs:allow-app-write-recursive",
+            "fs:allow-appdata-read",
+            "fs:allow-appdata-write",
+            "fs:allow-appdata-read-recursive",
+            "fs:allow-appdata-write-recursive",
+            "fs:allow-home-read",
+            "fs:allow-home-write",
+            "fs:allow-home-read-recursive",
+            "fs:allow-home-write-recursive"
+          ]
+        }
+      ]
+    }
+  },
+  "plugins": {}
+}
