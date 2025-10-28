@@ -29,7 +29,9 @@ const AppContent = () => {
     saveProject,
     saveProjectAs,
     loadTileset,
-    addTileset
+    addTileset,
+    saveTileset,
+    saveAll
   } = useEditor()
 
   const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true)
@@ -41,6 +43,9 @@ const AppContent = () => {
   const saveProjectAsRef = useRef(saveProjectAs)
   const loadTilesetRef = useRef(loadTileset)
   const openTabRef = useRef(openTab)
+  const saveTilesetRef = useRef(saveTileset)
+  const saveAllRef = useRef(saveAll)
+  const getActiveTilesetTabRef = useRef(getActiveTilesetTab)
 
   useEffect(() => {
     newProjectRef.current = newProject
@@ -49,7 +54,10 @@ const AppContent = () => {
     saveProjectAsRef.current = saveProjectAs
     loadTilesetRef.current = loadTileset
     openTabRef.current = openTab
-  }, [newProject, loadProject, saveProject, saveProjectAs, loadTileset, openTab])
+    saveTilesetRef.current = saveTileset
+    saveAllRef.current = saveAll
+    getActiveTilesetTabRef.current = getActiveTilesetTab
+  }, [newProject, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
 
   // Handle creating a new tileset
   const handleNewTileset = async () => {
@@ -152,9 +160,9 @@ const AppContent = () => {
       }
     }).then(unlisten => unlisteners.push(unlisten))
 
-    // Save Project
+    // Save All (triggered by Ctrl+S accelerator)
     listen('menu:save-project', async () => {
-      await saveProjectRef.current()
+      await saveAllRef.current()
     }).then(unlisten => unlisteners.push(unlisten))
 
     // Save Project As - show dialog then save

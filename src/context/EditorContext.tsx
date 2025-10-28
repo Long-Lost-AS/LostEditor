@@ -104,6 +104,8 @@ interface EditorContextType {
   saveProjectAs: (filePath: string) => Promise<void>
   loadProject: (filePath: string) => Promise<void>
   newProject: () => void
+  saveTileset: () => Promise<void>
+  saveAll: () => Promise<void>
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined)
@@ -300,22 +302,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
   const placeTile = useCallback((x: number, y: number) => {
     if (!currentLayer || currentLayer.type !== 'tile') return
 
-    // Use new tileset/tile ID system if available, otherwise fall back to legacy
-    const tile: Tile = selectedTilesetId && selectedTileId
-      ? {
-          x,
-          y,
-          tilesetId: selectedTilesetId,
-          tileId: selectedTileId
-        }
-      : {
-          x,
-          y,
-          tilesetId: 'legacy',
-          tileId: `${selectedTileX},${selectedTileY}`,
-          tilesetX: selectedTileX,
-          tilesetY: selectedTileY
-        }
+    // Check if selected tile is a compound tile (using tilesets state directly)
+    const selectedTileset = selectedTilesetId ? tilesets.find(ts => ts.id === selectedTilesetId) : null
+    const selectedTileDef = selectedTileset && selectedTileId
+      ? selectedTileset.tiles.find(t => t.id === selectedTileId)
+      : null
 
     // Update state immutably
     setMapData(prev => ({
@@ -323,7 +314,45 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       layers: prev.layers.map(layer => {
         if (layer.id === currentLayer.id) {
           const newTiles = new Map(layer.tiles)
-          newTiles.set(`${x},${y}`, tile)
+
+          // Handle compound tiles (tiles with width and height defined)
+          if (selectedTileDef && selectedTileDef.width && selectedTileDef.height) {
+            // Calculate cells from width/height
+            const tileWidth = selectedTileset?.tileWidth || 16
+            const tileHeight = selectedTileset?.tileHeight || 16
+            const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth)
+            const heightInTiles = Math.ceil(selectedTileDef.height / tileHeight)
+
+            // Place all cells of the compound tile
+            for (let dy = 0; dy < heightInTiles; dy++) {
+              for (let dx = 0; dx < widthInTiles; dx++) {
+                const cellX = x + dx
+                const cellY = y + dy
+
+                const tile: Tile = {
+                  x: cellX,
+                  y: cellY,
+                  tilesetId: selectedTilesetId!,
+                  tileId: selectedTileId, // Reference to the compound tile definition
+                  cellX: dx, // Which cell within the compound tile
+                  cellY: dy
+                }
+
+                newTiles.set(`${cellX},${cellY}`, tile)
+              }
+            }
+          } else if (selectedTilesetId && selectedTileId) {
+            // Regular single tile
+            const tile: Tile = {
+              x,
+              y,
+              tilesetId: selectedTilesetId,
+              tileId: selectedTileId
+            }
+
+            newTiles.set(`${x},${y}`, tile)
+          }
+
           const updatedLayer = { ...layer, tiles: newTiles }
           setCurrentLayer(updatedLayer)
           return updatedLayer
@@ -332,7 +361,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       })
     }))
     setProjectModified(true)
-  }, [currentLayer, selectedTileX, selectedTileY, selectedTilesetId, selectedTileId])
+  }, [currentLayer, selectedTileX, selectedTileY, selectedTilesetId, selectedTileId, tilesets])
 
   const eraseTile = useCallback((x: number, y: number) => {
     if (!currentLayer || currentLayer.type !== 'tile') return
@@ -836,6 +865,94 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     setProjectModified(false)
   }, [])
 
+  const saveTileset = useCallback(async () => {
+    const activeTilesetTab = getActiveTilesetTab()
+    if (!activeTilesetTab) {
+      console.warn('No active tileset tab to save')
+      return
+    }
+
+    // Get the tileset data from the tilesets array
+    const tileset = tilesets.find(t => t.id === activeTilesetTab.tilesetId)
+    if (!tileset) {
+      console.error(`Tileset ${activeTilesetTab.tilesetId} not found`)
+      alert(`Cannot save: tileset not found`)
+      return
+    }
+
+    console.log('Saving tileset with tiles:', tileset.tiles.length, tileset.tiles)
+
+    // If no file path, show save dialog
+    let targetPath = tileset.filePath
+    if (!targetPath) {
+      const result = await invoke<{ canceled: boolean; filePath?: string }>('show_save_dialog', {
+        options: {
+          title: 'Save Tileset',
+          defaultPath: `${tileset.name}.lostset`,
+          filters: [{ name: 'Lost Editor Tileset', extensions: ['lostset'] }]
+        }
+      })
+
+      if (!result.filePath) {
+        return // User cancelled
+      }
+
+      targetPath = result.filePath
+    }
+
+    try {
+      await tilesetManager.saveTileset(tileset, targetPath)
+
+      // Update the tileset in the tilesets array with the new file path
+      setTilesets(prev => prev.map(t =>
+        t.id === tileset.id ? { ...t, filePath: targetPath } : t
+      ))
+
+      // Mark the tab as not dirty and update title
+      updateTabData(activeTilesetTab.id, {
+        isDirty: false,
+        title: fileManager.basename(targetPath, '.lostset')
+      })
+
+      console.log(`Saved tileset: ${targetPath}`)
+    } catch (error) {
+      console.error('Failed to save tileset:', error)
+      alert(`Failed to save tileset: ${error}`)
+    }
+  }, [getActiveTilesetTab, tilesets, updateTabData])
+
+  const saveAll = useCallback(async () => {
+    // Save all dirty tileset tabs
+    const tilesetTabs = tabs.filter(t => t.type === 'tileset' && t.isDirty) as TilesetTab[]
+
+    for (const tab of tilesetTabs) {
+      const tileset = tilesets.find(t => t.id === tab.tilesetId)
+      if (!tileset) continue
+
+      // Skip tilesets without a file path (need manual save with dialog)
+      if (!tileset.filePath) {
+        console.warn(`Skipping unsaved tileset: ${tileset.name} (no file path)`)
+        continue
+      }
+
+      try {
+        await tilesetManager.saveTileset(tileset, tileset.filePath)
+
+        // Mark the tab as not dirty
+        updateTabData(tab.id, { isDirty: false })
+
+        console.log(`Saved tileset: ${tileset.filePath}`)
+      } catch (error) {
+        console.error(`Failed to save tileset ${tileset.name}:`, error)
+        alert(`Failed to save tileset ${tileset.name}: ${error}`)
+        return // Stop on error
+      }
+    }
+
+    // Save the project (which includes map data)
+    await saveProject()
+  }, [tabs, tilesets, updateTabData, saveProject])
+
   // Initialize with settings
   useEffect(() => {
     const loadSettings = async () => {
@@ -920,7 +1037,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     saveProject,
     saveProjectAs,
     loadProject,
-    newProject
+    newProject,
+    saveTileset,
+    saveAll
   }
 
   return (

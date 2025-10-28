@@ -1,5 +1,5 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { readTextFile } from '@tauri-apps/plugin-fs'
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { TilesetData, TileDefinition, EntityDefinition } from '../types'
 import { TilesetDataSchema } from '../schemas'
 import { fileManager } from './FileManager'
@@ -175,6 +175,58 @@ export class TilesetManager {
    */
   isLoaded(tilesetPath: string): boolean {
     return this.tilesets.has(tilesetPath)
+  }
+
+  /**
+   * Save a tileset to disk
+   * @param tileset - The tileset data to save
+   * @param filePath - Optional file path (uses tileset.filePath if not provided)
+   */
+  async saveTileset(tileset: TilesetData, filePath?: string): Promise<void> {
+    const targetPath = filePath || tileset.filePath
+    if (!targetPath) {
+      throw new Error('No file path specified for saving tileset')
+    }
+
+    try {
+      // Resolve the full path
+      const fullPath = fileManager.resolvePath(targetPath)
+      const tilesetDir = fileManager.dirname(fullPath)
+
+      // Make image path relative to the tileset file
+      const relativeImagePath = fileManager.makeRelativeTo(tilesetDir, tileset.imagePath)
+
+      // Prepare JSON data (exclude runtime-only fields like imageData and cells)
+      const jsonData = {
+        version: tileset.version,
+        name: tileset.name,
+        id: tileset.id,
+        imagePath: relativeImagePath,
+        tileWidth: tileset.tileWidth,
+        tileHeight: tileset.tileHeight,
+        tiles: tileset.tiles.map(tile => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { cells, ...rest } = tile as any
+          return rest
+        }),
+        entities: tileset.entities
+      }
+
+      console.log('TilesetManager: Saving', jsonData.tiles.length, 'tiles to', fullPath)
+
+      // Write to file
+      const jsonString = JSON.stringify(jsonData, null, 2)
+      await writeTextFile(fullPath, jsonString)
+
+      console.log('Saved tileset to:', fullPath)
+
+      // Update the in-memory tileset with the file path
+      tileset.filePath = targetPath
+      this.tilesets.set(targetPath, tileset)
+    } catch (error) {
+      console.error(`Error saving tileset to ${targetPath}:`, error)
+      throw error
+    }
   }
 }
 
