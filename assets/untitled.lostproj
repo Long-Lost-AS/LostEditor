@@ -2,7 +2,7 @@
   "version": "2.0",
   "name": "untitled",
   "tilesets": [
-    "Buildingss.lostset"
+    "Buildings.lostset"
   ],
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
   "mapData": {
@@ -12,7 +12,7 @@
     "tileHeight": 16,
     "layers": []
   },
-  "lastModified": "2025-10-28T20:00:56.421Z",
+  "lastModified": "2025-10-28T21:01:24.129Z",
   "openTabs": {
     "tabs": [
       {
@@ -38,24 +38,8 @@
           "selectedEntityDefId": null,
           "currentTool": "pencil"
         }
-      },
-      {
-        "id": "tileset-tab-tileset-1761674897852",
-        "type": "tileset",
-        "title": "Buildingss",
-        "isDirty": true,
-        "tilesetId": "tileset-1761674897852",
-        "viewState": {
-          "scale": 1.3818817138671875,
-          "selectedTileRegion": {
-            "x": 35,
-            "y": 26,
-            "width": 10,
-            "height": 18
-          }
-        }
       }
     ],
-    "activeTabId": "tileset-tab-tileset-1761674897852"
+    "activeTabId": "default-map"
   }
 }
