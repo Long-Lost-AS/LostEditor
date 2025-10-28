@@ -21,9 +21,10 @@ export interface TileDefinition {
   id: string
   x: number
   y: number
-  width?: number
-  height?: number
-  collision?: PolygonCollider
+  width?: number    // For compound tiles: width in pixels
+  height?: number   // For compound tiles: height in pixels
+  colliders?: PolygonCollider[]  // Multiple colliders
+  name?: string     // User-defined name for the tile
 }
 
 export interface EntityDefinition {
@@ -31,7 +32,7 @@ export interface EntityDefinition {
   sprite: SpriteRect
   offset?: { x: number; y: number }
   rotation?: number
-  collision?: PolygonCollider
+  colliders?: PolygonCollider[]  // Multiple colliders
   children?: EntityDefinition[]
 }
 
@@ -57,9 +58,9 @@ export interface Tile {
   y: number              // Position on map (grid coordinates)
   tilesetId: string      // Reference to tileset
   tileId: string         // Reference to tile within tileset
-  // Legacy support (will be migrated)
-  tilesetX?: number
-  tilesetY?: number
+  // For compound tiles: which cell within the compound tile (offset in tiles)
+  cellX?: number
+  cellY?: number
 }
 
 export interface EntityInstance {

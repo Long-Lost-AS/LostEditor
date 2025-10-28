@@ -30,7 +30,8 @@ export const TileDefinitionSchema = z.object({
   y: z.number(),
   width: z.number().optional(),
   height: z.number().optional(),
-  collision: PolygonColliderSchema.optional()
+  colliders: z.array(PolygonColliderSchema).optional(),
+  name: z.string().optional()
 })
 
 // Entity definition is recursive, so we need to define it with z.lazy
@@ -43,7 +44,7 @@ export const EntityDefinitionSchema: z.ZodType<any> = z.lazy(() =>
       y: z.number()
     }).optional(),
     rotation: z.number().optional(),
-    collision: PolygonColliderSchema.optional(),
+    colliders: z.array(PolygonColliderSchema).optional(),
     children: z.array(EntityDefinitionSchema).optional()
   })
 )
@@ -68,9 +69,9 @@ export const TileSchema = z.object({
   y: z.number(),
   tilesetId: z.string(),
   tileId: z.string(),
-  // Legacy support
-  tilesetX: z.number().optional(),
-  tilesetY: z.number().optional()
+  // For compound tiles: which cell within the compound tile
+  cellX: z.number().optional(),
+  cellY: z.number().optional()
 })
 
 // Entity instance is also recursive
