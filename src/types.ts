@@ -3,6 +3,9 @@
 // ===========================
 
 export interface PolygonCollider {
+  id?: string
+  name?: string
+  type?: string
   points: Array<{ x: number; y: number }>
 }
 
@@ -25,6 +28,7 @@ export interface TileDefinition {
   height?: number   // For compound tiles: height in pixels
   colliders?: PolygonCollider[]  // Multiple colliders
   name?: string     // User-defined name for the tile
+  type?: string     // Type classification for the tile
 }
 
 export interface EntityDefinition {

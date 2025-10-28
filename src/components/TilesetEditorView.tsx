@@ -53,6 +53,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [editedName, setEditedName] = useState(tilesetData.name);
 	const [isEditingCollision, setIsEditingCollision] = useState(false);
 	const [editingTileId, setEditingTileId] = useState<string | null>(null);
+	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<string | null>(null);
+	const [isEditingTileName, setIsEditingTileName] = useState(false);
+	const [isEditingTileType, setIsEditingTileType] = useState(false);
 
 	// Refs to track current pan and zoom values for wheel event
 	const panRef = useRef(pan);
@@ -405,6 +408,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							},
 						});
 
+						// Set the selected tile ID for the sidebar
+						setSelectedCompoundTileId(tile.id);
+
 						// Also set the selected tile ID for map drawing
 						const activeMapTab = getActiveMapTab();
 						if (activeMapTab) {
@@ -429,6 +435,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// No compound tile found, start normal selection
 				setIsSelecting(true);
 				setSelectionStart({ x: tileX, y: tileY });
+
+				// Clear selected tile ID when clicking on regular tiles
+				setSelectedTileId(null);
 
 				// Set initial single-tile selection
 				updateTabData(tab.id, {
@@ -604,6 +613,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTabData(tab.id, { isDirty: true });
 	};
 
+	const handleUpdateTileName = (name: string) => {
+		if (!selectedCompoundTileId) return;
+
+		updateTileset(tab.tilesetId, {
+			tiles: tilesetData.tiles.map((t) =>
+				t.id === selectedCompoundTileId ? { ...t, name } : t,
+			),
+		});
+
+		updateTabData(tab.id, { isDirty: true });
+	};
+
+	const handleUpdateTileType = (type: string) => {
+		if (!selectedCompoundTileId) return;
+
+		updateTileset(tab.tilesetId, {
+			tiles: tilesetData.tiles.map((t) =>
+				t.id === selectedCompoundTileId ? { ...t, type } : t,
+			),
+		});
+
+		updateTabData(tab.id, { isDirty: true });
+	};
+
+	const selectedTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
@@ -676,6 +711,81 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								</div>
 							</div>
 						</div>
+
+						{/* Tile Properties */}
+						{selectedTile && (
+							<div className="mt-4">
+								<div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+									Tile Properties
+								</div>
+								<div className="space-y-3">
+									<div>
+										<label className="text-gray-400 text-xs font-medium block mb-1.5">
+											Name
+										</label>
+										{isEditingTileName ? (
+											<input
+												type="text"
+												defaultValue={selectedTile.name || ""}
+												onBlur={(e) => {
+													handleUpdateTileName(e.target.value);
+													setIsEditingTileName(false);
+												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														handleUpdateTileName(e.currentTarget.value);
+														setIsEditingTileName(false);
+													} else if (e.key === "Escape") {
+														setIsEditingTileName(false);
+													}
+												}}
+												className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+												autoFocus
+											/>
+										) : (
+											<div
+												onClick={() => setIsEditingTileName(true)}
+												className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
+											>
+												{selectedTile.name || "(none)"}
+											</div>
+										)}
+									</div>
+									<div>
+										<label className="text-gray-400 text-xs font-medium block mb-1.5">
+											Type
+										</label>
+										{isEditingTileType ? (
+											<input
+												type="text"
+												defaultValue={selectedTile.type || ""}
+												onBlur={(e) => {
+													handleUpdateTileType(e.target.value);
+													setIsEditingTileType(false);
+												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														handleUpdateTileType(e.currentTarget.value);
+														setIsEditingTileType(false);
+													} else if (e.key === "Escape") {
+														setIsEditingTileType(false);
+													}
+												}}
+												className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+												autoFocus
+											/>
+										) : (
+											<div
+												onClick={() => setIsEditingTileType(true)}
+												className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
+											>
+												{selectedTile.type || "(none)"}
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
