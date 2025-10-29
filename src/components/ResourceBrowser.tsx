@@ -31,7 +31,7 @@ interface ResourceBrowserProps {
 }
 
 export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
-  const { projectDirectory, openMapFromFile, openTab, tilesets, newMap, newTileset } = useEditor()
+  const { projectDirectory, openMapFromFile, openTilesetFromFile, openTab, tilesets, newMap, newTileset } = useEditor()
   const [currentPath, setCurrentPath] = useState<string>('')
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -311,21 +311,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
         break
 
       case '.lostset':
-        const tileset = tilesets.find(t => t.filePath === item.path)
-        if (tileset) {
-          const tilesetTab: TilesetTab = {
-            id: `tileset-${tileset.id}`,
-            type: 'tileset',
-            title: tileset.name,
-            isDirty: false,
-            tilesetId: tileset.id,
-            viewState: {
-              scale: 2,
-              selectedTileRegion: null
-            }
-          }
-          openTab(tilesetTab)
-        }
+        openTilesetFromFile(item.path)
         break
 
       default:
