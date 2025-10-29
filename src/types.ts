@@ -106,14 +106,10 @@ export interface ProjectData {
   version: string
   name: string
   tilesets: string[]              // Array of tileset file paths
+  maps: string[]                  // Array of map file paths (.lostmap files)
   projectDir?: string             // Project directory for resolving relative paths
-  mapData: MapData
   lastModified: string
   openTabs?: TabState             // Open tabs state
-
-  // Legacy support (will be migrated)
-  tilesetPath?: string
-  tilesetImageData?: string
 }
 
 // ===========================
@@ -158,7 +154,8 @@ export interface MapViewState {
 
 export interface MapTab extends BaseTab {
   type: 'map'
-  mapData: MapData
+  mapId: string               // Unique identifier for the map
+  mapData: MapData            // In-memory map data
   viewState: MapViewState
 }
 

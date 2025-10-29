@@ -4,6 +4,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { MapData, Layer, Tool, Tile, ProjectData, TilesetData, EntityInstance, LayerType, AnyTab, MapTab, TilesetTab, TabState } from '../types'
 import { SettingsManager } from '../settings'
 import { tilesetManager } from '../managers/TilesetManager'
+import { mapManager } from '../managers/MapManager'
 import { entityManager } from '../managers/EntityManager'
 import { fileManager } from '../managers/FileManager'
 
@@ -50,6 +51,10 @@ interface EditorContextType {
   updateTileset: (tilesetId: string, updates: Partial<TilesetData>) => void
   unloadTileset: (tilesetId: string) => void
   getTilesetById: (id: string) => TilesetData | undefined
+
+  // Project directory
+  projectDirectory: string | null
+  openMapFromFile: (filePath: string) => Promise<void>
 
   // Legacy tileset state (for backward compatibility)
   tilesetImage: HTMLImageElement | null
@@ -104,6 +109,7 @@ interface EditorContextType {
   saveProjectAs: (filePath: string) => Promise<void>
   loadProject: (filePath: string) => Promise<void>
   newProject: () => void
+  newMap: () => void
   saveTileset: () => Promise<void>
   saveAll: () => Promise<void>
 }
@@ -138,6 +144,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
         type: 'map',
         title: 'Untitled Map',
         isDirty: false,
+        mapId: 'default-map',
         mapData: {
           width: 32,
           height: 32,
@@ -183,6 +190,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
   // Multi-tileset state
   const [tilesets, setTilesets] = useState<TilesetData[]>([])
   const [currentTileset, setCurrentTileset] = useState<TilesetData | null>(null)
+
+  // Project directory for file browser
+  const [projectDirectory, setProjectDirectory] = useState<string | null>(null)
 
   // Legacy tileset state (backward compatibility)
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null)
@@ -598,6 +608,14 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     const projectDir = fileManager.dirname(filePath)
     fileManager.setProjectDir(projectDir)
 
+    // Create maps directory if it doesn't exist
+    const mapsDir = fileManager.join(projectDir, 'maps')
+    try {
+      await invoke('create_dir', { path: mapsDir })
+    } catch (error) {
+      // Directory might already exist, that's okay
+    }
+
     // Save any unsaved tilesets first
     const tilesetPaths: string[] = []
     for (const tileset of tilesets) {
@@ -635,51 +653,63 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       }
     }
 
-    // Make all tileset paths relative to project directory
+    // Save all map tabs to separate .lostmap files
+    const mapPaths: string[] = []
+    for (const tab of tabs) {
+      if (tab.type === 'map') {
+        const mapTab = tab as MapTab
+
+        // Determine map file path
+        let mapFilePath = mapTab.filePath
+        if (!mapFilePath) {
+          // No file path yet, create one
+          const mapFileName = `${mapTab.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.lostmap`
+          mapFilePath = fileManager.join(mapsDir, mapFileName)
+        }
+
+        // Save the map using mapManager
+        try {
+          await mapManager.saveMap(mapTab.mapData, mapFilePath, mapTab.title)
+
+          // Update the tab with the file path
+          mapTab.filePath = mapFilePath
+          mapPaths.push(mapFilePath)
+        } catch (error) {
+          alert(`Failed to save map ${mapTab.title}: ${error}`)
+          return
+        }
+      }
+    }
+
+    // Make all paths relative to project directory
     const relativeTilesetPaths = tilesetPaths.map(path => fileManager.makeRelative(path))
+    const relativeMapPaths = mapPaths.map(path => fileManager.makeRelative(path))
 
     const projectData: ProjectData = {
-      version: '2.0',
+      version: '3.0',
       name: projectName,
       tilesets: relativeTilesetPaths,
+      maps: relativeMapPaths,
       projectDir,
-      mapData: {
-        width: mapData.width,
-        height: mapData.height,
-        tileWidth: mapData.tileWidth,
-        tileHeight: mapData.tileHeight,
-        layers: mapData.layers.map(layer => ({
-          id: layer.id,
-          name: layer.name,
-          visible: layer.visible,
-          type: layer.type,
-          tiles: Array.from(layer.tiles.values()),
-          entities: layer.entities
-        }))
-      },
       lastModified: new Date().toISOString(),
       openTabs: {
         tabs: tabs.map(tab => {
           if (tab.type === 'map') {
-            // Convert Map objects to arrays for JSON serialization
+            // Don't store map data in tabs, just references
             return {
-              ...tab,
-              mapData: {
-                ...tab.mapData,
-                layers: tab.mapData.layers.map(layer => ({
-                  ...layer,
-                  tiles: Array.from(layer.tiles.values())
-                }))
-              }
+              id: tab.id,
+              type: tab.type,
+              title: tab.title,
+              isDirty: false,  // Mark as clean after save
+              filePath: tab.filePath,
+              mapId: (tab as MapTab).mapId,
+              viewState: (tab as MapTab).viewState
             }
           }
           return tab
         }),
         activeTabId
-      },
-      // Legacy support
-      tilesetPath: tilesetPath || undefined,
-      tilesetImageData: getTilesetAsDataURL()
+      }
     }
 
     const json = JSON.stringify(projectData, null, 2)
@@ -690,13 +720,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       setProjectName(fileManager.basename(filePath, '.lostproj'))
       setProjectModified(false)
 
+      // Mark all map tabs as clean
+      setTabs(prevTabs => prevTabs.map(tab => ({ ...tab, isDirty: false })))
+
       settingsManager.addRecentFile(filePath)
       settingsManager.setLastOpenedProject(filePath)
       await settingsManager.save()
     } catch (error) {
       alert(`Failed to save project: ${error}`)
     }
-  }, [projectName, tilesetPath, mapData, tilesets, getTilesetAsDataURL, settingsManager, tabs, activeTabId])
+  }, [projectName, tilesets, settingsManager, tabs, activeTabId])
 
   const saveProject = useCallback(async () => {
     if (!currentProjectPath) {
@@ -736,35 +769,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       const projectDir = fileManager.dirname(filePath)
       fileManager.setProjectDir(projectDir)
 
-      // Create layers array with proper type support
-      const loadedLayers = projectData.mapData.layers.map(layerData => ({
-        id: layerData.id,
-        name: layerData.name,
-        visible: layerData.visible,
-        type: (layerData.type || 'tile') as LayerType,
-        tiles: new Map(layerData.tiles.map((tile: Tile) => [`${tile.x},${tile.y}`, tile])),
-        entities: layerData.entities || []
-      }))
-
-      console.log('Loaded layers:', loadedLayers)
-
-      // Load map data first
-      setMapData({
-        width: projectData.mapData.width,
-        height: projectData.mapData.height,
-        tileWidth: projectData.mapData.tileWidth,
-        tileHeight: projectData.mapData.tileHeight,
-        layers: loadedLayers
-      })
-
-      // Set current layer to the first layer
-      if (loadedLayers.length > 0) {
-        setCurrentLayer(loadedLayers[0])
-      } else {
-        setCurrentLayer(null)
-      }
-
-      // Load tilesets (new multi-tileset format)
+      // Load tilesets first
       if (projectData.tilesets && projectData.tilesets.length > 0) {
         console.log('Loading tilesets:', projectData.tilesets)
         for (const tilesetPath of projectData.tilesets) {
@@ -776,52 +781,67 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
         }
       }
 
-      // Legacy tileset support
-      if (projectData.tilesetImageData) {
-        console.log('Loading legacy tileset from data URL')
-        await loadTilesetFromDataURL(projectData.tilesetImageData)
-      }
-
-      setTilesetPath(projectData.tilesetPath || null)
       setCurrentProjectPath(filePath)
       setProjectName(projectData.name || fileManager.basename(filePath, '.lostproj'))
       setProjectModified(false)
+
+      // Set project directory for file browser
+      setProjectDirectory(projectDir)
 
       settingsManager.addRecentFile(filePath)
       settingsManager.setLastOpenedProject(filePath)
       await settingsManager.save()
 
-      // Restore open tabs
+      // Load maps and restore tabs
       if (projectData.openTabs) {
-        // Restore tabs and validate tileset tabs reference valid tilesets
-        const restoredTabs = (projectData.openTabs.tabs || [])
-          .filter(tab => {
-            if (tab.type === 'tileset') {
-              const tilesetTab = tab as TilesetTab
-              const tilesetExists = tilesetManager.getTilesetById(tilesetTab.tilesetId)
-              if (!tilesetExists) {
-                console.warn(`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`)
-                return false
-              }
-            }
-            return true
-          })
-          .map(tab => {
-            if (tab.type === 'map') {
-              // Convert tile arrays back to Maps for MapTab
-              return {
-                ...tab,
-                mapData: {
-                  ...tab.mapData,
-                  layers: tab.mapData.layers.map(layer => ({
-                    ...layer,
-                    tiles: new Map(layer.tiles.map(tile => [`${tile.x},${tile.y}`, tile]))
-                  }))
+        const restoredTabs: AnyTab[] = []
+
+        for (const tab of projectData.openTabs.tabs || []) {
+          if (tab.type === 'map') {
+            const mapTab = tab as any  // Saved tab may not have full mapData
+
+            // Load the map from file
+            if (mapTab.filePath) {
+              try {
+                const mapData = await mapManager.loadMap(mapTab.filePath)
+
+                // Create full MapTab with loaded data
+                const fullMapTab: MapTab = {
+                  id: mapTab.id,
+                  type: 'map',
+                  title: mapTab.title,
+                  isDirty: mapTab.isDirty || false,
+                  filePath: mapTab.filePath,
+                  mapId: mapTab.mapId || mapTab.id,
+                  mapData: mapData,
+                  viewState: mapTab.viewState || {
+                    zoom: 2,
+                    panX: 0,
+                    panY: 0,
+                    currentLayerId: null,
+                    gridVisible: true,
+                    selectedTilesetId: null,
+                    selectedTileId: null,
+                    selectedEntityDefId: null,
+                    currentTool: 'pencil'
+                  }
                 }
+
+                restoredTabs.push(fullMapTab)
+              } catch (error) {
+                console.error(`Failed to load map ${mapTab.filePath}:`, error)
               }
             }
-            return tab
-          }) as AnyTab[]
+          } else if (tab.type === 'tileset') {
+            const tilesetTab = tab as TilesetTab
+            const tilesetExists = tilesetManager.getTilesetById(tilesetTab.tilesetId)
+            if (tilesetExists) {
+              restoredTabs.push(tab)
+            } else {
+              console.warn(`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`)
+            }
+          }
+        }
 
         setTabs(restoredTabs)
 
@@ -847,7 +867,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       console.error('Failed to load project:', error)
       alert(`Failed to parse project file: ${error.message}`)
     }
-  }, [loadTilesetFromDataURL, loadTileset, settingsManager])
+  }, [loadTileset, settingsManager])
 
   const newProject = useCallback(() => {
     setMapData({
@@ -863,7 +883,99 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     setCurrentProjectPath(null)
     setProjectName('Untitled')
     setProjectModified(false)
+    setProjectDirectory(null)
   }, [])
+
+  const newMap = useCallback(() => {
+    // Generate a unique ID for the new map
+    const mapId = `map-${Date.now()}`
+
+    // Use functional setState to get current tabs and avoid stale closures
+    setTabs(prevTabs => {
+      const mapNumber = prevTabs.filter(t => t.type === 'map').length + 1
+
+      const newMapTab: MapTab = {
+        id: mapId,
+        type: 'map',
+        title: `Map ${mapNumber}`,
+        isDirty: true, // Mark as dirty since it's unsaved
+        mapId: mapId,
+        mapData: {
+          width: 32,
+          height: 32,
+          tileWidth: 16,
+          tileHeight: 16,
+          layers: []
+        },
+        viewState: {
+          zoom: 2,
+          panX: 0,
+          panY: 0,
+          currentLayerId: null,
+          gridVisible: true,
+          selectedTilesetId: null,
+          selectedTileId: null,
+          selectedEntityDefId: null,
+          currentTool: 'pencil'
+        }
+      }
+
+      return [...prevTabs, newMapTab]
+    })
+
+    // Make the new map tab active
+    setActiveTabId(mapId)
+  }, [])
+
+  const openMapFromFile = useCallback(async (filePath: string) => {
+    try {
+      // Check if map is already open in a tab
+      const existingTab = tabs.find(
+        tab => tab.type === 'map' && tab.filePath === filePath
+      )
+
+      if (existingTab) {
+        // Just activate the existing tab
+        setActiveTabId(existingTab.id)
+        return
+      }
+
+      // Load the map using mapManager
+      const mapData = await mapManager.loadMap(filePath)
+
+      // Extract map name from file path
+      const mapName = fileManager.basename(filePath, '.lostmap')
+
+      // Create a new MapTab
+      const mapId = `map-${Date.now()}`
+      const newMapTab: MapTab = {
+        id: mapId,
+        type: 'map',
+        title: mapName,
+        isDirty: false,
+        filePath: filePath,
+        mapId: mapId,
+        mapData: mapData,
+        viewState: {
+          zoom: 2,
+          panX: 0,
+          panY: 0,
+          currentLayerId: mapData.layers[0]?.id || null,
+          gridVisible: true,
+          selectedTilesetId: null,
+          selectedTileId: null,
+          selectedEntityDefId: null,
+          currentTool: 'pencil'
+        }
+      }
+
+      // Open the tab
+      openTab(newMapTab)
+    } catch (error) {
+      console.error(`Failed to open map ${filePath}:`, error)
+      alert(`Failed to open map: ${error}`)
+    }
+  }, [tabs, openTab])
 
   const saveTileset = useCallback(async () => {
     const activeTilesetTab = getActiveTilesetTab()
@@ -949,7 +1061,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       }
     }
 
-    // Save the project (which includes map data)
+    // Save the project (which now also saves all map tabs to separate files)
     await saveProject()
   }, [tabs, tilesets, updateTabData, saveProject])
 
@@ -1038,8 +1150,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     saveProjectAs,
     loadProject,
     newProject,
+    newMap,
     saveTileset,
-    saveAll
+    saveAll,
+    projectDirectory,
+    openMapFromFile
   }
 
   return (

@@ -115,6 +115,18 @@ export const MapDataSchema = z.object({
   layers: z.array(LayerSchema)
 })
 
+// Map file schema (for .lostmap files)
+export const MapFileSchema = z.object({
+  version: z.string(),
+  name: z.string(),
+  width: z.number(),
+  height: z.number(),
+  tileWidth: z.number(),
+  tileHeight: z.number(),
+  layers: z.array(LayerSchema),
+  lastModified: z.string()
+})
+
 // ===========================
 // Project Schemas
 // ===========================
@@ -123,12 +135,9 @@ export const ProjectDataSchema = z.object({
   version: z.string(),
   name: z.string(),
   tilesets: z.array(z.string()).default([]),
+  maps: z.array(z.string()).default([]),
   projectDir: z.string().optional(),
-  mapData: MapDataSchema,
-  lastModified: z.string(),
-  // Legacy support
-  tilesetPath: z.string().optional(),
-  tilesetImageData: z.string().optional()
+  lastModified: z.string()
 })
 
 // ===========================
@@ -138,6 +147,8 @@ export const ProjectDataSchema = z.object({
 // These let us infer TypeScript types from Zod schemas
 export type TilesetDataJson = z.infer<typeof TilesetDataSchema>
 export type ProjectDataJson = z.infer<typeof ProjectDataSchema>
+export type MapFileJson = z.infer<typeof MapFileSchema>
+export type MapDataJson = z.infer<typeof MapDataSchema>
 export type TileDefinitionJson = z.infer<typeof TileDefinitionSchema>
 export type EntityDefinitionJson = z.infer<typeof EntityDefinitionSchema>
 export type EntityInstanceJson = z.infer<typeof EntityInstanceSchema>
