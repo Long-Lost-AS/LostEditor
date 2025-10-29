@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor } from '../context/EditorContext'
 import { readDir, mkdir, remove, rename, exists } from '@tauri-apps/plugin-fs'
+import { openPath } from '@tauri-apps/plugin-opener'
 import { fileManager } from '../managers/FileManager'
 import { TilesetTab } from '../types'
 import {
@@ -21,6 +22,9 @@ interface FileItem {
   path: string
   isDirectory: boolean
 }
+
+// Special ID for the "up directory" drop target
+const UP_DIRECTORY_ID = '__up_directory__'
 
 interface ResourceBrowserProps {
   onClose: () => void
@@ -124,6 +128,17 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     } catch (err) {
       console.error('Failed to delete item:', err)
       setError('Failed to delete item')
+    }
+  }
+
+  const handleOpenContainingFolder = async (item: FileItem) => {
+    try {
+      const folderPath = fileManager.dirname(item.path)
+      await openPath(folderPath)
+      setContextMenu(null)
+    } catch (err) {
+      console.error('Failed to open containing folder:', err)
+      setError('Failed to open containing folder')
     }
   }
 
@@ -292,11 +307,74 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     if (!over) return
 
     const sourcePath = active.id as string
-    const targetPath = over.id as string
+    const targetId = over.id as string
 
-    // Get the target item
-    const targetItem = files.find(f => f.path === targetPath)
+    // Handle drop on "up directory" target
+    if (targetId === UP_DIRECTORY_ID) {
+      if (!projectDirectory || currentPath === projectDirectory) return
+
+      const parentPath = fileManager.dirname(currentPath)
+
+      // Determine which items to move
+      const itemsToMove = selectedItems.has(sourcePath)
+        ? Array.from(selectedItems)
+        : [sourcePath]
+
+      // Perform move operation
+      setLoading(true)
+      const errors: string[] = []
+
+      try {
+        for (const itemPath of itemsToMove) {
+          const fileName = fileManager.basename(itemPath)
+          const destPath = fileManager.join(parentPath, fileName)
+
+          // Check if file already exists
+          try {
+            const fileExists = await exists(destPath)
+            if (fileExists) {
+              const confirmed = confirm(`File "${fileName}" already exists in destination. Replace it?`)
+              if (!confirmed) continue
+            }
+          } catch (err) {
+            // File doesn't exist, continue
+          }
+
+          // Perform the move
+          try {
+            await rename(itemPath, destPath)
+          } catch (err) {
+            console.error('Failed to move item:', err)
+            errors.push(`Failed to move ${fileName}: ${err}`)
+          }
+        }
+
+        // Show errors if any
+        if (errors.length > 0) {
+          setError(errors.join('\n'))
+          setTimeout(() => setError(null), 5000)
+        }
+
+        // Refresh directory and clear selection
+        await loadDirectory(currentPath)
+        setSelectedItems(new Set())
+        setLastSelectedIndex(null)
+      } catch (err) {
+        console.error('Drop operation failed:', err)
+        setError(`Failed to move items: ${err}`)
+        setTimeout(() => setError(null), 3000)
+      } finally {
+        setLoading(false)
+      }
+
+      return
+    }
+
+    // Get the target item (for regular folder drops)
+    const targetItem = files.find(f => f.path === targetId)
     if (!targetItem || !targetItem.isDirectory) return
+
+    const targetPath = targetId
 
     // Determine which items to move
     const itemsToMove = selectedItems.has(sourcePath)
@@ -376,22 +454,42 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 
   const getIcon = (item: FileItem) => {
     if (item.isDirectory) {
-      return '📁'
+      return (
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+          <path d="M10 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V8C22 6.89 21.11 6 20 6H12L10 4Z" fill="#dcb67a"/>
+        </svg>
+      )
     }
 
     const ext = item.name.substring(item.name.lastIndexOf('.')).toLowerCase()
     switch (ext) {
       case '.lostmap':
-        return '🗺️'
+        return (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M20.5 3L20.34 3.03L15 5.1L9 3L3.36 4.9C3.15 4.97 3 5.15 3 5.38V20.5C3 20.78 3.22 21 3.5 21L3.66 20.97L9 18.9L15 21L20.64 19.1C20.85 19.03 21 18.85 21 18.62V3.5C21 3.22 20.78 3 20.5 3ZM15 19L9 16.89V5L15 7.11V19Z" fill="#6bb6ff"/>
+          </svg>
+        )
       case '.lostset':
-        return '🎨'
+        return (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3C10.34 3 9 4.34 9 6C9 7.66 10.34 9 12 9C13.66 9 15 7.66 15 6C15 4.34 13.66 3 12 3ZM6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C7.66 15 9 13.66 9 12C9 10.34 7.66 9 6 9ZM18 9C16.34 9 15 10.34 15 12C15 13.66 16.34 15 18 15C19.66 15 21 13.66 21 12C21 10.34 19.66 9 18 9ZM12 15C10.34 15 9 16.34 9 18C9 19.66 10.34 21 12 21C13.66 21 15 19.66 15 18C15 16.34 13.66 15 12 15Z" fill="#c586c0"/>
+          </svg>
+        )
       case '.png':
       case '.jpg':
       case '.jpeg':
       case '.gif':
-        return '🖼️'
+        return (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M21 19V5C21 3.89 20.11 3 19 3H5C3.89 3 3 3.89 3 5V19C3 20.11 3.89 21 5 21H19C20.11 21 21 20.11 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z" fill="#a0d468"/>
+          </svg>
+        )
       default:
-        return '📄'
+        return (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2ZM16 18H8V16H16V18ZM16 14H8V12H16V14ZM13 9V3.5L18.5 9H13Z" fill="#858585"/>
+          </svg>
+        )
     }
   }
 
@@ -403,6 +501,38 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 
     const parts = relativePath.split('/').filter(p => p)
     return parts
+  }
+
+  // Up Directory Drop Target Component
+  const UpDirectoryDropTarget = () => {
+    const isOver = overId === UP_DIRECTORY_ID
+
+    const { setNodeRef } = useDroppable({
+      id: UP_DIRECTORY_ID
+    })
+
+    const style = {
+      background: isOver ? 'rgba(17, 119, 187, 0.2)' : 'rgba(62, 62, 66, 0.5)',
+      border: isOver ? '2px dashed #1177bb' : '2px dashed #555',
+      outline: 'none',
+      cursor: 'default'
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        className="flex flex-col items-center justify-center gap-2 p-3 rounded transition-all"
+        style={style}
+      >
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ userSelect: 'none' }}>
+          <path d="M12 4L6 10H10V16H14V10H18L12 4Z" fill="#858585" />
+          <path d="M4 18H20V20H4V18Z" fill="#858585" />
+        </svg>
+        <div className="text-xs text-center break-all line-clamp-2 w-full" style={{ color: '#cccccc', userSelect: 'none' }}>
+          ..
+        </div>
+      </div>
+    )
   }
 
   // Draggable and Droppable File Item Component
@@ -463,7 +593,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
           }
         }}
       >
-        <div className="text-4xl" style={{ userSelect: 'none' }}>{getIcon(item)}</div>
+        <div style={{ userSelect: 'none' }}>{getIcon(item)}</div>
         <div className="text-xs text-center break-all line-clamp-2 w-full" style={{ color: '#cccccc', userSelect: 'none' }}>
           {item.name}
         </div>
@@ -568,6 +698,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
           </div>
         ) : (
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4">
+            {canGoUp && <UpDirectoryDropTarget />}
             {files.map((item, index) => (
               <DraggableDroppableItem key={item.path} item={item} index={index} />
             ))}
@@ -639,6 +770,25 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
             >
               Create Tileset
             </div>
+
+            {/* Open Containing Folder (only for files/folders) */}
+            {contextMenu.item && (
+              <>
+                <div
+                  className="h-px mx-2 my-1"
+                  style={{ background: '#3e3e42' }}
+                />
+                <div
+                  className="px-4 py-2 text-sm cursor-pointer transition-colors"
+                  style={{ color: '#cccccc' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => handleOpenContainingFolder(contextMenu.item!)}
+                >
+                  Open Containing Folder
+                </div>
+              </>
+            )}
 
             {/* Delete (only for files/folders) */}
             {contextMenu.item && (

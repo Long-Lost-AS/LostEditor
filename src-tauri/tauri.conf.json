@@ -58,7 +58,14 @@
             "fs:allow-home-read",
             "fs:allow-home-write",
             "fs:allow-home-read-recursive",
-            "fs:allow-home-write-recursive"
+            "fs:allow-home-write-recursive",
+            "opener:default",
+            {
+              "identifier": "opener:allow-open-path",
+              "allow": [
+                { "path": "$HOME/Programming/LostEditor/**" }
+              ]
+            }
           ]
         }
       ]
