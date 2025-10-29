@@ -28,6 +28,7 @@ import { tilesetManager } from "../managers/TilesetManager";
 import { mapManager } from "../managers/MapManager";
 import { entityManager } from "../managers/EntityManager";
 import { fileManager } from "../managers/FileManager";
+import { referenceManager, type BrokenReference } from "../managers/ReferenceManager";
 
 interface EditorContextType {
 	// Tab state
@@ -135,6 +136,20 @@ interface EditorContextType {
 	newTileset: (directory?: string) => Promise<void>;
 	saveTileset: () => Promise<void>;
 	saveAll: () => Promise<void>;
+
+	// Broken References Modal
+	brokenReferencesModalData: {
+		references: BrokenReference[];
+		projectDir: string;
+		onContinue: () => void;
+		onCancel: () => void;
+	} | null;
+	setBrokenReferencesModalData: (data: {
+		references: BrokenReference[];
+		projectDir: string;
+		onContinue: () => void;
+		onCancel: () => void;
+	} | null) => void;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -207,6 +222,14 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const [projectName, setProjectName] = useState("Untitled");
 	const [tilesetPath, setTilesetPath] = useState<string | null>(null);
 	const [gridVisible, setGridVisible] = useState(true);
+
+	// Broken references modal state
+	const [brokenReferencesModalData, setBrokenReferencesModalData] = useState<{
+		references: BrokenReference[];
+		projectDir: string;
+		onContinue: () => void;
+		onCancel: () => void;
+	} | null>(null);
 
 	// Sync active map tab to flat state (for backward compatibility)
 	useEffect(() => {
@@ -827,6 +850,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 	const loadProject = useCallback(
 		async (filePath: string) => {
+			// Clear manager caches and React state before loading new project
+			console.log('Clearing manager caches before loading new project');
+			tilesetManager.unloadAll();
+			mapManager.unloadAll();
+			setTilesets([]);  // Clear React state to prevent stale tileset references
+			setCurrentTileset(null);
+
 			let data: string;
 			try {
 				data = await readTextFile(filePath);
@@ -845,6 +875,44 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Set project directory for relative path resolution
 				const projectDir = fileManager.dirname(filePath);
 				fileManager.setProjectDir(projectDir);
+
+				// Validate file references before loading tilesets
+				console.log("Validating project references...");
+				try {
+					const brokenReferences = await referenceManager.validateReferences(projectDir);
+					if (brokenReferences.length > 0) {
+						console.warn(`Found ${brokenReferences.length} broken reference(s):`);
+						brokenReferences.forEach(ref => {
+							console.warn(`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`);
+						});
+
+						// Show modal and wait for user to fix references or cancel
+						await new Promise<void>((resolve, reject) => {
+							setBrokenReferencesModalData({
+								references: brokenReferences,
+								projectDir: projectDir,
+								onContinue: () => {
+									setBrokenReferencesModalData(null);
+									resolve(); // Continue with load
+								},
+								onCancel: () => {
+									setBrokenReferencesModalData(null);
+									console.log("Project load cancelled by user");
+									reject(new Error("Project load cancelled"));
+								}
+							});
+						});
+					} else {
+						console.log("All file references are valid");
+					}
+				} catch (error) {
+					if (error instanceof Error && error.message === "Project load cancelled") {
+						// User cancelled via modal - abort load
+						return;
+					}
+					console.error("Failed to validate references:", error);
+					// Continue loading even if validation fails
+				}
 
 				// Load tilesets first
 				if (projectData.tilesets && projectData.tilesets.length > 0) {
@@ -948,6 +1016,23 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					// No saved tabs, reset to default
 					setTabs([]);
 					setActiveTabId(null);
+				}
+
+				// Validate file references after loading
+				console.log("Validating project references...");
+				try {
+					const brokenReferences = await referenceManager.validateReferences(projectDir);
+					if (brokenReferences.length > 0) {
+						console.warn(`Found ${brokenReferences.length} broken reference(s):`);
+						brokenReferences.forEach(ref => {
+							console.warn(`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`);
+						});
+						alert(`Warning: Found ${brokenReferences.length} broken file reference(s). Check console for details.`);
+					} else {
+						console.log("All file references are valid");
+					}
+				} catch (error) {
+					console.error("Failed to validate references:", error);
 				}
 
 				console.log("Project loaded successfully");
@@ -1402,6 +1487,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		projectDirectory,
 		openMapFromFile,
 		openTilesetFromFile,
+		brokenReferencesModalData,
+		setBrokenReferencesModalData,
 	};
 
 	return (

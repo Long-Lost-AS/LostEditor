@@ -13,6 +13,7 @@ import { ResourceBrowser } from './components/ResourceBrowser'
 import { EntityPanel } from './components/EntityPanel'
 import { TilesetEditorView } from './components/TilesetEditorView'
 import { EmptyState } from './components/EmptyState'
+import { BrokenReferencesModal } from './components/BrokenReferencesModal'
 import { TilesetData } from './types'
 import './style.css'
 
@@ -34,7 +35,8 @@ const AppContent = () => {
     loadTileset,
     addTileset,
     saveTileset,
-    saveAll
+    saveAll,
+    brokenReferencesModalData
   } = useEditor()
 
   const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true)
@@ -61,7 +63,6 @@ const AppContent = () => {
   const saveTilesetRef = useRef(saveTileset)
   const saveAllRef = useRef(saveAll)
   const getActiveTilesetTabRef = useRef(getActiveTilesetTab)
-  const listenersRegistered = useRef(false)
 
   useEffect(() => {
     newProjectRef.current = newProject
@@ -78,22 +79,17 @@ const AppContent = () => {
   }, [newProject, newMap, newTileset, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
 
   useEffect(() => {
-    // Prevent React Strict Mode from registering duplicate listeners
-    if (listenersRegistered.current) {
-      return
-    }
-    listenersRegistered.current = true
-
     // Set up menu event listeners
-    const unlisteners: Array<() => void> = []
+    let mounted = true
+    const unlistenPromises: Promise<() => void>[] = []
 
     // New Project
-    listen('menu:new-project', () => {
+    unlistenPromises.push(listen('menu:new-project', () => {
       newProjectRef.current()
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Open Project - show dialog then load
-    listen('menu:open-project', async () => {
+    unlistenPromises.push(listen('menu:open-project', async () => {
       const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
         options: {
           title: 'Open Project',
@@ -105,28 +101,28 @@ const AppContent = () => {
       if (result.filePaths && result.filePaths[0]) {
         await loadProjectRef.current(result.filePaths[0])
       }
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Load recent project - no dialog, just load
-    listen<string>('auto-load-project', (event) => {
+    unlistenPromises.push(listen<string>('auto-load-project', (event) => {
       if (event.payload) {
         loadProjectRef.current(event.payload)
       }
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
-    listen<string>('menu:load-recent-project', (event) => {
+    unlistenPromises.push(listen<string>('menu:load-recent-project', (event) => {
       if (event.payload) {
         loadProjectRef.current(event.payload)
       }
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Save All (triggered by Ctrl+S accelerator)
-    listen('menu:save-project', async () => {
+    unlistenPromises.push(listen('menu:save-project', async () => {
       await saveAllRef.current()
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Save Project As - show dialog then save
-    listen('menu:save-project-as', async () => {
+    unlistenPromises.push(listen('menu:save-project-as', async () => {
       const result = await invoke<{ canceled: boolean; filePath?: string }>('show_save_dialog', {
         options: {
           title: 'Save Project As',
@@ -138,27 +134,31 @@ const AppContent = () => {
       if (result.filePath) {
         await saveProjectAsRef.current(result.filePath)
       }
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // New Tileset - create and open in tab
-    listen('menu:new-tileset', async () => {
+    unlistenPromises.push(listen('menu:new-tileset', async () => {
       await newTilesetRef.current()
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // New Map - create new map tab
-    listen('menu:new-map', () => {
+    unlistenPromises.push(listen('menu:new-map', () => {
       newMapRef.current()
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Note: Load Tileset removed - tilesets auto-load from project file
-    listen('menu:load-tileset', async () => {
+    unlistenPromises.push(listen('menu:load-tileset', async () => {
       // No-op: Tilesets are automatically loaded from project
-    }).then(unlisten => unlisteners.push(unlisten))
+    }))
 
     // Cleanup listeners on unmount
     return () => {
-      // Don't reset listenersRegistered flag - we want to prevent duplicate registration on remount (React Strict Mode)
-      unlisteners.forEach(unlisten => unlisten())
+      mounted = false
+      Promise.all(unlistenPromises).then(unlisteners => {
+        if (!mounted) {
+          unlisteners.forEach(unlisten => unlisten())
+        }
+      })
     }
   }, [])
 
@@ -340,6 +340,16 @@ const AppContent = () => {
           </div>
         )}
       </div>
+
+      {/* Broken References Modal */}
+      {brokenReferencesModalData && (
+        <BrokenReferencesModal
+          references={brokenReferencesModalData.references}
+          projectDir={brokenReferencesModalData.projectDir}
+          onClose={brokenReferencesModalData.onCancel}
+          onContinue={brokenReferencesModalData.onContinue}
+        />
+      )}
     </div>
   )
 }

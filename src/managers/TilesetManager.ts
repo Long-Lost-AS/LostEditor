@@ -84,6 +84,14 @@ export class TilesetManager {
    * Load an image file and return an HTMLImageElement
    */
   private async _loadImage(imagePath: string): Promise<HTMLImageElement> {
+    // First verify the file exists to prevent browser cache hits
+    const { exists } = await import('@tauri-apps/plugin-fs')
+    const fileExists = await exists(imagePath)
+
+    if (!fileExists) {
+      throw new Error(`Image file does not exist: ${imagePath}`)
+    }
+
     return new Promise((resolve, reject) => {
       const img = new Image()
 
@@ -95,8 +103,10 @@ export class TilesetManager {
         reject(new Error(`Failed to load image: ${imagePath}`))
       }
 
-      // Use Tauri's convertFileSrc to load the image
-      img.src = convertFileSrc(imagePath)
+      // Use Tauri's convertFileSrc with cache-busting timestamp
+      // This prevents browser from serving stale cached images
+      const cacheBuster = `?t=${Date.now()}`
+      img.src = convertFileSrc(imagePath) + cacheBuster
     })
   }
 
@@ -194,6 +204,12 @@ export class TilesetManager {
    * Unload all tilesets
    */
   unloadAll(): void {
+    // Clear image src to help browser garbage collection and cache invalidation
+    for (const tileset of this.tilesets.values()) {
+      if (tileset.imageData) {
+        tileset.imageData.src = ''
+      }
+    }
     this.tilesets.clear()
     this.loadingPromises.clear()
   }
