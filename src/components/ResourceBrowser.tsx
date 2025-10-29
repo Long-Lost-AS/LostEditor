@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useEditor } from '../context/EditorContext'
-import { readDir } from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, remove } from '@tauri-apps/plugin-fs'
 import { fileManager } from '../managers/FileManager'
 import { TilesetTab } from '../types'
 
@@ -15,11 +16,73 @@ interface ResourceBrowserProps {
 }
 
 export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
-  const { projectDirectory, openMapFromFile, openTab, tilesets } = useEditor()
+  const { projectDirectory, openMapFromFile, openTab, tilesets, newMap, newTileset } = useEditor()
   const [currentPath, setCurrentPath] = useState<string>('')
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    item: FileItem | null
+  } | null>(null)
+
+  // Modal states
+  const [folderNameModal, setFolderNameModal] = useState<{
+    visible: boolean
+    defaultName: string
+  }>({ visible: false, defaultName: '' })
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    visible: boolean
+    item: FileItem | null
+  }>({ visible: false, item: null })
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null)
+    if (contextMenu) {
+      console.log('Context menu opened:', contextMenu)
+      document.addEventListener('click', handleClick)
+      return () => document.removeEventListener('click', handleClick)
+    }
+  }, [contextMenu])
+
+  // File operation handlers
+  const handleCreateFolder = async (folderName: string) => {
+    try {
+      const newFolderPath = fileManager.join(currentPath, folderName)
+      await mkdir(newFolderPath)
+      await loadDirectory(currentPath)
+      setFolderNameModal({ visible: false, defaultName: '' })
+    } catch (err) {
+      console.error('Failed to create folder:', err)
+      setError('Failed to create folder')
+    }
+  }
+
+  const handleDeleteItem = async (item: FileItem) => {
+    try {
+      await remove(item.path, { recursive: item.isDirectory })
+      await loadDirectory(currentPath)
+      setDeleteConfirmModal({ visible: false, item: null })
+    } catch (err) {
+      console.error('Failed to delete item:', err)
+      setError('Failed to delete item')
+    }
+  }
+
+  const handleContextMenu = (e: React.MouseEvent, item: FileItem | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('Context menu triggered:', { item, x: e.clientX, y: e.clientY })
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      item
+    })
+  }
 
   // Load files in current directory
   const loadDirectory = async (dirPath: string) => {
@@ -211,7 +274,10 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
       </div>
 
       {/* File Grid */}
-      <div className="flex-1 overflow-auto p-4">
+      <div
+        className="flex-1 overflow-auto p-4"
+        onContextMenu={(e) => handleContextMenu(e, null)}
+      >
         {loading ? (
           <div className="text-center text-sm py-8" style={{ color: '#858585' }}>
             Loading...
@@ -232,6 +298,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
                 className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-colors group"
                 onClick={() => handleItemClick(item)}
                 onDoubleClick={() => handleItemDoubleClick(item)}
+                onContextMenu={(e) => handleContextMenu(e, item)}
                 onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
@@ -244,6 +311,229 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
           </div>
         )}
       </div>
+
+      {/* Context Menu - rendered via portal to avoid overflow issues */}
+      {contextMenu && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenu(null)
+            }}
+          />
+          {/* Menu */}
+          <div
+            className="fixed z-50 min-w-[200px] rounded shadow-lg"
+            style={{
+              top: contextMenu.y,
+              left: contextMenu.x,
+              background: '#2d2d30',
+              border: '1px solid #3e3e42'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Create Folder */}
+            <div
+              className="px-4 py-2 text-sm cursor-pointer transition-colors"
+              style={{ color: '#cccccc' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onClick={() => {
+                setFolderNameModal({ visible: true, defaultName: 'New Folder' })
+                setContextMenu(null)
+              }}
+            >
+              Create Folder
+            </div>
+
+            {/* Create Map */}
+            <div
+              className="px-4 py-2 text-sm cursor-pointer transition-colors"
+              style={{ color: '#cccccc' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onClick={() => {
+                newMap(currentPath, 'New Map')
+                setContextMenu(null)
+              }}
+            >
+              Create Map
+            </div>
+
+            {/* Create Tileset */}
+            <div
+              className="px-4 py-2 text-sm cursor-pointer transition-colors"
+              style={{ color: '#cccccc' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onClick={async () => {
+                await newTileset(currentPath)
+                setContextMenu(null)
+              }}
+            >
+              Create Tileset
+            </div>
+
+            {/* Delete (only for files/folders) */}
+            {contextMenu.item && (
+              <>
+                <div
+                  className="h-px mx-2 my-1"
+                  style={{ background: '#3e3e42' }}
+                />
+                <div
+                  className="px-4 py-2 text-sm cursor-pointer transition-colors"
+                  style={{ color: '#f48771' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => {
+                    setDeleteConfirmModal({ visible: true, item: contextMenu.item })
+                    setContextMenu(null)
+                  }}
+                >
+                  Delete {contextMenu.item.isDirectory ? 'Folder' : 'File'}
+                </div>
+              </>
+            )}
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* Folder Name Modal - rendered via portal */}
+      {folderNameModal.visible && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => setFolderNameModal({ visible: false, defaultName: '' })}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 p-6 rounded shadow-xl min-w-[400px]"
+            style={{ background: '#2d2d30', border: '1px solid #3e3e42' }}
+          >
+            <h3 className="text-lg font-semibold mb-4" style={{ color: '#cccccc' }}>
+              Create New Folder
+            </h3>
+            <input
+              type="text"
+              className="w-full px-3 py-2 rounded mb-4"
+              style={{
+                background: '#3e3e42',
+                border: '1px solid #555',
+                color: '#cccccc',
+                outline: 'none'
+              }}
+              defaultValue={folderNameModal.defaultName}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateFolder(e.currentTarget.value)
+                } else if (e.key === 'Escape') {
+                  setFolderNameModal({ visible: false, defaultName: '' })
+                }
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#3e3e42',
+                  border: '1px solid #555',
+                  color: '#cccccc'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#505050'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#3e3e42'}
+                onClick={() => setFolderNameModal({ visible: false, defaultName: '' })}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#0e639c',
+                  border: '1px solid #1177bb',
+                  color: '#ffffff'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#1177bb'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#0e639c'}
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.parentElement?.querySelector('input')
+                  if (input) {
+                    handleCreateFolder(input.value)
+                  }
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Confirmation Modal - rendered via portal */}
+      {deleteConfirmModal.visible && deleteConfirmModal.item && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => setDeleteConfirmModal({ visible: false, item: null })}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 p-6 rounded shadow-xl min-w-[400px]"
+            style={{ background: '#2d2d30', border: '1px solid #3e3e42' }}
+          >
+            <h3 className="text-lg font-semibold mb-4" style={{ color: '#f48771' }}>
+              Confirm Delete
+            </h3>
+            <p className="mb-4" style={{ color: '#cccccc' }}>
+              Are you sure you want to delete <strong>{deleteConfirmModal.item.name}</strong>?
+              {deleteConfirmModal.item.isDirectory && (
+                <span className="block mt-2 text-sm" style={{ color: '#858585' }}>
+                  This will delete the folder and all its contents.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#3e3e42',
+                  border: '1px solid #555',
+                  color: '#cccccc'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#505050'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#3e3e42'}
+                onClick={() => setDeleteConfirmModal({ visible: false, item: null })}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#c72e0f',
+                  border: '1px solid #f48771',
+                  color: '#ffffff'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f48771'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#c72e0f'}
+                onClick={() => handleDeleteItem(deleteConfirmModal.item!)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
