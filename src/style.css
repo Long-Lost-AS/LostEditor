@@ -423,3 +423,68 @@ body {
 .apply-btn:hover {
   background: #1177bb;
 }
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #1e1e1e;
+}
+
+.empty-state-content {
+  text-align: center;
+  max-width: 600px;
+  padding: 40px;
+}
+
+.empty-state-content h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #cccccc;
+  margin-bottom: 16px;
+}
+
+.empty-state-section {
+  margin-top: 24px;
+}
+
+.empty-state-section p {
+  font-size: 14px;
+  color: #858585;
+  margin-bottom: 24px;
+}
+
+.empty-state-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.empty-state-btn {
+  padding: 12px 24px;
+  background: #3e3e42;
+  border: 1px solid #555;
+  color: #cccccc;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.2s;
+  min-width: 200px;
+}
+
+.empty-state-btn:hover {
+  background: #505050;
+}
+
+.empty-state-btn.primary {
+  background: #0e639c;
+  border-color: #1177bb;
+}
+
+.empty-state-btn.primary:hover {
+  background: #1177bb;
+}
