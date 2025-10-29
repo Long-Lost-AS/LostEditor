@@ -2,7 +2,7 @@
   "version": "1.0",
   "name": "Buildings",
   "id": "tileset-1761684340532",
-  "imagePath": "tilesets/village_building.png",
+  "imagePath": "village_building.png",
   "tileWidth": 16,
   "tileHeight": 16,
   "tiles": [
@@ -89,7 +89,42 @@
       "x": 368,
       "y": 0,
       "width": 192,
-      "height": 352
+      "height": 352,
+      "colliders": [
+        {
+          "id": "collider-1761768687809",
+          "points": [
+            {
+              "x": 16,
+              "y": 301
+            },
+            {
+              "x": 13,
+              "y": 131
+            },
+            {
+              "x": 146,
+              "y": 143
+            },
+            {
+              "x": 142,
+              "y": 348
+            },
+            {
+              "x": 61,
+              "y": 347
+            },
+            {
+              "x": 62,
+              "y": 300
+            },
+            {
+              "x": 24,
+              "y": 301
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "tile_1761686089057",
@@ -117,6 +152,13 @@
       "x": 624,
       "y": 96,
       "width": 272,
+      "height": 224
+    },
+    {
+      "id": "tile_1761768660992",
+      "x": 944,
+      "y": 64,
+      "width": 336,
       "height": 224
     }
   ],

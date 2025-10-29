@@ -8,7 +8,7 @@
     "maps/Map_2.lostmap"
   ],
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "lastModified": "2025-10-29T19:29:17.899Z",
+  "lastModified": "2025-10-29T20:54:50.093Z",
   "openTabs": {
     "tabs": [
       {
@@ -37,7 +37,7 @@
         "isDirty": false,
         "tilesetId": "tileset-1761684340532",
         "viewState": {
-          "scale": 0.681732177734375,
+          "scale": 0.652679443359375,
           "selectedTileRegion": {
             "x": 4,
             "y": 1,
@@ -47,6 +47,6 @@
         }
       }
     ],
-    "activeTabId": "map-1761763797563"
+    "activeTabId": "tileset-tileset-1761684340532"
   }
 }
