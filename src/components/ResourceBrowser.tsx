@@ -53,10 +53,18 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     visible: boolean
     item: FileItem | null
   }>({ visible: false, item: null })
+  const [renameModal, setRenameModal] = useState<{
+    visible: boolean
+    item: FileItem | null
+    newName: string
+  }>({ visible: false, item: null, newName: '' })
 
   // Multi-select state
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
+
+  // Double-click detection
+  const lastClickTimeRef = useRef<{ path: string; time: number } | null>(null)
 
   // Drag and drop state (dnd-kit)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -142,6 +150,42 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     }
   }
 
+  const handleRenameItem = (item: FileItem) => {
+    setRenameModal({ visible: true, item, newName: item.name })
+    setContextMenu(null)
+  }
+
+  const confirmRename = async () => {
+    const { item, newName } = renameModal
+    if (!item || !newName || newName === item.name) {
+      setRenameModal({ visible: false, item: null, newName: '' })
+      return
+    }
+
+    try {
+      const parentDir = fileManager.dirname(item.path)
+      const newPath = fileManager.join(parentDir, newName)
+
+      // Check if file already exists
+      const fileExists = await exists(newPath)
+      if (fileExists) {
+        setError(`A ${item.isDirectory ? 'folder' : 'file'} with that name already exists`)
+        setTimeout(() => setError(null), 3000)
+        setRenameModal({ visible: false, item: null, newName: '' })
+        return
+      }
+
+      await rename(item.path, newPath)
+      await loadDirectory(currentPath)
+      setRenameModal({ visible: false, item: null, newName: '' })
+    } catch (err) {
+      console.error('Failed to rename item:', err)
+      setError('Failed to rename item')
+      setTimeout(() => setError(null), 3000)
+      setRenameModal({ visible: false, item: null, newName: '' })
+    }
+  }
+
   const handleContextMenu = (e: React.MouseEvent, item: FileItem | null) => {
     e.preventDefault()
     e.stopPropagation()
@@ -203,12 +247,19 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
   }, [projectDirectory])
 
   const handleItemClick = (item: FileItem, index: number, e: React.MouseEvent) => {
-    // If it's a directory and it's a simple click (no modifiers), navigate into it
-    if (item.isDirectory && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      setCurrentPath(item.path)
-      loadDirectory(item.path)
+    // Detect double-click manually (within 300ms)
+    const now = Date.now()
+    const lastClick = lastClickTimeRef.current
+
+    if (lastClick && lastClick.path === item.path && now - lastClick.time < 300) {
+      // Double-click detected!
+      lastClickTimeRef.current = null // Reset
+      handleItemDoubleClick(e, item)
       return
     }
+
+    // Store this click for double-click detection
+    lastClickTimeRef.current = { path: item.path, time: now }
 
     // Multi-select logic for files or folders with modifiers
     if (e.ctrlKey || e.metaKey) {
@@ -239,8 +290,16 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     }
   }
 
-  const handleItemDoubleClick = (item: FileItem) => {
-    if (item.isDirectory) return
+  const handleItemDoubleClick = (e: React.MouseEvent, item: FileItem) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // If it's a directory, navigate into it
+    if (item.isDirectory) {
+      setCurrentPath(item.path)
+      loadDirectory(item.path)
+      return
+    }
 
     const extension = item.name.includes('.')
       ? item.name.substring(item.name.lastIndexOf('.'))
@@ -544,7 +603,10 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     // Both files and folders can be dragged
     const { attributes, listeners, setNodeRef: setDraggableRef, transform } = useDraggable({
       id: item.path,
-      data: { item }
+      data: { item },
+      activationConstraint: {
+        distance: 8 // Require 8px of movement before dragging starts
+      }
     })
 
     // Only folders can receive drops
@@ -578,9 +640,9 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
         {...attributes}
         {...listeners}
         className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-all group relative"
-        style={style}
+        style={{ ...style, userSelect: 'none', WebkitUserSelect: 'none' }}
         onClick={(e) => handleItemClick(item, index, e)}
-        onDoubleClick={() => handleItemDoubleClick(item)}
+        onDoubleClick={(e) => handleItemDoubleClick(e, item)}
         onContextMenu={(e) => handleContextMenu(e, item)}
         onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
           if (!isSelected && !isActive) {
@@ -790,6 +852,21 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
               </>
             )}
 
+            {/* Rename (only for files/folders) */}
+            {contextMenu.item && (
+              <>
+                <div
+                  className="px-4 py-2 text-sm cursor-pointer transition-colors"
+                  style={{ color: '#cccccc' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => handleRenameItem(contextMenu.item!)}
+                >
+                  Rename
+                </div>
+              </>
+            )}
+
             {/* Delete (only for files/folders) */}
             {contextMenu.item && (
               <>
@@ -941,6 +1018,76 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
                 onClick={() => handleDeleteItem(deleteConfirmModal.item!)}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Rename Modal - rendered via portal */}
+      {renameModal.visible && renameModal.item && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => setRenameModal({ visible: false, item: null, newName: '' })}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 p-6 rounded shadow-xl min-w-[400px]"
+            style={{ background: '#2d2d30', border: '1px solid #3e3e42' }}
+          >
+            <h3 className="text-lg font-semibold mb-4" style={{ color: '#cccccc' }}>
+              Rename {renameModal.item.isDirectory ? 'Folder' : 'File'}
+            </h3>
+            <input
+              type="text"
+              className="w-full px-3 py-2 rounded mb-4"
+              style={{
+                background: '#3e3e42',
+                border: '1px solid #555',
+                color: '#cccccc',
+                outline: 'none'
+              }}
+              value={renameModal.newName}
+              onChange={(e) => setRenameModal({ ...renameModal, newName: e.target.value })}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  confirmRename()
+                } else if (e.key === 'Escape') {
+                  setRenameModal({ visible: false, item: null, newName: '' })
+                }
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#3e3e42',
+                  border: '1px solid #555',
+                  color: '#cccccc'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#505050'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#3e3e42'}
+                onClick={() => setRenameModal({ visible: false, item: null, newName: '' })}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded transition-colors"
+                style={{
+                  background: '#0e639c',
+                  border: '1px solid #1177bb',
+                  color: '#ffffff'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#1177bb'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#0e639c'}
+                onClick={confirmRename}
+              >
+                Rename
               </button>
             </div>
           </div>
