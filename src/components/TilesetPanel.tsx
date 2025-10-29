@@ -3,6 +3,7 @@ import { useEditor } from '../context/EditorContext'
 
 export const TilesetPanel = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const {
     tilesets,
     currentTileset,
@@ -18,58 +19,232 @@ export const TilesetPanel = () => {
   } = useEditor()
 
   const [viewMode, setViewMode] = useState<'tiles' | 'entities'>('tiles')
+  const [scale, setScale] = useState(1.0)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+  // Refs to track current pan and zoom values for wheel event
+  const panRef = useRef(pan)
+  const scaleRef = useRef(scale)
+
+  useEffect(() => {
+    panRef.current = pan
+    scaleRef.current = scale
+  }, [pan, scale])
 
   // Use current tileset or fallback to legacy tileset image
   const displayImage = currentTileset?.imageData || tilesetImage
 
+  // Track container size changes to trigger redraws
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
+
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !displayImage) return
+    const container = containerRef.current
+    if (!canvas || !container) return
+
+    // Native wheel event listener (to allow preventDefault)
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+
+      if (e.ctrlKey) {
+        // Zoom towards mouse position
+        const rect = canvas.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
+        // Calculate world position at mouse before zoom
+        const worldX = (mouseX - panRef.current.x) / scaleRef.current
+        const worldY = (mouseY - panRef.current.y) / scaleRef.current
+
+        // Calculate new scale
+        const delta = -e.deltaY * 0.01
+        const newScale = Math.max(0.5, Math.min(8, scaleRef.current + delta))
+
+        // Adjust pan to keep world position under mouse
+        const newPanX = mouseX - worldX * newScale
+        const newPanY = mouseY - worldY * newScale
+
+        setPan({ x: newPanX, y: newPanY })
+        setScale(newScale)
+      } else {
+        // Pan
+        setPan({
+          x: panRef.current.x - e.deltaX,
+          y: panRef.current.y - e.deltaY
+        })
+      }
+    }
+
+    // Update container size immediately during resize
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        setContainerSize({ width, height })
+      }
+    })
+
+    resizeObserver.observe(container)
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      resizeObserver.disconnect()
+      canvas.removeEventListener('wheel', handleWheel)
+    }
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container || !displayImage) return
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    canvas.width = displayImage.width
-    canvas.height = displayImage.height
+    // Resize canvas to fill container
+    canvas.width = container.clientWidth
+    canvas.height = container.clientHeight
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+    // Apply transforms for pan and zoom
+    ctx.save()
+    ctx.translate(pan.x, pan.y)
+    ctx.scale(scale, scale)
+
     // Draw tileset image
     ctx.drawImage(displayImage, 0, 0)
 
-    // Draw grid
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 1
+    // Draw grid (skip segments inside compound tiles)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+    ctx.lineWidth = 1 / scale
 
     const tileWidth = currentTileset?.tileWidth || mapData.tileWidth
     const tileHeight = currentTileset?.tileHeight || mapData.tileHeight
 
+    // Draw vertical lines
     for (let x = 0; x <= displayImage.width; x += tileWidth) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, displayImage.height)
-      ctx.stroke()
+      // Find all compound tiles that intersect this vertical line
+      const intersectingTiles = currentTileset?.tiles.filter((tile) => {
+        if (!tile.width || !tile.height) return false // Not a compound tile
+        const tileWidthPx = tile.width || tileWidth
+        return x > tile.x && x < tile.x + tileWidthPx
+      }) || []
+
+      if (intersectingTiles.length === 0) {
+        // No intersections, draw full line
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, displayImage.height)
+        ctx.stroke()
+      } else {
+        // Draw line segments, skipping parts inside compound tiles
+        let currentY = 0
+        for (const tile of intersectingTiles) {
+          const tileHeightPx = tile.height || tileHeight
+          // Draw from currentY to top of tile
+          if (currentY < tile.y) {
+            ctx.beginPath()
+            ctx.moveTo(x, currentY)
+            ctx.lineTo(x, tile.y)
+            ctx.stroke()
+          }
+          currentY = Math.max(currentY, tile.y + tileHeightPx)
+        }
+        // Draw remaining segment
+        if (currentY < displayImage.height) {
+          ctx.beginPath()
+          ctx.moveTo(x, currentY)
+          ctx.lineTo(x, displayImage.height)
+          ctx.stroke()
+        }
+      }
     }
 
+    // Draw horizontal lines
     for (let y = 0; y <= displayImage.height; y += tileHeight) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(displayImage.width, y)
-      ctx.stroke()
+      // Find all compound tiles that intersect this horizontal line
+      const intersectingTiles = currentTileset?.tiles.filter((tile) => {
+        if (!tile.width || !tile.height) return false // Not a compound tile
+        const tileHeightPx = tile.height || tileHeight
+        return y > tile.y && y < tile.y + tileHeightPx
+      }) || []
+
+      if (intersectingTiles.length === 0) {
+        // No intersections, draw full line
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(displayImage.width, y)
+        ctx.stroke()
+      } else {
+        // Draw line segments, skipping parts inside compound tiles
+        let currentX = 0
+        for (const tile of intersectingTiles) {
+          const tileWidthPx = tile.width || tileWidth
+          // Draw from currentX to left of tile
+          if (currentX < tile.x) {
+            ctx.beginPath()
+            ctx.moveTo(currentX, y)
+            ctx.lineTo(tile.x, y)
+            ctx.stroke()
+          }
+          currentX = Math.max(currentX, tile.x + tileWidthPx)
+        }
+        // Draw remaining segment
+        if (currentX < displayImage.width) {
+          ctx.beginPath()
+          ctx.moveTo(currentX, y)
+          ctx.lineTo(displayImage.width, y)
+          ctx.stroke()
+        }
+      }
+    }
+
+    // Draw borders around compound tiles
+    if (currentTileset) {
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.8)' // Green color matching TilesetEditorView
+      ctx.lineWidth = 2 / scale
+      currentTileset.tiles.forEach(tile => {
+        if (tile.width && tile.height) {
+          // Only draw borders for compound tiles
+          const w = tile.width || tileWidth
+          const h = tile.height || tileHeight
+          ctx.strokeRect(tile.x, tile.y, w, h)
+
+          // Optionally draw tile name
+          if (tile.name) {
+            ctx.save()
+            ctx.fillStyle = 'rgba(34, 197, 94, 0.9)'
+            ctx.font = `${Math.max(10, 12 / scale)}px sans-serif`
+            const metrics = ctx.measureText(tile.name)
+            const padding = 4 / scale
+            const textX = tile.x + padding
+            const textY = tile.y + 12 / scale + padding
+
+            // Draw background for text
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+            ctx.fillRect(
+              textX - padding,
+              textY - 12 / scale,
+              metrics.width + padding * 2,
+              14 / scale
+            )
+
+            // Draw text
+            ctx.fillStyle = 'rgba(34, 197, 94, 1)'
+            ctx.fillText(tile.name, textX, textY)
+            ctx.restore()
+          }
+        }
+      })
     }
 
     // Draw tiles or entities based on view mode
     if (currentTileset) {
       if (viewMode === 'tiles') {
-        // Highlight tile definitions
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)'
-        ctx.lineWidth = 2
-        currentTileset.tiles.forEach(tile => {
-          const w = tile.width || tileWidth
-          const h = tile.height || tileHeight
-          ctx.strokeRect(tile.x, tile.y, w, h)
-        })
+        // Tile view mode is handled by the borders above
       } else {
         // Highlight entity definitions
         ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)'
@@ -91,38 +266,77 @@ export const TilesetPanel = () => {
 
     // Draw selection highlight
     ctx.strokeStyle = '#0ff'
-    ctx.lineWidth = 3
-    ctx.strokeRect(
-      selectedTileX * tileWidth,
-      selectedTileY * tileHeight,
-      tileWidth,
-      tileHeight
-    )
-  }, [displayImage, currentTileset, mapData, selectedTileX, selectedTileY, viewMode])
+    ctx.lineWidth = 3 / scale
+
+    // Check if we have a selected compound tile
+    if (currentTileset && currentTileset.tiles.length > 0) {
+      const selectedCompoundTile = currentTileset.tiles.find(tile => {
+        const tileGridX = Math.floor(tile.x / tileWidth)
+        const tileGridY = Math.floor(tile.y / tileHeight)
+        return tileGridX === selectedTileX && tileGridY === selectedTileY && tile.width && tile.height
+      })
+
+      if (selectedCompoundTile) {
+        // Highlight the entire compound tile
+        ctx.strokeRect(
+          selectedCompoundTile.x,
+          selectedCompoundTile.y,
+          selectedCompoundTile.width,
+          selectedCompoundTile.height
+        )
+      } else {
+        // Regular single tile highlight
+        ctx.strokeRect(
+          selectedTileX * tileWidth,
+          selectedTileY * tileHeight,
+          tileWidth,
+          tileHeight
+        )
+      }
+    } else {
+      // No tileset, just highlight the grid position
+      ctx.strokeRect(
+        selectedTileX * tileWidth,
+        selectedTileY * tileHeight,
+        tileWidth,
+        tileHeight
+      )
+    }
+
+    ctx.restore()
+  }, [displayImage, currentTileset, mapData, selectedTileX, selectedTileY, viewMode, pan, scale, containerSize])
+
+  // Helper to convert screen coordinates to canvas coordinates
+  const screenToCanvas = (screenX: number, screenY: number) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { canvasX: 0, canvasY: 0 }
+
+    const rect = canvas.getBoundingClientRect()
+    const x = screenX - rect.left
+    const y = screenY - rect.top
+
+    // Account for pan and zoom transforms
+    const canvasX = (x - pan.x) / scale
+    const canvasY = (y - pan.y) / scale
+
+    return { canvasX, canvasY }
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas || !displayImage) return
 
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const { canvasX: x, canvasY: y } = screenToCanvas(e.clientX, e.clientY)
 
     const tileWidth = currentTileset?.tileWidth || mapData.tileWidth
     const tileHeight = currentTileset?.tileHeight || mapData.tileHeight
-
-    const tileX = Math.floor(x / tileWidth)
-    const tileY = Math.floor(y / tileHeight)
-
-    // Update legacy tile selection
-    setSelectedTile(tileX, tileY)
 
     // If using new tileset system
     if (currentTileset) {
       setSelectedTilesetId(currentTileset.id)
 
       if (viewMode === 'tiles') {
-        // Find clicked tile definition
+        // First check if we clicked on a compound tile
         const clickedTile = currentTileset.tiles.find(tile => {
           const w = tile.width || tileWidth
           const h = tile.height || tileHeight
@@ -135,8 +349,28 @@ export const TilesetPanel = () => {
         })
 
         if (clickedTile) {
+          // Select the compound tile
           setSelectedTileId(clickedTile.id)
           setSelectedEntityDefId(null)
+
+          // Update legacy tile selection to cover the compound tile region
+          if (clickedTile.width && clickedTile.height) {
+            // For compound tiles, select the top-left corner
+            const tileX = Math.floor(clickedTile.x / tileWidth)
+            const tileY = Math.floor(clickedTile.y / tileHeight)
+            setSelectedTile(tileX, tileY)
+          } else {
+            // For single tiles
+            const tileX = Math.floor(x / tileWidth)
+            const tileY = Math.floor(y / tileHeight)
+            setSelectedTile(tileX, tileY)
+          }
+        } else {
+          // No compound tile found, just select the grid position
+          const tileX = Math.floor(x / tileWidth)
+          const tileY = Math.floor(y / tileHeight)
+          setSelectedTile(tileX, tileY)
+          setSelectedTileId(null)
         }
       } else {
         // Find clicked entity definition
@@ -152,7 +386,34 @@ export const TilesetPanel = () => {
           setSelectedTileId(null)
         }
       }
+    } else {
+      // Legacy: no current tileset, just select grid position
+      const tileX = Math.floor(x / tileWidth)
+      const tileY = Math.floor(y / tileHeight)
+      setSelectedTile(tileX, tileY)
     }
+  }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      // Middle mouse or Shift+Left = Pan
+      e.preventDefault()
+      setIsDragging(true)
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDragging) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      })
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
   }
 
   return (
@@ -208,12 +469,49 @@ export const TilesetPanel = () => {
 
       {/* Tileset canvas */}
       {displayImage ? (
-        <canvas
-          ref={canvasRef}
-          className="tileset-canvas border border-gray-600"
-          onClick={handleClick}
-          style={{ maxWidth: '100%', height: 'auto' }}
-        />
+        <div
+          ref={containerRef}
+          style={{
+            width: '100%',
+            height: '400px',
+            position: 'relative',
+            overflow: 'hidden',
+            border: '1px solid #555',
+            cursor: isDragging ? 'grabbing' : 'default'
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="tileset-canvas"
+            onClick={handleClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{
+              width: '100%',
+              height: '100%',
+              imageRendering: 'pixelated'
+            }}
+          />
+          {/* Zoom level indicator */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              right: '8px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              color: '#ccc',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              pointerEvents: 'none'
+            }}
+          >
+            {Math.round(scale * 100)}%
+          </div>
+        </div>
       ) : (
         <div className="text-gray-400 text-sm p-4 text-center">
           No tileset loaded

@@ -25,7 +25,6 @@ export const MapCanvas = () => {
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartY, setDragStartY] = useState(0);
-	const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
@@ -38,8 +37,8 @@ export const MapCanvas = () => {
 		zoomRef.current = zoom;
 	}, [panX, panY, zoom]);
 
-	// Render the map
-	useEffect(() => {
+	// Extract render logic to a function so we can call it synchronously after resize
+	const renderMap = useRef(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
@@ -145,7 +144,123 @@ export const MapCanvas = () => {
 		}
 
 		ctx.restore();
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, canvasSize]);
+	});
+
+	// Update renderMap ref when dependencies change
+	useEffect(() => {
+		renderMap.current = () => {
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+
+			const ctx = canvas.getContext("2d");
+			if (!ctx) return;
+
+			// Clear canvas
+			ctx.fillStyle = "#2a2a2a";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			ctx.save();
+			ctx.translate(panX, panY);
+			ctx.scale(zoom, zoom);
+
+			// Render each layer bottom-to-top
+			mapData.layers.forEach((layer) => {
+				if (!layer.visible) return;
+
+				if (layer.type === 'tile' || !layer.type) {
+					// Render tile layer
+					layer.tiles.forEach((tile) => {
+						if (!tile.tilesetId || !tile.tileId) return;
+
+						const tileset = getTilesetById(tile.tilesetId);
+						if (!tileset?.imageData) return;
+
+						const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
+						if (tileDefinition) {
+							// Handle compound tiles with cellX/cellY
+							if (tileDefinition.width && tileDefinition.height && tile.cellX !== undefined && tile.cellY !== undefined) {
+								// This is a cell of a compound tile
+								// Calculate source position based on cell offset
+								const sourceX = tileDefinition.x + (tile.cellX * tileset.tileWidth);
+								const sourceY = tileDefinition.y + (tile.cellY * tileset.tileHeight);
+
+								ctx.drawImage(
+									tileset.imageData,
+									sourceX,
+									sourceY,
+									tileset.tileWidth,
+									tileset.tileHeight,
+									tile.x * mapData.tileWidth,
+									tile.y * mapData.tileHeight,
+									tileset.tileWidth,
+									tileset.tileHeight,
+								);
+							} else {
+								// Regular single tile
+								const tileWidth = tileDefinition.width || tileset.tileWidth;
+								const tileHeight = tileDefinition.height || tileset.tileHeight;
+
+								ctx.drawImage(
+									tileset.imageData,
+									tileDefinition.x,
+									tileDefinition.y,
+									tileWidth,
+									tileHeight,
+									tile.x * mapData.tileWidth,
+									tile.y * mapData.tileHeight,
+									tileWidth,
+									tileHeight,
+								);
+							}
+						}
+					});
+				} else if (layer.type === 'entity') {
+					// Render entity layer
+					layer.entities.forEach((entityInstance) => {
+						const tileset = getTilesetById(entityInstance.tilesetId);
+						if (!tileset?.imageData) return;
+
+						const entityDef = entityManager.getEntityDefinition(
+							entityInstance.tilesetId,
+							entityInstance.entityDefId
+						);
+
+						if (!entityDef) return;
+
+						// Render entity with hierarchy
+						renderEntity(ctx, entityDef, entityInstance, tileset.imageData);
+					});
+				}
+			});
+
+			// Draw grid
+			if (gridVisible) {
+				ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+				ctx.lineWidth = 1 / zoom;
+
+				for (let x = 0; x <= mapData.width; x++) {
+					ctx.beginPath();
+					ctx.moveTo(x * mapData.tileWidth, 0);
+					ctx.lineTo(x * mapData.tileWidth, mapData.height * mapData.tileHeight);
+					ctx.stroke();
+				}
+
+				for (let y = 0; y <= mapData.height; y++) {
+					ctx.beginPath();
+					ctx.moveTo(0, y * mapData.tileHeight);
+					ctx.lineTo(mapData.width * mapData.tileWidth, y * mapData.tileHeight);
+					ctx.stroke();
+				}
+			}
+
+			ctx.restore();
+		};
+	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById]);
+
+	// Trigger render when dependencies change
+	useEffect(() => {
+		renderMap.current();
+	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById]);
 
 	// Render an entity with its hierarchy
 	const renderEntity = (
@@ -266,7 +381,8 @@ export const MapCanvas = () => {
 		const resizeCanvas = () => {
 			canvas.width = parent.clientWidth;
 			canvas.height = parent.clientHeight;
-			setCanvasSize({ width: parent.clientWidth, height: parent.clientHeight });
+			// Immediately redraw after resizing to prevent blank canvas
+			renderMap.current();
 		};
 
 		// Native wheel event listener (to allow preventDefault)
@@ -301,7 +417,7 @@ export const MapCanvas = () => {
 
 		resizeCanvas();
 
-		// Watch for parent container size changes
+		// Resize canvas continuously during panel resize
 		const resizeObserver = new ResizeObserver(() => {
 			resizeCanvas();
 		});
