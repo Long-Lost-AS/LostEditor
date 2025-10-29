@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "name": "Map_2",
+  "width": 32,
+  "height": 32,
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "layers": [],
+  "lastModified": "2025-10-29T08:55:46.676Z"
+}

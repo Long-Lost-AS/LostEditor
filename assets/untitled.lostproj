@@ -1,18 +1,13 @@
 {
-  "version": "2.0",
+  "version": "3.0",
   "name": "untitled",
-  "tilesets": [
-    "Buildings.lostset"
+  "tilesets": [],
+  "maps": [
+    "maps/Untitled_Map.lostmap",
+    "maps/Map_2.lostmap"
   ],
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "mapData": {
-    "width": 32,
-    "height": 32,
-    "tileWidth": 16,
-    "tileHeight": 16,
-    "layers": []
-  },
-  "lastModified": "2025-10-28T21:01:24.129Z",
+  "lastModified": "2025-10-29T08:55:46.693Z",
   "openTabs": {
     "tabs": [
       {
@@ -20,13 +15,27 @@
         "type": "map",
         "title": "Untitled Map",
         "isDirty": false,
-        "mapData": {
-          "width": 32,
-          "height": 32,
-          "tileWidth": 16,
-          "tileHeight": 16,
-          "layers": []
-        },
+        "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/maps/Untitled_Map.lostmap",
+        "mapId": "default-map",
+        "viewState": {
+          "zoom": 2,
+          "panX": 0,
+          "panY": 0,
+          "currentLayerId": null,
+          "gridVisible": true,
+          "selectedTilesetId": null,
+          "selectedTileId": null,
+          "selectedEntityDefId": null,
+          "currentTool": "pencil"
+        }
+      },
+      {
+        "id": "map-1761726585640",
+        "type": "map",
+        "title": "Map_2",
+        "isDirty": false,
+        "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/maps/Map_2.lostmap",
+        "mapId": "map-1761726585640",
         "viewState": {
           "zoom": 2,
           "panX": 0,
@@ -40,6 +49,6 @@
         }
       }
     ],
-    "activeTabId": "default-map"
+    "activeTabId": "map-1761726585640"
   }
 }

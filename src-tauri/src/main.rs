@@ -244,6 +244,22 @@ async fn rebuild_menu() {
     // This is a placeholder for compatibility
 }
 
+#[tauri::command]
+async fn create_dir(path: String) -> FileResult {
+    match fs::create_dir_all(&path) {
+        Ok(_) => FileResult {
+            success: true,
+            data: None,
+            error: None,
+        },
+        Err(e) => FileResult {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
 fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
@@ -258,6 +274,9 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                         .build(app)?,
                     &MenuItemBuilder::with_id("open-project", "Open Project")
                         .accelerator("CmdOrCtrl+O")
+                        .build(app)?,
+                    &MenuItemBuilder::with_id("new-map", "New Map")
+                        .accelerator("CmdOrCtrl+M")
                         .build(app)?,
                     &MenuItemBuilder::with_id("new-tileset", "New Tileset")
                         .accelerator("CmdOrCtrl+T")
@@ -330,6 +349,9 @@ fn main() {
                         "open-project" => {
                             let _ = window.emit("menu:open-project", ());
                         }
+                        "new-map" => {
+                            let _ = window.emit("menu:new-map", ());
+                        }
                         "new-tileset" => {
                             let _ = window.emit("menu:new-tileset", ());
                         }
@@ -389,7 +411,8 @@ fn main() {
             save_settings,
             show_open_dialog,
             show_save_dialog,
-            rebuild_menu
+            rebuild_menu,
+            create_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
