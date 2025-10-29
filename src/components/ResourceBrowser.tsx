@@ -1,9 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor } from '../context/EditorContext'
-import { readDir, mkdir, remove } from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, remove, rename, exists } from '@tauri-apps/plugin-fs'
 import { fileManager } from '../managers/FileManager'
 import { TilesetTab } from '../types'
+import {
+  DndContext,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+  useDraggable,
+  useDroppable
+} from '@dnd-kit/core'
 
 interface FileItem {
   name: string
@@ -39,6 +50,23 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     item: FileItem | null
   }>({ visible: false, item: null })
 
+  // Multi-select state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
+
+  // Drag and drop state (dnd-kit)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
+
+  // Set up dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8 // Require 8px movement before drag starts (prevents accidental drags)
+      }
+    })
+  )
+
   // Close context menu when clicking outside
   useEffect(() => {
     const handleClick = () => setContextMenu(null)
@@ -48,6 +76,32 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
       return () => document.removeEventListener('click', handleClick)
     }
   }, [contextMenu])
+
+  // Clear selection when directory changes
+  useEffect(() => {
+    setSelectedItems(new Set())
+    setLastSelectedIndex(null)
+  }, [currentPath])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+A or Cmd+A - Select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && files.length > 0) {
+        e.preventDefault()
+        const allPaths = new Set(files.map(f => f.path))
+        setSelectedItems(allPaths)
+      }
+      // Escape - Clear selection
+      if (e.key === 'Escape') {
+        setSelectedItems(new Set())
+        setLastSelectedIndex(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [files])
 
   // File operation handlers
   const handleCreateFolder = async (folderName: string) => {
@@ -133,10 +187,40 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     }
   }, [projectDirectory])
 
-  const handleItemClick = (item: FileItem) => {
-    if (item.isDirectory) {
+  const handleItemClick = (item: FileItem, index: number, e: React.MouseEvent) => {
+    // If it's a directory and it's a simple click (no modifiers), navigate into it
+    if (item.isDirectory && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       setCurrentPath(item.path)
       loadDirectory(item.path)
+      return
+    }
+
+    // Multi-select logic for files or folders with modifiers
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+Click: Toggle selection
+      const newSelection = new Set(selectedItems)
+      if (newSelection.has(item.path)) {
+        newSelection.delete(item.path)
+      } else {
+        newSelection.add(item.path)
+      }
+      setSelectedItems(newSelection)
+      setLastSelectedIndex(index)
+    } else if (e.shiftKey && lastSelectedIndex !== null) {
+      // Shift+Click: Range selection
+      const start = Math.min(lastSelectedIndex, index)
+      const end = Math.max(lastSelectedIndex, index)
+      const newSelection = new Set<string>()
+      for (let i = start; i <= end; i++) {
+        if (files[i]) {
+          newSelection.add(files[i].path)
+        }
+      }
+      setSelectedItems(newSelection)
+    } else {
+      // Regular click: Select only this item
+      setSelectedItems(new Set([item.path]))
+      setLastSelectedIndex(index)
     }
   }
 
@@ -172,6 +256,114 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 
       default:
         console.log('File type not supported for opening:', extension)
+    }
+  }
+
+  // Helper: Check if path is a subdirectory of parent
+  const isSubdirectory = (parent: string, child: string): boolean => {
+    const normalizedParent = parent.endsWith('/') ? parent : parent + '/'
+    return child.startsWith(normalizedParent)
+  }
+
+  // dnd-kit drag handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const draggedPath = event.active.id as string
+    setActiveId(draggedPath)
+
+    // If dragging an unselected item, select it
+    const item = files.find(f => f.path === draggedPath)
+    if (item && !selectedItems.has(draggedPath)) {
+      const index = files.indexOf(item)
+      setSelectedItems(new Set([draggedPath]))
+      setLastSelectedIndex(index)
+    }
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    setOverId(event.over?.id as string | null)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    setActiveId(null)
+    setOverId(null)
+
+    if (!over) return
+
+    const sourcePath = active.id as string
+    const targetPath = over.id as string
+
+    // Get the target item
+    const targetItem = files.find(f => f.path === targetPath)
+    if (!targetItem || !targetItem.isDirectory) return
+
+    // Determine which items to move
+    const itemsToMove = selectedItems.has(sourcePath)
+      ? Array.from(selectedItems)
+      : [sourcePath]
+
+    // Validate: can't drop on self
+    if (itemsToMove.includes(targetPath)) {
+      setError('Cannot move a folder into itself')
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    // Validate: can't drop into subdirectory
+    for (const itemPath of itemsToMove) {
+      if (isSubdirectory(itemPath, targetPath)) {
+        setError('Cannot move a folder into itself')
+        setTimeout(() => setError(null), 3000)
+        return
+      }
+    }
+
+    // Perform move operation
+    setLoading(true)
+    const errors: string[] = []
+
+    try {
+      for (const sourcePath of itemsToMove) {
+        const fileName = fileManager.basename(sourcePath)
+        const destPath = fileManager.join(targetPath, fileName)
+
+        // Check if file already exists
+        try {
+          const fileExists = await exists(destPath)
+          if (fileExists) {
+            const confirmed = confirm(`File "${fileName}" already exists in destination. Replace it?`)
+            if (!confirmed) continue
+          }
+        } catch (err) {
+          // File doesn't exist, continue
+        }
+
+        // Perform the move
+        try {
+          await rename(sourcePath, destPath)
+        } catch (err) {
+          console.error('Failed to move item:', err)
+          errors.push(`Failed to move ${fileName}: ${err}`)
+        }
+      }
+
+      // Show errors if any
+      if (errors.length > 0) {
+        setError(errors.join('\n'))
+        setTimeout(() => setError(null), 5000)
+      }
+
+      // Refresh directory and clear selection
+      await loadDirectory(currentPath)
+      setSelectedItems(new Set())
+      setLastSelectedIndex(null)
+    } catch (err) {
+      console.error('Drop operation failed:', err)
+      setError(`Failed to move items: ${err}`)
+      setTimeout(() => setError(null), 3000)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -213,6 +405,84 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
     return parts
   }
 
+  // Draggable and Droppable File Item Component
+  const DraggableDroppableItem = ({ item, index }: { item: FileItem; index: number }) => {
+    const isSelected = selectedItems.has(item.path)
+    const isActive = activeId === item.path
+    const isOver = overId === item.path && item.isDirectory
+
+    // Both files and folders can be dragged
+    const { attributes, listeners, setNodeRef: setDraggableRef, transform } = useDraggable({
+      id: item.path,
+      data: { item }
+    })
+
+    // Only folders can receive drops
+    const { setNodeRef: setDroppableRef } = useDroppable({
+      id: item.path,
+      disabled: !item.isDirectory
+    })
+
+    // Combine refs for folders (both draggable and droppable)
+    const combinedRef = (node: HTMLDivElement | null) => {
+      setDraggableRef(node)
+      if (item.isDirectory) {
+        setDroppableRef(node)
+      }
+    }
+
+    // Apply transform for dragging
+    const style = {
+      background: isSelected ? 'rgba(14, 99, 156, 0.3)' : 'transparent',
+      border: isSelected ? '2px solid #1177bb' : '2px solid transparent',
+      outline: isOver ? '2px dashed #1177bb' : 'none',
+      outlineOffset: '-2px',
+      cursor: isActive ? 'grabbing' : 'pointer',
+      transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+      transition: isActive ? 'none' : 'transform 200ms ease'
+    }
+
+    return (
+      <div
+        ref={combinedRef}
+        {...attributes}
+        {...listeners}
+        className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-all group relative"
+        style={style}
+        onClick={(e) => handleItemClick(item, index, e)}
+        onDoubleClick={() => handleItemDoubleClick(item)}
+        onContextMenu={(e) => handleContextMenu(e, item)}
+        onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+          if (!isSelected && !isActive) {
+            e.currentTarget.style.background = '#3e3e42'
+          }
+        }}
+        onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+          if (!isSelected) {
+            e.currentTarget.style.background = 'transparent'
+          }
+        }}
+      >
+        <div className="text-4xl" style={{ userSelect: 'none' }}>{getIcon(item)}</div>
+        <div className="text-xs text-center break-all line-clamp-2 w-full" style={{ color: '#cccccc', userSelect: 'none' }}>
+          {item.name}
+        </div>
+        {isSelected && selectedItems.size > 1 && (
+          <div
+            className="absolute top-1 right-1 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+            style={{
+              background: '#1177bb',
+              color: '#ffffff',
+              userSelect: 'none'
+            }}
+          >
+            {Array.from(selectedItems).indexOf(item.path) === 0 ? selectedItems.size : ''}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (!projectDirectory) {
     return (
       <div className="p-4 text-center text-gray-400 text-sm">
@@ -225,7 +495,13 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
   const canGoUp = projectDirectory && currentPath !== projectDirectory
 
   return (
-    <div className="h-full flex flex-col" style={{ background: '#252526' }}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="h-full flex flex-col" style={{ background: '#252526' }}>
       {/* Header with Assets title and breadcrumbs */}
       <div className="flex items-center gap-3 px-4 py-2" style={{ background: '#2d2d30', borderBottom: '1px solid #3e3e42' }}>
         <h3 className="text-sm font-semibold" style={{ color: '#cccccc' }}>Assets</h3>
@@ -293,20 +569,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
         ) : (
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-4">
             {files.map((item, index) => (
-              <div
-                key={`${item.path}-${index}`}
-                className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-colors group"
-                onClick={() => handleItemClick(item)}
-                onDoubleClick={() => handleItemDoubleClick(item)}
-                onContextMenu={(e) => handleContextMenu(e, item)}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <div className="text-4xl">{getIcon(item)}</div>
-                <div className="text-xs text-center break-all line-clamp-2 w-full" style={{ color: '#cccccc' }}>
-                  {item.name}
-                </div>
-              </div>
+              <DraggableDroppableItem key={item.path} item={item} index={index} />
             ))}
           </div>
         )}
@@ -535,5 +798,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
         document.body
       )}
     </div>
+    </DndContext>
   )
 }
