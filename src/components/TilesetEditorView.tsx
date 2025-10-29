@@ -279,10 +279,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		};
 
 		draw();
-		window.addEventListener("resize", draw);
+
+		// Use ResizeObserver to watch for container size changes
+		const resizeObserver = new ResizeObserver(() => {
+			draw();
+		});
+		resizeObserver.observe(container);
 
 		return () => {
-			window.removeEventListener("resize", draw);
+			resizeObserver.disconnect();
 		};
 	}, [
 		tilesetData,
@@ -642,9 +647,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
-			<div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+			<div className="w-64 flex flex-col" style={{ background: '#252526', borderRight: '1px solid #3e3e42' }}>
 				{/* Header */}
-				<div className="p-4 border-b border-gray-700">
+				<div className="p-4" style={{ borderBottom: '1px solid #3e3e42' }}>
 					{isEditingName ? (
 						<input
 							type="text"
@@ -652,12 +657,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							onChange={(e) => setEditedName(e.target.value)}
 							onBlur={handleNameSave}
 							onKeyDown={handleNameKeyDown}
-							className="w-full px-2 py-1 text-sm font-medium bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none"
+							className="w-full px-2 py-1 text-sm font-medium rounded focus:outline-none"
+							style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
 							autoFocus
 						/>
 					) : (
 						<div
-							className="text-sm font-medium text-gray-300 cursor-pointer hover:text-gray-100 hover:bg-gray-700 px-2 py-1 rounded transition-colors"
+							className="text-sm font-medium cursor-pointer px-2 py-1 rounded transition-colors"
+							style={{ color: '#cccccc' }}
+							onMouseEnter={(e) => { e.currentTarget.style.background = '#3e3e42'; e.currentTarget.style.color = '#ffffff'; }}
+							onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cccccc'; }}
 							onClick={handleNameClick}
 							title="Click to edit name"
 						>
@@ -671,13 +680,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					<div className="space-y-4">
 						{/* Tileset Properties */}
 						<div>
-							<div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+							<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
 								Tileset Properties
 							</div>
 							<div className="space-y-2">
 								<div className="grid grid-cols-2 gap-2">
 									<div>
-										<label className="text-xs text-gray-400 block mb-1">
+										<label className="text-xs block mb-1" style={{ color: '#858585' }}>
 											Tile Width
 										</label>
 										<input
@@ -688,12 +697,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTileset(tab.tilesetId, { tileWidth: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1 text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+											className="w-full px-2 py-1 text-xs rounded focus:outline-none"
+											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555' }}
 											min="1"
 										/>
 									</div>
 									<div>
-										<label className="text-xs text-gray-400 block mb-1">
+										<label className="text-xs block mb-1" style={{ color: '#858585' }}>
 											Tile Height
 										</label>
 										<input
@@ -704,7 +714,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTileset(tab.tilesetId, { tileHeight: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1 text-xs bg-gray-700 text-gray-200 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+											className="w-full px-2 py-1 text-xs rounded focus:outline-none"
+											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555' }}
 											min="1"
 										/>
 									</div>
@@ -715,12 +726,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						{/* Tile Properties */}
 						{selectedTile && (
 							<div className="mt-4">
-								<div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+								<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
 									Tile Properties
 								</div>
 								<div className="space-y-3">
 									<div>
-										<label className="text-gray-400 text-xs font-medium block mb-1.5">
+										<label className="text-xs font-medium block mb-1.5" style={{ color: '#858585' }}>
 											Name
 										</label>
 										{isEditingTileName ? (
@@ -739,20 +750,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														setIsEditingTileName(false);
 													}
 												}}
-												className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
 												autoFocus
 											/>
 										) : (
 											<div
 												onClick={() => setIsEditingTileName(true)}
-												className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
+												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
+												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid transparent' }}
+												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
+												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
 											>
 												{selectedTile.name || "(none)"}
 											</div>
 										)}
 									</div>
 									<div>
-										<label className="text-gray-400 text-xs font-medium block mb-1.5">
+										<label className="text-xs font-medium block mb-1.5" style={{ color: '#858585' }}>
 											Type
 										</label>
 										{isEditingTileType ? (
@@ -771,13 +786,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														setIsEditingTileType(false);
 													}
 												}}
-												className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
 												autoFocus
 											/>
 										) : (
 											<div
 												onClick={() => setIsEditingTileType(true)}
-												className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
+												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
+												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid transparent' }}
+												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
+												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
 											>
 												{selectedTile.type || "(none)"}
 											</div>
