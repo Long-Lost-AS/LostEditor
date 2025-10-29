@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { PolygonCollider } from '../types'
 
 interface CollisionEditorProps {
@@ -140,21 +140,21 @@ export const CollisionEditor = ({
     setHistory(newHistory)
   }
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1
       setHistoryIndex(newIndex)
       onUpdate(history[newIndex])
     }
-  }
+  }, [historyIndex, history, onUpdate])
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1
       setHistoryIndex(newIndex)
       onUpdate(history[newIndex])
     }
-  }
+  }, [historyIndex, history, onUpdate])
 
   const canUndo = historyIndex > 0
   const canRedo = historyIndex < history.length - 1
@@ -332,7 +332,7 @@ export const CollisionEditor = ({
     return () => container.removeEventListener('wheel', handleWheel)
   }, [])
 
-  // Setup keyboard shortcuts at document level
+  // Setup keyboard shortcuts at document level - stable handler using callbacks
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Undo/Redo shortcuts
@@ -349,7 +349,7 @@ export const CollisionEditor = ({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [historyIndex, history])
+  }, [handleUndo, handleRedo]) // Use stable callbacks instead of history state
 
   const snapCoord = (value: number) => {
     return snapToGrid ? Math.round(value) : value

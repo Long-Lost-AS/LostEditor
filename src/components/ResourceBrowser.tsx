@@ -39,6 +39,9 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Ref for files array to avoid re-registering keyboard handler
+  const filesRef = useRef<FileItem[]>([])
+
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -92,18 +95,23 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
   }, [contextMenu])
 
   // Clear selection when directory changes
+  // Keep filesRef synchronized
+  useEffect(() => {
+    filesRef.current = files
+  }, [files])
+
   useEffect(() => {
     setSelectedItems(new Set())
     setLastSelectedIndex(null)
   }, [currentPath])
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - stable handler using ref
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+A or Cmd+A - Select all
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && files.length > 0) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && filesRef.current.length > 0) {
         e.preventDefault()
-        const allPaths = new Set(files.map(f => f.path))
+        const allPaths = new Set(filesRef.current.map(f => f.path))
         setSelectedItems(allPaths)
       }
       // Escape - Clear selection
@@ -115,7 +123,7 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [files])
+  }, []) // Empty deps - handler registered once
 
   // File operation handlers
   const handleCreateFolder = async (folderName: string) => {
