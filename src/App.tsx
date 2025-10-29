@@ -25,6 +25,7 @@ const AppContent = () => {
     getActiveMapTab,
     getActiveTilesetTab,
     newProject,
+    newMap,
     loadProject,
     saveProject,
     saveProjectAs,
@@ -35,9 +36,20 @@ const AppContent = () => {
   } = useEditor()
 
   const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true)
+  const [rightPanelWidth, setRightPanelWidth] = useState(350)
+  const [isResizing, setIsResizing] = useState(false)
+  const [dragStartX, setDragStartX] = useState(0)
+  const [dragStartWidth, setDragStartWidth] = useState(0)
+
+  // Bottom panel resize state
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(250)
+  const [isResizingBottom, setIsResizingBottom] = useState(false)
+  const [dragStartY, setDragStartY] = useState(0)
+  const [dragStartHeight, setDragStartHeight] = useState(0)
 
   // Use refs to store the latest function references
   const newProjectRef = useRef(newProject)
+  const newMapRef = useRef(newMap)
   const loadProjectRef = useRef(loadProject)
   const saveProjectRef = useRef(saveProject)
   const saveProjectAsRef = useRef(saveProjectAs)
@@ -46,9 +58,11 @@ const AppContent = () => {
   const saveTilesetRef = useRef(saveTileset)
   const saveAllRef = useRef(saveAll)
   const getActiveTilesetTabRef = useRef(getActiveTilesetTab)
+  const listenersRegistered = useRef(false)
 
   useEffect(() => {
     newProjectRef.current = newProject
+    newMapRef.current = newMap
     loadProjectRef.current = loadProject
     saveProjectRef.current = saveProject
     saveProjectAsRef.current = saveProjectAs
@@ -57,7 +71,7 @@ const AppContent = () => {
     saveTilesetRef.current = saveTileset
     saveAllRef.current = saveAll
     getActiveTilesetTabRef.current = getActiveTilesetTab
-  }, [newProject, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
+  }, [newProject, newMap, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
 
   // Handle creating a new tileset
   const handleNewTileset = async () => {
@@ -124,6 +138,12 @@ const AppContent = () => {
   }
 
   useEffect(() => {
+    // Prevent React Strict Mode from registering duplicate listeners
+    if (listenersRegistered.current) {
+      return
+    }
+    listenersRegistered.current = true
+
     // Set up menu event listeners
     const unlisteners: Array<() => void> = []
 
@@ -185,6 +205,11 @@ const AppContent = () => {
       await handleNewTileset()
     }).then(unlisten => unlisteners.push(unlisten))
 
+    // New Map - create new map tab
+    listen('menu:new-map', () => {
+      newMapRef.current()
+    }).then(unlisten => unlisteners.push(unlisten))
+
     // Note: Load Tileset removed - tilesets auto-load from project file
     listen('menu:load-tileset', async () => {
       // No-op: Tilesets are automatically loaded from project
@@ -192,12 +217,104 @@ const AppContent = () => {
 
     // Cleanup listeners on unmount
     return () => {
+      // Don't reset listenersRegistered flag - we want to prevent duplicate registration on remount (React Strict Mode)
       unlisteners.forEach(unlisten => unlisten())
     }
   }, [])
 
   const activeMapTab = getActiveMapTab()
   const activeTilesetTab = getActiveTilesetTab()
+
+  // Handle right panel resize drag
+  const handleResizeStart = (e: React.MouseEvent) => {
+    setIsResizing(true)
+    setDragStartX(e.clientX)
+    setDragStartWidth(rightPanelWidth)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    // Disable text selection during resize
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = dragStartX - e.clientX // Negative because we're pulling from the right
+      const newWidth = dragStartWidth + deltaX
+
+      // Constrain width: min 200px, max 50% of window width
+      const minWidth = 200
+      const maxWidth = window.innerWidth * 0.5
+      const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
+
+      setRightPanelWidth(constrainedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      // Re-enable text selection
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      // Ensure text selection is re-enabled on cleanup
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+  }, [isResizing, dragStartX, dragStartWidth])
+
+  // Handle bottom panel resize drag
+  const handleBottomResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault() // Prevent text selection
+    setIsResizingBottom(true)
+    setDragStartY(e.clientY)
+    setDragStartHeight(bottomPanelHeight)
+  }
+
+  useEffect(() => {
+    if (!isResizingBottom) return
+
+    // Disable text selection during resize
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'row-resize'
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = dragStartY - e.clientY // Positive means dragging up (making panel taller)
+      const newHeight = dragStartHeight + deltaY
+
+      // Constrain height: min 150px, max 70% of window height
+      const minHeight = 150
+      const maxHeight = window.innerHeight * 0.7
+      const constrainedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight))
+
+      setBottomPanelHeight(constrainedHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingBottom(false)
+      // Re-enable text selection
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      // Ensure text selection is re-enabled on cleanup
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+  }, [isResizingBottom, dragStartY, dragStartHeight])
 
   return (
     <div className="app-container">
@@ -214,31 +331,36 @@ const AppContent = () => {
           <>
             <div className="editor-top-section">
               <div className="left-panel">
-                <TilesetPanel />
+                <PropertiesPanel />
                 <EntityPanel />
                 <LayersPanel />
               </div>
               <MapCanvas />
-              <div className="right-panel">
-                <PropertiesPanel />
+              <div
+                className={`resize-handle ${isResizing ? 'active' : ''}`}
+                onMouseDown={handleResizeStart}
+              />
+              <div
+                className="right-panel"
+                style={{ width: `${rightPanelWidth}px` }}
+              >
+                <TilesetPanel />
               </div>
             </div>
             {isAssetBrowserOpen && (
-              <div className="bottom-panel">
-                <div className="bottom-panel-header">
-                  <h3>Assets</h3>
-                  <button
-                    onClick={() => setIsAssetBrowserOpen(false)}
-                    className="panel-close-btn"
-                    title="Close Assets Panel"
-                  >
-                    ×
-                  </button>
+              <>
+                {/* Resize handle for bottom panel */}
+                <div
+                  className={`h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize ${isResizingBottom ? 'bg-blue-500' : ''}`}
+                  onMouseDown={handleBottomResizeStart}
+                />
+                <div
+                  className="bottom-panel"
+                  style={{ height: `${bottomPanelHeight}px` }}
+                >
+                  <ResourceBrowser onClose={() => setIsAssetBrowserOpen(false)} />
                 </div>
-                <div className="bottom-panel-content">
-                  <ResourceBrowser />
-                </div>
-              </div>
+              </>
             )}
             {!isAssetBrowserOpen && (
               <div className="bottom-panel-collapsed">
