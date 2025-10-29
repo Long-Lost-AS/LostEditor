@@ -116,6 +116,42 @@ export class TilesetManager {
   }
 
   /**
+   * Get a loaded tileset by path (alias for getTileset)
+   */
+  getTilesetByPath(tilesetPath: string): TilesetData | undefined {
+    return this.getTileset(tilesetPath)
+  }
+
+  /**
+   * Update a tileset's cache key when its path changes
+   */
+  updateTilesetPath(oldPath: string, newPath: string): void {
+    const tileset = this.tilesets.get(oldPath)
+    if (tileset) {
+      this.tilesets.delete(oldPath)
+      tileset.filePath = newPath
+      this.tilesets.set(newPath, tileset)
+      console.log(`Updated tileset cache key: ${oldPath} -> ${newPath}`)
+    }
+  }
+
+  /**
+   * Update the imagePath in all loaded tilesets when an image is moved
+   */
+  updateImagePath(oldImagePath: string, newImagePath: string): void {
+    const normalizedOld = fileManager.normalize(oldImagePath)
+    const normalizedNew = fileManager.normalize(newImagePath)
+
+    for (const tileset of this.tilesets.values()) {
+      const normalizedTilesetImagePath = fileManager.normalize(tileset.imagePath)
+      if (normalizedTilesetImagePath === normalizedOld) {
+        tileset.imagePath = normalizedNew
+        console.log(`Updated tileset ${tileset.name} imagePath: ${oldImagePath} -> ${newImagePath}`)
+      }
+    }
+  }
+
+  /**
    * Get a loaded tileset by ID
    */
   getTilesetById(tilesetId: string): TilesetData | undefined {

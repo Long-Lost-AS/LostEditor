@@ -4,6 +4,7 @@ import { useEditor } from '../context/EditorContext'
 import { readDir, mkdir, remove, rename, exists } from '@tauri-apps/plugin-fs'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { fileManager } from '../managers/FileManager'
+import { referenceManager } from '../managers/ReferenceManager'
 import { TilesetTab } from '../types'
 import {
   DndContext,
@@ -176,7 +177,20 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         return
       }
 
+      // Perform the rename
       await rename(item.path, newPath)
+
+      // Update references if in project directory
+      if (projectDirectory && item.path.startsWith(projectDirectory)) {
+        try {
+          await referenceManager.updateReferences(item.path, newPath, projectDirectory)
+          referenceManager.updateManagerCaches(item.path, newPath)
+        } catch (err) {
+          console.error('Failed to update references:', err)
+          // Don't fail the rename if reference update fails
+        }
+      }
+
       await loadDirectory(currentPath)
       setRenameModal({ visible: false, item: null, newName: '' })
     } catch (err) {
@@ -389,6 +403,17 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
           // Perform the move
           try {
             await rename(itemPath, destPath)
+
+            // Update references if in project directory
+            if (projectDirectory && itemPath.startsWith(projectDirectory)) {
+              try {
+                await referenceManager.updateReferences(itemPath, destPath, projectDirectory)
+                referenceManager.updateManagerCaches(itemPath, destPath)
+              } catch (err) {
+                console.error('Failed to update references:', err)
+                // Don't fail the move if reference update fails
+              }
+            }
           } catch (err) {
             console.error('Failed to move item:', err)
             errors.push(`Failed to move ${fileName}: ${err}`)
@@ -466,6 +491,17 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         // Perform the move
         try {
           await rename(sourcePath, destPath)
+
+          // Update references if in project directory
+          if (projectDirectory && sourcePath.startsWith(projectDirectory)) {
+            try {
+              await referenceManager.updateReferences(sourcePath, destPath, projectDirectory)
+              referenceManager.updateManagerCaches(sourcePath, destPath)
+            } catch (err) {
+              console.error('Failed to update references:', err)
+              // Don't fail the move if reference update fails
+            }
+          }
         } catch (err) {
           console.error('Failed to move item:', err)
           errors.push(`Failed to move ${fileName}: ${err}`)

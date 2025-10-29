@@ -102,6 +102,25 @@ export class MapManager {
   }
 
   /**
+   * Get a loaded map by path (alias for getMap)
+   */
+  getMapByPath(mapPath: string): MapData | undefined {
+    return this.getMap(mapPath)
+  }
+
+  /**
+   * Update a map's cache key when its path changes
+   */
+  updateMapPath(oldPath: string, newPath: string): void {
+    const map = this.maps.get(oldPath)
+    if (map) {
+      this.maps.delete(oldPath)
+      this.maps.set(newPath, map)
+      console.log(`Updated map cache key: ${oldPath} -> ${newPath}`)
+    }
+  }
+
+  /**
    * Get all loaded maps
    */
   getAllMaps(): MapData[] {
