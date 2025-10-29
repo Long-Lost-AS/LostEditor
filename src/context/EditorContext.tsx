@@ -159,39 +159,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const [tabs, setTabs] = useState<AnyTab[]>([]);
 	const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
-	// Create initial default map tab
-	useEffect(() => {
-		if (tabs.length === 0) {
-			const defaultMapTab: MapTab = {
-				id: "default-map",
-				type: "map",
-				title: "Untitled Map",
-				isDirty: false,
-				mapId: "default-map",
-				mapData: {
-					width: 32,
-					height: 32,
-					tileWidth: 16,
-					tileHeight: 16,
-					layers: [],
-				},
-				viewState: {
-					zoom: 2,
-					panX: 0,
-					panY: 0,
-					currentLayerId: null,
-					gridVisible: true,
-					selectedTilesetId: null,
-					selectedTileId: null,
-					selectedEntityDefId: null,
-					currentTool: "pencil",
-				},
-			};
-			setTabs([defaultMapTab]);
-			setActiveTabId(defaultMapTab.id);
-		}
-	}, []);
-
 	const [mapData, setMapData] = useState<MapData>({
 		width: 32,
 		height: 32,
