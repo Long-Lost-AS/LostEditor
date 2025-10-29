@@ -28,9 +28,10 @@ const UP_DIRECTORY_ID = '__up_directory__'
 
 interface ResourceBrowserProps {
   onClose: () => void
+  isModal?: boolean
 }
 
-export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
+export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserProps) => {
   const { projectDirectory, openMapFromFile, openTilesetFromFile, openTab, tilesets, newMap, newTileset } = useEditor()
   const [currentPath, setCurrentPath] = useState<string>('')
   const [files, setFiles] = useState<FileItem[]>([])

@@ -12,6 +12,7 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { ResourceBrowser } from './components/ResourceBrowser'
 import { EntityPanel } from './components/EntityPanel'
 import { TilesetEditorView } from './components/TilesetEditorView'
+import { EmptyState } from './components/EmptyState'
 import { TilesetData } from './types'
 import './style.css'
 
@@ -255,6 +256,20 @@ const AppContent = () => {
     }
   }, [isResizingBottom, dragStartY, dragStartHeight])
 
+  // Global keyboard handler for Shift+Space (toggle ResourceBrowser)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Shift+Space - Toggle ResourceBrowser
+      if (e.shiftKey && e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        setIsAssetBrowserOpen(prev => !prev)
+      }
+    }
+
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [])
+
   return (
     <div className="app-container">
       <Toolbar />
@@ -265,59 +280,64 @@ const AppContent = () => {
         onTabClose={closeTab}
       />
       <div className="main-container">
-        {/* Show map editor view for map tabs or when no tab is active (backward compatibility) */}
-        {(activeMapTab || !activeTabId) && (
-          <>
-            <div className="editor-top-section">
-              <div className="left-panel">
-                <PropertiesPanel />
-                <EntityPanel />
-                <LayersPanel />
-              </div>
-              <MapCanvas />
-              <div
-                className={`resize-handle ${isResizing ? 'active' : ''}`}
-                onMouseDown={handleResizeStart}
-              />
-              <div
-                className="right-panel"
-                style={{ width: `${rightPanelWidth}px` }}
-              >
-                <TilesetPanel />
-              </div>
+        {/* Show empty state when no tabs are open */}
+        {tabs.length === 0 && <EmptyState />}
+
+        {/* Show map editor view for map tabs */}
+        {activeMapTab && (
+          <div className="editor-top-section">
+            <div className="left-panel">
+              <PropertiesPanel />
+              <EntityPanel />
+              <LayersPanel />
             </div>
-            {isAssetBrowserOpen && (
-              <>
-                {/* Resize handle for bottom panel */}
-                <div
-                  className={`h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize ${isResizingBottom ? 'bg-blue-500' : ''}`}
-                  onMouseDown={handleBottomResizeStart}
-                />
-                <div
-                  className="bottom-panel"
-                  style={{ height: `${bottomPanelHeight}px` }}
-                >
-                  <ResourceBrowser onClose={() => setIsAssetBrowserOpen(false)} />
-                </div>
-              </>
-            )}
-            {!isAssetBrowserOpen && (
-              <div className="bottom-panel-collapsed">
-                <button
-                  onClick={() => setIsAssetBrowserOpen(true)}
-                  className="panel-expand-btn"
-                  title="Open Assets Panel"
-                >
-                  Assets ▲
-                </button>
-              </div>
-            )}
-          </>
+            <MapCanvas />
+            <div
+              className={`resize-handle ${isResizing ? 'active' : ''}`}
+              onMouseDown={handleResizeStart}
+            />
+            <div
+              className="right-panel"
+              style={{ width: `${rightPanelWidth}px` }}
+            >
+              <TilesetPanel />
+            </div>
+          </div>
         )}
 
         {/* Show tileset editor view for tileset tabs */}
         {activeTilesetTab && (
-          <TilesetEditorView tab={activeTilesetTab} />
+          <div className="editor-top-section">
+            <TilesetEditorView tab={activeTilesetTab} />
+          </div>
+        )}
+
+        {/* Global ResourceBrowser (Shift+Space to toggle) */}
+        {isAssetBrowserOpen && (
+          <>
+            {/* Resize handle for bottom panel */}
+            <div
+              className={`h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize ${isResizingBottom ? 'bg-blue-500' : ''}`}
+              onMouseDown={handleBottomResizeStart}
+            />
+            <div
+              className="bottom-panel"
+              style={{ height: `${bottomPanelHeight}px` }}
+            >
+              <ResourceBrowser onClose={() => setIsAssetBrowserOpen(false)} />
+            </div>
+          </>
+        )}
+        {!isAssetBrowserOpen && tabs.length > 0 && (
+          <div className="bottom-panel-collapsed">
+            <button
+              onClick={() => setIsAssetBrowserOpen(true)}
+              className="panel-expand-btn"
+              title="Open Assets Panel (Shift+Space)"
+            >
+              Assets ▲
+            </button>
+          </div>
         )}
       </div>
     </div>
