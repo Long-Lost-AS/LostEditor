@@ -26,6 +26,7 @@ const AppContent = () => {
     getActiveTilesetTab,
     newProject,
     newMap,
+    newTileset,
     loadProject,
     saveProject,
     saveProjectAs,
@@ -50,6 +51,7 @@ const AppContent = () => {
   // Use refs to store the latest function references
   const newProjectRef = useRef(newProject)
   const newMapRef = useRef(newMap)
+  const newTilesetRef = useRef(newTileset)
   const loadProjectRef = useRef(loadProject)
   const saveProjectRef = useRef(saveProject)
   const saveProjectAsRef = useRef(saveProjectAs)
@@ -63,6 +65,7 @@ const AppContent = () => {
   useEffect(() => {
     newProjectRef.current = newProject
     newMapRef.current = newMap
+    newTilesetRef.current = newTileset
     loadProjectRef.current = loadProject
     saveProjectRef.current = saveProject
     saveProjectAsRef.current = saveProjectAs
@@ -71,71 +74,7 @@ const AppContent = () => {
     saveTilesetRef.current = saveTileset
     saveAllRef.current = saveAll
     getActiveTilesetTabRef.current = getActiveTilesetTab
-  }, [newProject, newMap, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
-
-  // Handle creating a new tileset
-  const handleNewTileset = async () => {
-    // Show dialog to select image
-    const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
-      options: {
-        title: 'Select Tileset Image',
-        filters: [
-          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
-        properties: ['openFile']
-      }
-    })
-
-    if (!result.filePaths || result.filePaths.length === 0) return
-
-    const imagePath = result.filePaths[0]
-
-    // Load the image to get dimensions
-    const img = new Image()
-    img.src = convertFileSrc(imagePath)
-
-    await new Promise((resolve, reject) => {
-      img.onload = resolve
-      img.onerror = reject
-    })
-
-    // Extract filename without extension for tileset name
-    const fileName = imagePath.split('/').pop() || 'Untitled'
-    const tilesetName = fileName.replace(/\.[^/.]+$/, '')
-    const tilesetId = `tileset-${Date.now()}`
-
-    // Create new tileset data
-    const newTilesetData: TilesetData = {
-      version: '1.0',
-      name: tilesetName,
-      id: tilesetId,
-      imagePath: imagePath,
-      imageData: img,
-      tileWidth: 16,
-      tileHeight: 16,
-      tiles: [],
-      entities: []
-    }
-
-    // Add tileset to global tilesets array
-    addTileset(newTilesetData)
-
-    // Create tileset tab with just the tileset ID reference
-    const tilesetTab = {
-      id: `tileset-tab-${tilesetId}`,
-      type: 'tileset' as const,
-      title: tilesetName,
-      isDirty: true, // Mark as dirty since it's not saved yet
-      tilesetId: tilesetId,
-      viewState: {
-        scale: 2,
-        selectedTileRegion: null
-      }
-    }
-
-    openTab(tilesetTab)
-  }
+  }, [newProject, newMap, newTileset, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
 
   useEffect(() => {
     // Prevent React Strict Mode from registering duplicate listeners
@@ -202,7 +141,7 @@ const AppContent = () => {
 
     // New Tileset - create and open in tab
     listen('menu:new-tileset', async () => {
-      await handleNewTileset()
+      await newTilesetRef.current()
     }).then(unlisten => unlisteners.push(unlisten))
 
     // New Map - create new map tab

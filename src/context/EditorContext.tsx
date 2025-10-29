@@ -109,7 +109,8 @@ interface EditorContextType {
   saveProjectAs: (filePath: string) => Promise<void>
   loadProject: (filePath: string) => Promise<void>
   newProject: () => void
-  newMap: () => void
+  newMap: (directory?: string, fileName?: string) => void
+  newTileset: (directory?: string) => Promise<void>
   saveTileset: () => Promise<void>
   saveAll: () => Promise<void>
 }
@@ -886,7 +887,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     setProjectDirectory(null)
   }, [])
 
-  const newMap = useCallback(() => {
+  const newMap = useCallback((directory?: string, fileName?: string) => {
     // Generate a unique ID for the new map
     const mapId = `map-${Date.now()}`
 
@@ -894,12 +895,19 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     setTabs(prevTabs => {
       const mapNumber = prevTabs.filter(t => t.type === 'map').length + 1
 
+      // Determine title and file path
+      const title = fileName || `Map ${mapNumber}`
+      const filePath = directory && fileName
+        ? fileManager.join(directory, fileName.endsWith('.lostmap') ? fileName : `${fileName}.lostmap`)
+        : undefined
+
       const newMapTab: MapTab = {
         id: mapId,
         type: 'map',
-        title: `Map ${mapNumber}`,
+        title: title,
         isDirty: true, // Mark as dirty since it's unsaved
         mapId: mapId,
+        filePath: filePath,
         mapData: {
           width: 32,
           height: 32,
@@ -976,6 +984,70 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
       alert(`Failed to open map: ${error}`)
     }
   }, [tabs, openTab])
+
+  const newTileset = useCallback(async (directory?: string) => {
+    // Show dialog to select image
+    const result = await invoke<{ canceled: boolean; filePaths?: string[] }>('show_open_dialog', {
+      options: {
+        title: 'Select Tileset Image',
+        filters: [
+          { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      }
+    })
+
+    if (!result.filePaths || result.filePaths.length === 0) return
+
+    const imagePath = result.filePaths[0]
+
+    // Load the image to get dimensions
+    const img = new Image()
+    const convertFileSrc = await import('@tauri-apps/api/core').then(m => m.convertFileSrc)
+    img.src = convertFileSrc(imagePath)
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = reject
+    })
+
+    // Extract filename without extension for tileset name
+    const fileName = imagePath.split('/').pop() || 'Untitled'
+    const tilesetName = fileName.replace(/\.[^/.]+$/, '')
+    const tilesetId = `tileset-${Date.now()}`
+
+    // Create new tileset data
+    const newTilesetData: TilesetData = {
+      version: '1.0',
+      name: tilesetName,
+      id: tilesetId,
+      imagePath: imagePath,
+      imageData: img,
+      tileWidth: 16,
+      tileHeight: 16,
+      tiles: [],
+      entities: []
+    }
+
+    // Add tileset to global tilesets array
+    addTileset(newTilesetData)
+
+    // Create tileset tab with just the tileset ID reference
+    const tilesetTab: TilesetTab = {
+      id: `tileset-tab-${tilesetId}`,
+      type: 'tileset' as const,
+      title: tilesetName,
+      isDirty: true, // Mark as dirty since it's not saved yet
+      tilesetId: tilesetId,
+      viewState: {
+        scale: 2,
+        selectedTileRegion: null
+      }
+    }
+
+    openTab(tilesetTab)
+  }, [addTileset, openTab])
 
   const saveTileset = useCallback(async () => {
     const activeTilesetTab = getActiveTilesetTab()
@@ -1151,6 +1223,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
     loadProject,
     newProject,
     newMap,
+    newTileset,
     saveTileset,
     saveAll,
     projectDirectory,
