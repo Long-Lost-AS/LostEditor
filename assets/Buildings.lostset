@@ -2,7 +2,7 @@
   "version": "1.0",
   "name": "Buildings",
   "id": "tileset-1761684340532",
-  "imagePath": "TX Village Building.png",
+  "imagePath": "tilesets/village_building.png",
   "tileWidth": 16,
   "tileHeight": 16,
   "tiles": [
