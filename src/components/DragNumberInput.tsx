@@ -108,6 +108,13 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		}
 	};
 
+	const handleDivFocus = () => {
+		setIsEditing(true);
+		setTimeout(() => {
+			inputRef.current?.select();
+		}, 0);
+	};
+
 	return (
 		<div
 			ref={containerRef}
@@ -131,6 +138,8 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 				/>
 			) : (
 				<div
+					tabIndex={0}
+					onFocus={handleDivFocus}
 					className={`px-2.5 py-1.5 text-xs bg-[#3c3c3c] text-[#cccccc] border border-[#3e3e42] select-none ${roundedLeft ? "rounded" : "rounded-r"}`}
 					style={{ fontFamily: "monospace" }}
 				>
