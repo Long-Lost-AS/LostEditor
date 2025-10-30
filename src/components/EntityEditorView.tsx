@@ -567,6 +567,31 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 								point.y - 8 / viewState.scale,
 							);
 						});
+
+						// Draw center marker
+						const sumX = collider.points.reduce((sum, p) => sum + p.x, 0);
+						const sumY = collider.points.reduce((sum, p) => sum + p.y, 0);
+						const centerX = sumX / collider.points.length;
+						const centerY = sumY / collider.points.length;
+
+						const crossSize = 10 / viewState.scale;
+
+						ctx.strokeStyle = "rgba(100, 200, 255, 1)";
+						ctx.fillStyle = "rgba(100, 200, 255, 1)";
+						ctx.lineWidth = 2 / viewState.scale;
+
+						// Draw crosshair
+						ctx.beginPath();
+						ctx.moveTo(centerX - crossSize, centerY);
+						ctx.lineTo(centerX + crossSize, centerY);
+						ctx.moveTo(centerX, centerY - crossSize);
+						ctx.lineTo(centerX, centerY + crossSize);
+						ctx.stroke();
+
+						// Draw center circle
+						ctx.beginPath();
+						ctx.arc(centerX, centerY, 3 / viewState.scale, 0, Math.PI * 2);
+						ctx.fill();
 					}
 				}
 			}
