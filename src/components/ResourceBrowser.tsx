@@ -33,7 +33,7 @@ interface ResourceBrowserProps {
 }
 
 export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserProps) => {
-  const { projectDirectory, openMapFromFile, openTilesetFromFile, openTab, tilesets, newMap, newTileset } = useEditor()
+  const { projectDirectory, openMapFromFile, openTilesetFromFile, openTab, tilesets, newMap, newTileset, newEntity } = useEditor()
   const [currentPath, setCurrentPath] = useState<string>('')
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -848,6 +848,20 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
               }}
             >
               Create Map
+            </div>
+
+            {/* Create Entity */}
+            <div
+              className="px-4 py-2 text-sm cursor-pointer transition-colors"
+              style={{ color: '#cccccc' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#3e3e42'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onClick={() => {
+                newEntity()
+                setContextMenu(null)
+              }}
+            >
+              Create Entity
             </div>
 
             {/* Create Tileset */}

@@ -20,6 +20,16 @@ export interface SpriteRect {
   height: number
 }
 
+export interface SpriteLayer {
+  id: string
+  name?: string
+  tilesetId: string          // Reference to tileset containing sprite
+  sprite: SpriteRect         // Region in tileset
+  offset?: { x: number; y: number }
+  rotation?: number
+  zIndex: number             // For layer ordering (higher = front)
+}
+
 export interface TileDefinition {
   id: string
   x: number
@@ -33,11 +43,15 @@ export interface TileDefinition {
 
 export interface EntityDefinition {
   id: string
-  sprite: SpriteRect
+  name?: string
+  type?: string
+  sprites: SpriteLayer[]         // Multiple sprite layers for composition
   offset?: { x: number; y: number }
   rotation?: number
   colliders?: PolygonCollider[]  // Multiple colliders
   children?: EntityDefinition[]
+  properties?: Record<string, string>  // Default custom properties
+  filePath?: string              // Path to .lostentity file (undefined for inline entities)
 }
 
 export interface TilesetData {
@@ -170,7 +184,22 @@ export interface TilesetTab extends BaseTab {
   viewState: TilesetViewState
 }
 
-export type AnyTab = MapTab | TilesetTab
+export interface EntityEditorViewState {
+  scale: number
+  panX: number
+  panY: number
+  selectedSpriteLayerId: string | null
+  selectedChildId: string | null
+}
+
+export interface EntityEditorTab extends BaseTab {
+  type: 'entity-editor'
+  entityId: string            // Unique identifier for the entity
+  entityData: EntityDefinition  // In-memory entity data
+  viewState: EntityEditorViewState
+}
+
+export type AnyTab = MapTab | TilesetTab | EntityEditorTab
 
 export interface TabState {
   tabs: AnyTab[]

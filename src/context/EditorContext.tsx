@@ -20,6 +20,7 @@ import {
 	AnyTab,
 	MapTab,
 	TilesetTab,
+	EntityEditorTab,
 } from "../types";
 import { SettingsManager } from "../settings";
 import { tilesetManager } from "../managers/TilesetManager";
@@ -41,6 +42,7 @@ interface EditorContextType {
 	updateTabData: (tabId: string, updates: Partial<AnyTab>) => void;
 	getActiveMapTab: () => MapTab | null;
 	getActiveTilesetTab: () => TilesetTab | null;
+	getActiveEntityTab: () => EntityEditorTab | null;
 
 	// Map state
 	mapData: MapData;
@@ -135,6 +137,7 @@ interface EditorContextType {
 	newProject: () => void;
 	newMap: (directory?: string, fileName?: string) => void;
 	newTileset: (directory?: string) => Promise<void>;
+	newEntity: (directory?: string) => void;
 	saveTileset: () => Promise<void>;
 	saveAll: () => Promise<void>;
 
@@ -582,6 +585,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const tab = tabs.find((t) => t.id === activeTabId);
 		if (tab && tab.type === "tileset") {
 			return tab as TilesetTab;
+		}
+		return null;
+	}, [activeTabId, tabs]);
+
+	const getActiveEntityTab = useCallback((): EntityEditorTab | null => {
+		if (!activeTabId) return null;
+		const tab = tabs.find((t) => t.id === activeTabId);
+		if (tab && tab.type === "entity-editor") {
+			return tab as EntityEditorTab;
 		}
 		return null;
 	}, [activeTabId, tabs]);
@@ -1319,6 +1331,30 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		openTab(tilesetTab);
 	}, [addTileset, openTab]);
 
+	const newEntity = useCallback(() => {
+		// Create a new entity using EntityManager
+		const entity = entityManager.createEntity("New Entity");
+
+		// Create a new entity editor tab
+		const entityTab: EntityEditorTab = {
+			id: `entity-${Date.now()}`,
+			type: "entity-editor",
+			title: entity.name || "New Entity",
+			isDirty: true,
+			entityId: entity.id,
+			entityData: entity,
+			viewState: {
+				scale: 2,
+				panX: 400,
+				panY: 300,
+				selectedSpriteLayerId: null,
+				selectedChildId: null,
+			},
+		};
+
+		openTab(entityTab);
+	}, [openTab]);
+
 	const saveTileset = useCallback(async () => {
 		const activeTilesetTab = getActiveTilesetTab();
 		if (!activeTilesetTab) {
@@ -1446,6 +1482,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		updateTabData,
 		getActiveMapTab,
 		getActiveTilesetTab,
+		getActiveEntityTab,
 		mapData,
 		setMapData: setMapDataAndSyncTab,
 		currentLayer,
@@ -1507,6 +1544,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		newProject,
 		newMap,
 		newTileset,
+		newEntity,
 		saveTileset,
 		saveAll,
 		projectDirectory,

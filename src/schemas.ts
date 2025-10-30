@@ -27,6 +27,19 @@ export const SpriteRectSchema = z.object({
   height: z.number()
 })
 
+export const SpriteLayerSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  tilesetId: z.string(),
+  sprite: SpriteRectSchema,
+  offset: z.object({
+    x: z.number(),
+    y: z.number()
+  }).optional(),
+  rotation: z.number().optional(),
+  zIndex: z.number()
+})
+
 export const TileDefinitionSchema = z.object({
   id: z.string(),
   x: z.number(),
@@ -42,14 +55,18 @@ export const TileDefinitionSchema = z.object({
 export const EntityDefinitionSchema: z.ZodType<any> = z.lazy(() =>
   z.object({
     id: z.string(),
-    sprite: SpriteRectSchema,
+    name: z.string().optional(),
+    type: z.string().optional(),
+    sprites: z.array(SpriteLayerSchema).default([]),
     offset: z.object({
       x: z.number(),
       y: z.number()
     }).optional(),
     rotation: z.number().optional(),
     colliders: z.array(PolygonColliderSchema).optional(),
-    children: z.array(EntityDefinitionSchema).optional()
+    children: z.array(EntityDefinitionSchema).optional(),
+    properties: z.record(z.string()).optional(),
+    filePath: z.string().optional()
   })
 )
 

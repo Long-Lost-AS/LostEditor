@@ -12,6 +12,7 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { ResourceBrowser } from './components/ResourceBrowser'
 import { EntityPanel } from './components/EntityPanel'
 import { TilesetEditorView } from './components/TilesetEditorView'
+import { EntityEditorView } from './components/EntityEditorView'
 import { EmptyState } from './components/EmptyState'
 import { BrokenReferencesModal } from './components/BrokenReferencesModal'
 import { TilesetData } from './types'
@@ -26,9 +27,11 @@ const AppContent = () => {
     openTab,
     getActiveMapTab,
     getActiveTilesetTab,
+    getActiveEntityTab,
     newProject,
     newMap,
     newTileset,
+    newEntity,
     loadProject,
     saveProject,
     saveProjectAs,
@@ -55,6 +58,7 @@ const AppContent = () => {
   const newProjectRef = useRef(newProject)
   const newMapRef = useRef(newMap)
   const newTilesetRef = useRef(newTileset)
+  const newEntityRef = useRef(newEntity)
   const loadProjectRef = useRef(loadProject)
   const saveProjectRef = useRef(saveProject)
   const saveProjectAsRef = useRef(saveProjectAs)
@@ -68,6 +72,7 @@ const AppContent = () => {
     newProjectRef.current = newProject
     newMapRef.current = newMap
     newTilesetRef.current = newTileset
+    newEntityRef.current = newEntity
     loadProjectRef.current = loadProject
     saveProjectRef.current = saveProject
     saveProjectAsRef.current = saveProjectAs
@@ -76,7 +81,7 @@ const AppContent = () => {
     saveTilesetRef.current = saveTileset
     saveAllRef.current = saveAll
     getActiveTilesetTabRef.current = getActiveTilesetTab
-  }, [newProject, newMap, newTileset, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
+  }, [newProject, newMap, newTileset, newEntity, loadProject, saveProject, saveProjectAs, loadTileset, openTab, saveTileset, saveAll, getActiveTilesetTab])
 
   useEffect(() => {
     // Set up menu event listeners
@@ -146,6 +151,11 @@ const AppContent = () => {
       newMapRef.current()
     }))
 
+    // New Entity - create and open in tab
+    unlistenPromises.push(listen('menu:new-entity', () => {
+      newEntityRef.current()
+    }))
+
     // Note: Load Tileset removed - tilesets auto-load from project file
     unlistenPromises.push(listen('menu:load-tileset', async () => {
       // No-op: Tilesets are automatically loaded from project
@@ -164,6 +174,7 @@ const AppContent = () => {
 
   const activeMapTab = getActiveMapTab()
   const activeTilesetTab = getActiveTilesetTab()
+  const activeEntityTab = getActiveEntityTab()
 
   // Handle right panel resize drag
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -309,6 +320,13 @@ const AppContent = () => {
         {activeTilesetTab && (
           <div className="editor-top-section">
             <TilesetEditorView tab={activeTilesetTab} />
+          </div>
+        )}
+
+        {/* Show entity editor view for entity tabs */}
+        {activeEntityTab && (
+          <div className="editor-top-section">
+            <EntityEditorView tab={activeEntityTab} />
           </div>
         )}
 
