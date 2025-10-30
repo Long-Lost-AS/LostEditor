@@ -74,9 +74,10 @@ export class ReferenceManager {
           const tilesetData = JSON.parse(tilesetContent)
 
           if (tilesetData.imagePath) {
+            // Resolve image paths relative to project directory (all paths are relative to assets root)
             const absolutePath = fileManager.isAbsolute(tilesetData.imagePath)
               ? tilesetData.imagePath
-              : fileManager.join(fileManager.dirname(tilesetFile), tilesetData.imagePath)
+              : fileManager.join(projectDir, tilesetData.imagePath)
 
             const fileExists = await exists(absolutePath)
             if (!fileExists) {
@@ -391,10 +392,10 @@ export class ReferenceManager {
         const tilesetData = JSON.parse(content)
 
         if (tilesetData.imagePath) {
-          const tilesetDir = fileManager.dirname(tilesetFile)
+          // Resolve image paths relative to project directory (all paths are relative to assets root)
           const absoluteImagePath = fileManager.isAbsolute(tilesetData.imagePath)
             ? tilesetData.imagePath
-            : fileManager.join(tilesetDir, tilesetData.imagePath)
+            : fileManager.join(projectDir, tilesetData.imagePath)
 
           if (fileManager.normalize(absoluteImagePath) === fileManager.normalize(targetPath)) {
             const refTypes: ReferenceType[] = [{
