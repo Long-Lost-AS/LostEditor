@@ -9,6 +9,7 @@ interface DragNumberInputProps {
 	dragSpeed?: number; // How fast the value changes while dragging (default: 0.01)
 	precision?: number; // Decimal places to show (default: 2)
 	className?: string;
+	roundedLeft?: boolean; // Whether to round the left corners (default: true)
 }
 
 export const DragNumberInput: React.FC<DragNumberInputProps> = ({
@@ -20,6 +21,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 	dragSpeed = 0.01,
 	precision = 2,
 	className = "",
+	roundedLeft = true,
 }) => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
@@ -124,12 +126,12 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 					onChange={handleInputChange}
 					onBlur={handleInputBlur}
 					onKeyDown={handleInputKeyDown}
-					className="w-full px-2 py-1 text-sm bg-[#3c3c3c] text-[#cccccc] border border-[#007acc] outline-none"
+					className={`w-full px-2.5 py-1.5 text-xs bg-[#3c3c3c] text-[#cccccc] border border-[#007acc] outline-none ${roundedLeft ? "rounded" : "rounded-r"}`}
 					style={{ fontFamily: "monospace" }}
 				/>
 			) : (
 				<div
-					className="px-2 py-1 text-sm bg-[#3c3c3c] text-[#cccccc] border border-[#3e3e42] select-none"
+					className={`px-2.5 py-1.5 text-xs bg-[#3c3c3c] text-[#cccccc] border border-[#3e3e42] select-none ${roundedLeft ? "rounded" : "rounded-r"}`}
 					style={{ fontFamily: "monospace" }}
 				>
 					{value.toFixed(precision)}
