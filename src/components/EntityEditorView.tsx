@@ -1777,7 +1777,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	}
 																}
 															}}
-															placeholder="Property name"
+															placeholder="Key"
 															className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none font-mono"
 															style={{
 																background: "#3e3e42",
@@ -1804,7 +1804,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														>
 															{displayKey || (
 																<span style={{ opacity: 0.5 }}>
-																	Property name
+																	Key
 																</span>
 															)}
 														</div>
