@@ -230,16 +230,36 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
       const items: FileItem[] = []
 
       for (const entry of entries) {
-        // Skip .lostproj files
-        if (entry.name.endsWith('.lostproj')) continue
-
         const fullPath = fileManager.join(dirPath, entry.name)
 
-        items.push({
-          name: entry.name,
-          path: fullPath,
-          isDirectory: entry.isDirectory
-        })
+        // Always show directories
+        if (entry.isDirectory) {
+          items.push({
+            name: entry.name,
+            path: fullPath,
+            isDirectory: true
+          })
+          continue
+        }
+
+        // Whitelist of allowed file extensions
+        const allowedExtensions = [
+          '.lostmap',
+          '.lostset',
+          '.png',
+          '.jpg',
+          '.jpeg',
+          '.gif'
+        ]
+
+        const ext = entry.name.substring(entry.name.lastIndexOf('.')).toLowerCase()
+        if (allowedExtensions.includes(ext)) {
+          items.push({
+            name: entry.name,
+            path: fullPath,
+            isDirectory: false
+          })
+        }
       }
 
       // Sort: directories first, then files alphabetically
