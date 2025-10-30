@@ -33,7 +33,7 @@ interface ResourceBrowserProps {
 }
 
 export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserProps) => {
-  const { projectDirectory, openMapFromFile, openTilesetFromFile, openTab, tilesets, newMap, newTileset, newEntity } = useEditor()
+  const { projectDirectory, openMapFromFile, openTilesetFromFile, openEntityFromFile, openTab, tilesets, newMap, newTileset, newEntity } = useEditor()
   const [currentPath, setCurrentPath] = useState<string>('')
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -246,6 +246,7 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         const allowedExtensions = [
           '.lostmap',
           '.lostset',
+          '.lostentity',
           '.png',
           '.jpg',
           '.jpeg',
@@ -355,6 +356,10 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
 
       case '.lostset':
         openTilesetFromFile(item.path)
+        break
+
+      case '.lostentity':
+        openEntityFromFile(item.path)
         break
 
       default:
@@ -583,6 +588,15 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         return (
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
             <path d="M12 3C10.34 3 9 4.34 9 6C9 7.66 10.34 9 12 9C13.66 9 15 7.66 15 6C15 4.34 13.66 3 12 3ZM6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C7.66 15 9 13.66 9 12C9 10.34 7.66 9 6 9ZM18 9C16.34 9 15 10.34 15 12C15 13.66 16.34 15 18 15C19.66 15 21 13.66 21 12C21 10.34 19.66 9 18 9ZM12 15C10.34 15 9 16.34 9 18C9 19.66 10.34 21 12 21C13.66 21 15 19.66 15 18C15 16.34 13.66 15 12 15Z" fill="#c586c0"/>
+          </svg>
+        )
+      case '.lostentity':
+        return (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4ec9b0"/>
+            <circle cx="9" cy="10" r="1.5" fill="#4ec9b0"/>
+            <circle cx="15" cy="10" r="1.5" fill="#4ec9b0"/>
+            <path d="M12 17.5C14.33 17.5 16.31 16.04 17.11 14H6.89C7.69 16.04 9.67 17.5 12 17.5Z" fill="#4ec9b0"/>
           </svg>
         )
       case '.png':
