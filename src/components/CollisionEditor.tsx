@@ -208,7 +208,7 @@ export const CollisionEditor = ({
         const isSelected = collider.id === selectedColliderId
 
         // Fill
-        ctx.fillStyle = isSelected ? 'rgba(0, 255, 0, 0.2)' : 'rgba(128, 128, 128, 0.1)'
+        ctx.fillStyle = isSelected ? 'rgba(255, 0, 255, 0.25)' : 'rgba(255, 0, 255, 0.1)'
         ctx.beginPath()
         ctx.moveTo(collider.points[0].x, collider.points[0].y)
         for (let i = 1; i < collider.points.length; i++) {
@@ -218,7 +218,7 @@ export const CollisionEditor = ({
         ctx.fill()
 
         // Stroke
-        ctx.strokeStyle = isSelected ? '#0f0' : 'rgba(128, 128, 128, 0.5)'
+        ctx.strokeStyle = isSelected ? 'rgba(255, 0, 255, 0.9)' : 'rgba(255, 0, 255, 0.5)'
         ctx.lineWidth = 2 / scale
         ctx.stroke()
 
@@ -226,7 +226,7 @@ export const CollisionEditor = ({
         if (isSelected) {
           collider.points.forEach((point, index) => {
             const isPointSelected = index === selectedPointIndex
-            ctx.fillStyle = isPointSelected ? '#ff0' : '#0f0'
+            ctx.fillStyle = isPointSelected ? 'rgba(255, 255, 0, 0.9)' : 'rgba(255, 0, 255, 0.9)'
             ctx.beginPath()
             ctx.arc(point.x, point.y, (isPointSelected ? 6 : 4) / scale, 0, Math.PI * 2)
             ctx.fill()
@@ -245,7 +245,7 @@ export const CollisionEditor = ({
       // Draw in-progress polygon
       if (isDrawing && drawingPoints.length > 0) {
         // Draw lines
-        ctx.strokeStyle = '#00f'
+        ctx.strokeStyle = 'rgba(100, 150, 255, 0.8)'
         ctx.lineWidth = 2 / scale
         ctx.beginPath()
         ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y)
@@ -256,7 +256,7 @@ export const CollisionEditor = ({
 
         // Draw points
         drawingPoints.forEach((point, index) => {
-          ctx.fillStyle = index === 0 ? '#f00' : '#00f'
+          ctx.fillStyle = index === 0 ? 'rgba(255, 100, 100, 0.9)' : 'rgba(100, 150, 255, 0.9)'
           ctx.beginPath()
           ctx.arc(point.x, point.y, (index === 0 ? 6 : 4) / scale, 0, Math.PI * 2)
           ctx.fill()
@@ -264,7 +264,7 @@ export const CollisionEditor = ({
 
         // Highlight first point if we have at least 3 points
         if (drawingPoints.length >= 3) {
-          ctx.strokeStyle = '#f00'
+          ctx.strokeStyle = 'rgba(255, 100, 100, 0.9)'
           ctx.lineWidth = 3 / scale
           ctx.beginPath()
           ctx.arc(drawingPoints[0].x, drawingPoints[0].y, 8 / scale, 0, Math.PI * 2)
