@@ -98,6 +98,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		scaleRef.current = viewState.scale;
 	}, [pan, viewState.scale]);
 
+	// Reset editing state when switching tabs to prevent showing stale data
+	useEffect(() => {
+		setEditedName(entityData.name || "");
+		setEditedType(entityData.type || "");
+		setIsEditingName(false);
+		setIsEditingType(false);
+	}, [tab.id, entityData.name, entityData.type]);
+
 	// Draw sprite picker canvas
 	useEffect(() => {
 		if (!isSpritePicking) return;
