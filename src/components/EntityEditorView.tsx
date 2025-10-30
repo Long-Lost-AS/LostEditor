@@ -2063,6 +2063,106 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										/>
 									</div>
 
+									{/* Position (center of all points) */}
+									<div>
+										<label
+											className="text-xs font-medium block mb-1.5"
+											style={{ color: "#858585" }}
+										>
+											Position
+										</label>
+										<div className="grid grid-cols-2 gap-2">
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+													X
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={(() => {
+															// Calculate center X
+															const sumX = selectedCollider.points.reduce(
+																(sum, p) => sum + p.x,
+																0,
+															);
+															return sumX / selectedCollider.points.length;
+														})()}
+														onChange={(newCenterX) => {
+															// Calculate current center
+															const sumX = selectedCollider.points.reduce(
+																(sum, p) => sum + p.x,
+																0,
+															);
+															const currentCenterX =
+																sumX / selectedCollider.points.length;
+
+															// Calculate delta
+															const deltaX = newCenterX - currentCenterX;
+
+															// Move all points by delta
+															const newPoints = selectedCollider.points.map(
+																(p) => ({
+																	x: Math.round(p.x + deltaX),
+																	y: p.y,
+																}),
+															);
+
+															handleUpdateCollider(selectedCollider.id!, {
+																points: newPoints,
+															});
+														}}
+														dragSpeed={1}
+														precision={1}
+														roundedLeft={false}
+													/>
+												</div>
+											</div>
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+													Y
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={(() => {
+															// Calculate center Y
+															const sumY = selectedCollider.points.reduce(
+																(sum, p) => sum + p.y,
+																0,
+															);
+															return sumY / selectedCollider.points.length;
+														})()}
+														onChange={(newCenterY) => {
+															// Calculate current center
+															const sumY = selectedCollider.points.reduce(
+																(sum, p) => sum + p.y,
+																0,
+															);
+															const currentCenterY =
+																sumY / selectedCollider.points.length;
+
+															// Calculate delta
+															const deltaY = newCenterY - currentCenterY;
+
+															// Move all points by delta
+															const newPoints = selectedCollider.points.map(
+																(p) => ({
+																	x: p.x,
+																	y: Math.round(p.y + deltaY),
+																}),
+															);
+
+															handleUpdateCollider(selectedCollider.id!, {
+																points: newPoints,
+															});
+														}}
+														dragSpeed={1}
+														precision={1}
+														roundedLeft={false}
+													/>
+												</div>
+											</div>
+										</div>
+									</div>
+
 									{/* Point Count (read-only) */}
 									<div>
 										<label
@@ -2096,9 +2196,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												<div className="grid grid-cols-2 gap-2">
 													<div>
 														<label
-															className="text-xs block mb-1"
+															className="text-xs block mb-1 flex items-center gap-1"
 															style={{ color: "#686868" }}
 														>
+															<span
+																className="font-bold"
+																style={{ color: "#ff4444" }}
+															>
+																X
+															</span>
 															X
 														</label>
 														<DragNumberInput
@@ -2123,9 +2229,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													</div>
 													<div>
 														<label
-															className="text-xs block mb-1"
+															className="text-xs block mb-1 flex items-center gap-1"
 															style={{ color: "#686868" }}
 														>
+															<span
+																className="font-bold"
+																style={{ color: "#44ff44" }}
+															>
+																Y
+															</span>
 															Y
 														</label>
 														<DragNumberInput
@@ -2266,47 +2378,47 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											Position
 										</label>
 										<div className="grid grid-cols-2 gap-2">
-											<div>
-												<label
-													className="text-xs block mb-1"
-													style={{ color: "#686868" }}
-												>
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
 													X
-												</label>
-												<DragNumberInput
-													value={selectedLayer.offset?.x || 0}
-													onChange={(x) => {
-														handleUpdateSpriteLayer(selectedLayer.id, {
-															offset: {
-																y: selectedLayer.offset?.y || 0,
-																x,
-															},
-														});
-													}}
-													dragSpeed={1}
-													precision={0}
-												/>
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={selectedLayer.offset?.x || 0}
+														onChange={(x) => {
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																offset: {
+																	y: selectedLayer.offset?.y || 0,
+																	x,
+																},
+															});
+														}}
+														dragSpeed={1}
+														precision={0}
+														roundedLeft={false}
+													/>
+												</div>
 											</div>
-											<div>
-												<label
-													className="text-xs block mb-1"
-													style={{ color: "#686868" }}
-												>
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
 													Y
-												</label>
-												<DragNumberInput
-													value={selectedLayer.offset?.y || 0}
-													onChange={(y) => {
-														handleUpdateSpriteLayer(selectedLayer.id, {
-															offset: {
-																x: selectedLayer.offset?.x || 0,
-																y,
-															},
-														});
-													}}
-													dragSpeed={1}
-													precision={0}
-												/>
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={selectedLayer.offset?.y || 0}
+														onChange={(y) => {
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																offset: {
+																	x: selectedLayer.offset?.x || 0,
+																	y,
+																},
+															});
+														}}
+														dragSpeed={1}
+														precision={0}
+														roundedLeft={false}
+													/>
+												</div>
 											</div>
 										</div>
 									</div>
@@ -2320,55 +2432,55 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											Origin (Pivot/Anchor)
 										</label>
 										<div className="grid grid-cols-2 gap-2">
-											<div>
-												<label
-													className="text-xs block mb-1"
-													style={{ color: "#686868" }}
-												>
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
 													X
-												</label>
-												<DragNumberInput
-													value={selectedLayer.origin?.x || 0}
-													onChange={(x) => {
-														const newOrigin = {
-															y: 0,
-															...selectedLayer.origin,
-															x,
-														};
-														handleUpdateSpriteLayer(selectedLayer.id, {
-															origin: newOrigin,
-														});
-													}}
-													min={0}
-													max={1}
-													dragSpeed={0.01}
-													precision={2}
-												/>
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={selectedLayer.origin?.x || 0}
+														onChange={(x) => {
+															const newOrigin = {
+																y: 0,
+																...selectedLayer.origin,
+																x,
+															};
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																origin: newOrigin,
+															});
+														}}
+														min={0}
+														max={1}
+														dragSpeed={0.01}
+														precision={2}
+														roundedLeft={false}
+													/>
+												</div>
 											</div>
-											<div>
-												<label
-													className="text-xs block mb-1"
-													style={{ color: "#686868" }}
-												>
+											<div className="flex">
+												<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
 													Y
-												</label>
-												<DragNumberInput
-													value={selectedLayer.origin?.y || 0}
-													onChange={(y) => {
-														const newOrigin = {
-															x: 0,
-															...selectedLayer.origin,
-															y,
-														};
-														handleUpdateSpriteLayer(selectedLayer.id, {
-															origin: newOrigin,
-														});
-													}}
-													min={0}
-													max={1}
-													dragSpeed={0.01}
-													precision={2}
-												/>
+												</div>
+												<div className="flex-1">
+													<DragNumberInput
+														value={selectedLayer.origin?.y || 0}
+														onChange={(y) => {
+															const newOrigin = {
+																x: 0,
+																...selectedLayer.origin,
+																y,
+															};
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																origin: newOrigin,
+															});
+														}}
+														min={0}
+														max={1}
+														dragSpeed={0.01}
+														precision={2}
+														roundedLeft={false}
+													/>
+												</div>
 											</div>
 										</div>
 									</div>
