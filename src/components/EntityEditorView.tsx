@@ -1197,7 +1197,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			offset: { x: 0, y: 0 },
 			origin: { x: 0, y: 0 },
 			rotation: 0,
-			zIndex: Math.max(...entityData.sprites.map((s) => s.zIndex), 0) + 1,
+			zIndex: 0,
 			ysortOffset: 0,
 		};
 
