@@ -23,11 +23,14 @@ export interface SpriteRect {
 export interface SpriteLayer {
   id: string
   name?: string
+  type?: string
   tilesetId: string          // Reference to tileset containing sprite
   sprite: SpriteRect         // Region in tileset
   offset?: { x: number; y: number }
+  origin?: { x: number; y: number }  // Pivot point for rotation/entity anchor (normalized 0-1, where 0.5,0.5 is center)
   rotation?: number
   zIndex: number             // For layer ordering (higher = front)
+  ysortOffset?: number       // Y-sort offset for depth sorting
 }
 
 export interface TileDefinition {
