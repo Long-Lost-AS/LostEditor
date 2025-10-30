@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useEditor } from '../context/EditorContext'
 import { EntityDefinition } from '../types'
 import { entityManager } from '../managers/EntityManager'
+import { ShieldIcon } from './Icons'
 
 interface EntityTreeNodeProps {
   entity: EntityDefinition
@@ -39,8 +40,8 @@ const EntityTreeNode = ({ entity, depth, tilesetId, onSelect, selectedEntityDefI
         {!hasChildren && <span className="mr-1 w-4" />}
         <span className="text-sm text-white flex-1 truncate">{entity.id}</span>
         {entity.collision && (
-          <span className="ml-1 text-xs text-green-400" title="Has collision">
-            🛡
+          <span className="ml-1 text-green-400" title="Has collision">
+            <ShieldIcon size={14} />
           </span>
         )}
       </div>

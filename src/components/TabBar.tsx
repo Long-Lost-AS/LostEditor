@@ -1,4 +1,5 @@
 import { AnyTab } from '../types'
+import { MapIcon, TilesetIcon, EntityIcon, FileIcon } from './Icons'
 
 interface TabBarProps {
   tabs: AnyTab[]
@@ -11,13 +12,13 @@ export const TabBar = ({ tabs, activeTabId, onTabClick, onTabClose }: TabBarProp
   const getTabIcon = (type: string) => {
     switch (type) {
       case 'map':
-        return '🗺️'
+        return <MapIcon />
       case 'tileset':
-        return '🎨'
+        return <TilesetIcon />
       case 'entity-editor':
-        return '🤖'
+        return <EntityIcon />
       default:
-        return '📄'
+        return <FileIcon />
     }
   }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FolderIcon, FolderOpenIcon, MapIcon, TilesetIcon, ImageIcon, PackageIcon, FileIcon } from './Icons'
 
 export interface FileNode {
   name: string
@@ -33,24 +34,24 @@ export const FileTreeNode = ({ node, level, onFileDoubleClick }: FileTreeNodePro
 
   const getIcon = () => {
     if (node.isDirectory) {
-      return isExpanded ? '📂' : '📁'
+      return isExpanded ? <FolderOpenIcon /> : <FolderIcon />
     }
 
     const ext = node.name.substring(node.name.lastIndexOf('.')).toLowerCase()
     switch (ext) {
       case '.lostmap':
-        return '🗺️'
+        return <MapIcon />
       case '.lostset':
-        return '🎨'
+        return <TilesetIcon />
       case '.png':
       case '.jpg':
       case '.jpeg':
       case '.gif':
-        return '🖼️'
+        return <ImageIcon />
       case '.lostproj':
-        return '📦'
+        return <PackageIcon />
       default:
-        return '📄'
+        return <FileIcon />
     }
   }
 

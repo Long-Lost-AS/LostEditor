@@ -429,7 +429,8 @@ export const TilesetCreator = ({
 									type="text"
 									value={tilesetName}
 									onChange={(e) => setTilesetName(e.target.value)}
-									className="w-full px-2 py-1 bg-gray-700 text-white border border-gray-600 rounded text-sm"
+									className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
+									style={{ fontSize: '13px' }}
 								/>
 							</div>
 
@@ -441,7 +442,8 @@ export const TilesetCreator = ({
 									type="text"
 									value={tilesetId}
 									onChange={(e) => setTilesetId(e.target.value)}
-									className="w-full px-2 py-1 bg-gray-700 text-white border border-gray-600 rounded text-sm"
+									className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
+									style={{ fontSize: '13px' }}
 								/>
 							</div>
 
@@ -473,7 +475,8 @@ export const TilesetCreator = ({
 										onChange={(e) =>
 											setTileWidth(parseInt(e.target.value) || 16)
 										}
-										className="w-full px-2 py-1 bg-gray-700 text-white border border-gray-600 rounded text-sm"
+										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
+										style={{ fontSize: '13px' }}
 									/>
 								</div>
 								<div>
@@ -486,7 +489,8 @@ export const TilesetCreator = ({
 										onChange={(e) =>
 											setTileHeight(parseInt(e.target.value) || 16)
 										}
-										className="w-full px-2 py-1 bg-gray-700 text-white border border-gray-600 rounded text-sm"
+										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
+										style={{ fontSize: '13px' }}
 									/>
 								</div>
 							</div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { TilesetTab, PolygonCollider } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
+import { ShieldIcon, TrashIcon } from "./Icons";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
@@ -697,8 +698,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTileset(tab.tilesetId, { tileWidth: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1 text-xs rounded focus:outline-none"
-											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555' }}
+											className="w-full px-2 py-1.5 rounded focus:outline-none"
+											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555', fontSize: '13px' }}
 											min="1"
 										/>
 									</div>
@@ -714,8 +715,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTileset(tab.tilesetId, { tileHeight: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1 text-xs rounded focus:outline-none"
-											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555' }}
+											className="w-full px-2 py-1.5 rounded focus:outline-none"
+											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555', fontSize: '13px' }}
 											min="1"
 										/>
 									</div>
@@ -916,7 +917,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleAddCollider}
 									className="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2"
 								>
-									<span>🛡️</span>
+									<ShieldIcon size={16} />
 									<span>Add/Edit Collider</span>
 								</button>
 								<div className="h-px bg-gray-700 my-1" />
@@ -924,7 +925,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleDeleteCompoundTile}
 									className="w-full px-4 py-2 text-sm text-left text-red-400 hover:bg-gray-700 flex items-center gap-2"
 								>
-									<span>🗑</span>
+									<TrashIcon size={16} />
 									<span>Delete Compound Tile</span>
 								</button>
 							</>

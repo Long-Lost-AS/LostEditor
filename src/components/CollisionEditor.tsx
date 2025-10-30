@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { PolygonCollider } from '../types'
+import { LightbulbIcon, TrashIcon, PlusIcon } from './Icons'
 
 interface CollisionEditorProps {
   width: number
@@ -742,8 +743,9 @@ export const CollisionEditor = ({
 
           {/* Drawing hint */}
           {isDrawing && drawingPoints.length >= 3 && (
-            <div className="mt-3 p-2.5 bg-blue-500 bg-opacity-20 border border-blue-500 border-opacity-40 rounded text-xs text-blue-300 leading-relaxed">
-              💡 Click first point to close
+            <div className="mt-3 p-2.5 bg-blue-500 bg-opacity-20 border border-blue-500 border-opacity-40 rounded text-xs text-blue-300 leading-relaxed flex items-center gap-2">
+              <LightbulbIcon size={14} />
+              <span>Click first point to close</span>
             </div>
           )}
 
@@ -951,7 +953,7 @@ export const CollisionEditor = ({
                     onClick={handleDeletePoint}
                     className="w-full px-4 py-2 text-sm text-left text-orange-400 hover:bg-gray-700 flex items-center gap-2"
                   >
-                    <span>🗑</span>
+                    <TrashIcon size={16} />
                     <span>Delete Point</span>
                   </button>
                 )}
@@ -960,7 +962,7 @@ export const CollisionEditor = ({
                     onClick={handleInsertPoint}
                     className="w-full px-4 py-2 text-sm text-left text-green-400 hover:bg-gray-700 flex items-center gap-2"
                   >
-                    <span>➕</span>
+                    <PlusIcon size={16} />
                     <span>Add Point</span>
                   </button>
                 )}
@@ -969,7 +971,7 @@ export const CollisionEditor = ({
                     onClick={handleDeleteCollider}
                     className="w-full px-4 py-2 text-sm text-left text-red-400 hover:bg-gray-700 flex items-center gap-2"
                   >
-                    <span>🗑</span>
+                    <TrashIcon size={16} />
                     <span>Delete Collider</span>
                   </button>
                 )}
