@@ -81,6 +81,7 @@ interface EditorContextType {
 	projectDirectory: string | null;
 	openMapFromFile: (filePath: string) => Promise<void>;
 	openTilesetFromFile: (filePath: string) => Promise<void>;
+	openEntityFromFile: (filePath: string) => Promise<void>;
 
 	// Legacy tileset state (for backward compatibility)
 	tilesetImage: HTMLImageElement | null;
@@ -1262,6 +1263,53 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[tabs, tilesets, openTab],
 	);
 
+	const openEntityFromFile = useCallback(
+		async (filePath: string) => {
+			try {
+				// Check if a tab with this entity is already open
+				const existingTab = tabs.find(
+					(tab) =>
+						tab.type === "entity-editor" &&
+						tab.filePath === filePath,
+				);
+
+				if (existingTab) {
+					// Just activate the existing tab
+					setActiveTabId(existingTab.id);
+					return;
+				}
+
+				// Load the entity from file using EntityManager
+				const entity = await entityManager.loadEntity(filePath, projectDirectory || undefined);
+
+				// Create a new entity editor tab
+				const entityTab: EntityEditorTab = {
+					id: `entity-${Date.now()}`,
+					type: "entity-editor",
+					title: entity.name || "Entity",
+					isDirty: false,
+					entityId: entity.id,
+					entityData: entity,
+					filePath: filePath,
+					viewState: {
+						scale: 2,
+						panX: 400,
+						panY: 300,
+						selectedSpriteLayerId: null,
+						selectedChildId: null,
+					},
+				};
+
+				// Open the tab
+				openTab(entityTab);
+			} catch (error) {
+				console.error(`Failed to open entity ${filePath}:`, error);
+				alert(`Failed to open entity: ${error}`);
+			}
+		},
+		[tabs, openTab, projectDirectory],
+	);
+
 	const newTileset = useCallback(async () => {
 		// Show dialog to select image
 		const result = await invoke<{ canceled: boolean; filePaths?: string[] }>(
@@ -1331,18 +1379,49 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		openTab(tilesetTab);
 	}, [addTileset, openTab]);
 
-	const newEntity = useCallback(() => {
+	const newEntity = useCallback(async () => {
+		// Prompt for save location first
+		const result = await invoke<{ canceled: boolean; filePath?: string }>(
+			"show_save_dialog",
+			{
+				options: {
+					title: "Save New Entity",
+					filters: [{ name: "Entity File", extensions: ["lostentity"] }],
+					defaultPath: "New Entity.lostentity",
+				},
+			},
+		);
+
+		if (result.canceled || !result.filePath) {
+			console.log("Entity creation canceled");
+			return;
+		}
+
 		// Create a new entity using EntityManager
 		const entity = entityManager.createEntity("New Entity");
+
+		// Set the file path
+		entity.filePath = result.filePath;
+
+		// Save the entity immediately
+		try {
+			await entityManager.saveEntity(entity, result.filePath, projectDirectory || undefined);
+			console.log("Saved new entity to:", result.filePath);
+		} catch (error) {
+			console.error("Failed to save new entity:", error);
+			alert(`Failed to save entity: ${error}`);
+			return;
+		}
 
 		// Create a new entity editor tab
 		const entityTab: EntityEditorTab = {
 			id: `entity-${Date.now()}`,
 			type: "entity-editor",
 			title: entity.name || "New Entity",
-			isDirty: true,
+			isDirty: false, // Already saved
 			entityId: entity.id,
 			entityData: entity,
+			filePath: result.filePath,
 			viewState: {
 				scale: 2,
 				panX: 400,
@@ -1353,7 +1432,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		};
 
 		openTab(entityTab);
-	}, [openTab]);
+	}, [openTab, projectDirectory]);
 
 	const saveTileset = useCallback(async () => {
 		const activeTilesetTab = getActiveTilesetTab();
@@ -1452,9 +1531,39 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 		}
 
+		// Save all dirty entity-editor tabs
+		const entityTabs = tabs.filter(
+			(t) => t.type === "entity-editor" && t.isDirty,
+		) as EntityEditorTab[];
+
+		for (const tab of entityTabs) {
+			const entity = tab.entityData;
+
+			// Skip entities without a file path (need manual save with dialog)
+			if (!entity.filePath) {
+				console.warn(
+					`Skipping unsaved entity: ${entity.name} (no file path)`,
+				);
+				continue;
+			}
+
+			try {
+				await entityManager.saveEntity(entity, entity.filePath, projectDirectory || undefined);
+
+				// Mark the tab as not dirty
+				updateTabData(tab.id, { isDirty: false });
+
+				console.log(`Saved entity: ${entity.filePath}`);
+			} catch (error) {
+				console.error(`Failed to save entity ${entity.name}:`, error);
+				alert(`Failed to save entity ${entity.name}: ${error}`);
+				return; // Stop on error
+			}
+		}
+
 		// Save the project (which now also saves all map tabs to separate files)
 		await saveProject();
-	}, [tabs, tilesets, updateTabData, saveProject]);
+	}, [tabs, tilesets, updateTabData, saveProject, projectDirectory]);
 
 	// Initialize with settings
 	useEffect(() => {
@@ -1550,6 +1659,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		projectDirectory,
 		openMapFromFile,
 		openTilesetFromFile,
+		openEntityFromFile,
 		brokenReferencesModalData,
 		setBrokenReferencesModalData,
 	};
