@@ -30,14 +30,20 @@ export const SpriteRectSchema = z.object({
 export const SpriteLayerSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
+  type: z.string().optional(),
   tilesetId: z.string(),
   sprite: SpriteRectSchema,
   offset: z.object({
     x: z.number(),
     y: z.number()
   }).optional(),
+  origin: z.object({
+    x: z.number(),
+    y: z.number()
+  }).optional(),
   rotation: z.number().optional(),
-  zIndex: z.number()
+  zIndex: z.number(),
+  ysortOffset: z.number().optional()
 })
 
 export const TileDefinitionSchema = z.object({
