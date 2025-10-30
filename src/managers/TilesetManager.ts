@@ -14,9 +14,10 @@ export class TilesetManager {
   /**
    * Load a tileset from a file path
    * @param tilesetPath - Path to the tileset JSON file (can be relative or absolute)
+   * @param projectDir - Optional project directory to resolve image paths relative to
    * @returns Promise resolving to the loaded TilesetData
    */
-  async loadTileset(tilesetPath: string): Promise<TilesetData> {
+  async loadTileset(tilesetPath: string, projectDir?: string): Promise<TilesetData> {
     // Check if already loaded
     const existing = this.tilesets.get(tilesetPath)
     if (existing) {
@@ -30,7 +31,7 @@ export class TilesetManager {
     }
 
     // Start loading
-    const promise = this._loadTilesetInternal(tilesetPath)
+    const promise = this._loadTilesetInternal(tilesetPath, projectDir)
     this.loadingPromises.set(tilesetPath, promise)
 
     try {
@@ -45,10 +46,16 @@ export class TilesetManager {
   /**
    * Internal method to load a tileset file
    */
-  private async _loadTilesetInternal(tilesetPath: string): Promise<TilesetData> {
+  private async _loadTilesetInternal(tilesetPath: string, projectDir?: string): Promise<TilesetData> {
     try {
       // Resolve the full path
-      const fullPath = fileManager.resolvePath(tilesetPath)
+      // If projectDir is provided and tilesetPath is relative, resolve relative to projectDir
+      let fullPath: string
+      if (projectDir && !fileManager.isAbsolute(tilesetPath)) {
+        fullPath = fileManager.normalize(fileManager.join(projectDir, tilesetPath))
+      } else {
+        fullPath = fileManager.resolvePath(tilesetPath)
+      }
 
       // Load the JSON file via Tauri FS plugin
       const rawData = await readTextFile(fullPath)
@@ -58,10 +65,19 @@ export class TilesetManager {
       const tilesetJson = TilesetDataSchema.parse(rawJson)
 
       // Load the tileset image
-      const tilesetDir = fileManager.dirname(fullPath)  // Use fullPath, not tilesetPath
-      const imagePath = fileManager.normalize(fileManager.join(tilesetDir, tilesetJson.imagePath))
+      // If projectDir is provided, resolve image path relative to it (all paths relative to assets root)
+      // Otherwise, fall back to resolving relative to the tileset file (old behavior for backward compatibility)
+      const baseDir = projectDir || fileManager.dirname(fullPath)
+      const imagePath = fileManager.normalize(fileManager.join(baseDir, tilesetJson.imagePath))
 
-      console.log('Loading tileset image:', { tilesetPath, fullPath, tilesetDir, relativeImagePath: tilesetJson.imagePath, finalImagePath: imagePath })
+      console.log('Loading tileset image:', {
+        tilesetPath,
+        fullPath,
+        projectDir,
+        baseDir,
+        relativeImagePath: tilesetJson.imagePath,
+        finalImagePath: imagePath
+      })
 
       const imageElement = await this._loadImage(imagePath)
 
@@ -233,8 +249,9 @@ export class TilesetManager {
    * Save a tileset to disk
    * @param tileset - The tileset data to save
    * @param filePath - Optional file path (uses tileset.filePath if not provided)
+   * @param projectDir - Optional project directory to save paths relative to (defaults to tileset directory for backward compatibility)
    */
-  async saveTileset(tileset: TilesetData, filePath?: string): Promise<void> {
+  async saveTileset(tileset: TilesetData, filePath?: string, projectDir?: string): Promise<void> {
     const targetPath = filePath || tileset.filePath
     if (!targetPath) {
       throw new Error('No file path specified for saving tileset')
@@ -243,10 +260,11 @@ export class TilesetManager {
     try {
       // Resolve the full path
       const fullPath = fileManager.resolvePath(targetPath)
-      const tilesetDir = fileManager.dirname(fullPath)
 
-      // Make image path relative to the tileset file
-      const relativeImagePath = fileManager.makeRelativeTo(tilesetDir, tileset.imagePath)
+      // If projectDir is provided, make image path relative to it (all paths relative to assets root)
+      // Otherwise, fall back to tileset directory (old behavior for backward compatibility)
+      const baseDir = projectDir || fileManager.dirname(fullPath)
+      const relativeImagePath = fileManager.makeRelativeTo(baseDir, tileset.imagePath)
 
       // Prepare JSON data (exclude runtime-only fields like imageData and cells)
       const jsonData = {
