@@ -16,19 +16,20 @@ import {
 	Tile,
 	ProjectData,
 	TilesetData,
-	EntityInstance,
 	LayerType,
 	AnyTab,
 	MapTab,
 	TilesetTab,
-	TabState,
 } from "../types";
 import { SettingsManager } from "../settings";
 import { tilesetManager } from "../managers/TilesetManager";
 import { mapManager } from "../managers/MapManager";
 import { entityManager } from "../managers/EntityManager";
 import { fileManager } from "../managers/FileManager";
-import { referenceManager, type BrokenReference } from "../managers/ReferenceManager";
+import {
+	referenceManager,
+	type BrokenReference,
+} from "../managers/ReferenceManager";
 
 interface EditorContextType {
 	// Tab state
@@ -144,12 +145,14 @@ interface EditorContextType {
 		onContinue: () => void;
 		onCancel: () => void;
 	} | null;
-	setBrokenReferencesModalData: (data: {
-		references: BrokenReference[];
-		projectDir: string;
-		onContinue: () => void;
-		onCancel: () => void;
-	} | null) => void;
+	setBrokenReferencesModalData: (
+		data: {
+			references: BrokenReference[];
+			projectDir: string;
+			onContinue: () => void;
+			onCancel: () => void;
+		} | null,
+	) => void;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
@@ -383,13 +386,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							// Place all cells of the compound tile
 							for (let dy = 0; dy < heightInTiles; dy++) {
 								for (let dx = 0; dx < widthInTiles; dx++) {
+									if (!selectedTilesetId || !selectedTileId) continue;
+
 									const cellX = x + dx;
 									const cellY = y + dy;
 
 									const tile: Tile = {
 										x: cellX,
 										y: cellY,
-										tilesetId: selectedTilesetId!,
+										tilesetId: selectedTilesetId,
 										tileId: selectedTileId, // Reference to the compound tile definition
 										cellX: dx, // Which cell within the compound tile
 										cellY: dy,
@@ -584,7 +589,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	// Multi-tileset management functions
 	const loadTileset = useCallback(async (filePath: string) => {
 		try {
-			const tileset = await tilesetManager.loadTileset(filePath);
+			const tileset = await tilesetManager.loadTileset(filePath, projectDirectory || undefined);
 			setTilesets((prev) => {
 				// Check if already loaded
 				if (prev.find((t) => t.id === tileset.id)) {
@@ -598,7 +603,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			console.error("Failed to load tileset:", error);
 			alert(`Failed to load tileset: ${error}`);
 		}
-	}, []);
+	}, [projectDirectory]);
 
 	const addTileset = useCallback((tileset: TilesetData) => {
 		setTilesets((prev) => {
@@ -851,10 +856,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const loadProject = useCallback(
 		async (filePath: string) => {
 			// Clear manager caches and React state before loading new project
-			console.log('Clearing manager caches before loading new project');
+			console.log("Clearing manager caches before loading new project");
 			tilesetManager.unloadAll();
 			mapManager.unloadAll();
-			setTilesets([]);  // Clear React state to prevent stale tileset references
+			setTilesets([]); // Clear React state to prevent stale tileset references
 			setCurrentTileset(null);
 
 			let data: string;
@@ -879,11 +884,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Validate file references before loading tilesets
 				console.log("Validating project references...");
 				try {
-					const brokenReferences = await referenceManager.validateReferences(projectDir);
+					const brokenReferences =
+						await referenceManager.validateReferences(projectDir);
 					if (brokenReferences.length > 0) {
-						console.warn(`Found ${brokenReferences.length} broken reference(s):`);
-						brokenReferences.forEach(ref => {
-							console.warn(`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`);
+						console.warn(
+							`Found ${brokenReferences.length} broken reference(s):`,
+						);
+						brokenReferences.forEach((ref) => {
+							console.warn(
+								`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`,
+							);
 						});
 
 						// Show modal and wait for user to fix references or cancel
@@ -899,14 +909,17 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 									setBrokenReferencesModalData(null);
 									console.log("Project load cancelled by user");
 									reject(new Error("Project load cancelled"));
-								}
+								},
 							});
 						});
 					} else {
 						console.log("All file references are valid");
 					}
 				} catch (error) {
-					if (error instanceof Error && error.message === "Project load cancelled") {
+					if (
+						error instanceof Error &&
+						error.message === "Project load cancelled"
+					) {
 						// User cancelled via modal - abort load
 						return;
 					}
@@ -919,7 +932,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					console.log("Loading tilesets:", projectData.tilesets);
 					for (const tilesetPath of projectData.tilesets) {
 						try {
-							await loadTileset(tilesetPath);
+							// Load tileset with projectDir directly (state not set yet)
+							const tileset = await tilesetManager.loadTileset(tilesetPath, projectDir);
+							setTilesets((prev) => {
+								// Check if already loaded
+								if (prev.find((t) => t.id === tileset.id)) {
+									return prev;
+								}
+								return [...prev, tileset];
+							});
 						} catch (error) {
 							console.error(`Failed to load tileset ${tilesetPath}:`, error);
 						}
@@ -1021,13 +1042,20 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Validate file references after loading
 				console.log("Validating project references...");
 				try {
-					const brokenReferences = await referenceManager.validateReferences(projectDir);
+					const brokenReferences =
+						await referenceManager.validateReferences(projectDir);
 					if (brokenReferences.length > 0) {
-						console.warn(`Found ${brokenReferences.length} broken reference(s):`);
-						brokenReferences.forEach(ref => {
-							console.warn(`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`);
+						console.warn(
+							`Found ${brokenReferences.length} broken reference(s):`,
+						);
+						brokenReferences.forEach((ref) => {
+							console.warn(
+								`  - ${ref.referenceType} in ${ref.referencingFile}: ${ref.relativePath} (expected at ${ref.expectedPath})`,
+							);
 						});
-						alert(`Warning: Found ${brokenReferences.length} broken file reference(s). Check console for details.`);
+						alert(
+							`Warning: Found ${brokenReferences.length} broken file reference(s). Check console for details.`,
+						);
 					} else {
 						console.log("All file references are valid");
 					}
@@ -1187,7 +1215,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// If not loaded, load it now using the tilesetManager directly
 				if (!tileset) {
-					tileset = await tilesetManager.loadTileset(filePath);
+					tileset = await tilesetManager.loadTileset(filePath, projectDirectory || undefined);
 					// Add it to the tilesets array
 					setTilesets((prev) => {
 						// Check if already loaded
@@ -1222,77 +1250,74 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[tabs, tilesets, openTab],
 	);
 
-	const newTileset = useCallback(
-		async (directory?: string) => {
-			// Show dialog to select image
-			const result = await invoke<{ canceled: boolean; filePaths?: string[] }>(
-				"show_open_dialog",
-				{
-					options: {
-						title: "Select Tileset Image",
-						filters: [
-							{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] },
-							{ name: "All Files", extensions: ["*"] },
-						],
-						properties: ["openFile"],
-					},
+	const newTileset = useCallback(async () => {
+		// Show dialog to select image
+		const result = await invoke<{ canceled: boolean; filePaths?: string[] }>(
+			"show_open_dialog",
+			{
+				options: {
+					title: "Select Tileset Image",
+					filters: [
+						{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] },
+						{ name: "All Files", extensions: ["*"] },
+					],
+					properties: ["openFile"],
 				},
-			);
+			},
+		);
 
-			if (!result.filePaths || result.filePaths.length === 0) return;
+		if (!result.filePaths || result.filePaths.length === 0) return;
 
-			const imagePath = result.filePaths[0];
+		const imagePath = result.filePaths[0];
 
-			// Load the image to get dimensions
-			const img = new Image();
-			const convertFileSrc = await import("@tauri-apps/api/core").then(
-				(m) => m.convertFileSrc,
-			);
-			img.src = convertFileSrc(imagePath);
+		// Load the image to get dimensions
+		const img = new Image();
+		const convertFileSrc = await import("@tauri-apps/api/core").then(
+			(m) => m.convertFileSrc,
+		);
+		img.src = convertFileSrc(imagePath);
 
-			await new Promise((resolve, reject) => {
-				img.onload = resolve;
-				img.onerror = reject;
-			});
+		await new Promise((resolve, reject) => {
+			img.onload = resolve;
+			img.onerror = reject;
+		});
 
-			// Extract filename without extension for tileset name
-			const fileName = imagePath.split("/").pop() || "Untitled";
-			const tilesetName = fileName.replace(/\.[^/.]+$/, "");
-			const tilesetId = `tileset-${Date.now()}`;
+		// Extract filename without extension for tileset name
+		const fileName = imagePath.split("/").pop() || "Untitled";
+		const tilesetName = fileName.replace(/\.[^/.]+$/, "");
+		const tilesetId = `tileset-${Date.now()}`;
 
-			// Create new tileset data
-			const newTilesetData: TilesetData = {
-				version: "1.0",
-				name: tilesetName,
-				id: tilesetId,
-				imagePath: imagePath,
-				imageData: img,
-				tileWidth: 16,
-				tileHeight: 16,
-				tiles: [],
-				entities: [],
-			};
+		// Create new tileset data
+		const newTilesetData: TilesetData = {
+			version: "1.0",
+			name: tilesetName,
+			id: tilesetId,
+			imagePath: imagePath,
+			imageData: img,
+			tileWidth: 16,
+			tileHeight: 16,
+			tiles: [],
+			entities: [],
+		};
 
-			// Add tileset to global tilesets array
-			addTileset(newTilesetData);
+		// Add tileset to global tilesets array
+		addTileset(newTilesetData);
 
-			// Create tileset tab with just the tileset ID reference
-			const tilesetTab: TilesetTab = {
-				id: `tileset-tab-${tilesetId}`,
-				type: "tileset" as const,
-				title: tilesetName,
-				isDirty: true, // Mark as dirty since it's not saved yet
-				tilesetId: tilesetId,
-				viewState: {
-					scale: 2,
-					selectedTileRegion: null,
-				},
-			};
+		// Create tileset tab with just the tileset ID reference
+		const tilesetTab: TilesetTab = {
+			id: `tileset-tab-${tilesetId}`,
+			type: "tileset" as const,
+			title: tilesetName,
+			isDirty: true, // Mark as dirty since it's not saved yet
+			tilesetId: tilesetId,
+			viewState: {
+				scale: 2,
+				selectedTileRegion: null,
+			},
+		};
 
-			openTab(tilesetTab);
-		},
-		[addTileset, openTab],
-	);
+		openTab(tilesetTab);
+	}, [addTileset, openTab]);
 
 	const saveTileset = useCallback(async () => {
 		const activeTilesetTab = getActiveTilesetTab();
@@ -1337,7 +1362,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		}
 
 		try {
-			await tilesetManager.saveTileset(tileset, targetPath);
+			await tilesetManager.saveTileset(tileset, targetPath, projectDirectory || undefined);
 
 			// Update the tileset in the tilesets array with the new file path
 			setTilesets((prev) =>
@@ -1378,7 +1403,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 
 			try {
-				await tilesetManager.saveTileset(tileset, tileset.filePath);
+				await tilesetManager.saveTileset(tileset, tileset.filePath, projectDirectory || undefined);
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
