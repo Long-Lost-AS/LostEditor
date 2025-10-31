@@ -1,112 +1,90 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { TilesetData, TileDefinition, EntityDefinition } from '../types'
-import { TilesetDataSchema } from '../schemas'
+import { TilesetDataSchema, type TilesetDataJson } from '../schemas'
 import { fileManager } from './FileManager'
+import { FileLoader } from './FileLoader'
+import { FileNotFoundError } from '../errors/FileErrors'
 
 /**
  * TilesetManager handles loading, parsing, and managing tileset files
  */
-export class TilesetManager {
-  private tilesets: Map<string, TilesetData> = new Map()
-  private loadingPromises: Map<string, Promise<TilesetData>> = new Map()
+class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
+  /**
+   * Zod schema for tileset validation
+   */
+  protected get schema() {
+    return TilesetDataSchema
+  }
 
   /**
-   * Load a tileset from a file path
-   * @param tilesetPath - Path to the tileset JSON file (can be relative or absolute)
-   * @param projectDir - Optional project directory to resolve image paths relative to
-   * @returns Promise resolving to the loaded TilesetData
+   * Prepare tileset data for serialization by filtering runtime-only fields
    */
-  async loadTileset(tilesetPath: string, projectDir?: string): Promise<TilesetData> {
-    // Check if already loaded
-    const existing = this.tilesets.get(tilesetPath)
-    if (existing) {
-      return existing
-    }
+  protected prepareForSave(data: TilesetData): TilesetDataJson {
+    // Get projectDir for making paths relative
+    const projectDir = fileManager.getProjectDir()
 
-    // Check if currently loading
-    const loadingPromise = this.loadingPromises.get(tilesetPath)
-    if (loadingPromise) {
-      return loadingPromise
-    }
+    // Determine base directory for relative paths
+    const baseDir = projectDir || fileManager.dirname(data.filePath || '')
+    const relativeImagePath = fileManager.makeRelativeTo(baseDir, data.imagePath)
 
-    // Start loading
-    const promise = this._loadTilesetInternal(tilesetPath, projectDir)
-    this.loadingPromises.set(tilesetPath, promise)
-
-    try {
-      const tileset = await promise
-      this.tilesets.set(tilesetPath, tileset)
-      return tileset
-    } finally {
-      this.loadingPromises.delete(tilesetPath)
+    return {
+      name: data.name,
+      id: data.id,
+      imagePath: relativeImagePath,
+      tileWidth: data.tileWidth,
+      tileHeight: data.tileHeight,
+      tiles: data.tiles.map(tile => {
+        // Filter out any runtime-only properties that might exist
+        const { id, x, y, width, height, colliders, name, type, bitmasks } = tile
+        return { id, x, y, width, height, colliders, name, type, bitmasks }
+      }),
+      entities: data.entities
     }
   }
 
   /**
-   * Internal method to load a tileset file
+   * Post-process validated JSON data by loading images and resolving paths
    */
-  private async _loadTilesetInternal(tilesetPath: string, projectDir?: string): Promise<TilesetData> {
-    try {
-      // Resolve the full path
-      // If projectDir is provided and tilesetPath is relative, resolve relative to projectDir
-      let fullPath: string
-      if (projectDir && !fileManager.isAbsolute(tilesetPath)) {
-        fullPath = fileManager.normalize(fileManager.join(projectDir, tilesetPath))
-      } else {
-        fullPath = fileManager.resolvePath(tilesetPath)
-      }
+  protected async postProcess(validated: TilesetDataJson, filePath: string): Promise<TilesetData> {
+    const projectDir = fileManager.getProjectDir()
 
-      // Load the JSON file via Tauri FS plugin
-      const rawData = await readTextFile(fullPath)
+    // Resolve image path
+    // If projectDir is available, resolve relative to it (all paths relative to assets root)
+    // Otherwise, fall back to resolving relative to the tileset file
+    const baseDir = projectDir || fileManager.dirname(filePath)
+    const imagePath = fileManager.normalize(fileManager.join(baseDir, validated.imagePath))
 
-      // Parse and validate the JSON with Zod
-      const rawJson = JSON.parse(rawData)
-      const tilesetJson = TilesetDataSchema.parse(rawJson)
+    console.log('Loading tileset image:', {
+      filePath,
+      projectDir,
+      baseDir,
+      relativeImagePath: validated.imagePath,
+      finalImagePath: imagePath
+    })
 
-      // Load the tileset image
-      // If projectDir is provided, resolve image path relative to it (all paths relative to assets root)
-      // Otherwise, fall back to resolving relative to the tileset file (old behavior for backward compatibility)
-      const baseDir = projectDir || fileManager.dirname(fullPath)
-      const imagePath = fileManager.normalize(fileManager.join(baseDir, tilesetJson.imagePath))
+    // Load the image
+    const imageElement = await this.loadImage(imagePath)
 
-      console.log('Loading tileset image:', {
-        tilesetPath,
-        fullPath,
-        projectDir,
-        baseDir,
-        relativeImagePath: tilesetJson.imagePath,
-        finalImagePath: imagePath
-      })
-
-      const imageElement = await this._loadImage(imagePath)
-
-      // Create the TilesetData object
-      const tileset: TilesetData = {
-        ...tilesetJson,
-        id: tilesetJson.id || this._generateId(tilesetPath),
-        imagePath: imagePath, // Use resolved absolute path, not the relative one from JSON
-        imageData: imageElement,
-        filePath: fullPath // Set the filePath so we know where this tileset was loaded from
-      }
-
-      return tileset
-    } catch (error) {
-      console.error(`Error loading tileset from ${tilesetPath}:`, error)
-      throw error
+    // Create the TilesetData object with runtime fields
+    return {
+      ...validated,
+      id: validated.id || this.generateId(filePath),
+      imagePath: imagePath, // Use resolved absolute path
+      imageData: imageElement,
+      filePath: filePath // Set the filePath so we know where this tileset was loaded from
     }
   }
 
   /**
    * Load an image file and return an HTMLImageElement
    */
-  private async _loadImage(imagePath: string): Promise<HTMLImageElement> {
+  async loadImage(imagePath: string): Promise<HTMLImageElement> {
     // First verify the file exists to prevent browser cache hits
     const { exists } = await import('@tauri-apps/plugin-fs')
     const fileExists = await exists(imagePath)
 
     if (!fileExists) {
-      throw new Error(`Image file does not exist: ${imagePath}`)
+      throw new FileNotFoundError(imagePath, 'Load image')
     }
 
     return new Promise((resolve, reject) => {
@@ -130,7 +108,7 @@ export class TilesetManager {
   /**
    * Generate a unique ID for a tileset based on its path
    */
-  private _generateId(tilesetPath: string): string {
+  private generateId(tilesetPath: string): string {
     const basename = fileManager.basename(tilesetPath, '.lostset')
     return basename.replace(/[^a-zA-Z0-9_-]/g, '_')
   }
@@ -139,7 +117,9 @@ export class TilesetManager {
    * Get a loaded tileset by path
    */
   getTileset(tilesetPath: string): TilesetData | undefined {
-    return this.tilesets.get(tilesetPath)
+    const fullPath = fileManager.resolvePath(tilesetPath)
+    const normalizedPath = fileManager.normalize(fullPath)
+    return this.cache.get(normalizedPath)
   }
 
   /**
@@ -150,26 +130,13 @@ export class TilesetManager {
   }
 
   /**
-   * Update a tileset's cache key when its path changes
-   */
-  updateTilesetPath(oldPath: string, newPath: string): void {
-    const tileset = this.tilesets.get(oldPath)
-    if (tileset) {
-      this.tilesets.delete(oldPath)
-      tileset.filePath = newPath
-      this.tilesets.set(newPath, tileset)
-      console.log(`Updated tileset cache key: ${oldPath} -> ${newPath}`)
-    }
-  }
-
-  /**
    * Update the imagePath in all loaded tilesets when an image is moved
    */
   updateImagePath(oldImagePath: string, newImagePath: string): void {
     const normalizedOld = fileManager.normalize(oldImagePath)
     const normalizedNew = fileManager.normalize(newImagePath)
 
-    for (const tileset of this.tilesets.values()) {
+    for (const tileset of this.cache.values()) {
       const normalizedTilesetImagePath = fileManager.normalize(tileset.imagePath)
       if (normalizedTilesetImagePath === normalizedOld) {
         tileset.imagePath = normalizedNew
@@ -182,14 +149,14 @@ export class TilesetManager {
    * Get a loaded tileset by ID
    */
   getTilesetById(tilesetId: string): TilesetData | undefined {
-    return Array.from(this.tilesets.values()).find(t => t.id === tilesetId)
+    return Array.from(this.cache.values()).find(t => t.id === tilesetId)
   }
 
   /**
    * Get a tile definition from a tileset
    */
   getTileDefinition(tilesetId: string, tileId: string): TileDefinition | undefined {
-    const tileset = Array.from(this.tilesets.values()).find(t => t.id === tilesetId)
+    const tileset = Array.from(this.cache.values()).find(t => t.id === tilesetId)
     if (!tileset) return undefined
     return tileset.tiles.find(t => t.id === tileId)
   }
@@ -198,7 +165,7 @@ export class TilesetManager {
    * Get an entity definition from a tileset
    */
   getEntityDefinition(tilesetId: string, entityId: string): EntityDefinition | undefined {
-    const tileset = Array.from(this.tilesets.values()).find(t => t.id === tilesetId)
+    const tileset = Array.from(this.cache.values()).find(t => t.id === tilesetId)
     if (!tileset) return undefined
     return tileset.entities.find(e => e.id === entityId)
   }
@@ -207,14 +174,24 @@ export class TilesetManager {
    * Get all loaded tilesets
    */
   getAllTilesets(): TilesetData[] {
-    return Array.from(this.tilesets.values())
+    return Array.from(this.cache.values())
   }
 
   /**
    * Unload a tileset
    */
   unloadTileset(tilesetPath: string): boolean {
-    return this.tilesets.delete(tilesetPath)
+    const fullPath = fileManager.resolvePath(tilesetPath)
+    const normalizedPath = fileManager.normalize(fullPath)
+
+    // Get the tileset before deleting to clear image
+    const tileset = this.cache.get(normalizedPath)
+    if (tileset?.imageData) {
+      tileset.imageData.src = ''
+    }
+
+    this.cache.delete(normalizedPath)
+    return true
   }
 
   /**
@@ -222,82 +199,54 @@ export class TilesetManager {
    */
   unloadAll(): void {
     // Clear image src to help browser garbage collection and cache invalidation
-    for (const tileset of this.tilesets.values()) {
+    for (const tileset of this.cache.values()) {
       if (tileset.imageData) {
         tileset.imageData.src = ''
       }
     }
-    this.tilesets.clear()
-    this.loadingPromises.clear()
+    this.clearCache()
   }
 
   /**
    * Reload a tileset (useful for hot-reloading during development)
    */
   async reloadTileset(tilesetPath: string): Promise<TilesetData> {
-    this.unloadTileset(tilesetPath)
-    return this.loadTileset(tilesetPath)
+    this.invalidate(tilesetPath)
+    return this.load(tilesetPath)
   }
 
   /**
    * Check if a tileset is loaded
    */
   isLoaded(tilesetPath: string): boolean {
-    return this.tilesets.has(tilesetPath)
+    const fullPath = fileManager.resolvePath(tilesetPath)
+    const normalizedPath = fileManager.normalize(fullPath)
+    return this.cache.has(normalizedPath)
   }
 
   /**
    * Save a tileset to disk
    * @param tileset - The tileset data to save
    * @param filePath - Optional file path (uses tileset.filePath if not provided)
-   * @param projectDir - Optional project directory to save paths relative to (defaults to tileset directory for backward compatibility)
    */
-  async saveTileset(tileset: TilesetData, filePath?: string, projectDir?: string): Promise<void> {
+  async saveTileset(tileset: TilesetData, filePath?: string): Promise<void> {
     const targetPath = filePath || tileset.filePath
     if (!targetPath) {
       throw new Error('No file path specified for saving tileset')
     }
 
-    try {
-      // Resolve the full path
-      const fullPath = fileManager.resolvePath(targetPath)
+    // Update the tileset's filePath before saving
+    tileset.filePath = targetPath
 
-      // If projectDir is provided, make image path relative to it (all paths relative to assets root)
-      // Otherwise, fall back to tileset directory (old behavior for backward compatibility)
-      const baseDir = projectDir || fileManager.dirname(fullPath)
-      const relativeImagePath = fileManager.makeRelativeTo(baseDir, tileset.imagePath)
+    await this.save(tileset, targetPath)
+  }
 
-      // Prepare JSON data (exclude runtime-only fields like imageData and cells)
-      const jsonData = {
-        name: tileset.name,
-        id: tileset.id,
-        imagePath: relativeImagePath,
-        tileWidth: tileset.tileWidth,
-        tileHeight: tileset.tileHeight,
-        tiles: tileset.tiles.map(tile => {
-          // Filter out any runtime-only properties that might exist
-          // TypeScript will enforce that only TileDefinition fields are included
-          const { id, x, y, width, height, colliders, name, type, bitmasks } = tile
-          return { id, x, y, width, height, colliders, name, type, bitmasks }
-        }),
-        entities: tileset.entities
-      }
-
-      console.log('TilesetManager: Saving', jsonData.tiles.length, 'tiles to', fullPath)
-
-      // Write to file
-      const jsonString = JSON.stringify(jsonData, null, 2)
-      await writeTextFile(fullPath, jsonString)
-
-      console.log('Saved tileset to:', fullPath)
-
-      // Update the in-memory tileset with the file path
-      tileset.filePath = targetPath
-      this.tilesets.set(targetPath, tileset)
-    } catch (error) {
-      console.error(`Error saving tileset to ${targetPath}:`, error)
-      throw error
-    }
+  /**
+   * Legacy method: Load a tileset (now without projectDir parameter)
+   * @deprecated Use load() instead
+   */
+  async loadTileset(tilesetPath: string): Promise<TilesetData> {
+    return this.load(tilesetPath)
   }
 }
 

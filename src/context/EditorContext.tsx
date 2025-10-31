@@ -723,7 +723,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	// Multi-tileset management functions
 	const loadTileset = useCallback(async (filePath: string) => {
 		try {
-			const tileset = await tilesetManager.loadTileset(filePath, projectDirectory || undefined);
+			const tileset = await tilesetManager.load(filePath);
 			setTilesets((prev) => {
 				// Check if already loaded
 				if (prev.find((t) => t.id === tileset.id)) {
@@ -737,7 +737,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			console.error("Failed to load tileset:", error);
 			alert(`Failed to load tileset: ${error}`);
 		}
-	}, [projectDirectory]);
+	}, []);
 
 	const addTileset = useCallback((tileset: TilesetData) => {
 		setTilesets((prev) => {
@@ -1032,8 +1032,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					console.log("Loading tilesets:", projectData.tilesets);
 					for (const tilesetPath of projectData.tilesets) {
 						try {
-							// Load tileset with projectDir directly (state not set yet)
-							const tileset = await tilesetManager.loadTileset(tilesetPath, projectDir);
+							// Load tileset using FileManager's global projectDir
+							const tileset = await tilesetManager.load(tilesetPath);
 							setTilesets((prev) => {
 								// Check if already loaded
 								if (prev.find((t) => t.id === tileset.id)) {
@@ -1315,7 +1315,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// If not loaded, load it now using the tilesetManager directly
 				if (!tileset) {
-					tileset = await tilesetManager.loadTileset(filePath, projectDirectory || undefined);
+					tileset = await tilesetManager.load(filePath);
 					// Add it to the tilesets array
 					setTilesets((prev) => {
 						// Check if already loaded
@@ -1367,7 +1367,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 
 				// Load the entity from file using EntityManager
-				const entity = await entityManager.loadEntity(filePath, projectDirectory || undefined);
+				const entity = await entityManager.load(filePath);
 
 				// Create a new entity editor tab
 				const entityTab: EntityEditorTab = {
@@ -1394,7 +1394,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to open entity: ${error}`);
 			}
 		},
-		[tabs, openTab, projectDirectory],
+		[tabs, openTab],
 	);
 
 	const newTileset = useCallback(async () => {
@@ -1492,7 +1492,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Save the entity immediately
 		try {
-			await entityManager.saveEntity(entity, result.filePath, projectDirectory || undefined);
+			await entityManager.saveEntity(entity, result.filePath);
 			console.log("Saved new entity to:", result.filePath);
 		} catch (error) {
 			console.error("Failed to save new entity:", error);
@@ -1519,7 +1519,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		};
 
 		openTab(entityTab);
-	}, [openTab, projectDirectory]);
+	}, [openTab]);
 
 	const saveTileset = useCallback(async () => {
 		const activeTilesetTab = getActiveTilesetTab();
@@ -1564,7 +1564,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		}
 
 		try {
-			await tilesetManager.saveTileset(tileset, targetPath, projectDirectory || undefined);
+			await tilesetManager.saveTileset(tileset, targetPath);
 
 			// Update the tileset in the tilesets array with the new file path
 			setTilesets((prev) =>
@@ -1605,7 +1605,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 
 			try {
-				await tilesetManager.saveTileset(tileset, tileset.filePath, projectDirectory || undefined);
+				await tilesetManager.saveTileset(tileset, tileset.filePath);
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
@@ -1635,7 +1635,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 
 			try {
-				await entityManager.saveEntity(entity, entity.filePath, projectDirectory || undefined);
+				await entityManager.saveEntity(entity, entity.filePath);
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
@@ -1650,7 +1650,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Save the project (which now also saves all map tabs to separate files)
 		await saveProject();
-	}, [tabs, tilesets, updateTabData, saveProject, projectDirectory]);
+	}, [tabs, tilesets, updateTabData, saveProject]);
 
 	// Initialize with settings
 	useEffect(() => {

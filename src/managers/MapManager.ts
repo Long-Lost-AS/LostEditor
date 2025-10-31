@@ -1,7 +1,7 @@
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { MapData, Layer, Tile } from '../types'
-import { MapFileSchema, LayerJson } from '../schemas'
+import { MapFileSchema, type MapFileJson } from '../schemas'
 import { fileManager } from './FileManager'
+import { FileLoader } from './FileLoader'
 
 /**
  * Generate a consistent tile key from coordinates
@@ -22,91 +22,70 @@ export function makeTileKey(x: number, y: number): string {
 /**
  * MapManager handles loading, parsing, and managing map files
  */
-export class MapManager {
-  private maps: Map<string, MapData> = new Map()
-  private loadingPromises: Map<string, Promise<MapData>> = new Map()
+class MapManager extends FileLoader<MapData, MapFileJson> {
+  /**
+   * Zod schema for map validation
+   */
+  protected get schema() {
+    return MapFileSchema
+  }
 
   /**
-   * Load a map from a file path
-   * @param mapPath - Path to the map JSON file (can be relative or absolute)
-   * @returns Promise resolving to the loaded MapData
+   * Prepare map data for serialization by converting Map objects to arrays
    */
-  async loadMap(mapPath: string): Promise<MapData> {
-    // Check if already loaded
-    const existing = this.maps.get(mapPath)
-    if (existing) {
-      return existing
-    }
+  protected prepareForSave(data: MapData): MapFileJson {
+    // Convert Map objects back to arrays for JSON serialization
+    const layers = data.layers.map((layer: Layer) => ({
+      id: layer.id,
+      name: layer.name,
+      visible: layer.visible,
+      type: layer.type,
+      tiles: Array.from(layer.tiles.values()),
+      entities: layer.entities
+    }))
 
-    // Check if currently loading
-    const loadingPromise = this.loadingPromises.get(mapPath)
-    if (loadingPromise) {
-      return loadingPromise
-    }
-
-    // Start loading
-    const promise = this._loadMapInternal(mapPath)
-    this.loadingPromises.set(mapPath, promise)
-
-    try {
-      const mapData = await promise
-      this.maps.set(mapPath, mapData)
-      return mapData
-    } finally {
-      this.loadingPromises.delete(mapPath)
+    return {
+      name: data.name || 'Untitled Map',
+      width: data.width,
+      height: data.height,
+      tileWidth: data.tileWidth,
+      tileHeight: data.tileHeight,
+      layers: layers,
+      lastModified: new Date().toISOString()
     }
   }
 
   /**
-   * Internal method to load a map file
+   * Post-process validated JSON data by converting tile arrays to Map objects
    */
-  private async _loadMapInternal(mapPath: string): Promise<MapData> {
-    try {
-      // Resolve the full path
-      const fullPath = fileManager.resolvePath(mapPath)
+  protected async postProcess(validated: MapFileJson, filePath: string): Promise<MapData> {
+    // Convert tiles arrays to Map objects for efficient lookup
+    const layers: Layer[] = validated.layers.map((layerJson) => {
+      const tilesMap = new Map<string, Tile>()
 
-      // Load the JSON file via Tauri FS plugin
-      const rawData = await readTextFile(fullPath)
-
-      // Parse and validate the JSON with Zod
-      const rawJson = JSON.parse(rawData)
-      const mapFileJson = MapFileSchema.parse(rawJson)
-
-      console.log('Loading map from:', fullPath)
-
-      // Convert tiles arrays to Map objects for efficient lookup
-      const layers: Layer[] = mapFileJson.layers.map((layerJson: LayerJson) => {
-        const tilesMap = new Map<string, Tile>()
-
-        // Convert tiles array to Map with x,y as key
-        layerJson.tiles.forEach((tile: Tile) => {
-          const key = makeTileKey(tile.x, tile.y)
-          tilesMap.set(key, tile)
-        })
-
-        return {
-          id: layerJson.id,
-          name: layerJson.name,
-          visible: layerJson.visible,
-          type: layerJson.type,
-          tiles: tilesMap,
-          entities: layerJson.entities
-        }
+      // Convert tiles array to Map with x,y as key
+      layerJson.tiles.forEach((tile: Tile) => {
+        const key = makeTileKey(tile.x, tile.y)
+        tilesMap.set(key, tile)
       })
 
-      // Create the MapData object
-      const mapData: MapData = {
-        width: mapFileJson.width,
-        height: mapFileJson.height,
-        tileWidth: mapFileJson.tileWidth,
-        tileHeight: mapFileJson.tileHeight,
-        layers: layers
+      return {
+        id: layerJson.id,
+        name: layerJson.name,
+        visible: layerJson.visible,
+        type: layerJson.type,
+        tiles: tilesMap,
+        entities: layerJson.entities
       }
+    })
 
-      return mapData
-    } catch (error) {
-      console.error(`Error loading map from ${mapPath}:`, error)
-      throw error
+    return {
+      name: validated.name,
+      width: validated.width,
+      height: validated.height,
+      tileWidth: validated.tileWidth,
+      tileHeight: validated.tileHeight,
+      layers: layers
     }
   }
 
@@ -114,111 +93,46 @@ export class MapManager {
    * Get a loaded map by path
    */
   getMap(mapPath: string): MapData | undefined {
-    return this.maps.get(mapPath)
-  }
-
-  /**
-   * Get a loaded map by path (alias for getMap)
-   */
-  getMapByPath(mapPath: string): MapData | undefined {
-    return this.getMap(mapPath)
-  }
-
-  /**
-   * Update a map's cache key when its path changes
-   */
-  updateMapPath(oldPath: string, newPath: string): void {
-    const map = this.maps.get(oldPath)
-    if (map) {
-      this.maps.delete(oldPath)
-      this.maps.set(newPath, map)
-      console.log(`Updated map cache key: ${oldPath} -> ${newPath}`)
-    }
+    const fullPath = fileManager.resolvePath(mapPath)
+    const normalizedPath = fileManager.normalize(fullPath)
+    return this.cache.get(normalizedPath)
   }
 
   /**
    * Get all loaded maps
    */
   getAllMaps(): MapData[] {
-    return Array.from(this.maps.values())
+    return Array.from(this.cache.values())
   }
 
   /**
-   * Unload a map
+   * Save a map to disk
+   * @param mapData - The map data to save
+   * @param filePath - File path where to save
+   * @param mapName - Optional custom name for the map
    */
-  unloadMap(mapPath: string): boolean {
-    return this.maps.delete(mapPath)
+  async saveMap(mapData: MapData, filePath: string, mapName?: string): Promise<void> {
+    // Set custom name if provided
+    if (mapName) {
+      mapData.name = mapName
+    }
+
+    await this.save(mapData, filePath)
   }
 
   /**
    * Unload all maps
    */
   unloadAll(): void {
-    this.maps.clear()
-    this.loadingPromises.clear()
+    this.clearCache()
   }
 
   /**
-   * Reload a map (useful for hot-reloading during development)
+   * Legacy method: Load a map
+   * @deprecated Use load() instead
    */
-  async reloadMap(mapPath: string): Promise<MapData> {
-    this.unloadMap(mapPath)
-    return this.loadMap(mapPath)
-  }
-
-  /**
-   * Check if a map is loaded
-   */
-  isLoaded(mapPath: string): boolean {
-    return this.maps.has(mapPath)
-  }
-
-  /**
-   * Save a map to disk
-   * @param mapData - The map data to save
-   * @param filePath - File path to save to
-   * @param mapName - Optional name for the map
-   */
-  async saveMap(mapData: MapData, filePath: string, mapName?: string): Promise<void> {
-    try {
-      // Resolve the full path
-      const fullPath = fileManager.resolvePath(filePath)
-
-      // Convert Map objects back to arrays for JSON serialization
-      const layers = mapData.layers.map((layer: Layer) => ({
-        id: layer.id,
-        name: layer.name,
-        visible: layer.visible,
-        type: layer.type,
-        tiles: Array.from(layer.tiles.values()),
-        entities: layer.entities
-      }))
-
-      // Prepare JSON data
-      const jsonData = {
-        name: mapName || fileManager.basename(fullPath, '.lostmap'),
-        width: mapData.width,
-        height: mapData.height,
-        tileWidth: mapData.tileWidth,
-        tileHeight: mapData.tileHeight,
-        layers: layers,
-        lastModified: new Date().toISOString()
-      }
-
-      console.log('MapManager: Saving map with', layers.length, 'layers to', fullPath)
-
-      // Write to file
-      const jsonString = JSON.stringify(jsonData, null, 2)
-      await writeTextFile(fullPath, jsonString)
-
-      console.log('Saved map to:', fullPath)
-
-      // Update the in-memory cache
-      this.maps.set(filePath, mapData)
-    } catch (error) {
-      console.error(`Error saving map to ${filePath}:`, error)
-      throw error
-    }
+  async loadMap(mapPath: string): Promise<MapData> {
+    return this.load(mapPath)
   }
 }
 
