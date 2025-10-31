@@ -76,8 +76,12 @@ export const EntityPanel = () => {
 
   const [filterTilesetId, setFilterTilesetId] = useState<string>('all')
 
-  // Get all entities from all tilesets or filtered
-  const allEntities = entityManager.getAllEntityDefinitions()
+  // Get all entities from all tilesets
+  const allEntities = tilesets.flatMap(tileset =>
+    tileset.entities.map(entity => ({ tilesetId: tileset.id, entity }))
+  )
+
+  // Filter by tileset if needed
   const filteredEntities = filterTilesetId === 'all'
     ? allEntities
     : allEntities.filter(e => e.tilesetId === filterTilesetId)
