@@ -3,6 +3,7 @@ import { fileManager } from "./FileManager";
 import { tilesetManager } from "./TilesetManager";
 import { mapManager } from "./MapManager";
 import type { ProjectData } from "../types";
+import { ProjectDataSchema, TilesetDataSchema, MapFileSchema } from "../schemas";
 
 /**
  * ReferenceManager tracks file references and updates them when files are moved/renamed
@@ -25,7 +26,8 @@ export class ReferenceManager {
 		try {
 			const { readTextFile } = await import("@tauri-apps/plugin-fs");
 			const content = await readTextFile(projectFile);
-			const projectData = JSON.parse(content);
+			const parsedContent = JSON.parse(content);
+			const projectData = ProjectDataSchema.parse(parsedContent);
 
 			// Check tilesets referenced in project
 			if (projectData.tilesets) {
@@ -70,7 +72,8 @@ export class ReferenceManager {
 			for (const tilesetFile of tilesetFiles) {
 				try {
 					const tilesetContent = await readTextFile(tilesetFile);
-					const tilesetData = JSON.parse(tilesetContent);
+					const parsedTileset = JSON.parse(tilesetContent);
+					const tilesetData = TilesetDataSchema.parse(parsedTileset);
 
 					if (tilesetData.imagePath) {
 						// Resolve image paths relative to project directory (all paths are relative to assets root)
@@ -385,7 +388,8 @@ export class ReferenceManager {
 	): Promise<void> {
 		try {
 			const content = await readTextFile(projectFile);
-			const projectData = JSON.parse(content) as ProjectData;
+			const parsedContent = JSON.parse(content);
+			const projectData = ProjectDataSchema.parse(parsedContent);
 			const projectDir = fileManager.dirname(projectFile);
 
 			const refTypes: ReferenceType[] = [];
@@ -440,7 +444,8 @@ export class ReferenceManager {
 		for (const tilesetFile of tilesetFiles) {
 			try {
 				const content = await readTextFile(tilesetFile);
-				const tilesetData = JSON.parse(content);
+				const parsedTileset = JSON.parse(content);
+				const tilesetData = TilesetDataSchema.parse(parsedTileset);
 
 				if (tilesetData.imagePath) {
 					// Resolve image paths relative to project directory (all paths are relative to assets root)
@@ -478,7 +483,20 @@ export class ReferenceManager {
 	): Promise<void> {
 		try {
 			const content = await readTextFile(refFilePath);
-			const data = JSON.parse(content);
+			const parsedData = JSON.parse(content);
+
+			// Validate based on file extension
+			let data: any;
+			if (refFilePath.endsWith('.lostproj')) {
+				data = ProjectDataSchema.parse(parsedData);
+			} else if (refFilePath.endsWith('.lostset')) {
+				data = TilesetDataSchema.parse(parsedData);
+			} else {
+				// For unknown file types, use raw data with validation warning
+				console.warn(`Unknown file type for reference update: ${refFilePath}`);
+				data = parsedData;
+			}
+
 			let modified = false;
 
 			for (const refType of refTypes) {
