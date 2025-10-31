@@ -1163,6 +1163,38 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 									`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`,
 								);
 							}
+						} else if (tab.type === "entity-editor") {
+							const entityTab = tab as any;
+
+							if (entityTab.filePath) {
+								try {
+									const entityData = await entityManager.loadEntity(entityTab.filePath);
+
+									const fullEntityTab: EntityEditorTab = {
+										id: entityTab.id,
+										type: "entity-editor",
+										title: entityTab.title,
+										isDirty: entityTab.isDirty || false,
+										filePath: entityTab.filePath,
+										entityId: entityTab.entityId || entityTab.id,
+										entityData: entityData,
+										viewState: entityTab.viewState || {
+											scale: 1,
+											panX: 0,
+											panY: 0,
+											selectedSpriteLayerId: null,
+											selectedChildId: null,
+										},
+									};
+
+									restoredTabs.push(fullEntityTab);
+								} catch (error) {
+									console.error(
+										`Failed to load entity ${entityTab.filePath}:`,
+										error,
+									);
+								}
+							}
 						}
 					}
 

@@ -157,7 +157,11 @@ export const ProjectDataSchema = z.object({
   tilesets: z.array(z.string()).default([]),
   maps: z.array(z.string()).default([]),
   projectDir: z.string().optional(),
-  lastModified: z.string()
+  lastModified: z.string(),
+  openTabs: z.object({
+    tabs: z.array(z.any()),
+    activeTabId: z.string().optional()
+  }).optional()
 })
 
 // ===========================
