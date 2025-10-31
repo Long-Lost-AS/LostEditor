@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { PolygonCollider } from '../types'
 import { LightbulbIcon, TrashIcon, PlusIcon } from './Icons'
+import { deepEqual } from '../utils/deepEqual'
 
 interface CollisionEditorProps {
   width: number
@@ -100,7 +101,7 @@ export const CollisionEditor = ({
   const updateCollidersWithHistory = (newColliders: PolygonCollider[]) => {
     // Check if colliders actually changed (deep comparison)
     const currentColliders = history[historyIndex]
-    if (JSON.stringify(currentColliders) === JSON.stringify(newColliders)) {
+    if (deepEqual(currentColliders, newColliders)) {
       return // No change, don't add to history
     }
 
@@ -123,7 +124,7 @@ export const CollisionEditor = ({
   const pushToHistory = (newColliders: PolygonCollider[]) => {
     // Check if colliders actually changed
     const currentColliders = history[historyIndex]
-    if (JSON.stringify(currentColliders) === JSON.stringify(newColliders)) {
+    if (deepEqual(currentColliders, newColliders)) {
       return // No change, don't add to history
     }
 
