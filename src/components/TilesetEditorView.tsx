@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
-import { TilesetTab, PolygonCollider, AutotileGroup } from "../types";
+import { TilesetTab, PolygonCollider, TerrainLayer } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
 import { ShieldIcon, TrashIcon } from "./Icons";
 
@@ -940,23 +940,22 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTabData(tab.id, { isDirty: true });
 	};
 
-	// Helper to get terrainLayers with backward compatibility
+	// Helper to get terrainLayers
 	const getTerrainLayers = () => {
-		return tilesetData.terrainLayers || tilesetData.autotileGroups || [];
+		return tilesetData.terrainLayers || [];
 	};
 
-	// Helper to update terrainLayers with backward compatibility
-	const updateTerrainLayers = (layers: AutotileGroup[]) => {
+	// Helper to update terrainLayers
+	const updateTerrainLayers = (layers: TerrainLayer[]) => {
 		updateTileset(tab.tilesetId, {
-			terrainLayers: layers,
-			autotileGroups: layers, // Keep both for backward compatibility
+			terrainLayers: layers
 		});
 	};
 
 	// Terrain layer handlers
 	const handleAddTerrainLayer = () => {
 		const terrainLayers = getTerrainLayers();
-		const newLayer: AutotileGroup = {
+		const newLayer: TerrainLayer = {
 			id: `terrain-${Date.now()}`,
 			name: `Terrain ${terrainLayers.length + 1}`,
 		};
@@ -965,7 +964,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTabData(tab.id, { isDirty: true });
 	};
 
-	const handleUpdateTerrainLayer = (updatedLayer: AutotileGroup) => {
+	const handleUpdateTerrainLayer = (updatedLayer: TerrainLayer) => {
 		const terrainLayers = getTerrainLayers();
 		updateTerrainLayers(terrainLayers.map((layer) =>
 			layer.id === updatedLayer.id ? updatedLayer : layer

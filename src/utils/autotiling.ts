@@ -1,4 +1,4 @@
-import type { Layer, Tile, AutotileGroup, TilesetData } from "../types";
+import type { Layer, Tile, TerrainLayer, TilesetData } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
@@ -109,19 +109,16 @@ export function updateTileAndNeighbors(
 }
 
 /**
- * Get all autotile groups from loaded tilesets
- * Uses terrainLayers with fallback to autotileGroups for backward compatibility
+ * Get all terrain layers from loaded tilesets
  */
 export function getAllAutotileGroups(
 	tilesets: Map<string, TilesetData>,
-): AutotileGroup[] {
-	const groups: AutotileGroup[] = [];
+): TerrainLayer[] {
+	const groups: TerrainLayer[] = [];
 
 	for (const tileset of tilesets.values()) {
-		// Prefer terrainLayers, fallback to autotileGroups for backward compatibility
-		const layers = tileset.terrainLayers || tileset.autotileGroups;
-		if (layers) {
-			groups.push(...layers);
+		if (tileset.terrainLayers) {
+			groups.push(...tileset.terrainLayers);
 		}
 	}
 

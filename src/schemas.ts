@@ -54,7 +54,13 @@ export const TileDefinitionSchema = z.object({
   height: z.number().optional(),
   colliders: z.array(PolygonColliderSchema).optional(),
   name: z.string().optional(),
-  type: z.string().optional()
+  type: z.string().optional(),
+  bitmasks: z.record(z.string(), z.number()).optional()
+})
+
+export const TerrainLayerSchema = z.object({
+  id: z.string(),
+  name: z.string()
 })
 
 // Entity definition is recursive, so we need to define it with z.lazy
@@ -83,7 +89,8 @@ export const TilesetDataSchema = z.object({
   tileWidth: z.number(),
   tileHeight: z.number(),
   tiles: z.array(TileDefinitionSchema).default([]),
-  entities: z.array(EntityDefinitionSchema).default([])
+  entities: z.array(EntityDefinitionSchema).default([]),
+  terrainLayers: z.array(TerrainLayerSchema).optional()
 })
 
 // ===========================

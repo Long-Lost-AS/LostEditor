@@ -67,9 +67,6 @@ export interface TerrainLayer {
   name: string  // The terrain identifier (e.g., "Grass", "Dirt")
 }
 
-// Deprecated: kept for backward compatibility during migration
-export type AutotileGroup = TerrainLayer
-
 export interface TilesetData {
   version: string
   name: string
@@ -82,7 +79,6 @@ export interface TilesetData {
   tiles: TileDefinition[]
   entities: EntityDefinition[]
   terrainLayers?: TerrainLayer[]  // Terrain layers for Godot-style autotiling
-  autotileGroups?: AutotileGroup[]  // Deprecated: kept for backward compatibility
 }
 
 // ===========================
