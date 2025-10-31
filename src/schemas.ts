@@ -77,7 +77,6 @@ export const EntityDefinitionSchema: z.ZodType<any> = z.lazy(() =>
 )
 
 export const TilesetDataSchema = z.object({
-  version: z.string(),
   name: z.string(),
   id: z.string().optional(),
   imagePath: z.string(),
@@ -114,7 +113,7 @@ export const EntityInstanceSchema: z.ZodType<any> = z.lazy(() =>
       x: z.number(),
       y: z.number()
     }).optional(),
-    properties: z.record(z.any()).optional(),
+    properties: z.record(z.string()).optional(),
     children: z.array(EntityInstanceSchema).optional()
   })
 )
@@ -140,7 +139,6 @@ export const MapDataSchema = z.object({
 
 // Map file schema (for .lostmap files)
 export const MapFileSchema = z.object({
-  version: z.string(),
   name: z.string(),
   width: z.number(),
   height: z.number(),
@@ -155,12 +153,27 @@ export const MapFileSchema = z.object({
 // ===========================
 
 export const ProjectDataSchema = z.object({
-  version: z.string(),
   name: z.string(),
   tilesets: z.array(z.string()).default([]),
   maps: z.array(z.string()).default([]),
   projectDir: z.string().optional(),
   lastModified: z.string()
+})
+
+// ===========================
+// Settings Schema
+// ===========================
+
+export const EditorSettingsSchema = z.object({
+  gridVisible: z.boolean(),
+  defaultMapWidth: z.number(),
+  defaultMapHeight: z.number(),
+  defaultTileWidth: z.number(),
+  defaultTileHeight: z.number(),
+  autoSaveInterval: z.number(), // in minutes, 0 = disabled
+  recentFilesLimit: z.number(),
+  recentFiles: z.array(z.string()),
+  lastOpenedProject: z.string().nullable()
 })
 
 // ===========================

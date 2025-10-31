@@ -375,7 +375,6 @@ export const TilesetCreator = ({
 		);
 
 		const tilesetData: TilesetData = {
-			version: "2.0",
 			name: tilesetName,
 			id: tilesetId,
 			imagePath: relativeImagePath,

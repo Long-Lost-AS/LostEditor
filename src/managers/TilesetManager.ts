@@ -269,16 +269,16 @@ export class TilesetManager {
 
       // Prepare JSON data (exclude runtime-only fields like imageData and cells)
       const jsonData = {
-        version: tileset.version,
         name: tileset.name,
         id: tileset.id,
         imagePath: relativeImagePath,
         tileWidth: tileset.tileWidth,
         tileHeight: tileset.tileHeight,
         tiles: tileset.tiles.map(tile => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { cells, ...rest } = tile as any
-          return rest
+          // Filter out any runtime-only properties that might exist
+          // TypeScript will enforce that only TileDefinition fields are included
+          const { id, x, y, width, height, colliders, name, type, bitmasks } = tile
+          return { id, x, y, width, height, colliders, name, type, bitmasks }
         }),
         entities: tileset.entities
       }

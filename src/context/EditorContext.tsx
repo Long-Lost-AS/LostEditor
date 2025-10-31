@@ -31,6 +31,7 @@ import {
 	referenceManager,
 	type BrokenReference,
 } from "../managers/ReferenceManager";
+import { ProjectDataSchema } from "../schemas";
 import {
 	updateTileAndNeighbors,
 	getAllAutotileGroups,
@@ -880,7 +881,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			);
 
 			const projectData: ProjectData = {
-				version: "3.0",
 				name: projectName,
 				tilesets: relativeTilesetPaths,
 				maps: relativeMapPaths,
@@ -972,7 +972,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 
 			try {
-				const projectData: ProjectData = JSON.parse(data);
+				const parsedData = JSON.parse(data);
+				const projectData = ProjectDataSchema.parse(parsedData);
 
 				console.log("Loading project data:", projectData);
 

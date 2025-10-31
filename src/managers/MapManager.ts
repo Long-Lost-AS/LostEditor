@@ -4,6 +4,22 @@ import { MapFileSchema, LayerJson } from '../schemas'
 import { fileManager } from './FileManager'
 
 /**
+ * Generate a consistent tile key from coordinates
+ * Validates that coordinates are integers to prevent data corruption
+ * @param x - X coordinate (must be integer)
+ * @param y - Y coordinate (must be integer)
+ * @returns String key in format "x,y"
+ */
+export function makeTileKey(x: number, y: number): string {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) {
+    console.warn(`Non-integer tile coordinates: (${x}, ${y}). Rounding to integers.`)
+    x = Math.round(x)
+    y = Math.round(y)
+  }
+  return `${x},${y}`
+}
+
+/**
  * MapManager handles loading, parsing, and managing map files
  */
 export class MapManager {
@@ -64,7 +80,7 @@ export class MapManager {
 
         // Convert tiles array to Map with x,y as key
         layerJson.tiles.forEach((tile: Tile) => {
-          const key = `${tile.x},${tile.y}`
+          const key = makeTileKey(tile.x, tile.y)
           tilesMap.set(key, tile)
         })
 
@@ -180,7 +196,6 @@ export class MapManager {
 
       // Prepare JSON data
       const jsonData = {
-        version: '1.0',
         name: mapName || fileManager.basename(fullPath, '.lostmap'),
         width: mapData.width,
         height: mapData.height,
