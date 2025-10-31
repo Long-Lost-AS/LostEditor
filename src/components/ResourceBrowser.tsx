@@ -707,7 +707,6 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-all group relative"
         style={{ ...style, userSelect: 'none', WebkitUserSelect: 'none' }}
         onClick={(e) => handleItemClick(item, index, e)}
-        onDoubleClick={(e) => handleItemDoubleClick(e, item)}
         onContextMenu={(e) => handleContextMenu(e, item)}
         onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
           if (!isSelected && !isActive) {
