@@ -14,6 +14,7 @@ import { TilesetEditorView } from "./components/TilesetEditorView";
 import { EntityEditorView } from "./components/EntityEditorView";
 import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
+import { CommandPalette } from "./components/CommandPalette";
 import "./style.css";
 
 const AppContent = () => {
@@ -40,6 +41,7 @@ const AppContent = () => {
 	} = useEditor();
 
 	const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true);
+	const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 	const [rightPanelWidth, setRightPanelWidth] = useState(350);
 	const [isResizing, setIsResizing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
@@ -339,7 +341,7 @@ const AppContent = () => {
 		};
 	}, [isResizingBottom, dragStartY, dragStartHeight]);
 
-	// Global keyboard handler for Shift+Space (toggle ResourceBrowser)
+	// Global keyboard handler for Shift+Space (toggle ResourceBrowser) and Cmd/Ctrl+P (toggle CommandPalette)
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: KeyboardEvent) => {
 			// Shift+Space - Toggle ResourceBrowser
@@ -352,6 +354,17 @@ const AppContent = () => {
 			) {
 				e.preventDefault();
 				setIsAssetBrowserOpen((prev) => !prev);
+			}
+
+			// Cmd/Ctrl+P - Toggle CommandPalette
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "p" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				setIsCommandPaletteOpen((prev) => !prev);
 			}
 		};
 
@@ -446,6 +459,12 @@ const AppContent = () => {
 					onContinue={brokenReferencesModalData.onContinue}
 				/>
 			)}
+
+			{/* Command Palette (Cmd/Ctrl+P) */}
+			<CommandPalette
+				isOpen={isCommandPaletteOpen}
+				onClose={() => setIsCommandPaletteOpen(false)}
+			/>
 		</div>
 	);
 };
