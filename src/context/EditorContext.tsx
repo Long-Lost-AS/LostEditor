@@ -8,7 +8,7 @@ import {
 	useEffect,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile, writeTextFile, readDir } from "@tauri-apps/plugin-fs";
 import {
 	MapData,
 	Layer,
@@ -178,6 +178,54 @@ export const useEditor = () => {
 
 interface EditorProviderProps {
 	children: ReactNode;
+}
+
+/**
+ * Helper function to recursively search for a tileset file by ID in the project directory
+ */
+async function findTilesetByIdInProject(
+	projectDir: string,
+	tilesetId: string,
+): Promise<string | null> {
+	async function searchDirectory(dirPath: string): Promise<string | null> {
+		try {
+			const entries = await readDir(dirPath);
+
+			for (const entry of entries) {
+				const fullPath = fileManager.join(dirPath, entry.name);
+
+				if (entry.isDirectory) {
+					// Skip hidden directories
+					if (entry.name.startsWith(".")) {
+						continue;
+					}
+
+					// Recursively search subdirectories
+					const result = await searchDirectory(fullPath);
+					if (result) {
+						return result;
+					}
+				} else if (entry.name.endsWith(".lostset")) {
+					// Read the tileset file and check its ID
+					try {
+						const content = await readTextFile(fullPath);
+						const tilesetData = JSON.parse(content);
+						if (tilesetData.id === tilesetId) {
+							return fullPath;
+						}
+					} catch (error) {
+						console.error(`Failed to read tileset ${fullPath}:`, error);
+					}
+				}
+			}
+		} catch (error) {
+			console.error(`Failed to search directory ${dirPath}:`, error);
+		}
+
+		return null;
+	}
+
+	return searchDirectory(projectDir);
 }
 
 export const EditorProvider = ({ children }: EditorProviderProps) => {
@@ -1369,6 +1417,39 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Load the entity from file using EntityManager
 				const entity = await entityManager.load(filePath);
 
+				// Collect unique tileset IDs from the entity's sprites
+				const tilesetIds = new Set<string>();
+				if (entity.sprites) {
+					for (const sprite of entity.sprites) {
+						if (sprite.tilesetId) {
+							tilesetIds.add(sprite.tilesetId);
+						}
+					}
+				}
+
+				// Load any missing tilesets
+				for (const tilesetId of tilesetIds) {
+					const existingTileset = tilesetManager.getTilesetById(tilesetId);
+					if (!existingTileset) {
+						console.log(`Tileset ${tilesetId} not loaded, searching for it...`);
+
+						// Search project directory for the tileset
+						if (projectDirectory) {
+							try {
+								const tilesetPath = await findTilesetByIdInProject(projectDirectory, tilesetId);
+								if (tilesetPath) {
+									console.log(`Found tileset at ${tilesetPath}, loading...`);
+									await loadTileset(tilesetPath);
+								} else {
+									console.warn(`Could not find tileset file for ID: ${tilesetId}`);
+								}
+							} catch (error) {
+								console.error(`Failed to find/load tileset ${tilesetId}:`, error);
+							}
+						}
+					}
+				}
+
 				// Create a new entity editor tab
 				const entityTab: EntityEditorTab = {
 					id: `entity-${Date.now()}`,
@@ -1394,7 +1475,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to open entity: ${error}`);
 			}
 		},
-		[tabs, openTab],
+		[tabs, openTab, projectDirectory, loadTileset],
 	);
 
 	const newTileset = useCallback(async () => {
