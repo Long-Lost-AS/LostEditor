@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { TilesetTab, PolygonCollider, AutotileGroup } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
@@ -70,6 +70,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		scaleRef.current = viewState.scale;
 	}, [pan, viewState.scale]);
 
+	// Memoized tile position map for O(1) lookups
+	const tilePositionMap = useMemo(() => {
+		const map = new Map<string, typeof tilesetData.tiles[0]>();
+		for (const tile of tilesetData.tiles) {
+			if (tile.width && tile.height) {
+				map.set(`${tile.x},${tile.y}`, tile);
+			}
+		}
+		return map;
+	}, [tilesetData.tiles]);
+
 	// Draw tileset image on canvas
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -108,11 +119,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				x += tilesetData.tileWidth
 			) {
 				// Find all compound tiles that intersect this vertical line
-				const intersectingTiles = tilesetData.tiles.filter((tile) => {
-					if (!tile.width || !tile.height) return false; // Not a compound tile
-					const tileWidth = tile.width || tilesetData.tileWidth;
-					return x > tile.x && x < tile.x + tileWidth;
-				});
+				const intersectingTiles = tilesetData.tiles
+					.filter((tile) => {
+						if (!tile.width || !tile.height) return false; // Not a compound tile
+						const tileWidth = tile.width || tilesetData.tileWidth;
+						return x > tile.x && x < tile.x + tileWidth;
+					})
+					.sort((a, b) => a.y - b.y); // Sort by Y position
 
 				if (intersectingTiles.length === 0) {
 					// No intersections, draw full line
@@ -151,11 +164,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				y += tilesetData.tileHeight
 			) {
 				// Find all compound tiles that intersect this horizontal line
-				const intersectingTiles = tilesetData.tiles.filter((tile) => {
-					if (!tile.width || !tile.height) return false; // Not a compound tile
-					const tileHeight = tile.height || tilesetData.tileHeight;
-					return y > tile.y && y < tile.y + tileHeight;
-				});
+				const intersectingTiles = tilesetData.tiles
+					.filter((tile) => {
+						if (!tile.width || !tile.height) return false; // Not a compound tile
+						const tileHeight = tile.height || tilesetData.tileHeight;
+						return y > tile.y && y < tile.y + tileHeight;
+					})
+					.sort((a, b) => a.x - b.x); // Sort by X position
 
 				if (intersectingTiles.length === 0) {
 					// No intersections, draw full line
@@ -285,28 +300,39 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
 
 				if (selectedLayer) {
-					// Draw 3x3 grid overlay on EVERY tile in the tileset
 					const cols = Math.ceil(tilesetData.imageData.width / tilesetData.tileWidth);
 					const rows = Math.ceil(tilesetData.imageData.height / tilesetData.tileHeight);
 
-					for (let tileY = 0; tileY < rows; tileY++) {
-						for (let tileX = 0; tileX < cols; tileX++) {
+					// OPTIMIZATION: Calculate visible tile bounds (viewport culling)
+					const viewportLeft = -pan.x / viewState.scale;
+					const viewportTop = -pan.y / viewState.scale;
+					const viewportRight = viewportLeft + (canvas.width / viewState.scale);
+					const viewportBottom = viewportTop + (canvas.height / viewState.scale);
+
+					const startCol = Math.max(0, Math.floor(viewportLeft / tilesetData.tileWidth));
+					const endCol = Math.min(cols, Math.ceil(viewportRight / tilesetData.tileWidth));
+					const startRow = Math.max(0, Math.floor(viewportTop / tilesetData.tileHeight));
+					const endRow = Math.min(rows, Math.ceil(viewportBottom / tilesetData.tileHeight));
+
+					const cellWidth = tilesetData.tileWidth / 3;
+					const cellHeight = tilesetData.tileHeight / 3;
+
+					// OPTIMIZATION: Use Path2D for batched rendering
+					const gridPath = new Path2D();
+					const fillPathCenter = new Path2D();
+					const fillPathOther = new Path2D();
+
+					// Only iterate through visible tiles
+					for (let tileY = startRow; tileY < endRow; tileY++) {
+						for (let tileX = startCol; tileX < endCol; tileX++) {
 							const tilePosX = tileX * tilesetData.tileWidth;
 							const tilePosY = tileY * tilesetData.tileHeight;
 
-							// Find if there's a compound tile at this position
-							const tileAtPos = tilesetData.tiles.find(t => {
-								if (!t.width || !t.height) return false;
-								return t.x === tilePosX && t.y === tilePosY;
-							});
-
-							const cellWidth = tilesetData.tileWidth / 3;
-							const cellHeight = tilesetData.tileHeight / 3;
-
-							// Get bitmask for this tile and terrain
+							// OPTIMIZATION: Use memoized map for O(1) lookup
+							const tileAtPos = tilePositionMap.get(`${tilePosX},${tilePosY}`);
 							const bitmask = tileAtPos?.bitmasks?.[selectedLayer.name] || 0;
 
-							// Draw 3x3 grid
+							// Build paths for all cells
 							for (let row = 0; row < 3; row++) {
 								for (let col = 0; col < 3; col++) {
 									const cellX = tilePosX + col * cellWidth;
@@ -315,22 +341,30 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									const isSet = (bitmask & (1 << bitIndex)) !== 0;
 									const isCenter = row === 1 && col === 1;
 
-									// Fill cell if it's set in the bitmask
+									// Add to appropriate fill path if bit is set
 									if (isSet) {
-										ctx.fillStyle = isCenter
-											? "rgba(17, 119, 187, 0.5)"  // Brighter blue for center
-											: "rgba(14, 99, 156, 0.4)";  // Darker blue for others
-										ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+										if (isCenter) {
+											fillPathCenter.rect(cellX, cellY, cellWidth, cellHeight);
+										} else {
+											fillPathOther.rect(cellX, cellY, cellWidth, cellHeight);
+										}
 									}
 
-									// Draw cell border
-									ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-									ctx.lineWidth = 1 / viewState.scale;
-									ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
+									// Add to grid path
+									gridPath.rect(cellX, cellY, cellWidth, cellHeight);
 								}
 							}
 						}
 					}
+
+					// OPTIMIZATION: Draw all fills and strokes in just 3 calls instead of thousands
+					ctx.fillStyle = "rgba(14, 99, 156, 0.4)";
+					ctx.fill(fillPathOther);
+					ctx.fillStyle = "rgba(17, 119, 187, 0.5)";
+					ctx.fill(fillPathCenter);
+					ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+					ctx.lineWidth = 1 / viewState.scale;
+					ctx.stroke(gridPath);
 				}
 			}
 
@@ -350,7 +384,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		};
 	}, [
 		tilesetData,
-		tilesetData.tiles,
 		viewState.selectedTileRegion,
 		pan,
 		viewState.scale,
