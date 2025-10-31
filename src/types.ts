@@ -107,7 +107,7 @@ export interface EntityInstance {
   tilesetId: string      // Reference to tileset containing the entity
   rotation?: number      // Instance-specific rotation override
   scale?: { x: number; y: number }
-  properties?: Record<string, any>
+  properties?: Record<string, string>
   children?: EntityInstance[]  // Instance-specific child overrides
 }
 
