@@ -9,7 +9,8 @@ export const LayersPanel = () => {
     addLayer,
     removeLayer,
     updateLayerVisibility,
-    updateLayerName
+    updateLayerName,
+    updateLayerAutotiling
   } = useEditor()
 
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null)
@@ -55,7 +56,27 @@ export const LayersPanel = () => {
                 e.stopPropagation()
                 updateLayerVisibility(layer.id, e.target.checked)
               }}
+              title="Toggle visibility"
             />
+            {layer.type === 'tile' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  updateLayerAutotiling(layer.id, !(layer.autotilingEnabled !== false))
+                }}
+                title={layer.autotilingEnabled !== false ? 'Autotiling ON' : 'Autotiling OFF'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  opacity: layer.autotilingEnabled !== false ? 1 : 0.3,
+                  fontSize: '14px'
+                }}
+              >
+                🗠
+              </button>
+            )}
             {editingLayerId === layer.id ? (
               <input
                 type="text"

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
-import { TilesetTab, PolygonCollider } from "../types";
+import { TilesetTab, PolygonCollider, AutotileGroup } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
 import { ShieldIcon, TrashIcon } from "./Icons";
 
@@ -57,6 +57,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<string | null>(null);
 	const [isEditingTileName, setIsEditingTileName] = useState(false);
 	const [isEditingTileType, setIsEditingTileType] = useState(false);
+	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<string | null>(null);
+	const [isPaintingBitmask, setIsPaintingBitmask] = useState(false);
+	const [paintAction, setPaintAction] = useState<'set' | 'clear'>('set');
 
 	// Refs to track current pan and zoom values for wheel event
 	const panRef = useRef(pan);
@@ -276,6 +279,61 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				);
 			}
 
+			// Draw 3x3 terrain bitmask grids when a terrain layer is selected
+			if (selectedTerrainLayer) {
+				const terrainLayers = getTerrainLayers();
+				const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+
+				if (selectedLayer) {
+					// Draw 3x3 grid overlay on EVERY tile in the tileset
+					const cols = Math.ceil(tilesetData.imageData.width / tilesetData.tileWidth);
+					const rows = Math.ceil(tilesetData.imageData.height / tilesetData.tileHeight);
+
+					for (let tileY = 0; tileY < rows; tileY++) {
+						for (let tileX = 0; tileX < cols; tileX++) {
+							const tilePosX = tileX * tilesetData.tileWidth;
+							const tilePosY = tileY * tilesetData.tileHeight;
+
+							// Find if there's a compound tile at this position
+							const tileAtPos = tilesetData.tiles.find(t => {
+								if (!t.width || !t.height) return false;
+								return t.x === tilePosX && t.y === tilePosY;
+							});
+
+							const cellWidth = tilesetData.tileWidth / 3;
+							const cellHeight = tilesetData.tileHeight / 3;
+
+							// Get bitmask for this tile and terrain
+							const bitmask = tileAtPos?.bitmasks?.[selectedLayer.name] || 0;
+
+							// Draw 3x3 grid
+							for (let row = 0; row < 3; row++) {
+								for (let col = 0; col < 3; col++) {
+									const cellX = tilePosX + col * cellWidth;
+									const cellY = tilePosY + row * cellHeight;
+									const bitIndex = row * 3 + col;
+									const isSet = (bitmask & (1 << bitIndex)) !== 0;
+									const isCenter = row === 1 && col === 1;
+
+									// Fill cell if it's set in the bitmask
+									if (isSet) {
+										ctx.fillStyle = isCenter
+											? "rgba(17, 119, 187, 0.5)"  // Brighter blue for center
+											: "rgba(14, 99, 156, 0.4)";  // Darker blue for others
+										ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+									}
+
+									// Draw cell border
+									ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+									ctx.lineWidth = 1 / viewState.scale;
+									ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
+								}
+							}
+						}
+					}
+				}
+			}
+
 			ctx.restore();
 		};
 
@@ -296,6 +354,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		viewState.selectedTileRegion,
 		pan,
 		viewState.scale,
+		selectedTerrainLayer,
 	]);
 
 	// Setup wheel event listener for zoom and pan
@@ -367,12 +426,120 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		return { tileX, tileY };
 	};
 
+	// Helper function to paint a bitmask cell
+	const paintBitmaskCell = (canvasX: number, canvasY: number, action: 'set' | 'clear') => {
+		const { tileX, tileY } = canvasToTile(canvasX, canvasY);
+
+		// Get terrain layer name
+		const terrainLayers = getTerrainLayers();
+		const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+		if (!selectedLayer) return;
+
+		// Calculate which cell within the 3x3 grid was clicked
+		const tilePosX = tileX * tilesetData.tileWidth;
+		const tilePosY = tileY * tilesetData.tileHeight;
+		const cellWidth = tilesetData.tileWidth / 3;
+		const cellHeight = tilesetData.tileHeight / 3;
+		const cellCol = Math.floor((canvasX - tilePosX) / cellWidth);
+		const cellRow = Math.floor((canvasY - tilePosY) / cellHeight);
+
+		// Clamp to 0-2 range
+		const clampedCol = Math.max(0, Math.min(2, cellCol));
+		const clampedRow = Math.max(0, Math.min(2, cellRow));
+
+		// Calculate the bit index for the bitmask
+		const bitIndex = clampedRow * 3 + clampedCol;
+
+		// Find existing tile definition at this position
+		const tileAtPos = tilesetData.tiles.find(t => {
+			if (!t.width || !t.height) return false;
+			return t.x === tilePosX && t.y === tilePosY;
+		});
+
+		if (tileAtPos) {
+			// Tile exists, update its bitmask
+			const currentBitmask = tileAtPos.bitmasks?.[selectedLayer.name] || 0;
+			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
+
+			// Apply the action consistently
+			let newBitmask: number;
+			if (action === 'set') {
+				newBitmask = currentBitmask | (1 << bitIndex); // Set the bit
+			} else {
+				newBitmask = currentBitmask & ~(1 << bitIndex); // Clear the bit
+			}
+
+			// Only update if the bitmask actually changed
+			if (newBitmask !== currentBitmask) {
+				handleUpdateBitmask(tileAtPos.id, selectedLayer.name, newBitmask);
+			}
+		} else if (action === 'set') {
+			// Only create a new tile if we're setting bits (not clearing)
+			const newBitmask = 1 << bitIndex;
+
+			const newTile = {
+				id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				x: tilePosX,
+				y: tilePosY,
+				width: tilesetData.tileWidth,
+				height: tilesetData.tileHeight,
+				bitmasks: { [selectedLayer.name]: newBitmask },
+			};
+
+			updateTileset(tab.tilesetId, {
+				tiles: [...tilesetData.tiles, newTile],
+			});
+		}
+	};
+
 	// Mouse handlers for panning and tile selection
 	const handleMouseDown = (e: React.MouseEvent) => {
 		if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
 			// Middle mouse or Shift+Left = Pan
 			setIsDragging(true);
 			setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+		} else if (e.button === 0 && selectedTerrainLayer) {
+			// Left click with terrain layer selected = Paint bitmask cell
+			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
+			const { tileX, tileY } = canvasToTile(canvasX, canvasY);
+
+			// Get terrain layer name
+			const terrainLayers = getTerrainLayers();
+			const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+			if (!selectedLayer) return;
+
+			// Calculate which cell within the 3x3 grid was clicked
+			const tilePosX = tileX * tilesetData.tileWidth;
+			const tilePosY = tileY * tilesetData.tileHeight;
+			const cellWidth = tilesetData.tileWidth / 3;
+			const cellHeight = tilesetData.tileHeight / 3;
+			const cellCol = Math.floor((canvasX - tilePosX) / cellWidth);
+			const cellRow = Math.floor((canvasY - tilePosY) / cellHeight);
+
+			// Clamp to 0-2 range
+			const clampedCol = Math.max(0, Math.min(2, cellCol));
+			const clampedRow = Math.max(0, Math.min(2, cellRow));
+
+			// Calculate the bit index for the bitmask
+			const bitIndex = clampedRow * 3 + clampedCol;
+
+			// Find existing tile definition at this position
+			const tileAtPos = tilesetData.tiles.find(t => {
+				if (!t.width || !t.height) return false;
+				return t.x === tilePosX && t.y === tilePosY;
+			});
+
+			// Determine the action based on whether the bit is currently set
+			const currentBitmask = tileAtPos?.bitmasks?.[selectedLayer.name] || 0;
+			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
+			const action: 'set' | 'clear' = isBitSet ? 'clear' : 'set';
+
+			// Store the action for consistent dragging
+			setPaintAction(action);
+			setIsPaintingBitmask(true);
+
+			// Paint the initial cell
+			paintBitmaskCell(canvasX, canvasY, action);
 		} else if (e.button === 0) {
 			// Left click = Select tiles
 			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
@@ -467,6 +634,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				x: e.clientX - dragStart.x,
 				y: e.clientY - dragStart.y,
 			});
+		} else if (isPaintingBitmask) {
+			// Continue painting bitmask cells while dragging
+			paintBitmaskCell(canvasX, canvasY, paintAction);
 		} else if (isSelecting && selectionStart) {
 			// Calculate selection rectangle
 			const x = Math.min(selectionStart.x, tileX);
@@ -487,6 +657,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		setIsDragging(false);
 		setIsSelecting(false);
 		setSelectionStart(null);
+		setIsPaintingBitmask(false);
 	};
 
 	const handleContextMenu = (e: React.MouseEvent) => {
@@ -643,6 +814,65 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTabData(tab.id, { isDirty: true });
 	};
 
+	const handleUpdateBitmask = (tileId: string, terrainName: string, newBitmask: number) => {
+		updateTileset(tab.tilesetId, {
+			tiles: tilesetData.tiles.map((t) => {
+				if (t.id === tileId) {
+					const updatedBitmasks = { ...t.bitmasks, [terrainName]: newBitmask };
+					return { ...t, bitmasks: updatedBitmasks };
+				}
+				return t;
+			}),
+		});
+
+		updateTabData(tab.id, { isDirty: true });
+	};
+
+	// Helper to get terrainLayers with backward compatibility
+	const getTerrainLayers = () => {
+		return tilesetData.terrainLayers || tilesetData.autotileGroups || [];
+	};
+
+	// Helper to update terrainLayers with backward compatibility
+	const updateTerrainLayers = (layers: AutotileGroup[]) => {
+		updateTileset(tab.tilesetId, {
+			terrainLayers: layers,
+			autotileGroups: layers, // Keep both for backward compatibility
+		});
+	};
+
+	// Terrain layer handlers
+	const handleAddTerrainLayer = () => {
+		const terrainLayers = getTerrainLayers();
+		const newLayer: AutotileGroup = {
+			id: `terrain-${Date.now()}`,
+			name: `Terrain ${terrainLayers.length + 1}`,
+		};
+
+		updateTerrainLayers([...terrainLayers, newLayer]);
+		updateTabData(tab.id, { isDirty: true });
+	};
+
+	const handleUpdateTerrainLayer = (updatedLayer: AutotileGroup) => {
+		const terrainLayers = getTerrainLayers();
+		updateTerrainLayers(terrainLayers.map((layer) =>
+			layer.id === updatedLayer.id ? updatedLayer : layer
+		));
+		updateTabData(tab.id, { isDirty: true });
+	};
+
+	const handleDeleteTerrainLayer = (layerId: string) => {
+		const terrainLayers = getTerrainLayers();
+		updateTerrainLayers(terrainLayers.filter((layer) => layer.id !== layerId));
+
+		// Clear selection if deleted layer was selected
+		if (selectedTerrainLayer === layerId) {
+			setSelectedTerrainLayer(null);
+		}
+
+		updateTabData(tab.id, { isDirty: true });
+	};
+
 	const selectedTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
 
 	return (
@@ -724,9 +954,87 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							</div>
 						</div>
 
+						{/* Terrain Layers */}
+						<div className="mt-4">
+							<div className="flex items-center justify-between mb-2">
+								<div className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#858585' }}>
+									Terrain Layers
+								</div>
+								<button
+									onClick={handleAddTerrainLayer}
+									className="px-2 py-1 text-xs rounded transition-colors"
+									style={{ background: '#0e639c', color: '#ffffff' }}
+									onMouseEnter={(e) => e.currentTarget.style.background = '#1177bb'}
+									onMouseLeave={(e) => e.currentTarget.style.background = '#0e639c'}
+								>
+									+ Add Layer
+								</button>
+							</div>
+
+							<div className="text-[10px] mb-3 px-1" style={{ color: '#858585' }}>
+								Select a terrain layer to paint bitmasks on the canvas
+							</div>
+
+							<div className="space-y-2">
+								{getTerrainLayers().map((layer) => (
+									<div
+										key={layer.id}
+										className="rounded p-2.5 transition-all cursor-pointer"
+										style={{
+											background: selectedTerrainLayer === layer.id ? '#1177bb' : '#2d2d2d',
+											border: selectedTerrainLayer === layer.id ? '2px solid #1177bb' : '2px solid #3e3e42'
+										}}
+										onClick={() => {
+											setSelectedTerrainLayer(selectedTerrainLayer === layer.id ? null : layer.id);
+										}}
+									>
+										<div className="flex items-center justify-between">
+											<input
+												type="text"
+												value={layer.name}
+												onChange={(e) => {
+													e.stopPropagation();
+													handleUpdateTerrainLayer({ ...layer, name: e.target.value });
+												}}
+												onClick={(e) => e.stopPropagation()}
+												className="flex-1 px-2 py-1 text-xs rounded focus:outline-none mr-2"
+												style={{
+													background: '#3e3e42',
+													color: '#cccccc',
+													border: '1px solid #555'
+												}}
+												placeholder="Layer name"
+											/>
+											<button
+												onClick={(e) => {
+													e.stopPropagation();
+													handleDeleteTerrainLayer(layer.id);
+												}}
+												className="p-1 text-red-400 hover:text-red-300 transition-colors"
+												title="Delete layer"
+											>
+												<TrashIcon />
+											</button>
+										</div>
+										{selectedTerrainLayer === layer.id && (
+											<div className="text-[10px] mt-1.5 px-1" style={{ color: '#cccccc' }}>
+												Active - Click tiles on canvas to paint bitmask
+											</div>
+										)}
+									</div>
+								))}
+
+								{getTerrainLayers().length === 0 && (
+									<div className="text-xs text-center py-4 rounded" style={{ background: '#2d2d2d', color: '#858585' }}>
+										No terrain layers. Click "Add Layer" to create one.
+									</div>
+								)}
+							</div>
+						</div>
+
 						{/* Tile Properties */}
 						{selectedTile && (
-							<div className="mt-4">
+							<div className="mt-6 pt-4" style={{ borderTop: '1px solid #3e3e42' }}>
 								<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
 									Tile Properties
 								</div>

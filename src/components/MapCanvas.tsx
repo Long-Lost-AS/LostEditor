@@ -19,6 +19,7 @@ export const MapCanvas = () => {
 		placeTile,
 		eraseTile,
 		placeEntity,
+		autotilingOverride,
 	} = useEditor();
 
 	const [isDragging, setIsDragging] = useState(false);
@@ -441,6 +442,27 @@ export const MapCanvas = () => {
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseUp}
 			/>
+			{autotilingOverride && (
+				<div
+					style={{
+						position: 'absolute',
+						top: '10px',
+						left: '50%',
+						transform: 'translateX(-50%)',
+						background: 'rgba(255, 165, 0, 0.9)',
+						color: 'white',
+						padding: '6px 12px',
+						borderRadius: '4px',
+						fontSize: '12px',
+						fontWeight: 'bold',
+						pointerEvents: 'none',
+						zIndex: 1000,
+						boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+					}}
+				>
+					AUTOTILING DISABLED (Shift)
+				</div>
+			)}
 		</div>
 	);
 };

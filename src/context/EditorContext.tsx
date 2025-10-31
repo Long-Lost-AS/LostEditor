@@ -31,6 +31,10 @@ import {
 	referenceManager,
 	type BrokenReference,
 } from "../managers/ReferenceManager";
+import {
+	updateTileAndNeighbors,
+	getAllAutotileGroups,
+} from "../utils/autotiling";
 
 interface EditorContextType {
 	// Tab state
@@ -118,10 +122,12 @@ interface EditorContextType {
 	removeLayer: (layerId: string) => void;
 	updateLayerVisibility: (layerId: string, visible: boolean) => void;
 	updateLayerName: (layerId: string, name: string) => void;
+	updateLayerAutotiling: (layerId: string, enabled: boolean) => void;
 
 	// Tile Actions
 	placeTile: (x: number, y: number) => void;
 	eraseTile: (x: number, y: number) => void;
+	autotilingOverride: boolean; // True when Shift is held to bypass autotiling
 
 	// Entity Actions
 	placeEntity: (x: number, y: number) => void;
@@ -203,6 +209,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		null,
 	);
 
+	// Autotiling state
+	const [autotilingOverride, setAutotilingOverride] = useState(false);
+
 	// Multi-tileset state
 	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
 	const [currentTileset, setCurrentTileset] = useState<TilesetData | null>(
@@ -237,6 +246,29 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		onContinue: () => void;
 		onCancel: () => void;
 	} | null>(null);
+
+	// Keyboard listeners for autotiling override (Shift key)
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') {
+				setAutotilingOverride(true);
+			}
+		};
+
+		const handleKeyUp = (e: KeyboardEvent) => {
+			if (e.key === 'Shift') {
+				setAutotilingOverride(false);
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('keyup', handleKeyUp);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('keyup', handleKeyUp);
+		};
+	}, []);
 
 	// Sync active map tab to flat state (for backward compatibility)
 	useEffect(() => {
@@ -353,6 +385,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		setProjectModified(true);
 	}, []);
 
+	const updateLayerAutotiling = useCallback((layerId: string, enabled: boolean) => {
+		setMapData((prev) => ({
+			...prev,
+			layers: prev.layers.map((l) =>
+				l.id === layerId ? { ...l, autotilingEnabled: enabled } : l
+			),
+		}));
+		setProjectModified(true);
+	}, []);
+
 	const placeTile = useCallback(
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "tile") return;
@@ -419,7 +461,57 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							newTiles.set(`${x},${y}`, tile);
 						}
 
-						const updatedLayer = { ...layer, tiles: newTiles };
+						let updatedLayer = { ...layer, tiles: newTiles };
+
+						// Apply autotiling if enabled and not overridden
+						const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
+						if (autotilingEnabled && !autotilingOverride) {
+							// Get all autotile groups from loaded tilesets
+							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
+							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+
+							if (autotileGroups.length > 0) {
+								// Determine which positions to update (placed tile + neighbors)
+								const positionsToUpdate: Array<{ x: number; y: number }> = [];
+
+								// Handle compound tiles (multiple cells)
+								if (
+									selectedTileDef &&
+									selectedTileDef.width &&
+									selectedTileDef.height
+								) {
+									const tileWidth = selectedTileset?.tileWidth || 16;
+									const tileHeight = selectedTileset?.tileHeight || 16;
+									const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
+									const heightInTiles = Math.ceil(selectedTileDef.height / tileHeight);
+
+									for (let dy = 0; dy < heightInTiles; dy++) {
+										for (let dx = 0; dx < widthInTiles; dx++) {
+											positionsToUpdate.push({ x: x + dx, y: y + dy });
+										}
+									}
+								} else {
+									// Regular single tile
+									positionsToUpdate.push({ x, y });
+								}
+
+								// Apply autotiling to placed tiles and their neighbors
+								const autotiledTiles = updateTileAndNeighbors(
+									updatedLayer,
+									positionsToUpdate,
+									tilesetsMap,
+									autotileGroups
+								);
+
+								// Merge autotiled tiles back into the layer
+								for (const [posKey, tile] of autotiledTiles) {
+									newTiles.set(posKey, tile);
+								}
+
+								updatedLayer = { ...layer, tiles: newTiles };
+							}
+						}
+
 						setCurrentLayer(updatedLayer);
 						return updatedLayer;
 					}
@@ -435,6 +527,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			selectedTilesetId,
 			selectedTileId,
 			tilesets,
+			autotilingOverride,
 		],
 	);
 
@@ -449,7 +542,34 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					if (layer.id === currentLayer.id) {
 						const newTiles = new Map(layer.tiles);
 						newTiles.delete(`${x},${y}`);
-						const updatedLayer = { ...layer, tiles: newTiles };
+
+						let updatedLayer = { ...layer, tiles: newTiles };
+
+						// Apply autotiling to neighbors after erasing
+						const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
+						if (autotilingEnabled && !autotilingOverride) {
+							// Get all autotile groups from loaded tilesets
+							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
+							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+
+							if (autotileGroups.length > 0) {
+								// Update the 8 neighbors around the erased tile
+								const autotiledTiles = updateTileAndNeighbors(
+									updatedLayer,
+									[{ x, y }],
+									tilesetsMap,
+									autotileGroups
+								);
+
+								// Merge autotiled tiles back into the layer
+								for (const [posKey, tile] of autotiledTiles) {
+									newTiles.set(posKey, tile);
+								}
+
+								updatedLayer = { ...layer, tiles: newTiles };
+							}
+						}
+
 						setCurrentLayer(updatedLayer);
 						return updatedLayer;
 					}
@@ -458,7 +578,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}));
 			setProjectModified(true);
 		},
-		[currentLayer],
+		[currentLayer, tilesets, autotilingOverride],
 	);
 
 	// Entity management functions
@@ -713,47 +833,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Directory might already exist, that's okay
 			}
 
-			// Save any unsaved tilesets first
+			// Collect tileset paths (only include tilesets that have been saved)
 			const tilesetPaths: string[] = [];
 			for (const tileset of tilesets) {
-				if (!tileset.filePath) {
-					// Tileset hasn't been saved yet, save it to a .lostset file
-					const tilesetFileName = `${tileset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.lostset`;
-					const tilesetFilePath = fileManager.join(projectDir, tilesetFileName);
-
-					// Make imagePath relative to the tileset file location (which is in projectDir)
-					const relativeImagePath = fileManager.makeRelativeTo(
-						projectDir,
-						tileset.imagePath,
-					);
-
-					const tilesetJson = JSON.stringify(
-						{
-							version: tileset.version,
-							name: tileset.name,
-							id: tileset.id,
-							imagePath: relativeImagePath,
-							tileWidth: tileset.tileWidth,
-							tileHeight: tileset.tileHeight,
-							tiles: tileset.tiles,
-							entities: tileset.entities,
-						},
-						null,
-						2,
-					);
-
-					try {
-						await writeTextFile(tilesetFilePath, tilesetJson);
-					} catch (error) {
-						alert(`Failed to save tileset ${tileset.name}: ${error}`);
-						return;
-					}
-
-					// Update the tileset with its file path
-					tileset.filePath = tilesetFilePath;
-					tilesetPaths.push(tilesetFilePath);
-				} else {
+				if (tileset.filePath) {
 					tilesetPaths.push(tileset.filePath);
+				} else {
+					console.warn(`Skipping unsaved tileset: ${tileset.name}`);
 				}
 			}
 
@@ -1641,8 +1727,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		removeLayer,
 		updateLayerVisibility,
 		updateLayerName,
+		updateLayerAutotiling,
 		placeTile,
 		eraseTile,
+		autotilingOverride,
 		placeEntity,
 		removeEntity,
 		loadTilesetFromFile,

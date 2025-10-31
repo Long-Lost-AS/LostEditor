@@ -42,6 +42,7 @@ export interface TileDefinition {
   colliders?: PolygonCollider[]  // Multiple colliders
   name?: string     // User-defined name for the tile
   type?: string     // Type classification for the tile
+  bitmasks?: Record<string, number>  // Godot-style bitmask: terrain type -> 9-bit value (0-511) representing 3x3 grid
 }
 
 export interface EntityDefinition {
@@ -57,6 +58,18 @@ export interface EntityDefinition {
   filePath?: string              // Path to .lostentity file (undefined for inline entities)
 }
 
+// ===========================
+// Autotiling Types
+// ===========================
+
+export interface TerrainLayer {
+  id: string
+  name: string  // The terrain identifier (e.g., "Grass", "Dirt")
+}
+
+// Deprecated: kept for backward compatibility during migration
+export type AutotileGroup = TerrainLayer
+
 export interface TilesetData {
   version: string
   name: string
@@ -68,6 +81,8 @@ export interface TilesetData {
   tileHeight: number
   tiles: TileDefinition[]
   entities: EntityDefinition[]
+  terrainLayers?: TerrainLayer[]  // Terrain layers for Godot-style autotiling
+  autotileGroups?: AutotileGroup[]  // Deprecated: kept for backward compatibility
 }
 
 // ===========================
@@ -105,6 +120,7 @@ export interface Layer {
   type: LayerType
   tiles: Map<string, Tile>        // For tile layers
   entities: EntityInstance[]       // For entity layers
+  autotilingEnabled?: boolean      // Whether autotiling is enabled for this layer (default: true)
 }
 
 export interface MapData {

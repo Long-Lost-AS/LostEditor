@@ -86,7 +86,8 @@ export class TilesetManager {
         ...tilesetJson,
         id: tilesetJson.id || this._generateId(tilesetPath),
         imagePath: imagePath, // Use resolved absolute path, not the relative one from JSON
-        imageData: imageElement
+        imageData: imageElement,
+        filePath: fullPath // Set the filePath so we know where this tileset was loaded from
       }
 
       return tileset
