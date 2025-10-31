@@ -576,6 +576,26 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		} else if (e.button === 0) {
 			// Left click = Select tiles
 			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
+
+			// Check if click is within the tileset image bounds
+			if (
+				canvasX < 0 ||
+				canvasY < 0 ||
+				canvasX >= tilesetData.imageData.width ||
+				canvasY >= tilesetData.imageData.height
+			) {
+				// Clicked outside the tileset, clear selection
+				updateTabData(tab.id, {
+					viewState: {
+						...viewState,
+						selectedTileRegion: null,
+					},
+				});
+				setSelectedCompoundTileId(null);
+				setSelectedTileId(null);
+				return;
+			}
+
 			const { tileX, tileY } = canvasToTile(canvasX, canvasY);
 
 			// Check if we clicked on a compound tile
@@ -644,6 +664,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 				// Clear selected tile ID when clicking on regular tiles
 				setSelectedTileId(null);
+
+				// Check if there's a tile entry at this position (for properties)
+				const tilePosX = tileX * tilesetData.tileWidth;
+				const tilePosY = tileY * tilesetData.tileHeight;
+				const existingTile = tilesetData.tiles.find(
+					(t) => t.x === tilePosX && t.y === tilePosY && !t.width && !t.height,
+				);
+
+				if (existingTile) {
+					setSelectedCompoundTileId(existingTile.id);
+				} else {
+					// No tile entry exists yet, generate an ID for potential property editing
+					const tileId = `tile_${tilePosX}_${tilePosY}`;
+					setSelectedCompoundTileId(tileId);
+				}
 
 				// Set initial single-tile selection
 				updateTabData(tab.id, {
@@ -826,11 +861,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleUpdateTileName = (name: string) => {
 		if (!selectedCompoundTileId) return;
 
-		updateTileset(tab.tilesetId, {
-			tiles: tilesetData.tiles.map((t) =>
-				t.id === selectedCompoundTileId ? { ...t, name } : t,
-			),
-		});
+		const existingTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+
+		if (existingTile) {
+			// Update existing tile
+			updateTileset(tab.tilesetId, {
+				tiles: tilesetData.tiles.map((t) =>
+					t.id === selectedCompoundTileId ? { ...t, name } : t,
+				),
+			});
+		} else {
+			// Create new tile entry from ID format: tile_x_y
+			const match = selectedCompoundTileId.match(/^tile_(\d+)_(\d+)$/);
+			if (match) {
+				const x = parseInt(match[1]);
+				const y = parseInt(match[2]);
+				const newTile = {
+					id: selectedCompoundTileId,
+					x,
+					y,
+					name,
+				};
+				updateTileset(tab.tilesetId, {
+					tiles: [...tilesetData.tiles, newTile],
+				});
+			}
+		}
 
 		updateTabData(tab.id, { isDirty: true });
 	};
@@ -838,11 +894,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleUpdateTileType = (type: string) => {
 		if (!selectedCompoundTileId) return;
 
-		updateTileset(tab.tilesetId, {
-			tiles: tilesetData.tiles.map((t) =>
-				t.id === selectedCompoundTileId ? { ...t, type } : t,
-			),
-		});
+		const existingTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+
+		if (existingTile) {
+			// Update existing tile
+			updateTileset(tab.tilesetId, {
+				tiles: tilesetData.tiles.map((t) =>
+					t.id === selectedCompoundTileId ? { ...t, type } : t,
+				),
+			});
+		} else {
+			// Create new tile entry from ID format: tile_x_y
+			const match = selectedCompoundTileId.match(/^tile_(\d+)_(\d+)$/);
+			if (match) {
+				const x = parseInt(match[1]);
+				const y = parseInt(match[2]);
+				const newTile = {
+					id: selectedCompoundTileId,
+					x,
+					y,
+					type,
+				};
+				updateTileset(tab.tilesetId, {
+					tiles: [...tilesetData.tiles, newTile],
+				});
+			}
+		}
 
 		updateTabData(tab.id, { isDirty: true });
 	};
@@ -1066,7 +1143,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						</div>
 
 						{/* Tile Properties */}
-						{selectedTile && (
+						{selectedCompoundTileId && (
 							<div className="mt-6 pt-4" style={{ borderTop: '1px solid #3e3e42' }}>
 								<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
 									Tile Properties
@@ -1079,7 +1156,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										{isEditingTileName ? (
 											<input
 												type="text"
-												defaultValue={selectedTile.name || ""}
+												defaultValue={selectedTile?.name || ""}
 												onBlur={(e) => {
 													handleUpdateTileName(e.target.value);
 													setIsEditingTileName(false);
@@ -1104,7 +1181,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
 												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
 											>
-												{selectedTile.name || "(none)"}
+												{selectedTile?.name || "(none)"}
 											</div>
 										)}
 									</div>
@@ -1115,7 +1192,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										{isEditingTileType ? (
 											<input
 												type="text"
-												defaultValue={selectedTile.type || ""}
+												defaultValue={selectedTile?.type || ""}
 												onBlur={(e) => {
 													handleUpdateTileType(e.target.value);
 													setIsEditingTileType(false);
@@ -1140,7 +1217,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
 												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
 											>
-												{selectedTile.type || "(none)"}
+												{selectedTile?.type || "(none)"}
 											</div>
 										)}
 									</div>
