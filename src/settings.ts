@@ -1,5 +1,6 @@
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { appDataDir } from '@tauri-apps/api/path'
+import { EditorSettingsSchema } from './schemas'
 
 export interface EditorSettings {
   gridVisible: boolean
@@ -66,7 +67,8 @@ export class SettingsManager {
   fromJSON(json: string): void {
     try {
       const parsed = JSON.parse(json)
-      this.settings = { ...defaultSettings, ...parsed }
+      const validated = EditorSettingsSchema.parse(parsed)
+      this.settings = validated
     } catch (e) {
       console.error('Failed to parse settings:', e)
       this.settings = { ...defaultSettings }
