@@ -98,38 +98,51 @@ const AppContent = () => {
 		let mounted = true;
 		const unlisteners: Array<() => void> = [];
 
+		// Guards to prevent duplicate simultaneous executions
+		let isOpeningProject = false;
+		let isSavingProjectAs = false;
+
 		// Setup all listeners
 		const setupListeners = async () => {
 			try {
 				// New Project
 				const unlisten1 = await listen("menu:new-project", () => {
+					if (!mounted) return;
 					newProjectRef.current();
 				});
 				if (mounted) unlisteners.push(unlisten1);
 
 				// Open Project - show dialog then load
 				const unlisten2 = await listen("menu:open-project", async () => {
-					const result = await invoke<{
-						canceled: boolean;
-						filePaths?: string[];
-					}>("show_open_dialog", {
-						options: {
-							title: "Open Project",
-							filters: [
-								{ name: "Lost Editor Project", extensions: ["lostproj"] },
-							],
-							properties: ["openFile"],
-						},
-					});
+					if (!mounted || isOpeningProject) return;
+					isOpeningProject = true;
 
-					if (result.filePaths && result.filePaths[0]) {
-						await loadProjectRef.current(result.filePaths[0]);
+					try {
+						const result = await invoke<{
+							canceled: boolean;
+							filePaths?: string[];
+						}>("show_open_dialog", {
+							options: {
+								title: "Open Project",
+								filters: [
+									{ name: "Lost Editor Project", extensions: ["lostproj"] },
+								],
+								properties: ["openFile"],
+							},
+						});
+
+						if (result.filePaths && result.filePaths[0]) {
+							await loadProjectRef.current(result.filePaths[0]);
+						}
+					} finally {
+						isOpeningProject = false;
 					}
 				});
 				if (mounted) unlisteners.push(unlisten2);
 
 				// Load recent project - no dialog, just load
 				const unlisten3 = await listen<string>("auto-load-project", (event) => {
+					if (!mounted) return;
 					if (event.payload) {
 						loadProjectRef.current(event.payload);
 					}
@@ -139,6 +152,7 @@ const AppContent = () => {
 				const unlisten4 = await listen<string>(
 					"menu:load-recent-project",
 					(event) => {
+						if (!mounted) return;
 						if (event.payload) {
 							loadProjectRef.current(event.payload);
 						}
@@ -148,45 +162,56 @@ const AppContent = () => {
 
 				// Save All (triggered by Ctrl+S accelerator)
 				const unlisten5 = await listen("menu:save-project", async () => {
+					if (!mounted) return;
 					await saveAllRef.current();
 				});
 				if (mounted) unlisteners.push(unlisten5);
 
 				// Save Project As - show dialog then save
 				const unlisten6 = await listen("menu:save-project-as", async () => {
-					const result = await invoke<{ canceled: boolean; filePath?: string }>(
-						"show_save_dialog",
-						{
-							options: {
-								title: "Save Project As",
-								defaultPath: "untitled.lostproj",
-								filters: [
-									{ name: "Lost Editor Project", extensions: ["lostproj"] },
-								],
-							},
-						},
-					);
+					if (!mounted || isSavingProjectAs) return;
+					isSavingProjectAs = true;
 
-					if (result.filePath) {
-						await saveProjectAsRef.current(result.filePath);
+					try {
+						const result = await invoke<{ canceled: boolean; filePath?: string }>(
+							"show_save_dialog",
+							{
+								options: {
+									title: "Save Project As",
+									defaultPath: "untitled.lostproj",
+									filters: [
+										{ name: "Lost Editor Project", extensions: ["lostproj"] },
+									],
+								},
+							},
+						);
+
+						if (result.filePath) {
+							await saveProjectAsRef.current(result.filePath);
+						}
+					} finally {
+						isSavingProjectAs = false;
 					}
 				});
 				if (mounted) unlisteners.push(unlisten6);
 
 				// New Tileset - create and open in tab
 				const unlisten7 = await listen("menu:new-tileset", async () => {
+					if (!mounted) return;
 					await newTilesetRef.current();
 				});
 				if (mounted) unlisteners.push(unlisten7);
 
 				// New Map - create new map tab
 				const unlisten8 = await listen("menu:new-map", () => {
+					if (!mounted) return;
 					newMapRef.current();
 				});
 				if (mounted) unlisteners.push(unlisten8);
 
 				// New Entity - create and open in tab
 				const unlisten9 = await listen("menu:new-entity", () => {
+					if (!mounted) return;
 					newEntityRef.current();
 				});
 				if (mounted) unlisteners.push(unlisten9);
