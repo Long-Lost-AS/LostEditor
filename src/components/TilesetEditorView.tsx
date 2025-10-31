@@ -60,6 +60,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<string | null>(null);
 	const [isPaintingBitmask, setIsPaintingBitmask] = useState(false);
 	const [paintAction, setPaintAction] = useState<'set' | 'clear'>('set');
+	const [editingTerrainLayerId, setEditingTerrainLayerId] = useState<string | null>(null);
+	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState('');
 
 	// Refs to track current pan and zoom values for wheel event
 	const panRef = useRef(pan);
@@ -1082,55 +1084,94 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							</div>
 
 							<div className="text-[10px] mb-3 px-1" style={{ color: '#858585' }}>
-								Select a terrain layer to paint bitmasks on the canvas
+								Click to select, double-click to rename
 							</div>
 
-							<div className="space-y-2">
+							<div className="space-y-1.5">
 								{getTerrainLayers().map((layer) => (
 									<div
 										key={layer.id}
-										className="rounded p-2.5 transition-all cursor-pointer"
+										className="rounded transition-all cursor-pointer relative group select-none"
 										style={{
-											background: selectedTerrainLayer === layer.id ? '#1177bb' : '#2d2d2d',
-											border: selectedTerrainLayer === layer.id ? '2px solid #1177bb' : '2px solid #3e3e42'
+											background: selectedTerrainLayer === layer.id ? '#0e639c' : '#2d2d2d',
+											border: '1px solid ' + (selectedTerrainLayer === layer.id ? '#1177bb' : '#3e3e42'),
+											WebkitUserSelect: 'none',
+											MozUserSelect: 'none',
+											msUserSelect: 'none',
+											userSelect: 'none'
+										}}
+										onMouseDown={(e) => {
+											if (e.detail > 1) {
+												e.preventDefault();
+											}
 										}}
 										onClick={() => {
-											setSelectedTerrainLayer(selectedTerrainLayer === layer.id ? null : layer.id);
+											if (editingTerrainLayerId !== layer.id) {
+												setSelectedTerrainLayer(selectedTerrainLayer === layer.id ? null : layer.id);
+											}
+										}}
+										onDoubleClick={(e) => {
+											e.preventDefault();
+											setEditingTerrainLayerId(layer.id);
+											setEditingTerrainLayerName(layer.name);
 										}}
 									>
-										<div className="flex items-center justify-between">
-											<input
-												type="text"
-												value={layer.name}
-												onChange={(e) => {
-													e.stopPropagation();
-													handleUpdateTerrainLayer({ ...layer, name: e.target.value });
-												}}
-												onClick={(e) => e.stopPropagation()}
-												className="flex-1 px-2 py-1 text-xs rounded focus:outline-none mr-2"
-												style={{
-													background: '#3e3e42',
-													color: '#cccccc',
-													border: '1px solid #555'
-												}}
-												placeholder="Layer name"
-											/>
+										<div className="flex items-center justify-between px-2.5 py-2">
+											{editingTerrainLayerId === layer.id ? (
+												<input
+													type="text"
+													value={editingTerrainLayerName}
+													onChange={(e) => setEditingTerrainLayerName(e.target.value)}
+													onBlur={() => {
+														if (editingTerrainLayerName.trim()) {
+															handleUpdateTerrainLayer({ ...layer, name: editingTerrainLayerName.trim() });
+														}
+														setEditingTerrainLayerId(null);
+													}}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															if (editingTerrainLayerName.trim()) {
+																handleUpdateTerrainLayer({ ...layer, name: editingTerrainLayerName.trim() });
+															}
+															setEditingTerrainLayerId(null);
+														} else if (e.key === 'Escape') {
+															setEditingTerrainLayerId(null);
+														}
+													}}
+													onClick={(e) => e.stopPropagation()}
+													className="flex-1 px-2 py-1 text-xs rounded focus:outline-none mr-2"
+													style={{
+														background: '#3e3e42',
+														color: '#cccccc',
+														border: '1px solid #1177bb'
+													}}
+													autoFocus
+												/>
+											) : (
+												<div className="flex items-center gap-2 flex-1 min-w-0">
+													{selectedTerrainLayer === layer.id && (
+														<div className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+													)}
+													<span
+														className="text-xs truncate"
+														style={{ color: selectedTerrainLayer === layer.id ? '#ffffff' : '#cccccc' }}
+													>
+														{layer.name}
+													</span>
+												</div>
+											)}
 											<button
 												onClick={(e) => {
 													e.stopPropagation();
 													handleDeleteTerrainLayer(layer.id);
 												}}
-												className="p-1 text-red-400 hover:text-red-300 transition-colors"
+												className="p-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+												style={{ color: '#ef4444' }}
 												title="Delete layer"
 											>
 												<TrashIcon />
 											</button>
 										</div>
-										{selectedTerrainLayer === layer.id && (
-											<div className="text-[10px] mt-1.5 px-1" style={{ color: '#cccccc' }}>
-												Active - Click tiles on canvas to paint bitmask
-											</div>
-										)}
 									</div>
 								))}
 
