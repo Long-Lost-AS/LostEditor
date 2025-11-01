@@ -48,6 +48,10 @@ export function applyAutotiling(
 
 	const terrainType = tileDef.type;
 
+	// Find the terrain layer for this terrain type
+	const terrainLayer = tileset.terrainLayers?.find(layer => layer.name === terrainType);
+	if (!terrainLayer) return null; // No terrain layer found
+
 	// Create a neighbor check function
 	const hasNeighbor = (dx: number, dy: number): boolean => {
 		return getTileTerrainType(layer, x + dx, y + dy, tilesets) === terrainType;
@@ -57,7 +61,7 @@ export function applyAutotiling(
 	const targetBitmask = calculateBitmaskFromNeighbors(hasNeighbor);
 
 	// Find the best matching tile
-	const matchedTile = findTileByBitmask(tileset, terrainType, targetBitmask);
+	const matchedTile = findTileByBitmask(tileset, terrainLayer, targetBitmask);
 
 	if (matchedTile) {
 		return {

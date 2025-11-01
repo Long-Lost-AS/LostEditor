@@ -332,7 +332,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 							// OPTIMIZATION: Use memoized map for O(1) lookup
 							const tileAtPos = tilePositionMap.get(`${tilePosX},${tilePosY}`);
-							const bitmask = tileAtPos?.bitmasks?.[selectedLayer.name] || 0;
+							// Get bitmask from terrain layer
+							const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos?.id);
+							const bitmask = terrainTile?.bitmask || 0;
 
 							// Build paths for all cells
 							for (let row = 0; row < 3; row++) {
@@ -465,7 +467,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const paintBitmaskCell = (canvasX: number, canvasY: number, action: 'set' | 'clear') => {
 		const { tileX, tileY } = canvasToTile(canvasX, canvasY);
 
-		// Get terrain layer name
+		// Get terrain layer
 		const terrainLayers = getTerrainLayers();
 		const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
 		if (!selectedLayer) return;
@@ -486,15 +488,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const bitIndex = clampedRow * 3 + clampedCol;
 
 		// Find existing tile definition at this position
-		const tileAtPos = tilesetData.tiles.find(t => {
+		let tileAtPos = tilesetData.tiles.find(t => {
 			if (!t.width || !t.height) return false;
 			return t.x === tilePosX && t.y === tilePosY;
 		});
 
+		// If no tile exists and we're setting, create one
+		if (!tileAtPos && action === 'set') {
+			const newTile = {
+				id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				x: tilePosX,
+				y: tilePosY,
+				width: tilesetData.tileWidth,
+				height: tilesetData.tileHeight,
+			};
+
+			updateTileset(tab.tilesetId, {
+				tiles: [...tilesetData.tiles, newTile],
+			});
+
+			tileAtPos = newTile;
+		}
+
 		if (tileAtPos) {
-			// Tile exists, update its bitmask
-			const currentBitmask = tileAtPos.bitmasks?.[selectedLayer.name] || 0;
-			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
+			// Get current bitmask from terrain layer
+			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos.id);
+			const currentBitmask = terrainTile?.bitmask || 0;
 
 			// Apply the action consistently
 			let newBitmask: number;
@@ -506,24 +525,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Only update if the bitmask actually changed
 			if (newBitmask !== currentBitmask) {
-				handleUpdateBitmask(tileAtPos.id, selectedLayer.name, newBitmask);
+				handleUpdateBitmask(tileAtPos.id, selectedLayer.id, newBitmask);
 			}
-		} else if (action === 'set') {
-			// Only create a new tile if we're setting bits (not clearing)
-			const newBitmask = 1 << bitIndex;
-
-			const newTile = {
-				id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-				x: tilePosX,
-				y: tilePosY,
-				width: tilesetData.tileWidth,
-				height: tilesetData.tileHeight,
-				bitmasks: { [selectedLayer.name]: newBitmask },
-			};
-
-			updateTileset(tab.tilesetId, {
-				tiles: [...tilesetData.tiles, newTile],
-			});
 		}
 	};
 
@@ -565,7 +568,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			});
 
 			// Determine the action based on whether the bit is currently set
-			const currentBitmask = tileAtPos?.bitmasks?.[selectedLayer.name] || 0;
+			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos?.id);
+			const currentBitmask = terrainTile?.bitmask || 0;
 			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
 			const action: 'set' | 'clear' = isBitSet ? 'clear' : 'set';
 
@@ -926,17 +930,26 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTabData(tab.id, { isDirty: true });
 	};
 
-	const handleUpdateBitmask = (tileId: string, terrainName: string, newBitmask: number) => {
-		updateTileset(tab.tilesetId, {
-			tiles: tilesetData.tiles.map((t) => {
-				if (t.id === tileId) {
-					const updatedBitmasks = { ...t.bitmasks, [terrainName]: newBitmask };
-					return { ...t, bitmasks: updatedBitmasks };
-				}
-				return t;
-			}),
+	const handleUpdateBitmask = (tileId: string, layerId: string, newBitmask: number) => {
+		const terrainLayers = getTerrainLayers();
+		const updatedLayers = terrainLayers.map(layer => {
+			if (layer.id !== layerId) return layer;
+
+			const tiles = layer.tiles || [];
+			const existingTileIndex = tiles.findIndex(t => t.tileId === tileId);
+
+			if (existingTileIndex >= 0) {
+				// Update existing tile's bitmask
+				const updatedTiles = [...tiles];
+				updatedTiles[existingTileIndex] = { ...tiles[existingTileIndex], bitmask: newBitmask };
+				return { ...layer, tiles: updatedTiles };
+			} else {
+				// Add new tile to layer
+				return { ...layer, tiles: [...tiles, { tileId, bitmask: newBitmask }] };
+			}
 		});
 
+		updateTerrainLayers(updatedLayers);
 		updateTabData(tab.id, { isDirty: true });
 	};
 

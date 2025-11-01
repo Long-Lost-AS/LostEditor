@@ -1,4 +1,4 @@
-import type { TileDefinition, TilesetData } from '../types'
+import type { TileDefinition, TilesetData, TerrainLayer } from '../types'
 
 /**
  * Godot-style bitmask autotiling utilities.
@@ -82,30 +82,31 @@ export function calculateBitmaskFromNeighbors(
 }
 
 /**
- * Find the best matching tile for a given bitmask and terrain type.
+ * Find the best matching tile for a given bitmask and terrain layer.
  *
- * Looks for tiles with matching bitmask for the terrain type.
+ * Looks for tiles with matching bitmask in the terrain layer.
  * If no exact match, finds the closest match (most matching bits).
  *
  * @param tileset - The tileset to search
- * @param terrainType - The terrain type to match
+ * @param terrainLayer - The terrain layer to match
  * @param targetBitmask - The target bitmask to match
  * @returns The matching tile definition, or null if none found
  */
 export function findTileByBitmask(
   tileset: TilesetData,
-  terrainType: string,
+  terrainLayer: TerrainLayer,
   targetBitmask: number
 ): TileDefinition | null {
   let bestMatch: TileDefinition | null = null
   let bestMatchScore = -1
 
-  for (const tile of tileset.tiles) {
-    if (!tile.bitmasks || !(terrainType in tile.bitmasks)) {
-      continue
-    }
+  const terrainTiles = terrainLayer.tiles || []
 
-    const tileBitmask = tile.bitmasks[terrainType]
+  for (const terrainTile of terrainTiles) {
+    const tile = tileset.tiles.find(t => t.id === terrainTile.tileId)
+    if (!tile) continue
+
+    const tileBitmask = terrainTile.bitmask
 
     // Check for exact match
     if (tileBitmask === targetBitmask) {
@@ -139,15 +140,16 @@ function countMatchingBits(bitmask1: number, bitmask2: number): number {
 }
 
 /**
- * Get all tiles that have a bitmask defined for a specific terrain type
+ * Get all tiles that belong to a specific terrain layer
  */
 export function getTilesForTerrain(
   tileset: TilesetData,
-  terrainType: string
+  terrainLayer: TerrainLayer
 ): TileDefinition[] {
-  return tileset.tiles.filter(tile =>
-    tile.bitmasks && terrainType in tile.bitmasks
-  )
+  const terrainTiles = terrainLayer.tiles || []
+  return terrainTiles
+    .map(tt => tileset.tiles.find(t => t.id === tt.tileId))
+    .filter((t): t is TileDefinition => t !== undefined)
 }
 
 /**

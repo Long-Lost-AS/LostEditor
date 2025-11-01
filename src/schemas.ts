@@ -54,13 +54,18 @@ export const TileDefinitionSchema = z.object({
   height: z.number().optional(),
   colliders: z.array(PolygonColliderSchema).optional(),
   name: z.string().optional(),
-  type: z.string().optional(),
-  bitmasks: z.record(z.string(), z.number()).optional()
+  type: z.string().optional()
+})
+
+export const TerrainTileSchema = z.object({
+  tileId: z.string(),
+  bitmask: z.number()
 })
 
 export const TerrainLayerSchema = z.object({
   id: z.string(),
-  name: z.string()
+  name: z.string(),
+  tiles: z.array(TerrainTileSchema).optional()
 })
 
 // Entity definition is recursive, so we need to define it with z.lazy

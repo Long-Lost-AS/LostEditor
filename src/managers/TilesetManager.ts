@@ -35,8 +35,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       tileHeight: data.tileHeight,
       tiles: data.tiles.map(tile => {
         // Filter out any runtime-only properties that might exist
-        const { id, x, y, width, height, colliders, name, type, bitmasks } = tile
-        return { id, x, y, width, height, colliders, name, type, bitmasks }
+        const { id, x, y, width, height, colliders, name, type } = tile
+        return { id, x, y, width, height, colliders, name, type }
       }),
       entities: data.entities,
       terrainLayers: data.terrainLayers

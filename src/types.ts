@@ -42,7 +42,6 @@ export interface TileDefinition {
   colliders?: PolygonCollider[]  // Multiple colliders
   name?: string     // User-defined name for the tile
   type?: string     // Type classification for the tile
-  bitmasks?: Record<string, number>  // Godot-style bitmask: terrain type -> 9-bit value (0-511) representing 3x3 grid
 }
 
 export interface EntityDefinition {
@@ -62,9 +61,15 @@ export interface EntityDefinition {
 // Autotiling Types
 // ===========================
 
+export interface TerrainTile {
+  tileId: string
+  bitmask: number  // 9-bit value (0-511) representing 3x3 grid
+}
+
 export interface TerrainLayer {
   id: string
   name: string  // The terrain identifier (e.g., "Grass", "Dirt")
+  tiles?: TerrainTile[]  // Tiles that belong to this terrain with their bitmasks
 }
 
 export interface TilesetData {
