@@ -55,14 +55,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	} | null>(null);
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(tilesetData.name);
-	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<number | null>(null);
+	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<
+		number | null
+	>(null);
 	const [isEditingTileName, setIsEditingTileName] = useState(false);
 	const [isEditingTileType, setIsEditingTileType] = useState(false);
-	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<string | null>(null);
+	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<
+		string | null
+	>(null);
 	const [isPaintingBitmask, setIsPaintingBitmask] = useState(false);
-	const [paintAction, setPaintAction] = useState<'set' | 'clear'>('set');
-	const [editingTerrainLayerId, setEditingTerrainLayerId] = useState<string | null>(null);
-	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState('');
+	const [paintAction, setPaintAction] = useState<"set" | "clear">("set");
+	const [editingTerrainLayerId, setEditingTerrainLayerId] = useState<
+		string | null
+	>(null);
+	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState("");
 
 	// Unified undo/redo state for the entire tileset (tiles + terrainLayers)
 	// This ensures all operations share a single chronological history
@@ -71,17 +77,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		terrainLayers: TerrainLayer[];
 	};
 
-	const [localTilesetState, setLocalTilesetState, {
-		undo,
-		redo,
-		canUndo,
-		canRedo,
-		startBatch,
-		endBatch,
-		reset: resetTilesetHistory
-	}] = useUndoableReducer<TilesetUndoState>({
+	const [
+		localTilesetState,
+		setLocalTilesetState,
+		{
+			undo,
+			redo,
+			canUndo,
+			canRedo,
+			startBatch,
+			endBatch,
+			reset: resetTilesetHistory,
+		},
+	] = useUndoableReducer<TilesetUndoState>({
 		tiles: tilesetData.tiles || [],
-		terrainLayers: tilesetData.terrainLayers || []
+		terrainLayers: tilesetData.terrainLayers || [],
 	});
 
 	// Extract individual parts for convenience
@@ -103,29 +113,37 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (prevTilesetIdRef.current !== null && prevTilesetIdRef.current !== tilesetData.id) {
+		if (
+			prevTilesetIdRef.current !== null &&
+			prevTilesetIdRef.current !== tilesetData.id
+		) {
 			// Switching to a different tileset, reset unified history
 			resetTilesetHistory({
 				tiles: tilesetData.tiles || [],
-				terrainLayers: tilesetData.terrainLayers || []
+				terrainLayers: tilesetData.terrainLayers || [],
 			});
 		}
 		prevTilesetIdRef.current = tilesetData.id;
-	}, [tilesetData.id, tilesetData.terrainLayers, tilesetData.tiles, resetTilesetHistory]);
+	}, [
+		tilesetData.id,
+		tilesetData.terrainLayers,
+		tilesetData.tiles,
+		resetTilesetHistory,
+	]);
 
 	// One-way sync: local tileset state → global context
 	// This updates the global state whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
 		updateTileset(tab.tilesetId, {
 			tiles: localTiles,
-			terrainLayers: localTerrainLayers
+			terrainLayers: localTerrainLayers,
 		});
 		updateTabData(tab.id, { isDirty: true });
 	}, [localTilesetState, tab.tilesetId, tab.id, updateTileset, updateTabData]);
 
 	// Memoized tile position map for O(1) lookups
 	const tilePositionMap = useMemo(() => {
-		const map = new Map<string, typeof localTiles[0]>();
+		const map = new Map<string, (typeof localTiles)[0]>();
 		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
 				map.set(`${tile.x},${tile.y}`, tile);
@@ -310,15 +328,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 						// Draw filled polygon
 						ctx.beginPath();
-						ctx.moveTo(
-							collider.points[0].x,
-							collider.points[0].y,
-						);
+						ctx.moveTo(collider.points[0].x, collider.points[0].y);
 						for (let i = 1; i < collider.points.length; i++) {
-							ctx.lineTo(
-								collider.points[i].x,
-								collider.points[i].y,
-							);
+							ctx.lineTo(collider.points[i].x, collider.points[i].y);
 						}
 						ctx.closePath();
 						ctx.fill();
@@ -352,22 +364,40 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Draw 3x3 terrain bitmask grids when a terrain layer is selected
 			if (selectedTerrainLayer) {
 				const terrainLayers = getTerrainLayers();
-				const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+				const selectedLayer = terrainLayers.find(
+					(l) => l.id === selectedTerrainLayer,
+				);
 
 				if (selectedLayer) {
-					const cols = Math.ceil(tilesetData.imageData.width / tilesetData.tileWidth);
-					const rows = Math.ceil(tilesetData.imageData.height / tilesetData.tileHeight);
+					const cols = Math.ceil(
+						tilesetData.imageData.width / tilesetData.tileWidth,
+					);
+					const rows = Math.ceil(
+						tilesetData.imageData.height / tilesetData.tileHeight,
+					);
 
 					// OPTIMIZATION: Calculate visible tile bounds (viewport culling)
 					const viewportLeft = -pan.x / viewState.scale;
 					const viewportTop = -pan.y / viewState.scale;
-					const viewportRight = viewportLeft + (canvas.width / viewState.scale);
-					const viewportBottom = viewportTop + (canvas.height / viewState.scale);
+					const viewportRight = viewportLeft + canvas.width / viewState.scale;
+					const viewportBottom = viewportTop + canvas.height / viewState.scale;
 
-					const startCol = Math.max(0, Math.floor(viewportLeft / tilesetData.tileWidth));
-					const endCol = Math.min(cols, Math.ceil(viewportRight / tilesetData.tileWidth));
-					const startRow = Math.max(0, Math.floor(viewportTop / tilesetData.tileHeight));
-					const endRow = Math.min(rows, Math.ceil(viewportBottom / tilesetData.tileHeight));
+					const startCol = Math.max(
+						0,
+						Math.floor(viewportLeft / tilesetData.tileWidth),
+					);
+					const endCol = Math.min(
+						cols,
+						Math.ceil(viewportRight / tilesetData.tileWidth),
+					);
+					const startRow = Math.max(
+						0,
+						Math.floor(viewportTop / tilesetData.tileHeight),
+					);
+					const endRow = Math.min(
+						rows,
+						Math.ceil(viewportBottom / tilesetData.tileHeight),
+					);
 
 					const cellWidth = tilesetData.tileWidth / 3;
 					const cellHeight = tilesetData.tileHeight / 3;
@@ -384,10 +414,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tilePosY = tileY * tilesetData.tileHeight;
 
 							// Calculate tile ID for this position (terrain layers use IDs directly)
-							const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
+							const tileId = packTileId(
+								tilePosX,
+								tilePosY,
+								tilesetData.tileWidth,
+								tilesetData.tileHeight,
+							);
 
 							// Get bitmask from terrain layer
-							const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
+							const terrainTile = selectedLayer.tiles?.find(
+								(t) => t.tileId === tileId,
+							);
 							const bitmask = terrainTile?.bitmask || 0;
 
 							// Build paths for all cells
@@ -519,12 +556,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	// Helper function to paint a bitmask cell
-	const paintBitmaskCell = (canvasX: number, canvasY: number, action: 'set' | 'clear') => {
+	const paintBitmaskCell = (
+		canvasX: number,
+		canvasY: number,
+		action: "set" | "clear",
+	) => {
 		const { tileX, tileY } = canvasToTile(canvasX, canvasY);
 
 		// Get terrain layer
 		const terrainLayers = getTerrainLayers();
-		const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+		const selectedLayer = terrainLayers.find(
+			(l) => l.id === selectedTerrainLayer,
+		);
 		if (!selectedLayer) return;
 
 		// Calculate which cell within the 3x3 grid was clicked
@@ -544,15 +587,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// For terrain layers, we don't need tile entries in tiles[]
 		// Just work directly with the packed tile ID
-		const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
+		const tileId = packTileId(
+			tilePosX,
+			tilePosY,
+			tilesetData.tileWidth,
+			tilesetData.tileHeight,
+		);
 
 		// Get current bitmask from terrain layer
-		const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
+		const terrainTile = selectedLayer.tiles?.find((t) => t.tileId === tileId);
 		const currentBitmask = terrainTile?.bitmask || 0;
 
 		// Apply the action consistently
 		let newBitmask: number;
-		if (action === 'set') {
+		if (action === "set") {
 			newBitmask = currentBitmask | (1 << bitIndex); // Set the bit
 		} else {
 			newBitmask = currentBitmask & ~(1 << bitIndex); // Clear the bit
@@ -577,7 +625,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Get terrain layer name
 			const terrainLayers = getTerrainLayers();
-			const selectedLayer = terrainLayers.find(l => l.id === selectedTerrainLayer);
+			const selectedLayer = terrainLayers.find(
+				(l) => l.id === selectedTerrainLayer,
+			);
 			if (!selectedLayer) return;
 
 			// Calculate which cell within the 3x3 grid was clicked
@@ -596,13 +646,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			const bitIndex = clampedRow * 3 + clampedCol;
 
 			// Calculate tile ID for this position (terrain layers use IDs directly)
-			const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
+			const tileId = packTileId(
+				tilePosX,
+				tilePosY,
+				tilesetData.tileWidth,
+				tilesetData.tileHeight,
+			);
 
 			// Determine the action based on whether the bit is currently set
-			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
+			const terrainTile = selectedLayer.tiles?.find((t) => t.tileId === tileId);
 			const currentBitmask = terrainTile?.bitmask || 0;
 			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
-			const action: 'set' | 'clear' = isBitSet ? 'clear' : 'set';
+			const action: "set" | "clear" = isBitSet ? "clear" : "set";
 
 			// Store the action for consistent dragging
 			setPaintAction(action);
@@ -716,7 +771,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					setSelectedCompoundTileId(existingTile.id);
 				} else {
 					// No tile entry exists yet, generate an ID for potential property editing
-					const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
+					const tileId = packTileId(
+						tilePosX,
+						tilePosY,
+						tilesetData.tileWidth,
+						tilesetData.tileHeight,
+					);
 					setSelectedCompoundTileId(tileId);
 				}
 
@@ -831,7 +891,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
 			tiles: [...localTiles, newTile],
-			terrainLayers: localTerrainLayers
+			terrainLayers: localTerrainLayers,
 		});
 	};
 
@@ -843,7 +903,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
 			tiles: localTiles.filter((t) => t.id !== contextMenu.compoundTileId),
-			terrainLayers: localTerrainLayers
+			terrainLayers: localTerrainLayers,
 		});
 	};
 
@@ -882,13 +942,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (!contextMenu?.compoundTileId) return;
 
 		// Open collision editor tab for this compound tile
-		openCollisionEditor('tile', tilesetData.id, contextMenu.compoundTileId);
+		openCollisionEditor("tile", tilesetData.id, contextMenu.compoundTileId);
 	};
 
 	const handleUpdateTileName = (name: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = localTiles.find((t) => t.id === selectedCompoundTileId);
+		const existingTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
 
 		if (existingTile) {
 			// Update existing tile with undo/redo support
@@ -896,7 +958,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, name } : t,
 				),
-				terrainLayers: localTerrainLayers
+				terrainLayers: localTerrainLayers,
 			});
 		} else {
 			// Create new tile entry from packed ID with undo/redo support
@@ -909,7 +971,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			};
 			setLocalTilesetState({
 				tiles: [...localTiles, newTile],
-				terrainLayers: localTerrainLayers
+				terrainLayers: localTerrainLayers,
 			});
 		}
 	};
@@ -917,7 +979,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleUpdateTileType = (type: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = localTiles.find((t) => t.id === selectedCompoundTileId);
+		const existingTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
 
 		if (existingTile) {
 			// Update existing tile with undo/redo support
@@ -925,7 +989,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, type } : t,
 				),
-				terrainLayers: localTerrainLayers
+				terrainLayers: localTerrainLayers,
 			});
 		} else {
 			// Create new tile entry from packed ID with undo/redo support
@@ -938,23 +1002,30 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			};
 			setLocalTilesetState({
 				tiles: [...localTiles, newTile],
-				terrainLayers: localTerrainLayers
+				terrainLayers: localTerrainLayers,
 			});
 		}
 	};
 
-	const handleUpdateBitmask = (tileId: number, layerId: string, newBitmask: number) => {
+	const handleUpdateBitmask = (
+		tileId: number,
+		layerId: string,
+		newBitmask: number,
+	) => {
 		const terrainLayers = getTerrainLayers();
-		const updatedLayers = terrainLayers.map(layer => {
+		const updatedLayers = terrainLayers.map((layer) => {
 			if (layer.id !== layerId) return layer;
 
 			const tiles = layer.tiles || [];
-			const existingTileIndex = tiles.findIndex(t => t.tileId === tileId);
+			const existingTileIndex = tiles.findIndex((t) => t.tileId === tileId);
 
 			if (existingTileIndex >= 0) {
 				// Update existing tile's bitmask
 				const updatedTiles = [...tiles];
-				updatedTiles[existingTileIndex] = { ...tiles[existingTileIndex], bitmask: newBitmask };
+				updatedTiles[existingTileIndex] = {
+					...tiles[existingTileIndex],
+					bitmask: newBitmask,
+				};
 				return { ...layer, tiles: updatedTiles };
 			} else {
 				// Add new tile to layer
@@ -976,7 +1047,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const updateTerrainLayers = (layers: TerrainLayer[]) => {
 		setLocalTilesetState({
 			tiles: localTiles,
-			terrainLayers: layers
+			terrainLayers: layers,
 		});
 		// The useEffect above syncs to global state automatically
 	};
@@ -986,7 +1057,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// Reset the undo/redo history to the new state
 		resetTilesetHistory({
 			tiles: localTiles,
-			terrainLayers: layers
+			terrainLayers: layers,
 		});
 		// The useEffect above syncs to global state automatically
 	};
@@ -1004,14 +1075,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	const handleUpdateTerrainLayer = (updatedLayer: TerrainLayer) => {
 		const terrainLayers = getTerrainLayers();
-		updateTerrainLayersNoHistory(terrainLayers.map((layer) =>
-			layer.id === updatedLayer.id ? updatedLayer : layer
-		));
+		updateTerrainLayersNoHistory(
+			terrainLayers.map((layer) =>
+				layer.id === updatedLayer.id ? updatedLayer : layer,
+			),
+		);
 	};
 
 	const handleDeleteTerrainLayer = (layerId: string) => {
 		const terrainLayers = getTerrainLayers();
-		updateTerrainLayersNoHistory(terrainLayers.filter((layer) => layer.id !== layerId));
+		updateTerrainLayersNoHistory(
+			terrainLayers.filter((layer) => layer.id !== layerId),
+		);
 
 		// Clear selection if deleted layer was selected
 		if (selectedTerrainLayer === layerId) {
@@ -1024,9 +1099,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
-			<div className="w-64 flex flex-col" style={{ background: '#252526', borderRight: '1px solid #3e3e42' }}>
+			<div
+				className="w-64 flex flex-col"
+				style={{ background: "#252526", borderRight: "1px solid #3e3e42" }}
+			>
 				{/* Header */}
-				<div className="p-4" style={{ borderBottom: '1px solid #3e3e42' }}>
+				<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
 					{isEditingName ? (
 						<input
 							type="text"
@@ -1035,15 +1113,25 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							onBlur={handleNameSave}
 							onKeyDown={handleNameKeyDown}
 							className="w-full px-2 py-1 text-sm font-medium rounded focus:outline-none"
-							style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
+							style={{
+								background: "#3e3e42",
+								color: "#cccccc",
+								border: "1px solid #1177bb",
+							}}
 							autoFocus
 						/>
 					) : (
 						<div
 							className="text-sm font-medium cursor-pointer px-2 py-1 rounded transition-colors"
-							style={{ color: '#cccccc' }}
-							onMouseEnter={(e) => { e.currentTarget.style.background = '#3e3e42'; e.currentTarget.style.color = '#ffffff'; }}
-							onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cccccc'; }}
+							style={{ color: "#cccccc" }}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = "#3e3e42";
+								e.currentTarget.style.color = "#ffffff";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = "transparent";
+								e.currentTarget.style.color = "#cccccc";
+							}}
 							onClick={handleNameClick}
 							title="Click to edit name"
 						>
@@ -1057,13 +1145,19 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					<div className="space-y-4">
 						{/* Tileset Properties */}
 						<div>
-							<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
+							<div
+								className="text-xs font-semibold uppercase tracking-wide mb-2"
+								style={{ color: "#858585" }}
+							>
 								Tileset Properties
 							</div>
 							<div className="space-y-2">
 								<div className="grid grid-cols-2 gap-2">
 									<div>
-										<label className="text-xs block mb-1" style={{ color: '#858585' }}>
+										<label
+											className="text-xs block mb-1"
+											style={{ color: "#858585" }}
+										>
 											Tile Width
 										</label>
 										<input
@@ -1075,12 +1169,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											className="w-full px-2 py-1.5 rounded focus:outline-none"
-											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555', fontSize: '13px' }}
+											style={{
+												background: "#3e3e42",
+												color: "#cccccc",
+												border: "1px solid #555",
+												fontSize: "13px",
+											}}
 											min="1"
 										/>
 									</div>
 									<div>
-										<label className="text-xs block mb-1" style={{ color: '#858585' }}>
+										<label
+											className="text-xs block mb-1"
+											style={{ color: "#858585" }}
+										>
 											Tile Height
 										</label>
 										<input
@@ -1092,7 +1194,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											className="w-full px-2 py-1.5 rounded focus:outline-none"
-											style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #555', fontSize: '13px' }}
+											style={{
+												background: "#3e3e42",
+												color: "#cccccc",
+												border: "1px solid #555",
+												fontSize: "13px",
+											}}
 											min="1"
 										/>
 									</div>
@@ -1103,21 +1210,31 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						{/* Terrain Layers */}
 						<div className="mt-4">
 							<div className="flex items-center justify-between mb-2">
-								<div className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#858585' }}>
+								<div
+									className="text-xs font-semibold uppercase tracking-wide"
+									style={{ color: "#858585" }}
+								>
 									Terrain Layers
 								</div>
 								<button
 									onClick={handleAddTerrainLayer}
 									className="px-2 py-1 text-xs rounded transition-colors"
-									style={{ background: '#0e639c', color: '#ffffff' }}
-									onMouseEnter={(e) => e.currentTarget.style.background = '#1177bb'}
-									onMouseLeave={(e) => e.currentTarget.style.background = '#0e639c'}
+									style={{ background: "#0e639c", color: "#ffffff" }}
+									onMouseEnter={(e) =>
+										(e.currentTarget.style.background = "#1177bb")
+									}
+									onMouseLeave={(e) =>
+										(e.currentTarget.style.background = "#0e639c")
+									}
 								>
 									+ Add Layer
 								</button>
 							</div>
 
-							<div className="text-[10px] mb-3 px-1" style={{ color: '#858585' }}>
+							<div
+								className="text-[10px] mb-3 px-1"
+								style={{ color: "#858585" }}
+							>
 								Click to select, double-click to rename
 							</div>
 
@@ -1127,12 +1244,19 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										key={layer.id}
 										className="rounded transition-all cursor-pointer relative group select-none"
 										style={{
-											background: selectedTerrainLayer === layer.id ? '#0e639c' : '#2d2d2d',
-											border: '1px solid ' + (selectedTerrainLayer === layer.id ? '#1177bb' : '#3e3e42'),
-											WebkitUserSelect: 'none',
-											MozUserSelect: 'none',
-											msUserSelect: 'none',
-											userSelect: 'none'
+											background:
+												selectedTerrainLayer === layer.id
+													? "#0e639c"
+													: "#2d2d2d",
+											border:
+												"1px solid " +
+												(selectedTerrainLayer === layer.id
+													? "#1177bb"
+													: "#3e3e42"),
+											WebkitUserSelect: "none",
+											MozUserSelect: "none",
+											msUserSelect: "none",
+											userSelect: "none",
 										}}
 										onMouseDown={(e) => {
 											if (e.detail > 1) {
@@ -1141,7 +1265,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										}}
 										onClick={() => {
 											if (editingTerrainLayerId !== layer.id) {
-												setSelectedTerrainLayer(selectedTerrainLayer === layer.id ? null : layer.id);
+												setSelectedTerrainLayer(
+													selectedTerrainLayer === layer.id ? null : layer.id,
+												);
 											}
 										}}
 										onDoubleClick={(e) => {
@@ -1155,29 +1281,37 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												<input
 													type="text"
 													value={editingTerrainLayerName}
-													onChange={(e) => setEditingTerrainLayerName(e.target.value)}
+													onChange={(e) =>
+														setEditingTerrainLayerName(e.target.value)
+													}
 													onBlur={() => {
 														if (editingTerrainLayerName.trim()) {
-															handleUpdateTerrainLayer({ ...layer, name: editingTerrainLayerName.trim() });
+															handleUpdateTerrainLayer({
+																...layer,
+																name: editingTerrainLayerName.trim(),
+															});
 														}
 														setEditingTerrainLayerId(null);
 													}}
 													onKeyDown={(e) => {
-														if (e.key === 'Enter') {
+														if (e.key === "Enter") {
 															if (editingTerrainLayerName.trim()) {
-																handleUpdateTerrainLayer({ ...layer, name: editingTerrainLayerName.trim() });
+																handleUpdateTerrainLayer({
+																	...layer,
+																	name: editingTerrainLayerName.trim(),
+																});
 															}
 															setEditingTerrainLayerId(null);
-														} else if (e.key === 'Escape') {
+														} else if (e.key === "Escape") {
 															setEditingTerrainLayerId(null);
 														}
 													}}
 													onClick={(e) => e.stopPropagation()}
 													className="flex-1 px-2 py-1 text-xs rounded focus:outline-none mr-2"
 													style={{
-														background: '#3e3e42',
-														color: '#cccccc',
-														border: '1px solid #1177bb'
+														background: "#3e3e42",
+														color: "#cccccc",
+														border: "1px solid #1177bb",
 													}}
 													autoFocus
 												/>
@@ -1188,7 +1322,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													)}
 													<span
 														className="text-xs truncate"
-														style={{ color: selectedTerrainLayer === layer.id ? '#ffffff' : '#cccccc' }}
+														style={{
+															color:
+																selectedTerrainLayer === layer.id
+																	? "#ffffff"
+																	: "#cccccc",
+														}}
 													>
 														{layer.name}
 													</span>
@@ -1200,7 +1339,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													handleDeleteTerrainLayer(layer.id);
 												}}
 												className="p-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-												style={{ color: '#ef4444' }}
+												style={{ color: "#ef4444" }}
 												title="Delete layer"
 											>
 												<TrashIcon />
@@ -1210,7 +1349,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								))}
 
 								{getTerrainLayers().length === 0 && (
-									<div className="text-xs text-center py-4 rounded" style={{ background: '#2d2d2d', color: '#858585' }}>
+									<div
+										className="text-xs text-center py-4 rounded"
+										style={{ background: "#2d2d2d", color: "#858585" }}
+									>
 										No terrain layers. Click "Add Layer" to create one.
 									</div>
 								)}
@@ -1219,13 +1361,22 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 						{/* Tile Properties */}
 						{selectedCompoundTileId && (
-							<div className="mt-6 pt-4" style={{ borderTop: '1px solid #3e3e42' }}>
-								<div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#858585' }}>
+							<div
+								className="mt-6 pt-4"
+								style={{ borderTop: "1px solid #3e3e42" }}
+							>
+								<div
+									className="text-xs font-semibold uppercase tracking-wide mb-2"
+									style={{ color: "#858585" }}
+								>
 									Tile Properties
 								</div>
 								<div className="space-y-3">
 									<div>
-										<label className="text-xs font-medium block mb-1.5" style={{ color: '#858585' }}>
+										<label
+											className="text-xs font-medium block mb-1.5"
+											style={{ color: "#858585" }}
+										>
 											Name
 										</label>
 										{isEditingTileName ? (
@@ -1245,23 +1396,38 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													}
 												}}
 												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
+												style={{
+													background: "#3e3e42",
+													color: "#cccccc",
+													border: "1px solid #1177bb",
+												}}
 												autoFocus
 											/>
 										) : (
 											<div
 												onClick={() => setIsEditingTileName(true)}
 												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid transparent' }}
-												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
-												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+												style={{
+													background: "#3e3e42",
+													color: "#cccccc",
+													border: "1px solid transparent",
+												}}
+												onMouseEnter={(e) =>
+													(e.currentTarget.style.borderColor = "#555")
+												}
+												onMouseLeave={(e) =>
+													(e.currentTarget.style.borderColor = "transparent")
+												}
 											>
 												{selectedTile?.name || "(none)"}
 											</div>
 										)}
 									</div>
 									<div>
-										<label className="text-xs font-medium block mb-1.5" style={{ color: '#858585' }}>
+										<label
+											className="text-xs font-medium block mb-1.5"
+											style={{ color: "#858585" }}
+										>
 											Type
 										</label>
 										{isEditingTileType ? (
@@ -1281,16 +1447,28 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													}
 												}}
 												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid #1177bb' }}
+												style={{
+													background: "#3e3e42",
+													color: "#cccccc",
+													border: "1px solid #1177bb",
+												}}
 												autoFocus
 											/>
 										) : (
 											<div
 												onClick={() => setIsEditingTileType(true)}
 												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-												style={{ background: '#3e3e42', color: '#cccccc', border: '1px solid transparent' }}
-												onMouseEnter={(e) => e.currentTarget.style.borderColor = '#555'}
-												onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+												style={{
+													background: "#3e3e42",
+													color: "#cccccc",
+													border: "1px solid transparent",
+												}}
+												onMouseEnter={(e) =>
+													(e.currentTarget.style.borderColor = "#555")
+												}
+												onMouseLeave={(e) =>
+													(e.currentTarget.style.borderColor = "transparent")
+												}
 											>
 												{selectedTile?.type || "(none)"}
 											</div>
@@ -1328,7 +1506,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							}}
 						/>
 						{/* Status bar overlay */}
-						<div className="absolute bottom-0 left-0 right-0 bg-gray-900 bg-opacity-90 border-t border-gray-700 px-3 py-1.5 flex items-center gap-4 text-xs text-gray-300">
+						<div
+							className="absolute bottom-0 left-0 right-0 px-3 py-1.5 flex items-center gap-4 text-xs text-gray-300"
+							style={{
+								background: "rgba(37, 37, 38, 0.95)",
+								borderTop: "1px solid #3e3e42",
+							}}
+						>
 							<div className="flex items-center gap-2">
 								<span className="text-gray-500">Image:</span>
 								<span className="font-mono">
