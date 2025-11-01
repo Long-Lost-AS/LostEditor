@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 
 interface DragNumberInputProps {
 	value: number;
-	onChange: (value: number) => void;
+	onChange: (value: number) => void; // Called when drag/edit completes (for undo/redo)
+	onInput?: (value: number) => void; // Called during drag for live updates
+	onDragStart?: () => void; // Called when drag starts
+	onDragEnd?: () => void; // Called when drag ends
 	min?: number;
 	max?: number;
 	step?: number;
@@ -15,6 +18,9 @@ interface DragNumberInputProps {
 export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 	value,
 	onChange,
+	onInput,
+	onDragStart,
+	onDragEnd,
 	min = -Infinity,
 	max = Infinity,
 	step = 0.01,
@@ -48,24 +54,30 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		setIsDragging(true);
 		setDragStartX(e.clientX);
 		setDragStartValue(value);
+		onDragStart?.();
 		e.preventDefault();
-	};
-
-	const handleMouseMove = (e: MouseEvent) => {
-		if (!isDragging) return;
-
-		const deltaX = e.clientX - dragStartX;
-		const deltaValue = deltaX * dragSpeed;
-		const newValue = clampValue(dragStartValue + deltaValue);
-		onChange(newValue);
-	};
-
-	const handleMouseUp = () => {
-		setIsDragging(false);
 	};
 
 	useEffect(() => {
 		if (isDragging) {
+			let lastValue = value;
+
+			const handleMouseMove = (e: MouseEvent) => {
+				const deltaX = e.clientX - dragStartX;
+				const deltaValue = deltaX * dragSpeed;
+				const newValue = clampValue(dragStartValue + deltaValue);
+				lastValue = newValue;
+				onInput?.(newValue); // Call onInput for live updates
+			};
+
+			const handleMouseUp = () => {
+				setIsDragging(false);
+				onDragEnd?.();
+				if (lastValue !== value) {
+					onChange(lastValue); // Call onChange once with final value for undo/redo
+				}
+			};
+
 			window.addEventListener("mousemove", handleMouseMove);
 			window.addEventListener("mouseup", handleMouseUp);
 			document.body.style.cursor = "ew-resize";
@@ -76,7 +88,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 				document.body.style.cursor = "default";
 			};
 		}
-	}, [isDragging, dragStartX, dragStartValue]);
+	}, [isDragging, dragStartX, dragStartValue, dragSpeed, value, onChange, onInput, onDragStart, onDragEnd]);
 
 	const handleDoubleClick = () => {
 		setIsEditing(true);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { EditorProvider, useEditor } from "./context/EditorContext";
+import { UndoRedoProvider } from "./context/UndoRedoContext";
 import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { TilesetPanel } from "./components/TilesetPanel";
@@ -12,6 +13,7 @@ import { ResourceBrowser } from "./components/ResourceBrowser";
 import { EntityPanel } from "./components/EntityPanel";
 import { TilesetEditorView } from "./components/TilesetEditorView";
 import { EntityEditorView } from "./components/EntityEditorView";
+import { CollisionEditorView } from "./components/CollisionEditorView";
 import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
 import { CommandPalette } from "./components/CommandPalette";
@@ -246,6 +248,7 @@ const AppContent = () => {
 	const activeMapTab = getActiveMapTab();
 	const activeTilesetTab = getActiveTilesetTab();
 	const activeEntityTab = getActiveEntityTab();
+	const activeCollisionTab = tabs.find(tab => tab.type === 'collision-editor' && tab.id === activeTabId) as any;
 
 	// Handle right panel resize drag
 	const handleResizeStart = (e: React.MouseEvent) => {
@@ -410,14 +413,27 @@ const AppContent = () => {
 				{/* Show tileset editor view for tileset tabs */}
 				{activeTilesetTab && (
 					<div className="editor-top-section">
-						<TilesetEditorView tab={activeTilesetTab} />
+						<UndoRedoProvider>
+							<TilesetEditorView tab={activeTilesetTab} />
+						</UndoRedoProvider>
 					</div>
 				)}
 
 				{/* Show entity editor view for entity tabs */}
 				{activeEntityTab && (
 					<div className="editor-top-section">
-						<EntityEditorView tab={activeEntityTab} />
+						<UndoRedoProvider>
+							<EntityEditorView tab={activeEntityTab} />
+						</UndoRedoProvider>
+					</div>
+				)}
+
+				{/* Show collision editor view for collision editor tabs */}
+				{activeCollisionTab && (
+					<div className="editor-top-section">
+						<UndoRedoProvider>
+							<CollisionEditorView tab={activeCollisionTab} />
+						</UndoRedoProvider>
 					</div>
 				)}
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
-import { TilesetTab, PolygonCollider, TerrainLayer } from "../types";
-import { CollisionEditor } from "./CollisionEditor";
+import { TilesetTab, TerrainLayer } from "../types";
+import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { ShieldIcon, TrashIcon } from "./Icons";
 import { packTileId, unpackTileId } from "../utils/tileId";
 
@@ -17,6 +18,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		getActiveMapTab,
 		setSelectedTilesetId,
 		setSelectedTileId,
+		openCollisionEditor,
 	} = useEditor();
 	const { viewState } = tab;
 
@@ -53,8 +55,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	} | null>(null);
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(tilesetData.name);
-	const [isEditingCollision, setIsEditingCollision] = useState(false);
-	const [editingTileId, setEditingTileId] = useState<number | null>(null);
 	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<number | null>(null);
 	const [isEditingTileName, setIsEditingTileName] = useState(false);
 	const [isEditingTileType, setIsEditingTileType] = useState(false);
@@ -63,6 +63,33 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [paintAction, setPaintAction] = useState<'set' | 'clear'>('set');
 	const [editingTerrainLayerId, setEditingTerrainLayerId] = useState<string | null>(null);
 	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState('');
+
+	// Unified undo/redo state for the entire tileset (tiles + terrainLayers)
+	// This ensures all operations share a single chronological history
+	type TilesetUndoState = {
+		tiles: typeof tilesetData.tiles;
+		terrainLayers: TerrainLayer[];
+	};
+
+	const [localTilesetState, setLocalTilesetState, {
+		undo,
+		redo,
+		canUndo,
+		canRedo,
+		startBatch,
+		endBatch,
+		reset: resetTilesetHistory
+	}] = useUndoableReducer<TilesetUndoState>({
+		tiles: tilesetData.tiles || [],
+		terrainLayers: tilesetData.terrainLayers || []
+	});
+
+	// Extract individual parts for convenience
+	const localTiles = localTilesetState.tiles;
+	const localTerrainLayers = localTilesetState.terrainLayers;
+
+	// Register unified undo/redo keyboard shortcuts
+	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
 
 	// Refs to track current pan and zoom values for wheel event
 	const panRef = useRef(pan);
@@ -73,16 +100,39 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		scaleRef.current = viewState.scale;
 	}, [pan, viewState.scale]);
 
+	// Reset undo history when switching to a different tileset
+	const prevTilesetIdRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (prevTilesetIdRef.current !== null && prevTilesetIdRef.current !== tilesetData.id) {
+			// Switching to a different tileset, reset unified history
+			resetTilesetHistory({
+				tiles: tilesetData.tiles || [],
+				terrainLayers: tilesetData.terrainLayers || []
+			});
+		}
+		prevTilesetIdRef.current = tilesetData.id;
+	}, [tilesetData.id, tilesetData.terrainLayers, tilesetData.tiles, resetTilesetHistory]);
+
+	// One-way sync: local tileset state → global context
+	// This updates the global state whenever local state changes (from any operation or undo/redo)
+	useEffect(() => {
+		updateTileset(tab.tilesetId, {
+			tiles: localTiles,
+			terrainLayers: localTerrainLayers
+		});
+		updateTabData(tab.id, { isDirty: true });
+	}, [localTilesetState, tab.tilesetId, tab.id, updateTileset, updateTabData]);
+
 	// Memoized tile position map for O(1) lookups
 	const tilePositionMap = useMemo(() => {
-		const map = new Map<string, typeof tilesetData.tiles[0]>();
-		for (const tile of tilesetData.tiles) {
+		const map = new Map<string, typeof localTiles[0]>();
+		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
 				map.set(`${tile.x},${tile.y}`, tile);
 			}
 		}
 		return map;
-	}, [tilesetData.tiles]);
+	}, [localTiles]);
 
 	// Draw tileset image on canvas
 	useEffect(() => {
@@ -122,7 +172,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				x += tilesetData.tileWidth
 			) {
 				// Find all compound tiles that intersect this vertical line
-				const intersectingTiles = tilesetData.tiles
+				const intersectingTiles = localTiles
 					.filter((tile) => {
 						if (!tile.width || !tile.height) return false; // Not a compound tile
 						const tileWidth = tile.width || tilesetData.tileWidth;
@@ -396,6 +446,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		pan,
 		viewState.scale,
 		selectedTerrainLayer,
+		localTerrainLayers,
 	]);
 
 	// Setup wheel event listener for zoom and pan
@@ -557,6 +608,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			setPaintAction(action);
 			setIsPaintingBitmask(true);
 
+			// Start batching changes for smooth brush strokes
+			startBatch();
+
 			// Paint the initial cell
 			paintBitmaskCell(canvasX, canvasY, action);
 		} else if (e.button === 0) {
@@ -586,7 +640,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Check if we clicked on a compound tile
 			let foundCompoundTile = false;
-			for (const tile of tilesetData.tiles) {
+			for (const tile of localTiles) {
 				if (tile.width && tile.height) {
 					// Check if click is within this compound tile's bounds
 					const tileRight = tile.x + (tile.width || tilesetData.tileWidth);
@@ -654,7 +708,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Check if there's a tile entry at this position (for properties)
 				const tilePosX = tileX * tilesetData.tileWidth;
 				const tilePosY = tileY * tilesetData.tileHeight;
-				const existingTile = tilesetData.tiles.find(
+				const existingTile = localTiles.find(
 					(t) => t.x === tilePosX && t.y === tilePosY && !t.width && !t.height,
 				);
 
@@ -708,6 +762,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	const handleMouseUp = () => {
+		// End batch if we were painting terrain
+		if (isPaintingBitmask) {
+			endBatch();
+		}
+
 		setIsDragging(false);
 		setIsSelecting(false);
 		setSelectionStart(null);
@@ -721,7 +780,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
 		let clickedCompoundTile: string | undefined;
 
-		for (const tile of tilesetData.tiles) {
+		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
 				const tileRight = tile.x + tile.width;
 				const tileBottom = tile.y + tile.height;
@@ -769,13 +828,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			height: tileHeight,
 		};
 
-		// Add to tileset
-		updateTileset(tab.tilesetId, {
-			tiles: [...tilesetData.tiles, newTile],
+		// Update unified state with undo/redo support
+		setLocalTilesetState({
+			tiles: [...localTiles, newTile],
+			terrainLayers: localTerrainLayers
 		});
-
-		// Mark tab as dirty
-		updateTabData(tab.id, { isDirty: true });
 	};
 
 	const handleDeleteCompoundTile = () => {
@@ -783,15 +840,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		if (!contextMenu?.compoundTileId) return;
 
-		// Remove the compound tile from the tileset
-		updateTileset(tab.tilesetId, {
-			tiles: tilesetData.tiles.filter(
-				(t) => t.id !== contextMenu.compoundTileId,
-			),
+		// Update unified state with undo/redo support
+		setLocalTilesetState({
+			tiles: localTiles.filter((t) => t.id !== contextMenu.compoundTileId),
+			terrainLayers: localTerrainLayers
 		});
-
-		// Mark tab as dirty
-		updateTabData(tab.id, { isDirty: true });
 	};
 
 	const handleClearSelection = () => {
@@ -828,39 +881,25 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		if (!contextMenu?.compoundTileId) return;
 
-		// Open collision editor for this compound tile
-		setEditingTileId(contextMenu.compoundTileId);
-		setIsEditingCollision(true);
-	};
-
-	const handleCollisionUpdate = (colliders: PolygonCollider[]) => {
-		if (!editingTileId) return;
-
-		// Update the tile's colliders property
-		updateTileset(tab.tilesetId, {
-			tiles: tilesetData.tiles.map((t) =>
-				t.id === editingTileId ? { ...t, colliders } : t,
-			),
-		});
-
-		// Mark tab as dirty
-		updateTabData(tab.id, { isDirty: true });
+		// Open collision editor tab for this compound tile
+		openCollisionEditor('tile', tilesetData.id, contextMenu.compoundTileId);
 	};
 
 	const handleUpdateTileName = (name: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+		const existingTile = localTiles.find((t) => t.id === selectedCompoundTileId);
 
 		if (existingTile) {
-			// Update existing tile
-			updateTileset(tab.tilesetId, {
-				tiles: tilesetData.tiles.map((t) =>
+			// Update existing tile with undo/redo support
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, name } : t,
 				),
+				terrainLayers: localTerrainLayers
 			});
 		} else {
-			// Create new tile entry from packed ID
+			// Create new tile entry from packed ID with undo/redo support
 			const geometry = unpackTileId(selectedCompoundTileId);
 			const newTile = {
 				id: selectedCompoundTileId,
@@ -868,28 +907,28 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				y: geometry.y,
 				name,
 			};
-			updateTileset(tab.tilesetId, {
-				tiles: [...tilesetData.tiles, newTile],
+			setLocalTilesetState({
+				tiles: [...localTiles, newTile],
+				terrainLayers: localTerrainLayers
 			});
 		}
-
-		updateTabData(tab.id, { isDirty: true });
 	};
 
 	const handleUpdateTileType = (type: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+		const existingTile = localTiles.find((t) => t.id === selectedCompoundTileId);
 
 		if (existingTile) {
-			// Update existing tile
-			updateTileset(tab.tilesetId, {
-				tiles: tilesetData.tiles.map((t) =>
+			// Update existing tile with undo/redo support
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, type } : t,
 				),
+				terrainLayers: localTerrainLayers
 			});
 		} else {
-			// Create new tile entry from packed ID
+			// Create new tile entry from packed ID with undo/redo support
 			const geometry = unpackTileId(selectedCompoundTileId);
 			const newTile = {
 				id: selectedCompoundTileId,
@@ -897,12 +936,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				y: geometry.y,
 				type,
 			};
-			updateTileset(tab.tilesetId, {
-				tiles: [...tilesetData.tiles, newTile],
+			setLocalTilesetState({
+				tiles: [...localTiles, newTile],
+				terrainLayers: localTerrainLayers
 			});
 		}
-
-		updateTabData(tab.id, { isDirty: true });
 	};
 
 	const handleUpdateBitmask = (tileId: number, layerId: string, newBitmask: number) => {
@@ -924,23 +962,36 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			}
 		});
 
+		// This uses undo/redo for painting operations
 		updateTerrainLayers(updatedLayers);
-		updateTabData(tab.id, { isDirty: true });
 	};
 
-	// Helper to get terrainLayers
+	// Helper to get terrainLayers (returns local reducer state)
 	const getTerrainLayers = () => {
-		return tilesetData.terrainLayers || [];
+		return localTerrainLayers || [];
 	};
 
-	// Helper to update terrainLayers
+	// Helper to update terrainLayers with undo/redo support
+	// This is used for PAINTING operations
 	const updateTerrainLayers = (layers: TerrainLayer[]) => {
-		updateTileset(tab.tilesetId, {
+		setLocalTilesetState({
+			tiles: localTiles,
 			terrainLayers: layers
 		});
+		// The useEffect above syncs to global state automatically
 	};
 
-	// Terrain layer handlers
+	// Update terrain layers WITHOUT undo/redo (for structural changes like add/remove/rename)
+	const updateTerrainLayersNoHistory = (layers: TerrainLayer[]) => {
+		// Reset the undo/redo history to the new state
+		resetTilesetHistory({
+			tiles: localTiles,
+			terrainLayers: layers
+		});
+		// The useEffect above syncs to global state automatically
+	};
+
+	// Terrain layer handlers (structural operations - no undo/redo)
 	const handleAddTerrainLayer = () => {
 		const terrainLayers = getTerrainLayers();
 		const newLayer: TerrainLayer = {
@@ -948,31 +999,27 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			name: `Terrain ${terrainLayers.length + 1}`,
 		};
 
-		updateTerrainLayers([...terrainLayers, newLayer]);
-		updateTabData(tab.id, { isDirty: true });
+		updateTerrainLayersNoHistory([...terrainLayers, newLayer]);
 	};
 
 	const handleUpdateTerrainLayer = (updatedLayer: TerrainLayer) => {
 		const terrainLayers = getTerrainLayers();
-		updateTerrainLayers(terrainLayers.map((layer) =>
+		updateTerrainLayersNoHistory(terrainLayers.map((layer) =>
 			layer.id === updatedLayer.id ? updatedLayer : layer
 		));
-		updateTabData(tab.id, { isDirty: true });
 	};
 
 	const handleDeleteTerrainLayer = (layerId: string) => {
 		const terrainLayers = getTerrainLayers();
-		updateTerrainLayers(terrainLayers.filter((layer) => layer.id !== layerId));
+		updateTerrainLayersNoHistory(terrainLayers.filter((layer) => layer.id !== layerId));
 
 		// Clear selection if deleted layer was selected
 		if (selectedTerrainLayer === layerId) {
 			setSelectedTerrainLayer(null);
 		}
-
-		updateTabData(tab.id, { isDirty: true });
 	};
 
-	const selectedTile = tilesetData.tiles.find((t) => t.id === selectedCompoundTileId);
+	const selectedTile = localTiles.find((t) => t.id === selectedCompoundTileId);
 
 	return (
 		<div className="flex h-full w-full">
@@ -1293,7 +1340,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							<div className="flex items-center gap-2">
 								<span className="text-gray-500">Compound Tiles:</span>
 								<span className="font-mono">
-									{tilesetData.tiles.filter((t) => t.width && t.height).length}
+									{localTiles.filter((t) => t.width && t.height).length}
 								</span>
 							</div>
 							{mousePos && (
@@ -1398,52 +1445,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					</div>
 				</>
 			)}
-
-			{/* Collision Editor Modal */}
-			{isEditingCollision && editingTileId && tilesetData.imageData && (() => {
-				const tile = tilesetData.tiles.find((t) => t.id === editingTileId);
-				if (!tile) return null;
-
-				const tileWidth = tile.width || tilesetData.tileWidth;
-				const tileHeight = tile.height || tilesetData.tileHeight;
-
-				// Get colliders array (default to empty array with one empty collider)
-				const colliders = tile.colliders || [{ points: [] }];
-
-				return (
-					<div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-						<div className="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-[90vw] h-[95vh] flex flex-col">
-							<div className="mb-4 flex items-center justify-between">
-								<h2 className="text-lg font-semibold text-gray-200">
-									Edit Collision - {tile.name || "Compound Tile"}
-								</h2>
-								<button
-									onClick={() => {
-										setIsEditingCollision(false);
-										setEditingTileId(null);
-									}}
-									className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-								>
-									Done
-								</button>
-							</div>
-							<CollisionEditor
-								width={tileWidth}
-								height={tileHeight}
-								colliders={colliders}
-								onUpdate={handleCollisionUpdate}
-								backgroundImage={tilesetData.imageData}
-								backgroundRect={{
-									x: tile.x,
-									y: tile.y,
-									width: tileWidth,
-									height: tileHeight,
-								}}
-							/>
-						</div>
-					</div>
-				);
-			})()}
 		</div>
 	);
 };

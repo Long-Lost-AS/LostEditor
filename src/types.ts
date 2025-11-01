@@ -163,7 +163,7 @@ export interface CollisionEditState {
 // Tab Types
 // ===========================
 
-export type TabType = 'map' | 'tileset' | 'entity-editor'
+export type TabType = 'map' | 'tileset' | 'entity-editor' | 'collision-editor'
 
 export interface BaseTab {
   id: string
@@ -218,7 +218,15 @@ export interface EntityEditorTab extends BaseTab {
   viewState: EntityEditorViewState
 }
 
-export type AnyTab = MapTab | TilesetTab | EntityEditorTab
+export interface CollisionEditorTab extends BaseTab {
+  type: 'collision-editor'
+  sourceType: 'tile' | 'entity'
+  sourceId: string            // tilesetId or entityId
+  sourceTabId?: string        // Parent tab ID (for entities)
+  tileId?: number             // Only used when sourceType is 'tile'
+}
+
+export type AnyTab = MapTab | TilesetTab | EntityEditorTab | CollisionEditorTab
 
 export interface TabState {
   tabs: AnyTab[]

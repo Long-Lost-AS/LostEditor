@@ -21,6 +21,7 @@ import {
 	MapTab,
 	TilesetTab,
 	EntityEditorTab,
+	CollisionEditorTab,
 } from "../types";
 import { SettingsManager } from "../settings";
 import { tilesetManager } from "../managers/TilesetManager";
@@ -146,6 +147,7 @@ interface EditorContextType {
 	newMap: (directory?: string, fileName?: string) => void;
 	newTileset: (directory?: string) => Promise<void>;
 	newEntity: (directory?: string) => void;
+	openCollisionEditor: (sourceType: 'tile' | 'entity', sourceId: string, tileId?: number, sourceTabId?: string) => void;
 	saveTileset: () => Promise<void>;
 	saveAll: () => Promise<void>;
 
@@ -1724,6 +1726,44 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		openTab(entityTab);
 	}, [openTab]);
 
+	const openCollisionEditor = useCallback((
+		sourceType: 'tile' | 'entity',
+		sourceId: string,
+		tileId?: number,
+		sourceTabId?: string
+	) => {
+		// Generate tab title
+		let title = 'Edit Collision';
+		if (sourceType === 'tile') {
+			const tileset = tilesets.find(t => t.id === sourceId);
+			const tile = tileset?.tiles.find(t => t.id === tileId);
+			if (tile?.name) {
+				title = `Collision - ${tile.name}`;
+			} else if (tileset) {
+				title = `Collision - Tile ${tileId}`;
+			}
+		} else {
+			const entityTab = tabs.find(t => t.id === sourceTabId);
+			if (entityTab && entityTab.type === 'entity-editor') {
+				title = `Collision - ${entityTab.entityData.name}`;
+			}
+		}
+
+		// Create collision editor tab
+		const collisionTab = {
+			id: `collision-${Date.now()}`,
+			type: 'collision-editor' as const,
+			title,
+			isDirty: false,
+			sourceType,
+			sourceId,
+			sourceTabId,
+			tileId
+		};
+
+		openTab(collisionTab);
+	}, [tabs, tilesets, openTab]);
+
 	const saveTileset = useCallback(async () => {
 		const activeTilesetTab = getActiveTilesetTab();
 		if (!activeTilesetTab) {
@@ -1946,6 +1986,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		newMap,
 		newTileset,
 		newEntity,
+		openCollisionEditor,
 		saveTileset,
 		saveAll,
 		projectDirectory,

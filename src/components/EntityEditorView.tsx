@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { EntityEditorTab, SpriteLayer, PolygonCollider } from "../types";
-import { CollisionEditor } from "./CollisionEditor";
 import { DragNumberInput } from "./DragNumberInput";
 
 interface EntityEditorViewProps {
@@ -31,7 +30,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
 		string | null
 	>(null);
-	const [isEditingCollision, setIsEditingCollision] = useState(false);
 
 	// Sprite dragging state
 	const [isDraggingSprite, setIsDraggingSprite] = useState(false);
@@ -1395,17 +1393,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		});
 	};
 
-	// Update colliders
-	const handleCollisionUpdate = (updatedColliders: PolygonCollider[]) => {
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				colliders: updatedColliders,
-			},
-			isDirty: true,
-		});
-	};
-
 	// Update collider properties
 	const handleUpdateCollider = (
 		colliderId: string,
@@ -2730,48 +2717,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					</>,
 					document.body,
 				)}
-
-			{/* Collision Editor Modal */}
-			{isEditingCollision &&
-				(() => {
-					const bbox = calculateEntityBoundingBox();
-					const colliders = entityData.colliders || [{ points: [] }];
-
-					// Create a composite image from all sprite layers for the background
-					// For now, we'll use null and just show the bounding box
-					const backgroundImage: HTMLImageElement | null = null;
-
-					return (
-						<div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-							<div className="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-[90vw] h-[95vh] flex flex-col">
-								<div className="mb-4 flex items-center justify-between">
-									<h2 className="text-lg font-semibold text-gray-200">
-										Edit Collision - {entityData.name || "Entity"}
-									</h2>
-									<button
-										onClick={() => setIsEditingCollision(false)}
-										className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-									>
-										Done
-									</button>
-								</div>
-								<CollisionEditor
-									width={Math.max(bbox.width, 1)}
-									height={Math.max(bbox.height, 1)}
-									colliders={colliders}
-									onUpdate={handleCollisionUpdate}
-									backgroundImage={backgroundImage!}
-									backgroundRect={{
-										x: bbox.x,
-										y: bbox.y,
-										width: bbox.width,
-										height: bbox.height,
-									}}
-								/>
-							</div>
-						</div>
-					);
-				})()}
 
 			{/* Sprite Picker Modal */}
 			{isSpritePicking &&

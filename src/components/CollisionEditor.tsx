@@ -1,7 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { PolygonCollider } from '../types'
 import { LightbulbIcon, TrashIcon, PlusIcon } from './Icons'
-import { deepEqual } from '../utils/deepEqual'
+import { useUndoableReducer } from '../hooks/useUndoableReducer'
+import { useRegisterUndoRedo } from '../context/UndoRedoContext'
+import { DragNumberInput } from './DragNumberInput'
 
 interface CollisionEditorProps {
   width: number
@@ -31,18 +33,26 @@ export const CollisionEditor = ({
   const [selectedColliderId, setSelectedColliderId] = useState<string | null>(null)
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isDraggingCollider, setIsDraggingCollider] = useState(false)
+  const [colliderDragStart, setColliderDragStart] = useState<{ x: number; y: number } | null>(null)
 
-  // Undo/Redo state
-  const [history, setHistory] = useState<PolygonCollider[][]>([colliders])
-  const [historyIndex, setHistoryIndex] = useState(0)
-  const collidersBeforeDrag = useRef<PolygonCollider[] | null>(null)
+  // Undo/Redo using the reducer pattern
+  const [localColliders, setLocalColliders, {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    startBatch,
+    endBatch,
+    reset
+  }] = useUndoableReducer<PolygonCollider[]>(colliders)
 
   // Pan/zoom state
   const [isPanning, setIsPanning] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(4)
   const [pan, setPan] = useState({ x: 50, y: 50 })
-  const [snapToGrid, setSnapToGrid] = useState(true)
+  const [snapToGrid] = useState(true) // Always enabled
 
   // UI state
   const [contextMenu, setContextMenu] = useState<{
@@ -56,6 +66,8 @@ export const CollisionEditor = ({
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
   const [editingColliderName, setEditingColliderName] = useState(false)
   const [editingColliderType, setEditingColliderType] = useState(false)
+  const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(null)
+  const [editingPropertyValue, setEditingPropertyValue] = useState<string | null>(null)
 
   // Refs for event handlers
   const panRef = useRef(pan)
@@ -66,10 +78,18 @@ export const CollisionEditor = ({
     scaleRef.current = scale
   }, [pan, scale])
 
+  // Register undo/redo callbacks for keyboard shortcuts
+  useRegisterUndoRedo({ undo, redo, canUndo, canRedo })
+
+  // Sync local colliders with parent's onUpdate callback
+  useEffect(() => {
+    onUpdate(localColliders)
+  }, [localColliders])
+
   // Ensure all colliders have IDs and remove invalid colliders
   useEffect(() => {
     let needsUpdate = false
-    let updated = [...colliders]
+    let updated = [...localColliders]
 
     // Remove colliders with 0 points (invalid)
     const validColliders = updated.filter(c => c.points.length > 0)
@@ -89,77 +109,13 @@ export const CollisionEditor = ({
     }
 
     if (needsUpdate) {
-      onUpdate(updated)
+      setLocalColliders(updated)
     }
-  }, [colliders])
+  }, [localColliders, setLocalColliders])
 
   const getSelectedCollider = () => {
-    return colliders.find(c => c.id === selectedColliderId)
+    return localColliders.find(c => c.id === selectedColliderId)
   }
-
-  // Push to history when colliders change
-  const updateCollidersWithHistory = (newColliders: PolygonCollider[]) => {
-    // Check if colliders actually changed (deep comparison)
-    const currentColliders = history[historyIndex]
-    if (deepEqual(currentColliders, newColliders)) {
-      return // No change, don't add to history
-    }
-
-    // Remove any history after current index (when making new changes after undo)
-    const newHistory = history.slice(0, historyIndex + 1)
-    newHistory.push(newColliders)
-
-    // Limit history to 50 entries
-    if (newHistory.length > 50) {
-      newHistory.shift()
-    } else {
-      setHistoryIndex(historyIndex + 1)
-    }
-
-    setHistory(newHistory)
-    onUpdate(newColliders)
-  }
-
-  // Just push to history without calling onUpdate (for use after dragging)
-  const pushToHistory = (newColliders: PolygonCollider[]) => {
-    // Check if colliders actually changed
-    const currentColliders = history[historyIndex]
-    if (deepEqual(currentColliders, newColliders)) {
-      return // No change, don't add to history
-    }
-
-    // Remove any history after current index
-    const newHistory = history.slice(0, historyIndex + 1)
-    newHistory.push(newColliders)
-
-    // Limit history to 50 entries
-    if (newHistory.length > 50) {
-      newHistory.shift()
-    } else {
-      setHistoryIndex(historyIndex + 1)
-    }
-
-    setHistory(newHistory)
-  }
-
-  const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1
-      setHistoryIndex(newIndex)
-      onUpdate(history[newIndex])
-    }
-  }, [historyIndex, history, onUpdate])
-
-  const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1
-      setHistoryIndex(newIndex)
-      onUpdate(history[newIndex])
-    }
-  }, [historyIndex, history, onUpdate])
-
-  const canUndo = historyIndex > 0
-  const canRedo = historyIndex < history.length - 1
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -204,7 +160,7 @@ export const CollisionEditor = ({
       }
 
       // Draw completed colliders
-      colliders.forEach((collider) => {
+      localColliders.forEach((collider) => {
         if (collider.points.length === 0) return
 
         const isSelected = collider.id === selectedColliderId
@@ -296,7 +252,7 @@ export const CollisionEditor = ({
     draw()
     window.addEventListener('resize', draw)
     return () => window.removeEventListener('resize', draw)
-  }, [colliders, selectedColliderId, selectedPointIndex, isDrawing, drawingPoints, width, height, scale, pan, backgroundImage, backgroundRect])
+  }, [localColliders, selectedColliderId, selectedPointIndex, isDrawing, drawingPoints, width, height, scale, pan, backgroundImage, backgroundRect])
 
   // Setup wheel event listener for zoom and pan
   useEffect(() => {
@@ -334,24 +290,7 @@ export const CollisionEditor = ({
     return () => container.removeEventListener('wheel', handleWheel)
   }, [])
 
-  // Setup keyboard shortcuts at document level - stable handler using callbacks
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Undo/Redo shortcuts
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        handleUndo()
-        return
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault()
-        handleRedo()
-        return
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleUndo, handleRedo]) // Use stable callbacks instead of history state
+  // Keyboard shortcuts are now handled by UndoRedoProvider via useRegisterUndoRedo
 
   const snapCoord = (value: number) => {
     return snapToGrid ? Math.round(value) : value
@@ -473,7 +412,7 @@ export const CollisionEditor = ({
               id: `collider-${Date.now()}`,
               points: drawingPoints
             }
-            updateCollidersWithHistory([...colliders, newCollider])
+            setLocalColliders([...localColliders, newCollider])
             setDrawingPoints([])
             setIsDrawing(false)
             setSelectedColliderId(newCollider.id!)
@@ -493,7 +432,7 @@ export const CollisionEditor = ({
           if (pointIndex !== null) {
             setSelectedPointIndex(pointIndex)
             setIsDragging(true)
-            collidersBeforeDrag.current = colliders // Store state before dragging
+            startBatch() // Start batching changes for smooth drag operation
             return
           }
         }
@@ -503,6 +442,13 @@ export const CollisionEditor = ({
         if (colliderId) {
           setSelectedColliderId(colliderId)
           setSelectedPointIndex(null)
+
+          // If clicking on the selected collider body (not a point), enable dragging the entire collider
+          if (colliderId === selectedColliderId) {
+            setIsDraggingCollider(true)
+            setColliderDragStart(coords)
+            startBatch()
+          }
         } else {
           setSelectedColliderId(null)
           setSelectedPointIndex(null)
@@ -522,7 +468,7 @@ export const CollisionEditor = ({
       })
     } else if (isDragging && selectedPointIndex !== null && selectedColliderId) {
       const snappedCoords = getCanvasCoords(e)
-      const newColliders = colliders.map(c => {
+      const newColliders = localColliders.map(c => {
         if (c.id === selectedColliderId) {
           const newPoints = [...c.points]
           newPoints[selectedPointIndex] = { x: snappedCoords.x, y: snappedCoords.y }
@@ -530,17 +476,35 @@ export const CollisionEditor = ({
         }
         return c
       })
-      onUpdate(newColliders)
+      setLocalColliders(newColliders)
+    } else if (isDraggingCollider && colliderDragStart && selectedColliderId) {
+      // Drag entire collider
+      const currentCoords = getCanvasCoords(e)
+      const deltaX = currentCoords.x - colliderDragStart.x
+      const deltaY = currentCoords.y - colliderDragStart.y
+
+      const newColliders = localColliders.map(c => {
+        if (c.id === selectedColliderId) {
+          const newPoints = c.points.map(p => ({
+            x: Math.round(p.x + deltaX),
+            y: Math.round(p.y + deltaY)
+          }))
+          return { ...c, points: newPoints }
+        }
+        return c
+      })
+      setLocalColliders(newColliders)
+      setColliderDragStart(currentCoords)
     }
   }
 
   const handleMouseUp = () => {
-    if (isDragging && collidersBeforeDrag.current) {
-      // Push to history after dragging is done (don't call onUpdate, it's already been called during dragging)
-      pushToHistory(colliders)
-      collidersBeforeDrag.current = null
+    if (isDragging || isDraggingCollider) {
+      endBatch() // End batching - all drag changes become one history entry
     }
     setIsDragging(false)
+    setIsDraggingCollider(false)
+    setColliderDragStart(null)
     setIsPanning(false)
   }
 
@@ -558,10 +522,10 @@ export const CollisionEditor = ({
         const collider = getSelectedCollider()
         if (collider && collider.points.length > 3) {
           const newPoints = collider.points.filter((_, i) => i !== selectedPointIndex)
-          const newColliders = colliders.map(c =>
+          const newColliders = localColliders.map(c =>
             c.id === selectedColliderId ? { ...c, points: newPoints } : c
           )
-          updateCollidersWithHistory(newColliders)
+          setLocalColliders(newColliders)
           setSelectedPointIndex(null)
         }
       }
@@ -576,7 +540,7 @@ export const CollisionEditor = ({
     const unsnappedCoords = getCanvasCoords(e, false)
 
     // Check all colliders for points first (highest priority)
-    for (const collider of colliders) {
+    for (const collider of localColliders) {
       const pointIndex = findPointAtPosition(collider.points, unsnappedCoords.x, unsnappedCoords.y)
       if (pointIndex !== null && collider.id) {
         setContextMenu({
@@ -590,7 +554,7 @@ export const CollisionEditor = ({
     }
 
     // Check all colliders for edges (second priority)
-    for (const collider of colliders) {
+    for (const collider of localColliders) {
       const edge = findEdgeAtPosition(collider.points, unsnappedCoords.x, unsnappedCoords.y)
       if (edge && collider.id) {
         setContextMenu({
@@ -628,13 +592,13 @@ export const CollisionEditor = ({
 
   const handleDeletePoint = () => {
     if (contextMenu && contextMenu.pointIndex !== undefined) {
-      const collider = colliders.find(c => c.id === contextMenu.colliderId)
+      const collider = localColliders.find(c => c.id === contextMenu.colliderId)
       if (collider && collider.points.length > 3) {
         const newPoints = collider.points.filter((_, i) => i !== contextMenu.pointIndex)
-        const newColliders = colliders.map(c =>
+        const newColliders = localColliders.map(c =>
           c.id === contextMenu.colliderId ? { ...c, points: newPoints } : c
         )
-        updateCollidersWithHistory(newColliders)
+        setLocalColliders(newColliders)
       }
     }
     setContextMenu(null)
@@ -645,7 +609,7 @@ export const CollisionEditor = ({
       const snappedX = snapCoord(contextMenu.insertPosition.x)
       const snappedY = snapCoord(contextMenu.insertPosition.y)
 
-      const newColliders = colliders.map(c => {
+      const newColliders = localColliders.map(c => {
         if (c.id === contextMenu.colliderId) {
           const newPoints = [...c.points]
           newPoints.splice(contextMenu.edgeIndex! + 1, 0, { x: snappedX, y: snappedY })
@@ -653,7 +617,7 @@ export const CollisionEditor = ({
         }
         return c
       })
-      updateCollidersWithHistory(newColliders)
+      setLocalColliders(newColliders)
       setSelectedColliderId(contextMenu.colliderId)
       setSelectedPointIndex(contextMenu.edgeIndex! + 1)
     }
@@ -671,8 +635,8 @@ export const CollisionEditor = ({
   const handleDeleteCollider = () => {
     const colliderIdToDelete = contextMenu?.colliderId || selectedColliderId
     if (colliderIdToDelete) {
-      const newColliders = colliders.filter(c => c.id !== colliderIdToDelete)
-      updateCollidersWithHistory(newColliders)
+      const newColliders = localColliders.filter(c => c.id !== colliderIdToDelete)
+      setLocalColliders(newColliders)
       setSelectedColliderId(null)
     }
     setContextMenu(null)
@@ -680,188 +644,511 @@ export const CollisionEditor = ({
 
   const handleUpdateColliderName = (name: string) => {
     if (selectedColliderId) {
-      const newColliders = colliders.map(c =>
+      const newColliders = localColliders.map(c =>
         c.id === selectedColliderId ? { ...c, name } : c
       )
-      updateCollidersWithHistory(newColliders)
+      setLocalColliders(newColliders)
     }
   }
 
   const handleUpdateColliderType = (type: string) => {
     if (selectedColliderId) {
-      const newColliders = colliders.map(c =>
+      const newColliders = localColliders.map(c =>
         c.id === selectedColliderId ? { ...c, type } : c
       )
-      updateCollidersWithHistory(newColliders)
+      setLocalColliders(newColliders)
     }
+  }
+
+  // Custom properties handlers
+  const handleAddProperty = () => {
+    const selectedCollider = getSelectedCollider()
+    if (!selectedCollider) return
+
+    const newKey = `__temp_${Date.now()}`
+    const updatedProperties = {
+      ...(selectedCollider.properties || {}),
+      [newKey]: ''
+    }
+
+    const newColliders = localColliders.map(c =>
+      c.id === selectedColliderId ? { ...c, properties: updatedProperties } : c
+    )
+    setLocalColliders(newColliders)
+    setEditingPropertyKey(newKey)
+  }
+
+  const handleDeleteProperty = (key: string) => {
+    const selectedCollider = getSelectedCollider()
+    if (!selectedCollider) return
+
+    const updatedProperties = { ...(selectedCollider.properties || {}) }
+    delete updatedProperties[key]
+
+    const newColliders = localColliders.map(c =>
+      c.id === selectedColliderId ? { ...c, properties: updatedProperties } : c
+    )
+    setLocalColliders(newColliders)
+  }
+
+  const handleUpdatePropertyKey = (oldKey: string, newKey: string) => {
+    const selectedCollider = getSelectedCollider()
+    if (!selectedCollider) return
+
+    if (!newKey.trim()) {
+      handleDeleteProperty(oldKey)
+      setEditingPropertyKey(null)
+      return
+    }
+
+    if (oldKey === newKey) return
+
+    if (selectedCollider.properties && selectedCollider.properties[newKey] && newKey !== oldKey) {
+      return // Don't allow duplicate keys
+    }
+
+    const updatedProperties = { ...(selectedCollider.properties || {}) }
+    const value = updatedProperties[oldKey]
+    delete updatedProperties[oldKey]
+    updatedProperties[newKey] = value
+
+    const newColliders = localColliders.map(c =>
+      c.id === selectedColliderId ? { ...c, properties: updatedProperties } : c
+    )
+    setLocalColliders(newColliders)
+  }
+
+  const handleUpdatePropertyValue = (key: string, value: string) => {
+    const selectedCollider = getSelectedCollider()
+    if (!selectedCollider) return
+
+    const updatedProperties = {
+      ...(selectedCollider.properties || {}),
+      [key]: value
+    }
+
+    const newColliders = localColliders.map(c =>
+      c.id === selectedColliderId ? { ...c, properties: updatedProperties } : c
+    )
+    setLocalColliders(newColliders)
   }
 
   const selectedCollider = getSelectedCollider()
 
   return (
-    <div className="w-full h-full flex">
+    <div className="w-full h-full flex" style={{ background: "#1e1e1e" }}>
       {/* Left Sidebar */}
-      <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
-        {/* Controls */}
-        <div className="p-4 border-b border-gray-700">
-          {/* Undo/Redo buttons */}
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                canUndo
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-              title="Undo (Ctrl+Z)"
-            >
-              ↶ Undo
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={!canRedo}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all ${
-                canRedo
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              ↷ Redo
-            </button>
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-gray-200 transition-colors">
-            <input
-              type="checkbox"
-              checked={snapToGrid}
-              onChange={(e) => setSnapToGrid(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
-            <span>Snap to Grid</span>
-          </label>
-
-          {/* Drawing hint */}
+      <div className="w-80 flex flex-col overflow-hidden" style={{ background: "#252526", borderRight: "1px solid #3e3e42" }}>
+        <div className="flex-1 overflow-y-auto">
+          {/* Drawing hint - only show when actively drawing */}
           {isDrawing && drawingPoints.length >= 3 && (
-            <div className="mt-3 p-2.5 bg-blue-500 bg-opacity-20 border border-blue-500 border-opacity-40 rounded text-xs text-blue-300 leading-relaxed flex items-center gap-2">
-              <LightbulbIcon size={14} />
-              <span>Click first point to close</span>
+            <div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
+              <div className="p-2.5 bg-blue-500 bg-opacity-20 border border-blue-500 border-opacity-40 rounded text-xs text-blue-300 leading-relaxed flex items-center gap-2">
+                <LightbulbIcon size={14} />
+                <span>Click first point to close</span>
+              </div>
             </div>
           )}
 
-          {/* Instructions */}
-          {!isDrawing && (
-            <div className="mt-3 p-2.5 bg-gray-700 bg-opacity-50 rounded text-xs text-gray-400 leading-relaxed">
-              Right-click on canvas to create or delete colliders
+          {/* Properties panel for selected collider */}
+          {selectedCollider && !isDrawing && (
+            <div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
+              <div className="text-sm font-semibold text-gray-400 mb-3">
+                COLLIDER PROPERTIES
+              </div>
+              <div className="mb-3">
+                <label className="text-xs text-gray-500 mb-1 block">Name</label>
+                {editingColliderName ? (
+                  <input
+                    type="text"
+                    defaultValue={selectedCollider.name || ''}
+                    onBlur={(e) => {
+                      handleUpdateColliderName(e.target.value)
+                      setEditingColliderName(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleUpdateColliderName(e.currentTarget.value)
+                        setEditingColliderName(false)
+                      } else if (e.key === 'Escape') {
+                        setEditingColliderName(false)
+                      }
+                    }}
+                    className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
+                    style={{ background: "#3e3e42", border: "1px solid #007acc" }}
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    onClick={() => setEditingColliderName(true)}
+                    className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
+                    style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#4a4a4e")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                  >
+                    {selectedCollider.name || '(none)'}
+                  </div>
+                )}
+              </div>
+              <div className="mb-3">
+                <label className="text-xs text-gray-500 mb-1 block">Type</label>
+                {editingColliderType ? (
+                  <input
+                    type="text"
+                    defaultValue={selectedCollider.type || ''}
+                    onBlur={(e) => {
+                      handleUpdateColliderType(e.target.value)
+                      setEditingColliderType(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleUpdateColliderType(e.currentTarget.value)
+                        setEditingColliderType(false)
+                      } else if (e.key === 'Escape') {
+                        setEditingColliderType(false)
+                      }
+                    }}
+                    className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
+                    style={{ background: "#3e3e42", border: "1px solid #007acc" }}
+                    autoFocus
+                  />
+                ) : (
+                  <div
+                    onClick={() => setEditingColliderType(true)}
+                    className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
+                    style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#4a4a4e")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                  >
+                    {selectedCollider.type || '(none)'}
+                  </div>
+                )}
+              </div>
+
+              {/* Position (center of all points) - only show when no specific point is selected */}
+              {selectedPointIndex === null && (
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid #3e3e42" }}>
+                  <div className="text-sm font-semibold text-gray-400 mb-3">
+                    POSITION
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex">
+                      <div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+                        X
+                      </div>
+                      <div className="flex-1">
+                        <DragNumberInput
+                          value={(() => {
+                            const sumX = selectedCollider.points.reduce((sum, p) => sum + p.x, 0)
+                            return sumX / selectedCollider.points.length
+                          })()}
+                          onInput={(newCenterX) => {
+                            // Calculate current center
+                            const sumX = selectedCollider.points.reduce((sum, p) => sum + p.x, 0)
+                            const currentCenterX = sumX / selectedCollider.points.length
+
+                            // Calculate delta
+                            const deltaX = newCenterX - currentCenterX
+
+                            // Move all points by delta
+                            const newPoints = selectedCollider.points.map((p) => ({
+                              x: Math.round(p.x + deltaX),
+                              y: p.y
+                            }))
+
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                          }}
+                          onChange={(newCenterX) => {
+                            // For typing - wrap in batch to preserve undo/redo
+                            startBatch()
+                            const sumX = selectedCollider.points.reduce((sum, p) => sum + p.x, 0)
+                            const currentCenterX = sumX / selectedCollider.points.length
+                            const deltaX = newCenterX - currentCenterX
+                            const newPoints = selectedCollider.points.map((p) => ({
+                              x: Math.round(p.x + deltaX),
+                              y: p.y
+                            }))
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                            endBatch()
+                          }}
+                          onDragStart={startBatch}
+                          onDragEnd={endBatch}
+                          dragSpeed={1}
+                          precision={1}
+                          roundedLeft={false}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex">
+                      <div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+                        Y
+                      </div>
+                      <div className="flex-1">
+                        <DragNumberInput
+                          value={(() => {
+                            const sumY = selectedCollider.points.reduce((sum, p) => sum + p.y, 0)
+                            return sumY / selectedCollider.points.length
+                          })()}
+                          onInput={(newCenterY) => {
+                            // Calculate current center
+                            const sumY = selectedCollider.points.reduce((sum, p) => sum + p.y, 0)
+                            const currentCenterY = sumY / selectedCollider.points.length
+
+                            // Calculate delta
+                            const deltaY = newCenterY - currentCenterY
+
+                            // Move all points by delta
+                            const newPoints = selectedCollider.points.map((p) => ({
+                              x: p.x,
+                              y: Math.round(p.y + deltaY)
+                            }))
+
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                          }}
+                          onChange={(newCenterY) => {
+                            // For typing - wrap in batch to preserve undo/redo
+                            startBatch()
+                            const sumY = selectedCollider.points.reduce((sum, p) => sum + p.y, 0)
+                            const currentCenterY = sumY / selectedCollider.points.length
+                            const deltaY = newCenterY - currentCenterY
+                            const newPoints = selectedCollider.points.map((p) => ({
+                              x: p.x,
+                              y: Math.round(p.y + deltaY)
+                            }))
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                            endBatch()
+                          }}
+                          onDragStart={startBatch}
+                          onDragEnd={endBatch}
+                          dragSpeed={1}
+                          precision={1}
+                          roundedLeft={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Point Position */}
+              {selectedPointIndex !== null && selectedCollider.points[selectedPointIndex] && (
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid #3e3e42" }}>
+                  <div className="text-sm font-semibold text-gray-400 mb-3">
+                    SELECTED POINT
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex">
+                      <div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+                        X
+                      </div>
+                      <div className="flex-1">
+                        <DragNumberInput
+                          value={selectedCollider.points[selectedPointIndex].x}
+                          onInput={(newX) => {
+                            const newPoints = [...selectedCollider.points]
+                            newPoints[selectedPointIndex] = {
+                              ...newPoints[selectedPointIndex],
+                              x: Math.round(newX)
+                            }
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                          }}
+                          onChange={(newX) => {
+                            // For typing - wrap in batch to preserve undo/redo
+                            startBatch()
+                            const newPoints = [...selectedCollider.points]
+                            newPoints[selectedPointIndex] = {
+                              ...newPoints[selectedPointIndex],
+                              x: Math.round(newX)
+                            }
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                            endBatch()
+                          }}
+                          onDragStart={startBatch}
+                          onDragEnd={endBatch}
+                          dragSpeed={1}
+                          precision={0}
+                          roundedLeft={false}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex">
+                      <div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+                        Y
+                      </div>
+                      <div className="flex-1">
+                        <DragNumberInput
+                          value={selectedCollider.points[selectedPointIndex].y}
+                          onInput={(newY) => {
+                            const newPoints = [...selectedCollider.points]
+                            newPoints[selectedPointIndex] = {
+                              ...newPoints[selectedPointIndex],
+                              y: Math.round(newY)
+                            }
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                          }}
+                          onChange={(newY) => {
+                            // For typing - wrap in batch to preserve undo/redo
+                            startBatch()
+                            const newPoints = [...selectedCollider.points]
+                            newPoints[selectedPointIndex] = {
+                              ...newPoints[selectedPointIndex],
+                              y: Math.round(newY)
+                            }
+                            const newColliders = localColliders.map(c =>
+                              c.id === selectedColliderId ? { ...c, points: newPoints } : c
+                            )
+                            setLocalColliders(newColliders)
+                            endBatch()
+                          }}
+                          onDragStart={startBatch}
+                          onDragEnd={endBatch}
+                          dragSpeed={1}
+                          precision={0}
+                          roundedLeft={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Custom Properties Section */}
+          {selectedCollider && !isDrawing && (
+            <div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
+              <div className="text-sm font-semibold text-gray-400 mb-3 flex items-center justify-between">
+                <span>CUSTOM PROPERTIES</span>
+                <button
+                  onClick={handleAddProperty}
+                  className="text-xs px-2 py-1 text-gray-200 rounded transition-colors"
+                  style={{ background: "#3e3e42" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#4a4a4e")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                >
+                  + Add
+                </button>
+              </div>
+              <div className="text-xs text-gray-500">
+                {selectedCollider.properties && Object.keys(selectedCollider.properties).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(selectedCollider.properties).map(([key, value]) => {
+                      const isTemp = key.startsWith("__temp_")
+                      const displayKey = isTemp ? "" : key
+
+                      return (
+                        <div key={key} className="flex items-center gap-2">
+                          <div className="flex-1" style={{ minWidth: 0 }}>
+                            {editingPropertyKey === key ? (
+                              <input
+                                type="text"
+                                value={displayKey}
+                                onChange={(e) => {
+                                  const newKey = e.target.value
+                                  handleUpdatePropertyKey(key, newKey)
+                                  if (newKey && newKey.trim()) {
+                                    setEditingPropertyKey(newKey)
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setEditingPropertyKey(null)
+                                  if (isTemp) {
+                                    handleDeleteProperty(key)
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === "Escape") {
+                                    setEditingPropertyKey(null)
+                                    if (isTemp || !displayKey.trim()) {
+                                      handleDeleteProperty(key)
+                                    }
+                                  }
+                                }}
+                                placeholder="Key"
+                                className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none font-mono"
+                                style={{ background: "#3e3e42", border: "1px solid #007acc" }}
+                                autoFocus
+                              />
+                            ) : (
+                              <div
+                                onClick={() => setEditingPropertyKey(key)}
+                                className="text-gray-400 font-mono text-xs cursor-text px-2 py-1 rounded"
+                                style={{ background: "#3e3e42", border: "1px solid transparent" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#4a4a4e")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                              >
+                                {displayKey || <span style={{ opacity: 0.5 }}>Key</span>}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1" style={{ minWidth: 0 }}>
+                            {editingPropertyValue === key ? (
+                              <input
+                                type="text"
+                                value={value}
+                                onChange={(e) => handleUpdatePropertyValue(key, e.target.value)}
+                                onBlur={() => setEditingPropertyValue(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === "Escape") {
+                                    setEditingPropertyValue(null)
+                                  }
+                                }}
+                                placeholder="Value"
+                                className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
+                                style={{ background: "#3e3e42", border: "1px solid #007acc" }}
+                                autoFocus
+                              />
+                            ) : (
+                              <div
+                                onClick={() => setEditingPropertyValue(key)}
+                                className="text-gray-300 text-xs cursor-text px-2 py-1 rounded"
+                                style={{ background: "#3e3e42", border: "1px solid transparent" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "#4a4a4e")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                              >
+                                {value || <span style={{ opacity: 0.5 }}>Value</span>}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteProperty(key)}
+                            className="text-red-400 hover:text-red-300 text-sm flex-shrink-0"
+                            style={{ width: "20px" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">No custom properties</div>
+                )}
+              </div>
             </div>
           )}
         </div>
-
-        {/* Properties panel for selected collider */}
-        {selectedCollider && !isDrawing && (
-          <div className="p-4 border-b border-gray-700 space-y-3">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Properties
-            </div>
-            <div>
-              <label className="text-gray-400 text-xs font-medium block mb-1.5">Name</label>
-              {editingColliderName ? (
-                <input
-                  type="text"
-                  defaultValue={selectedCollider.name || ''}
-                  onBlur={(e) => {
-                    handleUpdateColliderName(e.target.value)
-                    setEditingColliderName(false)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleUpdateColliderName(e.currentTarget.value)
-                      setEditingColliderName(false)
-                    } else if (e.key === 'Escape') {
-                      setEditingColliderName(false)
-                    }
-                  }}
-                  className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                  autoFocus
-                />
-              ) : (
-                <div
-                  onClick={() => setEditingColliderName(true)}
-                  className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
-                >
-                  {selectedCollider.name || '(none)'}
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="text-gray-400 text-xs font-medium block mb-1.5">Type</label>
-              {editingColliderType ? (
-                <input
-                  type="text"
-                  defaultValue={selectedCollider.type || ''}
-                  onBlur={(e) => {
-                    handleUpdateColliderType(e.target.value)
-                    setEditingColliderType(false)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleUpdateColliderType(e.currentTarget.value)
-                      setEditingColliderType(false)
-                    } else if (e.key === 'Escape') {
-                      setEditingColliderType(false)
-                    }
-                  }}
-                  className="w-full px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                  autoFocus
-                />
-              ) : (
-                <div
-                  onClick={() => setEditingColliderType(true)}
-                  className="px-2.5 py-1.5 text-xs bg-gray-700 text-gray-200 rounded cursor-pointer hover:bg-gray-650 transition-colors border border-transparent hover:border-gray-600"
-                >
-                  {selectedCollider.type || '(none)'}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Collider List */}
-        {!isDrawing && colliders.length > 0 && (
-          <div className="flex-1 overflow-auto p-4">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Colliders ({colliders.length})
-            </div>
-            <div className="space-y-1.5">
-              {colliders.map((collider, index) => (
-                <div
-                  key={collider.id}
-                  onClick={() => {
-                    setSelectedColliderId(collider.id!)
-                    setSelectedPointIndex(null)
-                  }}
-                  className={`px-3 py-2 rounded cursor-pointer transition-all ${
-                    collider.id === selectedColliderId
-                      ? 'bg-green-600 text-white shadow-sm'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-650 border border-transparent hover:border-gray-600'
-                  }`}
-                >
-                  <div className="font-medium text-xs truncate">
-                    {collider.name || collider.id || `Collider ${index + 1}`}
-                  </div>
-                  {collider.type && (
-                    <div className={`text-xs mt-0.5 ${
-                      collider.id === selectedColliderId ? 'text-green-100' : 'text-gray-500'
-                    }`}>
-                      {collider.type}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Right Side - Canvas Area */}
@@ -877,7 +1164,7 @@ export const CollisionEditor = ({
             width: '100%',
             height: '100%',
             imageRendering: 'pixelated',
-            cursor: isPanning ? 'grabbing' : isDrawing ? 'crosshair' : 'default'
+            cursor: isPanning ? 'grabbing' : isDrawing ? 'crosshair' : isDraggingCollider ? 'move' : 'default'
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -895,7 +1182,7 @@ export const CollisionEditor = ({
           <div className="w-px h-4 bg-gray-700" />
           <div className="flex items-center gap-2">
             <span className="text-gray-500">Colliders:</span>
-            <span className="font-mono">{colliders.length}</span>
+            <span className="font-mono">{localColliders.length}</span>
           </div>
           {selectedCollider && (
             <>
@@ -931,50 +1218,64 @@ export const CollisionEditor = ({
             onClick={() => setContextMenu(null)}
           />
           <div
-            className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 z-50 min-w-[160px]"
+            className="fixed z-50 min-w-[160px] py-1 rounded shadow-lg"
             style={{
               left: `${contextMenu.x}px`,
-              top: `${contextMenu.y}px`
+              top: `${contextMenu.y}px`,
+              background: "#252526",
+              border: "1px solid #3e3e42"
             }}
           >
             {contextMenu.colliderId === '' ? (
               // Empty space - New Collider only
-              <button
+              <div
                 onClick={handleNewCollider}
-                className="w-full px-4 py-2 text-sm text-left text-blue-400 hover:bg-gray-700 flex items-center gap-2"
+                className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+                style={{ color: "#4ade80" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <span>➕</span>
                 <span>New Collider</span>
-              </button>
+              </div>
             ) : (
               // On a collider - show relevant options
               <>
                 {contextMenu.pointIndex !== undefined && (
-                  <button
+                  <div
                     onClick={handleDeletePoint}
-                    className="w-full px-4 py-2 text-sm text-left text-orange-400 hover:bg-gray-700 flex items-center gap-2"
+                    className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+                    style={{ color: "#f48771" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <TrashIcon size={16} />
                     <span>Delete Point</span>
-                  </button>
+                  </div>
                 )}
                 {contextMenu.edgeIndex !== undefined && (
-                  <button
+                  <div
                     onClick={handleInsertPoint}
-                    className="w-full px-4 py-2 text-sm text-left text-green-400 hover:bg-gray-700 flex items-center gap-2"
+                    className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+                    style={{ color: "#4ade80" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <PlusIcon size={16} />
                     <span>Add Point</span>
-                  </button>
+                  </div>
                 )}
                 {contextMenu.colliderId && (
-                  <button
+                  <div
                     onClick={handleDeleteCollider}
-                    className="w-full px-4 py-2 text-sm text-left text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                    className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+                    style={{ color: "#f48771" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#3e3e42")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <TrashIcon size={16} />
                     <span>Delete Collider</span>
-                  </button>
+                  </div>
                 )}
               </>
             )}
