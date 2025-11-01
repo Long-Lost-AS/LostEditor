@@ -3,6 +3,7 @@ import { useEditor } from "../context/EditorContext";
 import { TilesetTab, PolygonCollider, TerrainLayer } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
 import { ShieldIcon, TrashIcon } from "./Icons";
+import { packTileId, unpackTileId } from "../utils/tileId";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
@@ -53,8 +54,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(tilesetData.name);
 	const [isEditingCollision, setIsEditingCollision] = useState(false);
-	const [editingTileId, setEditingTileId] = useState<string | null>(null);
-	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<string | null>(null);
+	const [editingTileId, setEditingTileId] = useState<number | null>(null);
+	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<number | null>(null);
 	const [isEditingTileName, setIsEditingTileName] = useState(false);
 	const [isEditingTileType, setIsEditingTileType] = useState(false);
 	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<string | null>(null);
@@ -208,10 +209,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.strokeStyle = "rgba(34, 197, 94, 0.8)"; // Green color
 			ctx.lineWidth = 2 / viewState.scale;
 			for (const tile of tilesetData.tiles) {
-				if (tile.width && tile.height) {
+				// Check isCompound flag from tile ID
+				const geometry = unpackTileId(tile.id);
+				if (geometry.isCompound) {
 					// This is a compound tile
-					const tileWidth = tile.width || tilesetData.tileWidth;
-					const tileHeight = tile.height || tilesetData.tileHeight;
+					const tileWidth = tile.width || geometry.width;
+					const tileHeight = tile.height || geometry.height;
 
 					// Draw border around it
 					ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
@@ -330,10 +333,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tilePosX = tileX * tilesetData.tileWidth;
 							const tilePosY = tileY * tilesetData.tileHeight;
 
-							// OPTIMIZATION: Use memoized map for O(1) lookup
-							const tileAtPos = tilePositionMap.get(`${tilePosX},${tilePosY}`);
+							// Calculate tile ID for this position (terrain layers use IDs directly)
+							const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
+
 							// Get bitmask from terrain layer
-							const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos?.id);
+							const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
 							const bitmask = terrainTile?.bitmask || 0;
 
 							// Build paths for all cells
@@ -487,46 +491,25 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// Calculate the bit index for the bitmask
 		const bitIndex = clampedRow * 3 + clampedCol;
 
-		// Find existing tile definition at this position
-		let tileAtPos = tilesetData.tiles.find(t => {
-			if (!t.width || !t.height) return false;
-			return t.x === tilePosX && t.y === tilePosY;
-		});
+		// For terrain layers, we don't need tile entries in tiles[]
+		// Just work directly with the packed tile ID
+		const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
 
-		// If no tile exists and we're setting, create one
-		if (!tileAtPos && action === 'set') {
-			const newTile = {
-				id: `tile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-				x: tilePosX,
-				y: tilePosY,
-				width: tilesetData.tileWidth,
-				height: tilesetData.tileHeight,
-			};
+		// Get current bitmask from terrain layer
+		const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
+		const currentBitmask = terrainTile?.bitmask || 0;
 
-			updateTileset(tab.tilesetId, {
-				tiles: [...tilesetData.tiles, newTile],
-			});
-
-			tileAtPos = newTile;
+		// Apply the action consistently
+		let newBitmask: number;
+		if (action === 'set') {
+			newBitmask = currentBitmask | (1 << bitIndex); // Set the bit
+		} else {
+			newBitmask = currentBitmask & ~(1 << bitIndex); // Clear the bit
 		}
 
-		if (tileAtPos) {
-			// Get current bitmask from terrain layer
-			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos.id);
-			const currentBitmask = terrainTile?.bitmask || 0;
-
-			// Apply the action consistently
-			let newBitmask: number;
-			if (action === 'set') {
-				newBitmask = currentBitmask | (1 << bitIndex); // Set the bit
-			} else {
-				newBitmask = currentBitmask & ~(1 << bitIndex); // Clear the bit
-			}
-
-			// Only update if the bitmask actually changed
-			if (newBitmask !== currentBitmask) {
-				handleUpdateBitmask(tileAtPos.id, selectedLayer.id, newBitmask);
-			}
+		// Only update if the bitmask actually changed
+		if (newBitmask !== currentBitmask) {
+			handleUpdateBitmask(tileId, selectedLayer.id, newBitmask);
 		}
 	};
 
@@ -561,14 +544,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Calculate the bit index for the bitmask
 			const bitIndex = clampedRow * 3 + clampedCol;
 
-			// Find existing tile definition at this position
-			const tileAtPos = tilesetData.tiles.find(t => {
-				if (!t.width || !t.height) return false;
-				return t.x === tilePosX && t.y === tilePosY;
-			});
+			// Calculate tile ID for this position (terrain layers use IDs directly)
+			const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
 
 			// Determine the action based on whether the bit is currently set
-			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileAtPos?.id);
+			const terrainTile = selectedLayer.tiles?.find(t => t.tileId === tileId);
 			const currentBitmask = terrainTile?.bitmask || 0;
 			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
 			const action: 'set' | 'clear' = isBitSet ? 'clear' : 'set';
@@ -682,7 +662,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					setSelectedCompoundTileId(existingTile.id);
 				} else {
 					// No tile entry exists yet, generate an ID for potential property editing
-					const tileId = `tile_${tilePosX}_${tilePosY}`;
+					const tileId = packTileId(tilePosX, tilePosY, tilesetData.tileWidth, tilesetData.tileHeight);
 					setSelectedCompoundTileId(tileId);
 				}
 
@@ -776,14 +756,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		const { x, y, width, height } = viewState.selectedTileRegion;
 
-		// Create new tile definition - just store region bounds
-		// Presence of width and height indicates it's a compound tile
+		// Create new tile definition - mark as compound tile
+		const tileX = x * tilesetData.tileWidth;
+		const tileY = y * tilesetData.tileHeight;
+		const tileWidth = width * tilesetData.tileWidth;
+		const tileHeight = height * tilesetData.tileHeight;
 		const newTile = {
-			id: `tile_${Date.now()}`,
-			x: x * tilesetData.tileWidth,
-			y: y * tilesetData.tileHeight,
-			width: width * tilesetData.tileWidth,
-			height: height * tilesetData.tileHeight,
+			id: packTileId(tileX, tileY, tileWidth, tileHeight, false, false, true), // isCompound=true
+			x: tileX,
+			y: tileY,
+			width: tileWidth,
+			height: tileHeight,
 		};
 
 		// Add to tileset
@@ -877,21 +860,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				),
 			});
 		} else {
-			// Create new tile entry from ID format: tile_x_y
-			const match = selectedCompoundTileId.match(/^tile_(\d+)_(\d+)$/);
-			if (match) {
-				const x = parseInt(match[1]);
-				const y = parseInt(match[2]);
-				const newTile = {
-					id: selectedCompoundTileId,
-					x,
-					y,
-					name,
-				};
-				updateTileset(tab.tilesetId, {
-					tiles: [...tilesetData.tiles, newTile],
-				});
-			}
+			// Create new tile entry from packed ID
+			const geometry = unpackTileId(selectedCompoundTileId);
+			const newTile = {
+				id: selectedCompoundTileId,
+				x: geometry.x,
+				y: geometry.y,
+				name,
+			};
+			updateTileset(tab.tilesetId, {
+				tiles: [...tilesetData.tiles, newTile],
+			});
 		}
 
 		updateTabData(tab.id, { isDirty: true });
@@ -910,27 +889,23 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				),
 			});
 		} else {
-			// Create new tile entry from ID format: tile_x_y
-			const match = selectedCompoundTileId.match(/^tile_(\d+)_(\d+)$/);
-			if (match) {
-				const x = parseInt(match[1]);
-				const y = parseInt(match[2]);
-				const newTile = {
-					id: selectedCompoundTileId,
-					x,
-					y,
-					type,
-				};
-				updateTileset(tab.tilesetId, {
-					tiles: [...tilesetData.tiles, newTile],
-				});
-			}
+			// Create new tile entry from packed ID
+			const geometry = unpackTileId(selectedCompoundTileId);
+			const newTile = {
+				id: selectedCompoundTileId,
+				x: geometry.x,
+				y: geometry.y,
+				type,
+			};
+			updateTileset(tab.tilesetId, {
+				tiles: [...tilesetData.tiles, newTile],
+			});
 		}
 
 		updateTabData(tab.id, { isDirty: true });
 	};
 
-	const handleUpdateBitmask = (tileId: string, layerId: string, newBitmask: number) => {
+	const handleUpdateBitmask = (tileId: number, layerId: string, newBitmask: number) => {
 		const terrainLayers = getTerrainLayers();
 		const updatedLayers = terrainLayers.map(layer => {
 			if (layer.id !== layerId) return layer;

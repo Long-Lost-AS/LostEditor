@@ -36,10 +36,12 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
   }
 
   /**
-   * Get an entity definition by tileset ID and entity ID
+   * Get an entity definition by entity ID
+   * Note: tilesetId parameter is ignored (legacy parameter, entities are no longer stored in tilesets)
    */
   getEntityDefinition(tilesetId: string, entityId: string): EntityDefinition | undefined {
-    return tilesetManager.getEntityDefinition(tilesetId, entityId)
+    // Search through all loaded entities to find one with matching ID
+    return this.getAllEntities().find(e => e.id === entityId)
   }
 
   /**

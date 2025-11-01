@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
+import { unpackTileId } from "../utils/tileId";
 
 export const MapCanvas = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,43 +67,43 @@ export const MapCanvas = () => {
 					const tileset = getTilesetById(tile.tilesetId);
 					if (!tileset?.imageData) return;
 
+					// Unpack tile geometry from the packed ID
+					const geometry = unpackTileId(tile.tileId);
+
+					// Try to find tile definition for tiles with properties (optional)
 					const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
-					if (tileDefinition) {
-						// Handle compound tiles with cellX/cellY
-						if (tileDefinition.width && tileDefinition.height && tile.cellX !== undefined && tile.cellY !== undefined) {
-							// This is a cell of a compound tile
-							// Calculate source position based on cell offset
-							const sourceX = tileDefinition.x + (tile.cellX * tileset.tileWidth);
-							const sourceY = tileDefinition.y + (tile.cellY * tileset.tileHeight);
 
-							ctx.drawImage(
-								tileset.imageData,
-								sourceX,
-								sourceY,
-								tileset.tileWidth,
-								tileset.tileHeight,
-								tile.x * mapData.tileWidth,
-								tile.y * mapData.tileHeight,
-								tileset.tileWidth,
-								tileset.tileHeight,
-							);
-						} else {
-							// Regular single tile
-							const tileWidth = tileDefinition.width || tileset.tileWidth;
-							const tileHeight = tileDefinition.height || tileset.tileHeight;
+					// Handle compound tiles with cellX/cellY
+					if (tile.cellX !== undefined && tile.cellY !== undefined) {
+						// This is a cell of a compound tile
+						// Calculate source position based on cell offset
+						const sourceX = geometry.x + (tile.cellX * tileset.tileWidth);
+						const sourceY = geometry.y + (tile.cellY * tileset.tileHeight);
 
-							ctx.drawImage(
-								tileset.imageData,
-								tileDefinition.x,
-								tileDefinition.y,
-								tileWidth,
-								tileHeight,
-								tile.x * mapData.tileWidth,
-								tile.y * mapData.tileHeight,
-								tileWidth,
-								tileHeight,
-							);
-						}
+						ctx.drawImage(
+							tileset.imageData,
+							sourceX,
+							sourceY,
+							tileset.tileWidth,
+							tileset.tileHeight,
+							tile.x * mapData.tileWidth,
+							tile.y * mapData.tileHeight,
+							tileset.tileWidth,
+							tileset.tileHeight,
+						);
+					} else {
+						// Regular single tile - use unpacked geometry
+						ctx.drawImage(
+							tileset.imageData,
+							geometry.x,
+							geometry.y,
+							geometry.width,
+							geometry.height,
+							tile.x * mapData.tileWidth,
+							tile.y * mapData.tileHeight,
+							geometry.width,
+							geometry.height
+						);
 					}
 				});
 			} else if (layer.type === 'entity') {
@@ -176,43 +177,43 @@ export const MapCanvas = () => {
 						const tileset = getTilesetById(tile.tilesetId);
 						if (!tileset?.imageData) return;
 
+						// Unpack tile geometry from the packed ID
+						const geometry = unpackTileId(tile.tileId);
+
+						// Try to find tile definition for tiles with properties (optional)
 						const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
-						if (tileDefinition) {
-							// Handle compound tiles with cellX/cellY
-							if (tileDefinition.width && tileDefinition.height && tile.cellX !== undefined && tile.cellY !== undefined) {
-								// This is a cell of a compound tile
-								// Calculate source position based on cell offset
-								const sourceX = tileDefinition.x + (tile.cellX * tileset.tileWidth);
-								const sourceY = tileDefinition.y + (tile.cellY * tileset.tileHeight);
 
-								ctx.drawImage(
-									tileset.imageData,
-									sourceX,
-									sourceY,
-									tileset.tileWidth,
-									tileset.tileHeight,
-									tile.x * mapData.tileWidth,
-									tile.y * mapData.tileHeight,
-									tileset.tileWidth,
-									tileset.tileHeight,
-								);
-							} else {
-								// Regular single tile
-								const tileWidth = tileDefinition.width || tileset.tileWidth;
-								const tileHeight = tileDefinition.height || tileset.tileHeight;
+						// Handle compound tiles with cellX/cellY
+						if (tile.cellX !== undefined && tile.cellY !== undefined) {
+							// This is a cell of a compound tile
+							// Calculate source position based on cell offset
+							const sourceX = geometry.x + (tile.cellX * tileset.tileWidth);
+							const sourceY = geometry.y + (tile.cellY * tileset.tileHeight);
 
-								ctx.drawImage(
-									tileset.imageData,
-									tileDefinition.x,
-									tileDefinition.y,
-									tileWidth,
-									tileHeight,
-									tile.x * mapData.tileWidth,
-									tile.y * mapData.tileHeight,
-									tileWidth,
-									tileHeight,
-								);
-							}
+							ctx.drawImage(
+								tileset.imageData,
+								sourceX,
+								sourceY,
+								tileset.tileWidth,
+								tileset.tileHeight,
+								tile.x * mapData.tileWidth,
+								tile.y * mapData.tileHeight,
+								tileset.tileWidth,
+								tileset.tileHeight,
+							);
+						} else {
+							// Regular single tile - use unpacked geometry
+							ctx.drawImage(
+								tileset.imageData,
+								geometry.x,
+								geometry.y,
+								geometry.width,
+								geometry.height,
+								tile.x * mapData.tileWidth,
+								tile.y * mapData.tileHeight,
+								geometry.width,
+								geometry.height
+							);
 						}
 					});
 				} else if (layer.type === 'entity') {

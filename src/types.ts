@@ -34,7 +34,7 @@ export interface SpriteLayer {
 }
 
 export interface TileDefinition {
-  id: string
+  id: number        // Packed tile ID (geometry + flips encoded)
   x: number
   y: number
   width?: number    // For compound tiles: width in pixels
@@ -62,7 +62,7 @@ export interface EntityDefinition {
 // ===========================
 
 export interface TerrainTile {
-  tileId: string
+  tileId: number   // Packed tile ID
   bitmask: number  // 9-bit value (0-511) representing 3x3 grid
 }
 
@@ -82,7 +82,6 @@ export interface TilesetData {
   tileWidth: number
   tileHeight: number
   tiles: TileDefinition[]
-  entities: EntityDefinition[]
   terrainLayers?: TerrainLayer[]  // Terrain layers for Godot-style autotiling
 }
 
@@ -94,7 +93,7 @@ export interface Tile {
   x: number              // Position on map (grid coordinates)
   y: number              // Position on map (grid coordinates)
   tilesetId: string      // Reference to tileset
-  tileId: string         // Reference to tile within tileset
+  tileId: number         // Packed tile ID (geometry + flips encoded)
   // For compound tiles: which cell within the compound tile (offset in tiles)
   cellX?: number
   cellY?: number
@@ -181,7 +180,7 @@ export interface MapViewState {
   currentLayerId: string | null
   gridVisible: boolean
   selectedTilesetId: string | null
-  selectedTileId: string | null
+  selectedTileId: number | null
   selectedEntityDefId: string | null
   currentTool: Tool
 }

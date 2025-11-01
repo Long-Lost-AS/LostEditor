@@ -47,9 +47,9 @@ export const SpriteLayerSchema = z.object({
 })
 
 export const TileDefinitionSchema = z.object({
-  id: z.string(),
-  x: z.number(),
-  y: z.number(),
+  id: z.number(),
+  x: z.number().optional(),  // Optional in saved files (unpacked from ID on load)
+  y: z.number().optional(),  // Optional in saved files (unpacked from ID on load)
   width: z.number().optional(),
   height: z.number().optional(),
   colliders: z.array(PolygonColliderSchema).optional(),
@@ -58,7 +58,7 @@ export const TileDefinitionSchema = z.object({
 })
 
 export const TerrainTileSchema = z.object({
-  tileId: z.string(),
+  tileId: z.number(),
   bitmask: z.number()
 })
 
@@ -93,8 +93,7 @@ export const TilesetDataSchema = z.object({
   imagePath: z.string(),
   tileWidth: z.number(),
   tileHeight: z.number(),
-  tiles: z.array(TileDefinitionSchema).default([]),
-  entities: z.array(EntityDefinitionSchema).default([]),
+  tiles: z.array(TileDefinitionSchema).optional(),
   terrainLayers: z.array(TerrainLayerSchema).optional()
 })
 
@@ -106,7 +105,7 @@ export const TileSchema = z.object({
   x: z.number(),
   y: z.number(),
   tilesetId: z.string(),
-  tileId: z.string(),
+  tileId: z.number(),
   // For compound tiles: which cell within the compound tile
   cellX: z.number().optional(),
   cellY: z.number().optional()

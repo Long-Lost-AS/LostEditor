@@ -4,6 +4,7 @@ import { TilesetDataSchema, type TilesetDataJson } from '../schemas'
 import { fileManager } from './FileManager'
 import { FileLoader } from './FileLoader'
 import { FileNotFoundError } from '../errors/FileErrors'
+import { unpackTileId } from '../utils/tileId'
 
 /**
  * TilesetManager handles loading, parsing, and managing tileset files
@@ -33,13 +34,30 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       imagePath: relativeImagePath,
       tileWidth: data.tileWidth,
       tileHeight: data.tileHeight,
-      tiles: data.tiles.map(tile => {
-        // Filter out any runtime-only properties that might exist
-        const { id, x, y, width, height, colliders, name, type } = tile
-        return { id, x, y, width, height, colliders, name, type }
-      }),
-      entities: data.entities,
-      terrainLayers: data.terrainLayers
+      tiles: data.tiles
+        .filter(tile => {
+          // Check if this is a compound tile by unpacking its ID
+          const geometry = unpackTileId(tile.id)
+          if (geometry.isCompound) return true
+
+          // For regular tiles, only save if they have properties
+          return (tile.colliders && tile.colliders.length > 0) ||
+                 tile.name ||
+                 tile.type
+        })
+        .map(tile => {
+          // Only save id and properties (geometry is in the packed ID)
+          const saved: any = { id: tile.id }
+          if (tile.colliders && tile.colliders.length > 0) saved.colliders = tile.colliders
+          if (tile.name) saved.name = tile.name
+          if (tile.type) saved.type = tile.type
+          return saved
+        }),
+      terrainLayers: data.terrainLayers?.map(layer => ({
+        ...layer,
+        // Filter out tiles with bitmask 0 (nothing painted)
+        tiles: layer.tiles?.filter(t => t.bitmask !== 0)
+      }))
     }
   }
 
@@ -66,13 +84,29 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
     // Load the image
     const imageElement = await this.loadImage(imagePath)
 
+    // Unpack tile geometries from packed IDs
+    const tilesWithGeometry = (validated.tiles || []).map(tile => {
+      const geometry = unpackTileId(tile.id)
+      return {
+        ...tile,
+        x: geometry.x,
+        y: geometry.y,
+        // Only set width/height for compound tiles
+        ...(geometry.isCompound && {
+          width: geometry.width,
+          height: geometry.height
+        })
+      }
+    })
+
     // Create the TilesetData object with runtime fields
     return {
       ...validated,
       id: validated.id || this.generateId(filePath),
       imagePath: imagePath, // Use resolved absolute path
       imageData: imageElement,
-      filePath: filePath // Set the filePath so we know where this tileset was loaded from
+      filePath: filePath, // Set the filePath so we know where this tileset was loaded from
+      tiles: tilesWithGeometry
     }
   }
 
@@ -156,20 +190,12 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
   /**
    * Get a tile definition from a tileset
    */
-  getTileDefinition(tilesetId: string, tileId: string): TileDefinition | undefined {
+  getTileDefinition(tilesetId: string, tileId: number): TileDefinition | undefined {
     const tileset = Array.from(this.cache.values()).find(t => t.id === tilesetId)
     if (!tileset) return undefined
     return tileset.tiles.find(t => t.id === tileId)
   }
 
-  /**
-   * Get an entity definition from a tileset
-   */
-  getEntityDefinition(tilesetId: string, entityId: string): EntityDefinition | undefined {
-    const tileset = Array.from(this.cache.values()).find(t => t.id === tilesetId)
-    if (!tileset) return undefined
-    return tileset.entities.find(e => e.id === entityId)
-  }
 
   /**
    * Get all loaded tilesets

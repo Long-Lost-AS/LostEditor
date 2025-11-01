@@ -67,8 +67,8 @@ interface EditorContextType {
 	setSelectedTile: (x: number, y: number) => void;
 	selectedTilesetId: string | null;
 	setSelectedTilesetId: (id: string | null) => void;
-	selectedTileId: string | null;
-	setSelectedTileId: (id: string | null) => void;
+	selectedTileId: number | null;
+	setSelectedTileId: (id: number | null) => void;
 	selectedEntityDefId: string | null;
 	setSelectedEntityDefId: (id: string | null) => void;
 
@@ -142,7 +142,7 @@ interface EditorContextType {
 	saveProject: () => Promise<void>;
 	saveProjectAs: (filePath: string) => Promise<void>;
 	loadProject: (filePath: string) => Promise<void>;
-	newProject: () => void;
+	newProject: () => Promise<void>;
 	newMap: (directory?: string, fileName?: string) => void;
 	newTileset: (directory?: string) => Promise<void>;
 	newEntity: (directory?: string) => void;
@@ -253,7 +253,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const [selectedTilesetId, setSelectedTilesetId] = useState<string | null>(
 		null,
 	);
-	const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+	const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 	const [selectedEntityDefId, setSelectedEntityDefId] = useState<string | null>(
 		null,
 	);
@@ -882,7 +882,60 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Directory might already exist, that's okay
 			}
 
-			// Collect tileset paths (only include tilesets that have been saved)
+			// Create tilesets directory if it doesn't exist
+			const tilesetsDir = fileManager.join(projectDir, "tilesets");
+			try {
+				await invoke("create_dir", { path: tilesetsDir });
+			} catch (error) {
+				// Directory might already exist, that's okay
+			}
+
+			// Save any unsaved tilesets
+			const unsavedTilesets = tilesets.filter(t => !t.filePath);
+			if (unsavedTilesets.length > 0) {
+				for (const tileset of unsavedTilesets) {
+					const result = await invoke<{ canceled: boolean; filePath?: string }>(
+						"show_save_dialog",
+						{
+							options: {
+								title: `Save Tileset: ${tileset.name}`,
+								defaultPath: `${tileset.name}.lostset`,
+								filters: [{ name: "Lost Editor Tileset", extensions: ["lostset"] }],
+							},
+						},
+					);
+
+					if (result.canceled || !result.filePath) {
+						alert(`Project save cancelled: Please save tileset "${tileset.name}" first.`);
+						return;
+					}
+
+					try {
+						await tilesetManager.saveTileset(tileset, result.filePath);
+
+						// Update the tileset in the tilesets array with the new file path
+						setTilesets((prev) =>
+							prev.map((t) =>
+								t.id === tileset.id ? { ...t, filePath: result.filePath } : t,
+							),
+						);
+
+						// Mark tileset tab as clean
+						setTabs((prevTabs) =>
+							prevTabs.map((tab) =>
+								tab.type === "tileset" && (tab as TilesetTab).tilesetId === tileset.id
+									? { ...tab, isDirty: false }
+									: tab,
+							),
+						);
+					} catch (error) {
+						alert(`Failed to save tileset ${tileset.name}: ${error}`);
+						return;
+					}
+				}
+			}
+
+			// Collect tileset paths (all tilesets should now be saved)
 			const tilesetPaths: string[] = [];
 			for (const tileset of tilesets) {
 				if (tileset.filePath) {
@@ -1252,22 +1305,59 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[loadTileset, settingsManager],
 	);
 
-	const newProject = useCallback(() => {
-		setMapData({
-			width: 32,
-			height: 32,
-			tileWidth: 16,
-			tileHeight: 16,
-			layers: [],
-		});
-		setCurrentLayer(null);
-		setTilesetImage(null);
-		setTilesetPath(null);
-		setCurrentProjectPath(null);
-		setProjectName("Untitled");
-		setProjectModified(false);
-		setProjectDirectory(null);
-	}, []);
+	const newProject = useCallback(async () => {
+		// Show save dialog to choose project location
+		const result = await invoke<{ canceled: boolean; filePath?: string }>(
+			"show_save_dialog",
+			{
+				options: {
+					title: "Create New Project",
+					filters: [{ name: "Lost Editor Project", extensions: ["lostproj"] }],
+					defaultPath: "Untitled.lostproj",
+				},
+			},
+		);
+
+		if (result.canceled || !result.filePath) {
+			return;
+		}
+
+		const projectPath = result.filePath;
+		const projectDir = fileManager.dirname(projectPath);
+		const projectName = fileManager.basename(projectPath, ".lostproj");
+
+		// Create empty project
+		const projectData: ProjectData = {
+			version: "1.0",
+			name: projectName,
+			tilesets: [],
+			maps: [],
+			projectDir: projectDir,
+			lastModified: new Date().toISOString(),
+		};
+
+		// Save project file
+		try {
+			const json = JSON.stringify(projectData, null, 2);
+			await writeTextFile(projectPath, json);
+
+			// Set project state
+			setCurrentProjectPath(projectPath);
+			setProjectName(projectName);
+			setProjectDirectory(projectDir);
+			setProjectModified(false);
+			setTabs([]);
+			setActiveTabId(null);
+			setTilesets([]);
+
+			// Update recent files
+			await settingsManager.addRecentFile(projectPath);
+			await settingsManager.setLastOpenedProject(projectPath);
+			await settingsManager.save();
+		} catch (error) {
+			alert(`Failed to create project: ${error}`);
+		}
+	}, [fileManager, settingsManager]);
 
 	const newMap = useCallback((directory?: string, fileName?: string) => {
 		// Generate a unique ID for the new map
