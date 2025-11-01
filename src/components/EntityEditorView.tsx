@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { EntityEditorTab, SpriteLayer, PolygonCollider } from "../types";
 import { DragNumberInput } from "./DragNumberInput";
+import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useUndoableReducer } from "../hooks/useUndoableReducer";
 
 interface EntityEditorViewProps {
 	tab: EntityEditorTab;
@@ -11,6 +13,69 @@ interface EntityEditorViewProps {
 export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const { updateTabData, getTilesetById, tilesets } = useEditor();
 	const { entityData, viewState } = tab;
+
+	// Unified undo/redo state for the entire entity
+	type EntityUndoState = {
+		sprites: SpriteLayer[];
+		colliders: PolygonCollider[];
+		properties: Record<string, string>;
+	};
+
+	const [
+		localEntityState,
+		setLocalEntityState,
+		{
+			undo,
+			redo,
+			canUndo,
+			canRedo,
+			startBatch,
+			endBatch,
+			reset: resetEntityHistory,
+		},
+	] = useUndoableReducer<EntityUndoState>({
+		sprites: entityData.sprites || [],
+		colliders: entityData.colliders || [],
+		properties: entityData.properties || {},
+	});
+
+	// Extract individual parts for convenience
+	const localSprites = localEntityState.sprites;
+	const localColliders = localEntityState.colliders;
+	const localProperties = localEntityState.properties;
+
+	// Register unified undo/redo keyboard shortcuts
+	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
+
+	// Reset undo history when switching to a different entity
+	const prevEntityIdRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (
+			prevEntityIdRef.current !== null &&
+			prevEntityIdRef.current !== entityData.id
+		) {
+			// Switching to a different entity, reset unified history
+			resetEntityHistory({
+				sprites: entityData.sprites || [],
+				colliders: entityData.colliders || [],
+				properties: entityData.properties || {},
+			});
+		}
+		prevEntityIdRef.current = entityData.id;
+	}, [entityData.id, resetEntityHistory]);
+
+	// One-way sync: local entity state → global context
+	useEffect(() => {
+		updateTabData(tab.id, {
+			entityData: {
+				...entityData,
+				sprites: localSprites,
+				colliders: localColliders,
+				properties: localProperties,
+			},
+			isDirty: true,
+		});
+	}, [localEntityState, tab.id, updateTabData]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -383,7 +448,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 
 			// Draw sprite layers (sorted by zIndex)
-			const sortedLayers = [...entityData.sprites].sort(
+			const sortedLayers = [...localSprites].sort(
 				(a, b) => a.zIndex - b.zIndex,
 			);
 
@@ -509,8 +574,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 
 			// Draw entity-level colliders
-			if (entityData.colliders) {
-				for (const collider of entityData.colliders) {
+			if (localColliders) {
+				for (const collider of localColliders) {
 					if (collider.points.length < 2) continue;
 
 					const isSelected = collider.id === selectedColliderId;
@@ -645,7 +710,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 			// Draw selection outline and origin marker for selected sprite
 			if (selectedSpriteLayerId) {
-				const selectedLayer = entityData.sprites.find(
+				const selectedLayer = localSprites.find(
 					(l) => l.id === selectedSpriteLayerId,
 				);
 				if (selectedLayer) {
@@ -747,7 +812,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			ctx.restore();
 		};
 	}, [
-		entityData,
+		localSprites,
+		localColliders,
 		viewState,
 		pan,
 		getTilesetById,
@@ -762,7 +828,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	useEffect(() => {
 		drawRef.current();
 	}, [
-		entityData,
+		localSprites,
+		localColliders,
 		viewState,
 		pan,
 		getTilesetById,
@@ -842,7 +909,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		if (e.button === 0 && !e.shiftKey && !isDrawing) {
 			// If a collider is already selected, check if clicking on one of its points to drag
 			if (selectedColliderId) {
-				const selectedCollider = (entityData.colliders || []).find(
+				const selectedCollider = (localColliders || []).find(
 					(c) => c.id === selectedColliderId,
 				);
 				if (selectedCollider) {
@@ -854,12 +921,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					if (pointIndex !== null) {
 						// Start dragging this point
 						setSelectedColliderPointIndex(pointIndex);
+						startBatch();
 						setIsDraggingColliderPoint(true);
 						return;
 					}
 
 					// Check if clicking on the collider body (not on a point) to drag the whole collider
 					if (isPointInPolygon(worldX, worldY, selectedCollider.points)) {
+						startBatch();
 						setIsDraggingCollider(true);
 						setColliderDragStart({
 							x: worldX,
@@ -872,7 +941,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 
 			// Check if we clicked on a collider
-			for (const collider of entityData.colliders || []) {
+			for (const collider of localColliders || []) {
 				if (
 					collider.points.length >= 3 &&
 					isPointInPolygon(worldX, worldY, collider.points)
@@ -889,7 +958,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		if (e.button === 0 && !e.shiftKey && !isDrawing) {
 			// Check if we clicked on the already selected sprite to start dragging
 			if (selectedSpriteLayerId) {
-				const selectedLayer = entityData.sprites.find(
+				const selectedLayer = localSprites.find(
 					(l) => l.id === selectedSpriteLayerId,
 				);
 				if (selectedLayer) {
@@ -913,6 +982,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						worldY <= maxY
 					) {
 						// Start dragging the selected sprite
+						startBatch();
 						setIsDraggingSprite(true);
 						setSpriteDragStart({
 							x: worldX,
@@ -926,7 +996,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 
 			// Iterate through sprite layers back to front (highest zIndex first) to select
-			const sortedLayers = [...entityData.sprites].sort(
+			const sortedLayers = [...localSprites].sort(
 				(a, b) => b.zIndex - a.zIndex,
 			);
 
@@ -1016,7 +1086,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const snappedY = Math.round(worldY);
 
 			// Update the point position
-			const updatedColliders = (entityData.colliders || []).map((c) => {
+			const updatedColliders = (localColliders || []).map((c) => {
 				if (c.id === selectedColliderId) {
 					const newPoints = [...c.points];
 					newPoints[selectedColliderPointIndex] = { x: snappedX, y: snappedY };
@@ -1048,7 +1118,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const deltaY = worldY - colliderDragStart.y;
 
 			// Apply delta to original points (not the current points)
-			const updatedColliders = (entityData.colliders || []).map((c) => {
+			const updatedColliders = (localColliders || []).map((c) => {
 				if (c.id === selectedColliderId) {
 					const newPoints = colliderDragStart.originalPoints.map((p) => ({
 						x: Math.round(p.x + deltaX),
@@ -1070,6 +1140,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	};
 
 	const handleMouseUp = () => {
+		// Only end batch if we were actually dragging something
+		if (isDraggingSprite || isDraggingColliderPoint || isDraggingCollider) {
+			endBatch();
+		}
 		setIsDragging(false);
 		setIsDraggingSprite(false);
 		setSpriteDragStart(null);
@@ -1101,7 +1175,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		// If a collider is selected, check for point or edge clicks first
 		if (selectedColliderId) {
-			const selectedCollider = (entityData.colliders || []).find(
+			const selectedCollider = (localColliders || []).find(
 				(c) => c.id === selectedColliderId,
 			);
 			if (selectedCollider) {
@@ -1143,7 +1217,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		}
 
 		// Check if we right-clicked on a collider
-		for (const collider of entityData.colliders || []) {
+		for (const collider of localColliders || []) {
 			if (
 				collider.points.length >= 3 &&
 				isPointInPolygon(worldX, worldY, collider.points)
@@ -1159,7 +1233,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		}
 
 		// Check if we right-clicked on a sprite (front to back)
-		const sortedLayers = [...entityData.sprites].sort(
+		const sortedLayers = [...localSprites].sort(
 			(a, b) => (b.zIndex || 0) - (a.zIndex || 0),
 		);
 
@@ -1217,7 +1291,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		const newLayer: SpriteLayer = {
 			id: `sprite_${Date.now()}`,
-			name: `Layer ${entityData.sprites.length + 1}`,
+			name: `Layer ${localSprites.length + 1}`,
 			tilesetId: selectedTilesetId,
 			sprite: {
 				x: selectedRegion.x * tileset.tileWidth,
@@ -1232,12 +1306,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			ysortOffset: 0,
 		};
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				sprites: [...entityData.sprites, newLayer],
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: [...localSprites, newLayer],
+			colliders: localColliders,
+			properties: localProperties,
 		});
 
 		setIsSpritePicking(false);
@@ -1275,16 +1347,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		let newKey = `__temp_${Date.now()}`;
 
 		const updatedProperties = {
-			...(entityData.properties || {}),
+			...localProperties,
 			[newKey]: "",
 		};
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				properties: updatedProperties,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: localColliders,
+			properties: updatedProperties,
 		});
 
 		// Auto-focus the new property key for editing
@@ -1293,15 +1363,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Delete property
 	const handleDeleteProperty = (key: string) => {
-		const updatedProperties = { ...(entityData.properties || {}) };
+		const updatedProperties = { ...localProperties };
 		delete updatedProperties[key];
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				properties: updatedProperties,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: localColliders,
+			properties: updatedProperties,
 		});
 	};
 
@@ -1317,54 +1385,44 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		if (oldKey === newKey) return;
 
 		// Check if new key already exists
-		if (
-			entityData.properties &&
-			entityData.properties[newKey] &&
-			newKey !== oldKey
-		) {
+		if (localProperties && localProperties[newKey] && newKey !== oldKey) {
 			return; // Don't allow duplicate keys
 		}
 
-		const updatedProperties = { ...(entityData.properties || {}) };
+		const updatedProperties = { ...localProperties };
 		const value = updatedProperties[oldKey];
 		delete updatedProperties[oldKey];
 		updatedProperties[newKey] = value;
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				properties: updatedProperties,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: localColliders,
+			properties: updatedProperties,
 		});
 	};
 
 	// Update property value
 	const handleUpdatePropertyValue = (key: string, value: string) => {
 		const updatedProperties = {
-			...(entityData.properties || {}),
+			...localProperties,
 			[key]: value,
 		};
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				properties: updatedProperties,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: localColliders,
+			properties: updatedProperties,
 		});
 	};
 
 	// Delete sprite layer
 	const handleDeleteSpriteLayer = (layerId: string) => {
-		const updatedSprites = entityData.sprites.filter((s) => s.id !== layerId);
+		const updatedSprites = localSprites.filter((s) => s.id !== layerId);
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				sprites: updatedSprites,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: updatedSprites,
+			colliders: localColliders,
+			properties: localProperties,
 		});
 
 		if (selectedSpriteLayerId === layerId) {
@@ -1377,19 +1435,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		layerId: string,
 		updates: Partial<SpriteLayer>,
 	) => {
-		const updatedSprites = entityData.sprites.map((s) => {
+		const updatedSprites = localSprites.map((s) => {
 			if (s.id === layerId) {
 				return { ...s, ...updates };
 			}
 			return s;
 		});
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				sprites: updatedSprites,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: updatedSprites,
+			colliders: localColliders,
+			properties: localProperties,
 		});
 	};
 
@@ -1398,19 +1454,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		colliderId: string,
 		updates: Partial<PolygonCollider>,
 	) => {
-		const updatedColliders = (entityData.colliders || []).map((c) => {
+		const updatedColliders = localColliders.map((c) => {
 			if (c.id === colliderId) {
 				return { ...c, ...updates };
 			}
 			return c;
 		});
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				colliders: updatedColliders,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: updatedColliders,
+			properties: localProperties,
 		});
 	};
 
@@ -1508,12 +1562,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			points: drawingPoints,
 		};
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				colliders: [...(entityData.colliders || []), newCollider],
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: [...localColliders, newCollider],
+			properties: localProperties,
 		});
 
 		setIsDrawing(false);
@@ -1542,16 +1594,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Delete a collider
 	const handleDeleteCollider = (colliderId: string) => {
-		const updatedColliders = (entityData.colliders || []).filter(
-			(c) => c.id !== colliderId,
-		);
+		const updatedColliders = localColliders.filter((c) => c.id !== colliderId);
 
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				colliders: updatedColliders,
-			},
-			isDirty: true,
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: updatedColliders,
+			properties: localProperties,
 		});
 
 		setContextMenu(null);
@@ -1568,22 +1616,20 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			contextMenu.pointIndex !== undefined &&
 			contextMenu.colliderId
 		) {
-			const collider = (entityData.colliders || []).find(
+			const collider = localColliders.find(
 				(c) => c.id === contextMenu.colliderId,
 			);
 			if (collider && collider.points.length > 3) {
 				const newPoints = collider.points.filter(
 					(_, i) => i !== contextMenu.pointIndex,
 				);
-				const updatedColliders = (entityData.colliders || []).map((c) =>
+				const updatedColliders = localColliders.map((c) =>
 					c.id === contextMenu.colliderId ? { ...c, points: newPoints } : c,
 				);
-				updateTabData(tab.id, {
-					entityData: {
-						...entityData,
-						colliders: updatedColliders,
-					},
-					isDirty: true,
+				setLocalEntityState({
+					sprites: localSprites,
+					colliders: updatedColliders,
+					properties: localProperties,
 				});
 			}
 		}
@@ -1602,7 +1648,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const snappedX = Math.round(contextMenu.insertPosition.x);
 			const snappedY = Math.round(contextMenu.insertPosition.y);
 
-			const updatedColliders = (entityData.colliders || []).map((c) => {
+			const updatedColliders = localColliders.map((c) => {
 				if (c.id === contextMenu.colliderId) {
 					const newPoints = [...c.points];
 					newPoints.splice(contextMenu.edgeIndex! + 1, 0, {
@@ -1614,12 +1660,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				return c;
 			});
 
-			updateTabData(tab.id, {
-				entityData: {
-					...entityData,
-					colliders: updatedColliders,
-				},
-				isDirty: true,
+			setLocalEntityState({
+				sprites: localSprites,
+				colliders: updatedColliders,
+				properties: localProperties,
 			});
 			setSelectedColliderPointIndex(contextMenu.edgeIndex! + 1);
 		}
@@ -1628,7 +1672,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Calculate bounding box for collision editor
 	const calculateEntityBoundingBox = () => {
-		if (entityData.sprites.length === 0) {
+		if (localSprites.length === 0) {
 			return { x: 0, y: 0, width: 100, height: 100 }; // Default size
 		}
 
@@ -1637,7 +1681,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		let maxX = -Infinity;
 		let maxY = -Infinity;
 
-		for (const layer of entityData.sprites) {
+		for (const layer of localSprites) {
 			const offset = layer.offset || { x: 0, y: 0 };
 			const layerMinX = offset.x;
 			const layerMinY = offset.y;
@@ -1760,10 +1804,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						</div>
 						<div className="text-xs text-gray-500">
 							{/* Property List */}
-							{entityData.properties &&
-							Object.keys(entityData.properties).length > 0 ? (
+							{localProperties && Object.keys(localProperties).length > 0 ? (
 								<div className="space-y-2">
-									{Object.entries(entityData.properties).map(([key, value]) => {
+									{Object.entries(localProperties).map(([key, value]) => {
 										const isTemp = key.startsWith("__temp_");
 										const displayKey = isTemp ? "" : key;
 
@@ -1823,9 +1866,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 															}
 														>
 															{displayKey || (
-																<span style={{ opacity: 0.5 }}>
-																	Key
-																</span>
+																<span style={{ opacity: 0.5 }}>Key</span>
 															)}
 														</div>
 													)}
@@ -1962,8 +2003,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					}}
 				>
 					<div className="flex items-center gap-2">
-						<span className="text-gray-500">Sprite Layers:</span>
-						<span className="font-mono">{entityData.sprites.length}</span>
+						<span className="text-gray-500">Sprites:</span>
+						<span className="font-mono">{localSprites.length}</span>
 					</div>
 					<div className="w-px h-4" style={{ background: "#3e3e42" }} />
 					<div className="flex items-center gap-2">
@@ -1986,7 +2027,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			{selectedColliderId &&
 				!selectedSpriteLayerId &&
 				(() => {
-					const selectedCollider = (entityData.colliders || []).find(
+					const selectedCollider = (localColliders || []).find(
 						(c) => c.id === selectedColliderId,
 					);
 					if (!selectedCollider) return null;
@@ -2130,6 +2171,32 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																points: newPoints,
 															});
 														}}
+														onInput={(newCenterX) => {
+															// Calculate current center
+															const sumX = selectedCollider.points.reduce(
+																(sum, p) => sum + p.x,
+																0,
+															);
+															const currentCenterX =
+																sumX / selectedCollider.points.length;
+
+															// Calculate delta
+															const deltaX = newCenterX - currentCenterX;
+
+															// Move all points by delta
+															const newPoints = selectedCollider.points.map(
+																(p) => ({
+																	x: Math.round(p.x + deltaX),
+																	y: p.y,
+																}),
+															);
+
+															handleUpdateCollider(selectedCollider.id!, {
+																points: newPoints,
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														dragSpeed={1}
 														precision={1}
 														roundedLeft={false}
@@ -2174,6 +2241,32 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																points: newPoints,
 															});
 														}}
+														onInput={(newCenterY) => {
+															// Calculate current center
+															const sumY = selectedCollider.points.reduce(
+																(sum, p) => sum + p.y,
+																0,
+															);
+															const currentCenterY =
+																sumY / selectedCollider.points.length;
+
+															// Calculate delta
+															const deltaY = newCenterY - currentCenterY;
+
+															// Move all points by delta
+															const newPoints = selectedCollider.points.map(
+																(p) => ({
+																	x: p.x,
+																	y: Math.round(p.y + deltaY),
+																}),
+															);
+
+															handleUpdateCollider(selectedCollider.id!, {
+																points: newPoints,
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														dragSpeed={1}
 														precision={1}
 														roundedLeft={false}
@@ -2243,6 +2336,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	points: newPoints,
 																});
 															}}
+															onInput={(x) => {
+																const newPoints = [...selectedCollider.points];
+																newPoints[selectedColliderPointIndex] = {
+																	...newPoints[selectedColliderPointIndex],
+																	x: Math.round(x),
+																};
+																handleUpdateCollider(selectedCollider.id!, {
+																	points: newPoints,
+																});
+															}}
+															onDragStart={() => startBatch()}
+															onDragEnd={() => endBatch()}
 															dragSpeed={1}
 															precision={0}
 														/>
@@ -2276,6 +2381,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	points: newPoints,
 																});
 															}}
+															onInput={(y) => {
+																const newPoints = [...selectedCollider.points];
+																newPoints[selectedColliderPointIndex] = {
+																	...newPoints[selectedColliderPointIndex],
+																	y: Math.round(y),
+																};
+																handleUpdateCollider(selectedCollider.id!, {
+																	points: newPoints,
+																});
+															}}
+															onDragStart={() => startBatch()}
+															onDragEnd={() => endBatch()}
 															dragSpeed={1}
 															precision={0}
 														/>
@@ -2292,7 +2409,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			{/* Right Side - Sprite Properties Panel (only visible when sprite selected) */}
 			{selectedSpriteLayerId &&
 				(() => {
-					const selectedLayer = entityData.sprites.find(
+					const selectedLayer = localSprites.find(
 						(l) => l.id === selectedSpriteLayerId,
 					);
 					if (!selectedLayer) return null;
@@ -2413,6 +2530,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																},
 															});
 														}}
+														onInput={(x) => {
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																offset: {
+																	y: selectedLayer.offset?.y || 0,
+																	x,
+																},
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														dragSpeed={1}
 														precision={0}
 														roundedLeft={false}
@@ -2434,6 +2561,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																},
 															});
 														}}
+														onInput={(y) => {
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																offset: {
+																	x: selectedLayer.offset?.x || 0,
+																	y,
+																},
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														dragSpeed={1}
 														precision={0}
 														roundedLeft={false}
@@ -2469,6 +2606,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																origin: newOrigin,
 															});
 														}}
+														onInput={(x) => {
+															const newOrigin = {
+																y: 0,
+																...selectedLayer.origin,
+																x,
+															};
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																origin: newOrigin,
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														min={0}
 														max={1}
 														dragSpeed={0.01}
@@ -2494,6 +2643,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																origin: newOrigin,
 															});
 														}}
+														onInput={(y) => {
+															const newOrigin = {
+																x: 0,
+																...selectedLayer.origin,
+																y,
+															};
+															handleUpdateSpriteLayer(selectedLayer.id, {
+																origin: newOrigin,
+															});
+														}}
+														onDragStart={() => startBatch()}
+														onDragEnd={() => endBatch()}
 														min={0}
 														max={1}
 														dragSpeed={0.01}
@@ -2520,6 +2681,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													ysortOffset: value,
 												});
 											}}
+											onInput={(value) => {
+												handleUpdateSpriteLayer(selectedLayer.id, {
+													ysortOffset: value,
+												});
+											}}
+											onDragStart={() => startBatch()}
+											onDragEnd={() => endBatch()}
 											dragSpeed={1}
 											precision={0}
 										/>
@@ -2540,6 +2708,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													rotation: value,
 												});
 											}}
+											onInput={(value) => {
+												handleUpdateSpriteLayer(selectedLayer.id, {
+													rotation: value,
+												});
+											}}
+											onDragStart={() => startBatch()}
+											onDragEnd={() => endBatch()}
 											dragSpeed={1}
 											precision={1}
 										/>
@@ -2560,6 +2735,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													zIndex: Math.round(value),
 												});
 											}}
+											onInput={(value) => {
+												handleUpdateSpriteLayer(selectedLayer.id, {
+													zIndex: Math.round(value),
+												});
+											}}
+											onDragStart={() => startBatch()}
+											onDragEnd={() => endBatch()}
 											dragSpeed={0.1}
 											precision={0}
 										/>
