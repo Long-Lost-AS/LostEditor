@@ -2874,7 +2874,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										}
 										onClick={handleOpenSpritePicker}
 									>
-										Add Sprite Layer
+										Add Sprite
 									</div>
 									<div
 										className="px-4 py-2 text-sm cursor-pointer transition-colors"
