@@ -1594,49 +1594,77 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					/>
 					{/* Menu */}
 					<div
-						className="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 z-50 min-w-[200px]"
+						className="fixed z-50 min-w-[200px] py-1 rounded shadow-lg"
 						style={{
 							left: `${contextMenu.x}px`,
 							top: `${contextMenu.y}px`,
+							background: "#252526",
+							border: "1px solid #3e3e42",
 						}}
 					>
 						{contextMenu.compoundTileId ? (
 							// Show options when right-clicking on compound tile
 							<>
-								<button
+								<div
 									onClick={handleAddCollider}
-									className="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#cccccc" }}
+									onMouseEnter={(e) =>
+										(e.currentTarget.style.background = "#3e3e42")
+									}
+									onMouseLeave={(e) =>
+										(e.currentTarget.style.background = "transparent")
+									}
 								>
 									<ShieldIcon size={16} />
 									<span>Add/Edit Collider</span>
-								</button>
-								<div className="h-px bg-gray-700 my-1" />
-								<button
+								</div>
+								<div
 									onClick={handleDeleteCompoundTile}
-									className="w-full px-4 py-2 text-sm text-left text-red-400 hover:bg-gray-700 flex items-center gap-2"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#f48771" }}
+									onMouseEnter={(e) =>
+										(e.currentTarget.style.background = "#3e3e42")
+									}
+									onMouseLeave={(e) =>
+										(e.currentTarget.style.background = "transparent")
+									}
 								>
 									<TrashIcon size={16} />
 									<span>Delete Compound Tile</span>
-								</button>
+								</div>
 							</>
 						) : (
 							// Show create option when right-clicking on selection
 							<>
-								<button
+								<div
 									onClick={handleMarkAsCompoundTile}
-									className="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#cccccc" }}
+									onMouseEnter={(e) =>
+										(e.currentTarget.style.background = "#3e3e42")
+									}
+									onMouseLeave={(e) =>
+										(e.currentTarget.style.background = "transparent")
+									}
 								>
 									<span>✓</span>
 									<span>Mark as Compound Tile</span>
-								</button>
-								<div className="h-px bg-gray-700 my-1" />
-								<button
+								</div>
+								<div
 									onClick={handleClearSelection}
-									className="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#cccccc" }}
+									onMouseEnter={(e) =>
+										(e.currentTarget.style.background = "#3e3e42")
+									}
+									onMouseLeave={(e) =>
+										(e.currentTarget.style.background = "transparent")
+									}
 								>
 									<span>✕</span>
 									<span>Clear Selection</span>
-								</button>
+								</div>
 							</>
 						)}
 					</div>
