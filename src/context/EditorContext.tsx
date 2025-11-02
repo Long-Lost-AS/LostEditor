@@ -1181,7 +1181,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 										id: mapTab.id,
 										type: "map",
 										title: mapTab.title,
-										isDirty: mapTab.isDirty || false,
+										isDirty: false, // Mark as clean since we're loading from disk
 										filePath: mapTab.filePath,
 										mapId: mapTab.mapId || mapTab.id,
 										mapData: mapData,
@@ -1212,7 +1212,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								tilesetTab.tilesetId,
 							);
 							if (tilesetExists) {
-								restoredTabs.push(tab);
+								// Mark as clean since we're loading from saved project
+							restoredTabs.push({ ...tab, isDirty: false });
 							} else {
 								console.warn(
 									`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`,
@@ -1229,7 +1230,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 										id: entityTab.id,
 										type: "entity-editor",
 										title: entityTab.title,
-										isDirty: entityTab.isDirty || false,
+										isDirty: false, // Mark as clean since we're loading from disk
 										filePath: entityTab.filePath,
 										entityId: entityTab.entityId || entityTab.id,
 										entityData: entityData,

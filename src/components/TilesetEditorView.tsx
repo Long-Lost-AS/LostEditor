@@ -131,6 +131,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		resetTilesetHistory,
 	]);
 
+	// Track if this is the first run to avoid marking dirty on initial mount
+	const isFirstRun = useRef(true);
+
 	// One-way sync: local tileset state → global context
 	// This updates the global state whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
@@ -138,7 +141,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			tiles: localTiles,
 			terrainLayers: localTerrainLayers,
 		});
-		updateTabData(tab.id, { isDirty: true });
+
+		// Only mark dirty after first run (i.e., on actual user changes)
+		if (!isFirstRun.current) {
+			updateTabData(tab.id, { isDirty: true });
+		} else {
+			// Clear the flag after skipping, but use setTimeout to ensure
+			// this happens AFTER any other effects (like reset) have run
+			setTimeout(() => {
+				isFirstRun.current = false;
+			}, 0);
+		}
 	}, [localTilesetState, tab.tilesetId, tab.id, updateTileset, updateTabData]);
 
 	// Memoized tile position map for O(1) lookups

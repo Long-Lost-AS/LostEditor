@@ -64,6 +64,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		prevEntityIdRef.current = entityData.id;
 	}, [entityData.id, resetEntityHistory]);
 
+	// Track if this is the first run to avoid marking dirty on initial mount
+	const isFirstRun = useRef(true);
+
 	// One-way sync: local entity state → global context
 	useEffect(() => {
 		updateTabData(tab.id, {
@@ -73,8 +76,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				colliders: localColliders,
 				properties: localProperties,
 			},
-			isDirty: true,
+			// Only set dirty after first run (i.e., on actual user changes)
+			isDirty: !isFirstRun.current,
 		});
+
+		// Clear the flag after skipping, but use setTimeout to ensure
+		// this happens AFTER any other effects (like reset) have run
+		if (isFirstRun.current) {
+			setTimeout(() => {
+				isFirstRun.current = false;
+			}, 0);
+		}
 	}, [localEntityState, tab.id, updateTabData]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
