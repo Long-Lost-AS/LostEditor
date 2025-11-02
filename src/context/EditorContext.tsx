@@ -72,6 +72,8 @@ interface EditorContextType {
 	setSelectedTileId: (id: number | null) => void;
 	selectedEntityDefId: string | null;
 	setSelectedEntityDefId: (id: string | null) => void;
+	selectedTerrainLayerId: string | null;
+	setSelectedTerrainLayerId: (id: string | null) => void;
 
 	// Multi-Tileset state
 	tilesets: TilesetData[];
@@ -259,6 +261,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const [selectedEntityDefId, setSelectedEntityDefId] = useState<string | null>(
 		null,
 	);
+	const [selectedTerrainLayerId, setSelectedTerrainLayerId] = useState<
+		string | null
+	>(null);
 
 	// Autotiling state
 	const [autotilingOverride, setAutotilingOverride] = useState(false);
@@ -1938,6 +1943,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		setSelectedTileId,
 		selectedEntityDefId,
 		setSelectedEntityDefId,
+		selectedTerrainLayerId,
+		setSelectedTerrainLayerId,
 		tilesets,
 		currentTileset,
 		setCurrentTileset,
