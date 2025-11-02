@@ -25,138 +25,37 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 		setPan,
 		gridVisible,
 		autotilingOverride,
+		selectedTilesetId,
+		selectedTileId,
 	} = useEditor();
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartY, setDragStartY] = useState(0);
+	const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number } | null>(null);
 
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
 	const panYRef = useRef(panY);
 	const zoomRef = useRef(zoom);
+	const mouseScreenPosRef = useRef<{ x: number; y: number } | null>(null);
+	const selectedTilesetIdRef = useRef(selectedTilesetId);
+	const selectedTileIdRef = useRef(selectedTileId);
+	const currentToolRef = useRef(currentTool);
 
 	useEffect(() => {
 		panXRef.current = panX;
 		panYRef.current = panY;
 		zoomRef.current = zoom;
-	}, [panX, panY, zoom]);
+		mouseScreenPosRef.current = mouseScreenPos;
+		selectedTilesetIdRef.current = selectedTilesetId;
+		selectedTileIdRef.current = selectedTileId;
+		currentToolRef.current = currentTool;
+	}, [panX, panY, zoom, mouseScreenPos, selectedTilesetId, selectedTileId, currentTool]);
 
 	// Extract render logic to a function so we can call it synchronously after resize
-	const renderMap = useRef(() => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
-
-		const ctx = canvas.getContext("2d");
-		if (!ctx) return;
-
-		// Guard against undefined/invalid mapData
-		if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
-			console.error('MapCanvas: Invalid mapData received', mapData);
-			return;
-		}
-
-		// Clear canvas
-		ctx.fillStyle = "#2a2a2a";
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		ctx.save();
-		ctx.translate(panX, panY);
-		ctx.scale(zoom, zoom);
-
-		// Render each layer bottom-to-top
-		mapData.layers.forEach((layer) => {
-			if (!layer.visible) return;
-
-			if (layer.type === 'tile' || !layer.type) {
-				// Render tile layer
-				layer.tiles.forEach((tile) => {
-					if (!tile.tilesetId || !tile.tileId) return;
-
-					const tileset = getTilesetById(tile.tilesetId);
-					if (!tileset?.imageData) return;
-
-					// Unpack tile geometry from the packed ID
-					const geometry = unpackTileId(tile.tileId);
-
-					// Try to find tile definition for tiles with properties (optional)
-					const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
-
-					// Handle compound tiles with cellX/cellY
-					if (tile.cellX !== undefined && tile.cellY !== undefined) {
-						// This is a cell of a compound tile
-						// Calculate source position based on cell offset
-						const sourceX = geometry.x + (tile.cellX * tileset.tileWidth);
-						const sourceY = geometry.y + (tile.cellY * tileset.tileHeight);
-
-						ctx.drawImage(
-							tileset.imageData,
-							sourceX,
-							sourceY,
-							tileset.tileWidth,
-							tileset.tileHeight,
-							tile.x * mapData.tileWidth,
-							tile.y * mapData.tileHeight,
-							tileset.tileWidth,
-							tileset.tileHeight,
-						);
-					} else {
-						// Regular single tile - use unpacked geometry
-						ctx.drawImage(
-							tileset.imageData,
-							geometry.x,
-							geometry.y,
-							geometry.width,
-							geometry.height,
-							tile.x * mapData.tileWidth,
-							tile.y * mapData.tileHeight,
-							geometry.width,
-							geometry.height
-						);
-					}
-				});
-			} else if (layer.type === 'entity') {
-				// Render entity layer
-				layer.entities.forEach((entityInstance) => {
-					const tileset = getTilesetById(entityInstance.tilesetId);
-					if (!tileset?.imageData) return;
-
-					const entityDef = entityManager.getEntityDefinition(
-						entityInstance.tilesetId,
-						entityInstance.entityDefId
-					);
-
-					if (!entityDef) return;
-
-					// Render entity with hierarchy
-					renderEntity(ctx, entityDef, entityInstance, tileset.imageData);
-				});
-			}
-		});
-
-		// Draw grid
-		if (gridVisible) {
-			ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-			ctx.lineWidth = 1 / zoom;
-
-			for (let x = 0; x <= mapData.width; x++) {
-				ctx.beginPath();
-				ctx.moveTo(x * mapData.tileWidth, 0);
-				ctx.lineTo(x * mapData.tileWidth, mapData.height * mapData.tileHeight);
-				ctx.stroke();
-			}
-
-			for (let y = 0; y <= mapData.height; y++) {
-				ctx.beginPath();
-				ctx.moveTo(0, y * mapData.tileHeight);
-				ctx.lineTo(mapData.width * mapData.tileWidth, y * mapData.tileHeight);
-				ctx.stroke();
-			}
-		}
-
-		ctx.restore();
-	});
+	const renderMap = useRef<() => void>(() => {});
 
 	// Update renderMap ref when dependencies change
 	useEffect(() => {
@@ -271,14 +170,53 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				}
 			}
 
+			// Draw hover preview (for tile placement)
+			const mousePos = mouseScreenPosRef.current;
+			const tool = currentToolRef.current;
+			const tilesetId = selectedTilesetIdRef.current;
+			const tileId = selectedTileIdRef.current;
+
+			if (mousePos && tool === 'pencil' && tilesetId && tileId && canvas) {
+				// Calculate tile position from screen coordinates using current pan/zoom
+				const rect = canvas.getBoundingClientRect();
+				const canvasX = mousePos.x - rect.left;
+				const canvasY = mousePos.y - rect.top;
+				const worldX = (canvasX - panX) / zoom;
+				const worldY = (canvasY - panY) / zoom;
+				const tileX = Math.floor(worldX / mapData.tileWidth);
+				const tileY = Math.floor(worldY / mapData.tileHeight);
+
+				const tileset = getTilesetById(tilesetId);
+				if (tileset?.imageData) {
+					const geometry = unpackTileId(tileId);
+
+					// Semi-transparent preview
+					ctx.globalAlpha = 0.5;
+
+					ctx.drawImage(
+						tileset.imageData,
+						geometry.x,
+						geometry.y,
+						geometry.width,
+						geometry.height,
+						tileX * mapData.tileWidth,
+						tileY * mapData.tileHeight,
+						geometry.width,
+						geometry.height
+					);
+
+					ctx.globalAlpha = 1.0;
+				}
+			}
+
 			ctx.restore();
 		};
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById]);
+	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, mouseScreenPos, currentTool, selectedTilesetId, selectedTileId]);
 
 	// Trigger render when dependencies change
 	useEffect(() => {
 		renderMap.current();
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById]);
+	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, mouseScreenPos, currentTool, selectedTilesetId, selectedTileId]);
 
 	// Render an entity with its hierarchy
 	const renderEntity = (
@@ -370,11 +308,16 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 	};
 
 	const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+		// Store screen coordinates for hover preview (will be converted to world coords on render)
+		setMouseScreenPos({ x: e.clientX, y: e.clientY });
+
+		// Trigger a render to show the hover preview
+		renderMap.current();
+
 		if (isDragging) {
 			setPan(e.clientX - dragStartX, e.clientY - dragStartY);
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
-
 			if (currentTool === "pencil") {
 				onPlaceTile(tileX, tileY);
 			} else if (currentTool === "eraser") {
@@ -382,6 +325,10 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 			}
 			// Entity tool doesn't drag-paint
 		}
+	};
+
+	const handleMouseLeave = () => {
+		setMouseScreenPos(null);
 	};
 
 	const handleMouseUp = () => {
@@ -457,7 +404,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
 				onMouseUp={handleMouseUp}
-				onMouseLeave={handleMouseUp}
+				onMouseLeave={handleMouseLeave}
 			/>
 			{autotilingOverride && (
 				<div

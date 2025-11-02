@@ -287,6 +287,11 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									const cellX = x + dx;
 									const cellY = y + dy;
 
+									// Only place tiles that are within map bounds
+									if (cellX < 0 || cellX >= prev.width || cellY < 0 || cellY >= prev.height) {
+										continue;
+									}
+
 									const tile: Tile = {
 										x: cellX,
 										y: cellY,
@@ -300,15 +305,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								}
 							}
 						} else if (selectedTilesetId && selectedTileId) {
-							// Regular single tile
-							const tile: Tile = {
-								x,
-								y,
-								tilesetId: selectedTilesetId,
-								tileId: selectedTileId,
-							};
+							// Regular single tile - only place if within bounds
+							if (x >= 0 && x < prev.width && y >= 0 && y < prev.height) {
+								const tile: Tile = {
+									x,
+									y,
+									tilesetId: selectedTilesetId,
+									tileId: selectedTileId,
+								};
 
-							newTiles.set(`${x},${y}`, tile);
+								newTiles.set(`${x},${y}`, tile);
+							}
 						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
