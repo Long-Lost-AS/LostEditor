@@ -5,15 +5,11 @@ import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
 import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
-import { TilesetPanel } from "./components/TilesetPanel";
-import { MapCanvas } from "./components/MapCanvas";
-import { LayersPanel } from "./components/LayersPanel";
-import { PropertiesPanel } from "./components/PropertiesPanel";
 import { ResourceBrowser } from "./components/ResourceBrowser";
-import { EntityPanel } from "./components/EntityPanel";
 import { TilesetEditorView } from "./components/TilesetEditorView";
 import { EntityEditorView } from "./components/EntityEditorView";
 import { CollisionEditorView } from "./components/CollisionEditorView";
+import { MapEditorView } from "./components/MapEditorView";
 import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
 import { CommandPalette } from "./components/CommandPalette";
@@ -391,22 +387,9 @@ const AppContent = () => {
 				{/* Show map editor view for map tabs */}
 				{activeMapTab && (
 					<div className="editor-top-section">
-						<div className="left-panel">
-							<PropertiesPanel />
-							<EntityPanel />
-							<LayersPanel />
-						</div>
-						<MapCanvas />
-						<div
-							className={`resize-handle ${isResizing ? "active" : ""}`}
-							onMouseDown={handleResizeStart}
-						/>
-						<div
-							className="right-panel"
-							style={{ width: `${rightPanelWidth}px` }}
-						>
-							<TilesetPanel />
-						</div>
+						<UndoRedoProvider>
+							<MapEditorView tab={activeMapTab} />
+						</UndoRedoProvider>
 					</div>
 				)}
 

@@ -32,7 +32,7 @@ import {
 	referenceManager,
 	type BrokenReference,
 } from "../managers/ReferenceManager";
-import { ProjectDataSchema } from "../schemas";
+import { ProjectDataSchema, createDefaultMapData } from "../schemas";
 import {
 	updateTileAndNeighbors,
 	getAllAutotileGroups,
@@ -51,7 +51,12 @@ interface EditorContextType {
 	getActiveEntityTab: () => EntityEditorTab | null;
 
 	// Map state
-	mapData: MapData;
+	maps: MapData[];                 // Global array of all loaded maps (source of truth)
+	getMapById: (id: string) => MapData | undefined;
+	updateMap: (id: string, updates: Partial<MapData>) => void;
+	getActiveMap: () => MapData | undefined;
+
+	mapData: MapData;                // [DEPRECATED] Legacy global mapData - use maps array instead
 	setMapData: (data: MapData | ((prev: MapData) => MapData)) => void;
 
 	// Layer state
@@ -240,6 +245,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const [tabs, setTabs] = useState<AnyTab[]>([]);
 	const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
+	// Map state (global source of truth)
+	const [maps, setMaps] = useState<MapData[]>([]);
+
+	// Legacy map state (for backward compatibility)
 	const [mapData, setMapData] = useState<MapData>({
 		width: 32,
 		height: 32,
@@ -326,56 +335,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		};
 	}, []);
 
-	// Sync active map tab to flat state (for backward compatibility)
-	useEffect(() => {
-		const activeTab = tabs.find((t) => t.id === activeTabId);
-		if (activeTab && activeTab.type === "map") {
-			const mapTab = activeTab as MapTab;
-			setMapData(mapTab.mapData);
-			setZoom(mapTab.viewState.zoom);
-			setPanX(mapTab.viewState.panX);
-			setPanY(mapTab.viewState.panY);
-			setGridVisible(mapTab.viewState.gridVisible);
-			setCurrentTool(mapTab.viewState.currentTool);
-			setSelectedTilesetId(mapTab.viewState.selectedTilesetId);
-			setSelectedTileId(mapTab.viewState.selectedTileId);
-			setSelectedEntityDefId(mapTab.viewState.selectedEntityDefId);
-
-			// Set current layer
-			const layer = mapTab.mapData.layers.find(
-				(l) => l.id === mapTab.viewState.currentLayerId,
-			);
-			setCurrentLayer(layer || mapTab.mapData.layers[0] || null);
-		}
-	}, [activeTabId, tabs]);
-
-	// Create a wrapped setMapData that also updates the active tab
-	const setMapDataAndSyncTab = useCallback(
-		(data: MapData | ((prev: MapData) => MapData)) => {
-			setMapData((prev) => {
-				const newData = typeof data === "function" ? data(prev) : data;
-
-				// Update active map tab
-				if (activeTabId) {
-					setTabs((currentTabs) =>
-						currentTabs.map((tab) => {
-							if (tab.id === activeTabId && tab.type === "map") {
-								return {
-									...tab,
-									mapData: newData,
-									isDirty: true,
-								} as MapTab;
-							}
-							return tab;
-						}),
-					);
-				}
-
-				return newData;
-			});
-		},
-		[activeTabId],
-	);
+	// [REMOVED] Circular dependency: tabs → mapData sync
+	// Each view now manages its own state and fetches from maps array
 
 	const setSelectedTile = useCallback((x: number, y: number) => {
 		setSelectedTileX(x);
@@ -385,7 +346,48 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const setPan = useCallback((x: number, y: number) => {
 		setPanX(x);
 		setPanY(y);
-	}, []);
+
+		// Also update the active map tab's viewState
+		setTabs((prev) => {
+			if (!activeTabId) return prev;
+			return prev.map((tab) => {
+				if (tab.id === activeTabId && tab.type === "map") {
+					const mapTab = tab as MapTab;
+					return {
+						...tab,
+						viewState: {
+							...mapTab.viewState,
+							panX: x,
+							panY: y,
+						},
+					};
+				}
+				return tab;
+			});
+		});
+	}, [activeTabId]);
+
+	const setZoomAndUpdateTab = useCallback((newZoom: number) => {
+		setZoom(newZoom);
+
+		// Also update the active map tab's viewState
+		setTabs((prev) => {
+			if (!activeTabId) return prev;
+			return prev.map((tab) => {
+				if (tab.id === activeTabId && tab.type === "map") {
+					const mapTab = tab as MapTab;
+					return {
+						...tab,
+						viewState: {
+							...mapTab.viewState,
+							zoom: newZoom,
+						},
+					};
+				}
+				return tab;
+			});
+		});
+	}, [activeTabId]);
 
 	const addLayer = useCallback(
 		(layerType: LayerType = "tile") => {
@@ -835,6 +837,33 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[tilesets],
 	);
 
+	// Map helper functions
+	const getMapById = useCallback(
+		(id: string) => {
+			return maps.find((m) => m.id === id);
+		},
+		[maps],
+	);
+
+	const updateMap = useCallback(
+		(id: string, updates: Partial<MapData>) => {
+			setMaps((currentMaps) =>
+				currentMaps.map((m) =>
+					m.id === id ? { ...m, ...updates } : m
+				)
+			);
+		},
+		[],
+	);
+
+	const getActiveMap = useCallback(() => {
+		const activeTab = tabs.find((t) => t.id === activeTabId);
+		if (activeTab?.type === 'map') {
+			return getMapById((activeTab as MapTab).mapId);
+		}
+		return undefined;
+	}, [activeTabId, tabs, getMapById]);
+
 	const loadTilesetFromFile = useCallback(
 		async (file: File) => {
 			return new Promise<void>((resolve, reject) => {
@@ -958,6 +987,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				if (tab.type === "map") {
 					const mapTab = tab as MapTab;
 
+					// Get map data from global maps array
+					const mapData = maps.find(m => m.id === mapTab.mapId);
+					if (!mapData) {
+						console.warn(`Skipping map tab ${mapTab.title}: map data not found for ID ${mapTab.mapId}`);
+						continue;
+					}
+
 					// Determine map file path
 					let mapFilePath = mapTab.filePath;
 					if (!mapFilePath) {
@@ -968,10 +1004,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 					// Save the map using mapManager
 					try {
-						await mapManager.saveMap(mapTab.mapData, mapFilePath, mapTab.title);
+						await mapManager.saveMap(mapData, mapFilePath, mapTab.title);
 
 						// Update the tab with the file path
 						mapTab.filePath = mapFilePath;
+						mapTab.mapFilePath = mapFilePath;
 						mapPaths.push(mapFilePath);
 					} catch (error) {
 						alert(`Failed to save map ${mapTab.title}: ${error}`);
@@ -1034,7 +1071,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to save project: ${error}`);
 			}
 		},
-		[projectName, tilesets, settingsManager, tabs, activeTabId],
+		[projectName, tilesets, settingsManager, tabs, activeTabId, maps],
 	);
 
 	const saveProject = useCallback(async () => {
@@ -1171,6 +1208,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Load maps and restore tabs
 				if (projectData.openTabs) {
 					const restoredTabs: AnyTab[] = [];
+					const loadedMaps: MapData[] = [];
 
 					for (const tab of projectData.openTabs.tabs || []) {
 						if (tab.type === "map") {
@@ -1181,15 +1219,21 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								try {
 									const mapData = await mapManager.loadMap(mapTab.filePath);
 
-									// Create full MapTab with loaded data
+									// Add to global maps array
+									const mapId = mapTab.mapId || mapTab.id;
+									const mapWithId = { ...mapData, id: mapId };
+									loadedMaps.push(mapWithId);
+
+									// Create MapTab with reference (not full data)
 									const fullMapTab: MapTab = {
 										id: mapTab.id,
 										type: "map",
 										title: mapTab.title,
 										isDirty: false, // Mark as clean since we're loading from disk
 										filePath: mapTab.filePath,
-										mapId: mapTab.mapId || mapTab.id,
-										mapData: mapData,
+										mapId: mapId,  // Reference by ID
+										mapFilePath: mapTab.filePath,
+										// mapData is optional now - view will fetch from maps array
 										viewState: mapTab.viewState || {
 											zoom: 2,
 											panX: 0,
@@ -1259,6 +1303,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						}
 					}
 
+					// Set global maps array (source of truth)
+					setMaps(loadedMaps);
 					setTabs(restoredTabs);
 
 					// Make sure the active tab is still in the restored tabs
@@ -1385,25 +1431,27 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						)
 					: undefined;
 
+			// Create validated map data with default layer
+			const mapData = createDefaultMapData(title);
+			const mapWithId = { ...mapData, id: mapId };
+
+			// Add to global maps array
+			setMaps((prevMaps) => [...prevMaps, mapWithId]);
+
 			const newMapTab: MapTab = {
 				id: mapId,
 				type: "map",
 				title: title,
 				isDirty: true, // Mark as dirty since it's unsaved
 				mapId: mapId,
+				mapFilePath: filePath || '',
 				filePath: filePath,
-				mapData: {
-					width: 32,
-					height: 32,
-					tileWidth: 16,
-					tileHeight: 16,
-					layers: [],
-				},
+				// mapData is optional - view will fetch from maps array
 				viewState: {
 					zoom: 2,
 					panX: 0,
 					panY: 0,
-					currentLayerId: null,
+					currentLayerId: mapData.layers[0]?.id || null,
 					gridVisible: true,
 					selectedTilesetId: null,
 					selectedTileId: null,
@@ -1441,6 +1489,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Create a new MapTab
 				const mapId = `map-${Date.now()}`;
+				const mapWithId = { ...mapData, id: mapId };
+
+				// Add to global maps array
+				setMaps((prevMaps) => [...prevMaps, mapWithId]);
+
 				const newMapTab: MapTab = {
 					id: mapId,
 					type: "map",
@@ -1448,7 +1501,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					isDirty: false,
 					filePath: filePath,
 					mapId: mapId,
-					mapData: mapData,
+					mapFilePath: filePath,
+					// mapData is optional - view will fetch from maps array
 					viewState: {
 						zoom: 2,
 						panX: 0,
@@ -1928,8 +1982,12 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		getActiveMapTab,
 		getActiveTilesetTab,
 		getActiveEntityTab,
+		maps,
+		getMapById,
+		updateMap,
+		getActiveMap,
 		mapData,
-		setMapData: setMapDataAndSyncTab,
+		setMapData,  // [DEPRECATED] Use updateMap() instead
 		currentLayer,
 		setCurrentLayer,
 		currentTool,
@@ -1960,7 +2018,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		tilesetRows,
 		setTilesetRows,
 		zoom,
-		setZoom,
+		setZoom: setZoomAndUpdateTab,
 		panX,
 		panY,
 		setPan,

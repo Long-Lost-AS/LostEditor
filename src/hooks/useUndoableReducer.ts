@@ -24,6 +24,25 @@ function deepEqual(a: any, b: any): boolean {
 	if (a == null || b == null) return false;
 	if (typeof a !== "object" || typeof b !== "object") return false;
 
+	// Handle Map objects
+	if (a instanceof Map && b instanceof Map) {
+		if (a.size !== b.size) return false;
+		for (const [key, value] of a) {
+			if (!b.has(key) || !deepEqual(value, b.get(key))) return false;
+		}
+		return true;
+	}
+
+	// Handle Arrays
+	if (Array.isArray(a) && Array.isArray(b)) {
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i++) {
+			if (!deepEqual(a[i], b[i])) return false;
+		}
+		return true;
+	}
+
+	// Handle plain objects
 	const keysA = Object.keys(a);
 	const keysB = Object.keys(b);
 
@@ -155,10 +174,11 @@ export interface UndoableControls {
 /**
  * Hook that provides undo/redo functionality using a reducer pattern.
  * This is more predictable than effect-based synchronization.
+ * Supports both direct state updates and updater functions like React's setState.
  */
 export function useUndoableReducer<T>(
 	initialState: T,
-): [T, (newState: T) => void, UndoableControls] {
+): [T, (newState: T | ((prev: T) => T)) => void, UndoableControls] {
 	const [state, dispatch] = useReducer(undoableReducer<T>, {
 		past: [],
 		present: initialState,
@@ -168,9 +188,16 @@ export function useUndoableReducer<T>(
 	});
 
 	// Stable callbacks using useCallback
-	const setState = useCallback((newState: T) => {
-		dispatch({ type: "SET", payload: newState });
-	}, []);
+	const setState = useCallback((newState: T | ((prev: T) => T)) => {
+		// Support updater function pattern like React's setState
+		if (typeof newState === 'function') {
+			const updater = newState as (prev: T) => T;
+			const computed = updater(state.present);
+			dispatch({ type: "SET", payload: computed });
+		} else {
+			dispatch({ type: "SET", payload: newState });
+		}
+	}, [state.present]);
 
 	const undo = useCallback(() => {
 		dispatch({ type: "UNDO" });

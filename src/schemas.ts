@@ -137,25 +137,27 @@ export const LayerSchema = z.object({
   visible: z.boolean(),
   type: LayerTypeSchema,
   tiles: z.array(TileSchema).default([]), // Will be converted to Map in code
-  entities: z.array(EntityInstanceSchema).default([])
+  entities: z.array(EntityInstanceSchema).default([]),
+  autotilingEnabled: z.boolean().optional().default(true)
 })
 
 export const MapDataSchema = z.object({
-  width: z.number(),
-  height: z.number(),
-  tileWidth: z.number(),
-  tileHeight: z.number(),
-  layers: z.array(LayerSchema)
+  name: z.string(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  tileWidth: z.number().positive(),
+  tileHeight: z.number().positive(),
+  layers: z.array(LayerSchema).default([])
 })
 
 // Map file schema (for .lostmap files)
 export const MapFileSchema = z.object({
   name: z.string(),
-  width: z.number(),
-  height: z.number(),
-  tileWidth: z.number(),
-  tileHeight: z.number(),
-  layers: z.array(LayerSchema),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  tileWidth: z.number().positive(),
+  tileHeight: z.number().positive(),
+  layers: z.array(LayerSchema).default([]),
   lastModified: z.string()
 })
 
@@ -204,3 +206,58 @@ export type TileDefinitionJson = z.infer<typeof TileDefinitionSchema>
 export type EntityDefinitionJson = z.infer<typeof EntityDefinitionSchema>
 export type EntityInstanceJson = z.infer<typeof EntityInstanceSchema>
 export type LayerJson = z.infer<typeof LayerSchema>
+
+// ===========================
+// Factory Functions
+// ===========================
+
+/**
+ * Create a valid default layer
+ */
+export function createDefaultLayer(name: string = 'Layer 1', type: 'tile' | 'entity' = 'tile'): LayerJson {
+  return LayerSchema.parse({
+    id: `layer-${Date.now()}`,
+    name,
+    visible: true,
+    type,
+    tiles: [],
+    entities: [],
+    autotilingEnabled: true
+  })
+}
+
+/**
+ * Create valid default map data
+ */
+export function createDefaultMapData(name: string = 'Untitled Map'): MapDataJson {
+  return MapDataSchema.parse({
+    name,
+    width: 32,
+    height: 32,
+    tileWidth: 16,
+    tileHeight: 16,
+    layers: [createDefaultLayer('Layer 1', 'tile')]
+  })
+}
+
+/**
+ * Validate and ensure MapData is complete
+ */
+export function ensureValidMapData(data: any): MapDataJson {
+  // Parse with schema - this will throw if invalid
+  return MapDataSchema.parse(data)
+}
+
+/**
+ * Check if data is valid MapData without throwing
+ * Returns true if valid, false otherwise
+ */
+export function validateMapData(data: any): boolean {
+  try {
+    MapDataSchema.parse(data)
+    return true
+  } catch (error) {
+    console.warn('MapData validation failed:', error)
+    return false
+  }
+}

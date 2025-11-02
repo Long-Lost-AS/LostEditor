@@ -2,11 +2,18 @@ import { useRef, useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import { unpackTileId } from "../utils/tileId";
+import { MapData } from "../types";
 
-export const MapCanvas = () => {
+interface MapCanvasProps {
+	mapData: MapData;
+	onPlaceTile: (x: number, y: number) => void;
+	onEraseTile: (x: number, y: number) => void;
+	onPlaceEntity: (x: number, y: number) => void;
+}
+
+export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
-		mapData,
 		currentTool,
 		tilesetImage,
 		tilesets,
@@ -17,9 +24,6 @@ export const MapCanvas = () => {
 		panY,
 		setPan,
 		gridVisible,
-		placeTile,
-		eraseTile,
-		placeEntity,
 		autotilingOverride,
 	} = useEditor();
 
@@ -46,6 +50,12 @@ export const MapCanvas = () => {
 
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
+
+		// Guard against undefined/invalid mapData
+		if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
+			console.error('MapCanvas: Invalid mapData received', mapData);
+			return;
+		}
 
 		// Clear canvas
 		ctx.fillStyle = "#2a2a2a";
@@ -156,6 +166,12 @@ export const MapCanvas = () => {
 
 			const ctx = canvas.getContext("2d");
 			if (!ctx) return;
+
+			// Guard against undefined/invalid mapData
+			if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
+				console.error('MapCanvas: Invalid mapData received', mapData);
+				return;
+			}
 
 			// Clear canvas
 			ctx.fillStyle = "#2a2a2a";
@@ -343,12 +359,12 @@ export const MapCanvas = () => {
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
 			if (currentTool === "pencil") {
-				placeTile(tileX, tileY);
+				onPlaceTile(tileX, tileY);
 			} else if (currentTool === "eraser") {
-				eraseTile(tileX, tileY);
+				onEraseTile(tileX, tileY);
 			} else if (currentTool === "entity") {
 				// Place entity at pixel coordinates
-				placeEntity(Math.floor(worldX), Math.floor(worldY));
+				onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
 			}
 		}
 	};
@@ -360,9 +376,9 @@ export const MapCanvas = () => {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 
 			if (currentTool === "pencil") {
-				placeTile(tileX, tileY);
+				onPlaceTile(tileX, tileY);
 			} else if (currentTool === "eraser") {
-				eraseTile(tileX, tileY);
+				onEraseTile(tileX, tileY);
 			}
 			// Entity tool doesn't drag-paint
 		}

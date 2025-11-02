@@ -124,6 +124,7 @@ export interface Layer {
 }
 
 export interface MapData {
+  name: string
   width: number
   height: number
   tileWidth: number
@@ -187,8 +188,9 @@ export interface MapViewState {
 
 export interface MapTab extends BaseTab {
   type: 'map'
-  mapId: string               // Unique identifier for the map
-  mapData: MapData            // In-memory map data
+  mapId: string               // Unique identifier for the map (reference to EditorContext.maps array)
+  mapFilePath: string         // File path for save operations
+  mapData?: MapData           // [DEPRECATED] In-memory map data - use EditorContext.getMapById() instead
   viewState: MapViewState
 }
 

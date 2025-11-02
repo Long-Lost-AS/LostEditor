@@ -31,7 +31,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 }) => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
-	const [inputValue, setInputValue] = useState(value.toFixed(precision));
+	const [inputValue, setInputValue] = useState((value ?? 0).toFixed(precision));
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartValue, setDragStartValue] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +40,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 	// Update input value when prop changes
 	useEffect(() => {
 		if (!isEditing) {
-			setInputValue(value.toFixed(precision));
+			setInputValue((value ?? 0).toFixed(precision));
 		}
 	}, [value, precision, isEditing]);
 
@@ -53,14 +53,14 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 
 		setIsDragging(true);
 		setDragStartX(e.clientX);
-		setDragStartValue(value);
+		setDragStartValue(value ?? 0);
 		onDragStart?.();
 		e.preventDefault();
 	};
 
 	useEffect(() => {
 		if (isDragging) {
-			let lastValue = value;
+			let lastValue = value ?? 0;
 
 			const handleMouseMove = (e: MouseEvent) => {
 				const deltaX = e.clientX - dragStartX;
@@ -106,7 +106,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		if (!isNaN(parsed)) {
 			onChange(clampValue(parsed));
 		} else {
-			setInputValue(value.toFixed(precision));
+			setInputValue((value ?? 0).toFixed(precision));
 		}
 		setIsEditing(false);
 	};
@@ -115,7 +115,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		if (e.key === "Enter") {
 			inputRef.current?.blur();
 		} else if (e.key === "Escape") {
-			setInputValue(value.toFixed(precision));
+			setInputValue((value ?? 0).toFixed(precision));
 			setIsEditing(false);
 		}
 	};
@@ -155,7 +155,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 					className={`px-2.5 py-1.5 text-xs bg-[#3c3c3c] text-[#cccccc] border border-[#3e3e42] select-none ${roundedLeft ? "rounded" : "rounded-r"}`}
 					style={{ fontFamily: "monospace" }}
 				>
-					{value.toFixed(precision)}
+					{(value ?? 0).toFixed(precision)}
 				</div>
 			)}
 		</div>

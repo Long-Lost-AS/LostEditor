@@ -1,5 +1,5 @@
 import { MapData, Layer, Tile } from '../types'
-import { MapFileSchema, type MapFileJson } from '../schemas'
+import { MapFileSchema, type MapFileJson, validateMapData, createDefaultMapData } from '../schemas'
 import { fileManager } from './FileManager'
 import { FileLoader } from './FileLoader'
 
@@ -41,7 +41,8 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
       visible: layer.visible,
       type: layer.type,
       tiles: Array.from(layer.tiles.values()),
-      entities: layer.entities
+      entities: layer.entities,
+      autotilingEnabled: layer.autotilingEnabled
     }))
 
     return {
@@ -75,11 +76,12 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
         visible: layerJson.visible,
         type: layerJson.type,
         tiles: tilesMap,
-        entities: layerJson.entities
+        entities: layerJson.entities,
+        autotilingEnabled: layerJson.autotilingEnabled !== false
       }
     })
 
-    return {
+    const mapData: MapData = {
       name: validated.name,
       width: validated.width,
       height: validated.height,
@@ -87,6 +89,23 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
       tileHeight: validated.tileHeight,
       layers: layers
     }
+
+    // Final validation check - ensure structure is correct
+    // Convert tiles Map back to array temporarily for validation
+    const mapDataForValidation = {
+      ...mapData,
+      layers: mapData.layers.map(layer => ({
+        ...layer,
+        tiles: Array.from(layer.tiles.values())
+      }))
+    }
+
+    if (!validateMapData(mapDataForValidation)) {
+      console.error(`Map data validation failed for ${filePath}, using default map`)
+      return createDefaultMapData(validated.name || 'Untitled Map')
+    }
+
+    return mapData
   }
 
   /**
