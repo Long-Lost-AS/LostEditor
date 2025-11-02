@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
 import { useEditor } from '../context/EditorContext'
+import { Dropdown } from './Dropdown'
 
 export const TilesetPanel = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -18,7 +19,6 @@ export const TilesetPanel = () => {
     setSelectedTilesetId
   } = useEditor()
 
-  const [viewMode, setViewMode] = useState<'tiles' | 'entities'>('tiles')
   const [scale, setScale] = useState(1.0)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -241,28 +241,6 @@ export const TilesetPanel = () => {
       })
     }
 
-    // Draw tiles or entities based on view mode
-    if (currentTileset) {
-      if (viewMode === 'tiles') {
-        // Tile view mode is handled by the borders above
-      } else {
-        // Highlight entity definitions
-        ctx.strokeStyle = 'rgba(255, 0, 255, 0.5)'
-        ctx.lineWidth = 2
-        currentTileset.entities.forEach(entity => {
-          ctx.strokeRect(
-            entity.sprite.x,
-            entity.sprite.y,
-            entity.sprite.width,
-            entity.sprite.height
-          )
-          // Draw entity name if it fits
-          ctx.fillStyle = 'rgba(255, 0, 255, 0.8)'
-          ctx.font = '10px monospace'
-          ctx.fillText(entity.id, entity.sprite.x + 2, entity.sprite.y + 12)
-        })
-      }
-    }
 
     // Draw selection highlight
     ctx.strokeStyle = '#0ff'
@@ -304,7 +282,7 @@ export const TilesetPanel = () => {
     }
 
     ctx.restore()
-  }, [displayImage, currentTileset, mapData, selectedTileX, selectedTileY, viewMode, pan, scale, containerSize])
+  }, [displayImage, currentTileset, mapData, selectedTileX, selectedTileY, pan, scale, containerSize])
 
   // Helper to convert screen coordinates to canvas coordinates
   const screenToCanvas = (screenX: number, screenY: number) => {
@@ -335,56 +313,41 @@ export const TilesetPanel = () => {
     if (currentTileset) {
       setSelectedTilesetId(currentTileset.id)
 
-      if (viewMode === 'tiles') {
-        // First check if we clicked on a compound tile
-        const clickedTile = currentTileset.tiles.find(tile => {
-          const w = tile.width || tileWidth
-          const h = tile.height || tileHeight
-          return (
-            x >= tile.x &&
-            x < tile.x + w &&
-            y >= tile.y &&
-            y < tile.y + h
-          )
-        })
+      // First check if we clicked on a compound tile
+      const clickedTile = currentTileset.tiles.find(tile => {
+        const w = tile.width || tileWidth
+        const h = tile.height || tileHeight
+        return (
+          x >= tile.x &&
+          x < tile.x + w &&
+          y >= tile.y &&
+          y < tile.y + h
+        )
+      })
 
-        if (clickedTile) {
-          // Select the compound tile
-          setSelectedTileId(clickedTile.id)
-          setSelectedEntityDefId(null)
+      if (clickedTile) {
+        // Select the compound tile
+        setSelectedTileId(clickedTile.id)
+        setSelectedEntityDefId(null)
 
-          // Update legacy tile selection to cover the compound tile region
-          if (clickedTile.width && clickedTile.height) {
-            // For compound tiles, select the top-left corner
-            const tileX = Math.floor(clickedTile.x / tileWidth)
-            const tileY = Math.floor(clickedTile.y / tileHeight)
-            setSelectedTile(tileX, tileY)
-          } else {
-            // For single tiles
-            const tileX = Math.floor(x / tileWidth)
-            const tileY = Math.floor(y / tileHeight)
-            setSelectedTile(tileX, tileY)
-          }
+        // Update legacy tile selection to cover the compound tile region
+        if (clickedTile.width && clickedTile.height) {
+          // For compound tiles, select the top-left corner
+          const tileX = Math.floor(clickedTile.x / tileWidth)
+          const tileY = Math.floor(clickedTile.y / tileHeight)
+          setSelectedTile(tileX, tileY)
         } else {
-          // No compound tile found, just select the grid position
+          // For single tiles
           const tileX = Math.floor(x / tileWidth)
           const tileY = Math.floor(y / tileHeight)
           setSelectedTile(tileX, tileY)
-          setSelectedTileId(null)
         }
       } else {
-        // Find clicked entity definition
-        const clickedEntity = currentTileset.entities.find(entity =>
-          x >= entity.sprite.x &&
-          x < entity.sprite.x + entity.sprite.width &&
-          y >= entity.sprite.y &&
-          y < entity.sprite.y + entity.sprite.height
-        )
-
-        if (clickedEntity) {
-          setSelectedEntityDefId(clickedEntity.id)
-          setSelectedTileId(null)
-        }
+        // No compound tile found, just select the grid position
+        const tileX = Math.floor(x / tileWidth)
+        const tileY = Math.floor(y / tileHeight)
+        setSelectedTile(tileX, tileY)
+        setSelectedTileId(null)
       }
     } else {
       // Legacy: no current tileset, just select grid position
@@ -423,49 +386,18 @@ export const TilesetPanel = () => {
       {/* Tileset selector */}
       {tilesets.length > 0 && (
         <div className="mb-2">
-          <select
-            className="w-full p-1 bg-gray-700 text-white border border-gray-600 rounded"
-            value={currentTileset?.id || ''}
-            onChange={(e) => {
-              const tileset = tilesets.find(t => t.id === e.target.value)
-              setCurrentTileset(tileset || null)
-            }}
-          >
-            <option value="">Select Tileset...</option>
-            {tilesets.map(tileset => (
-              <option key={tileset.id} value={tileset.id}>
-                {tileset.name}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            items={tilesets}
+            value={currentTileset}
+            onChange={setCurrentTileset}
+            getItemLabel={(tileset) => tileset.name}
+            getItemKey={(tileset) => tileset.id}
+            placeholder="Select Tileset..."
+            searchKeys={['name']}
+          />
         </div>
       )}
 
-      {/* View mode toggle (only show if tileset has entities) */}
-      {currentTileset && currentTileset.entities.length > 0 && (
-        <div className="mb-2 flex gap-1">
-          <button
-            className={`flex-1 px-2 py-1 text-sm rounded ${
-              viewMode === 'tiles'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300'
-            }`}
-            onClick={() => setViewMode('tiles')}
-          >
-            Tiles ({currentTileset.tiles.length})
-          </button>
-          <button
-            className={`flex-1 px-2 py-1 text-sm rounded ${
-              viewMode === 'entities'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-700 text-gray-300'
-            }`}
-            onClick={() => setViewMode('entities')}
-          >
-            Entities ({currentTileset.entities.length})
-          </button>
-        </div>
-      )}
 
       {/* Tileset canvas */}
       {displayImage ? (
@@ -518,14 +450,6 @@ export const TilesetPanel = () => {
         </div>
       )}
 
-      {/* Info display */}
-      {currentTileset && (
-        <div className="mt-2 text-xs text-gray-400">
-          <div>Tiles: {currentTileset.tiles.length}</div>
-          <div>Entities: {currentTileset.entities.length}</div>
-          <div>Tile Size: {currentTileset.tileWidth}×{currentTileset.tileHeight}</div>
-        </div>
-      )}
     </div>
   )
 }

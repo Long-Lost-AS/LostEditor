@@ -3,6 +3,7 @@ import { useEditor } from '../context/EditorContext'
 import { EntityDefinition } from '../types'
 import { entityManager } from '../managers/EntityManager'
 import { ShieldIcon } from './Icons'
+import { Dropdown } from './Dropdown'
 
 interface EntityTreeNodeProps {
   entity: EntityDefinition
@@ -102,18 +103,14 @@ export const EntityPanel = () => {
       {/* Tileset filter */}
       {tilesets.length > 1 && (
         <div className="mb-2">
-          <select
-            className="w-full p-1 bg-gray-700 text-white border border-gray-600 rounded text-sm"
-            value={filterTilesetId}
-            onChange={(e) => setFilterTilesetId(e.target.value)}
-          >
-            <option value="all">All Tilesets</option>
-            {tilesets.map(tileset => (
-              <option key={tileset.id} value={tileset.id}>
-                {tileset.name}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            items={[{ id: 'all', name: 'All Tilesets' }, ...tilesets]}
+            value={tilesets.find(t => t.id === filterTilesetId) || { id: 'all', name: 'All Tilesets' }}
+            onChange={(item) => setFilterTilesetId(item.id)}
+            getItemLabel={(item) => item.name}
+            getItemKey={(item) => item.id}
+            searchKeys={['name']}
+          />
         </div>
       )}
 

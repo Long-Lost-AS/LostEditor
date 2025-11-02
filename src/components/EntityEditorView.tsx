@@ -5,6 +5,7 @@ import { EntityEditorTab, SpriteLayer, PolygonCollider } from "../types";
 import { DragNumberInput } from "./DragNumberInput";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
+import { Dropdown } from "./Dropdown";
 
 interface EntityEditorViewProps {
 	tab: EntityEditorTab;
@@ -3080,33 +3081,19 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									>
 										Select Tileset
 									</label>
-									<select
-										value={selectedTilesetId}
-										onChange={(e) => {
-											setSelectedTilesetId(e.target.value);
+									<Dropdown
+										items={tilesets}
+										value={tilesets.find(t => t.id === selectedTilesetId) || null}
+										onChange={(tileset) => {
+											setSelectedTilesetId(tileset.id);
 											setSelectedRegion(null);
 										}}
-										className="w-full px-3 py-2 rounded focus:outline-none"
-										style={{
-											background: "#3e3e42",
-											color: "#cccccc",
-											border: "1px solid #555",
-										}}
-										onFocus={(e) =>
-											(e.currentTarget.style.borderColor = "#007acc")
-										}
-										onBlur={(e) => (e.currentTarget.style.borderColor = "#555")}
-									>
-										{tilesets.length === 0 ? (
-											<option value="">No tilesets available</option>
-										) : (
-											tilesets.map((tileset) => (
-												<option key={tileset.id} value={tileset.id}>
-													{tileset.name}
-												</option>
-											))
-										)}
-									</select>
+										getItemLabel={(tileset) => tileset.name}
+										getItemKey={(tileset) => tileset.id}
+										placeholder={tilesets.length === 0 ? "No tilesets available" : "Select a tileset..."}
+										searchKeys={['name']}
+										disabled={tilesets.length === 0}
+									/>
 								</div>
 
 								{/* Canvas Container */}
