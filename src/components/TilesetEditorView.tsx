@@ -299,6 +299,31 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw border around it
 					ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
 
+					// Draw origin marker if this tile is selected
+					if (tile.id === selectedCompoundTileId && tile.origin) {
+						const originX = tile.x + tile.origin.x * tileWidth;
+						const originY = tile.y + tile.origin.y * tileHeight;
+						const markerSize = 8 / viewState.scale;
+
+						ctx.save();
+						// Draw crosshair
+						ctx.strokeStyle = "rgba(255, 165, 0, 1)"; // Orange
+						ctx.lineWidth = 2 / viewState.scale;
+						ctx.beginPath();
+						ctx.moveTo(originX - markerSize, originY);
+						ctx.lineTo(originX + markerSize, originY);
+						ctx.moveTo(originX, originY - markerSize);
+						ctx.lineTo(originX, originY + markerSize);
+						ctx.stroke();
+
+						// Draw center dot
+						ctx.fillStyle = "rgba(255, 165, 0, 1)";
+						ctx.beginPath();
+						ctx.arc(originX, originY, 3 / viewState.scale, 0, Math.PI * 2);
+						ctx.fill();
+						ctx.restore();
+					}
+
 					// Optionally draw tile name
 					if (tile.name) {
 						ctx.save();
@@ -497,6 +522,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		viewState.scale,
 		selectedTerrainLayer,
 		localTerrainLayers,
+		selectedCompoundTileId,
+		localTiles,
 	]);
 
 	// Setup wheel event listener for zoom and pan
@@ -1021,6 +1048,37 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 	};
 
+	const handleUpdateTileOrigin = (x: number, y: number) => {
+		if (!selectedCompoundTileId) return;
+
+		const existingTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
+
+		if (existingTile) {
+			// Update existing tile with undo/redo support
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
+					t.id === selectedCompoundTileId ? { ...t, origin: { x, y } } : t,
+				),
+				terrainLayers: localTerrainLayers,
+			});
+		} else {
+			// Create new tile entry from packed ID with undo/redo support
+			const geometry = unpackTileId(selectedCompoundTileId);
+			const newTile = {
+				id: selectedCompoundTileId,
+				x: geometry.x,
+				y: geometry.y,
+				origin: { x, y },
+			};
+			setLocalTilesetState({
+				tiles: [...localTiles, newTile],
+				terrainLayers: localTerrainLayers,
+			});
+		}
+	};
+
 	const handleUpdateBitmask = (
 		tileId: number,
 		layerId: string,
@@ -1386,6 +1444,105 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									Tile Properties
 								</div>
 								<div className="space-y-3">
+									{/* Only show origin for compound tiles */}
+									{selectedTile?.isCompound && (
+										<div>
+											<label
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Origin (normalized 0-1)
+											</label>
+											<div className="grid grid-cols-2 gap-2">
+												<div>
+													<input
+														type="number"
+														value={selectedTile?.origin?.x ?? 0}
+														onChange={(e) => {
+															const value = parseFloat(e.target.value) || 0;
+															const clamped = Math.max(0, Math.min(1, value));
+															handleUpdateTileOrigin(clamped, selectedTile?.origin?.y ?? 0);
+														}}
+														step="0.1"
+														min="0"
+														max="1"
+														className="w-full px-2 py-1.5 rounded focus:outline-none text-xs"
+														style={{
+															background: "#3e3e42",
+															color: "#cccccc",
+															border: "1px solid #555",
+															fontSize: "13px",
+														}}
+													/>
+													<div className="text-[10px] mt-0.5" style={{ color: "#858585" }}>
+														X
+													</div>
+												</div>
+												<div>
+													<input
+														type="number"
+														value={selectedTile?.origin?.y ?? 0}
+														onChange={(e) => {
+															const value = parseFloat(e.target.value) || 0;
+															const clamped = Math.max(0, Math.min(1, value));
+															handleUpdateTileOrigin(selectedTile?.origin?.x ?? 0, clamped);
+														}}
+														step="0.1"
+														min="0"
+														max="1"
+														className="w-full px-2 py-1.5 rounded focus:outline-none text-xs"
+														style={{
+															background: "#3e3e42",
+															color: "#cccccc",
+															border: "1px solid #555",
+															fontSize: "13px",
+														}}
+													/>
+													<div className="text-[10px] mt-0.5" style={{ color: "#858585" }}>
+														Y
+													</div>
+												</div>
+											</div>
+											<div className="mt-1 text-[10px]" style={{ color: "#858585" }}>
+												Quick:
+												<button
+													onClick={() => handleUpdateTileOrigin(0, 0)}
+													className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
+													style={{ background: "#3e3e42", color: "#cccccc" }}
+												>
+													Top-Left
+												</button>
+												<button
+													onClick={() => handleUpdateTileOrigin(0.5, 0)}
+													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
+													style={{ background: "#3e3e42", color: "#cccccc" }}
+												>
+													Top-Center
+												</button>
+												<button
+													onClick={() => handleUpdateTileOrigin(0, 1)}
+													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
+													style={{ background: "#3e3e42", color: "#cccccc" }}
+												>
+													Bottom-Left
+												</button>
+												<button
+													onClick={() => handleUpdateTileOrigin(0.5, 1)}
+													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
+													style={{ background: "#3e3e42", color: "#cccccc" }}
+												>
+													Bottom-Center
+												</button>
+												<button
+													onClick={() => handleUpdateTileOrigin(0.5, 0.5)}
+													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
+													style={{ background: "#3e3e42", color: "#cccccc" }}
+												>
+													Center
+												</button>
+											</div>
+										</div>
+									)}
 									<div>
 										<label
 											className="text-xs font-medium block mb-1.5"

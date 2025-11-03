@@ -288,10 +288,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		ctx.strokeStyle = "rgba(34, 197, 94, 0.8)"; // Green color
 		ctx.lineWidth = 2;
 		for (const tile of selectedTileset.tiles || []) {
-			if (tile.width && tile.height) {
+			// Check the isCompound flag
+			if (tile.isCompound) {
 				// This is a compound tile
-				const tileWidth = tile.width || selectedTileset.tileWidth;
-				const tileHeight = tile.height || selectedTileset.tileHeight;
+				const tileWidth = tile.width!;
+				const tileHeight = tile.height!;
 
 				// Draw border around it
 				ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);

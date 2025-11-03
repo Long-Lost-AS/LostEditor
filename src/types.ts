@@ -40,6 +40,7 @@ export interface TileDefinition {
   isCompound?: boolean  // True if this is a compound/multi-tile sprite
   width?: number    // For compound tiles: width in pixels
   height?: number   // For compound tiles: height in pixels
+  origin?: { x: number; y: number }  // Origin point in normalized coordinates (0-1), defaults to top-left (0,0)
   colliders?: PolygonCollider[]  // Multiple colliders
   name?: string     // User-defined name for the tile
   type?: string     // Type classification for the tile

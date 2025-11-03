@@ -282,6 +282,15 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			// Unpack the selected tile ID
 			const geometry = unpackTileId(selectedTileId);
 
+			console.log('handlePlaceTile:', {
+				x, y,
+				selectedTileId,
+				geometry,
+				tilesetIndex,
+				selectedTileDef,
+				isCompound: selectedTileDef?.isCompound
+			});
+
 			// Repack with the correct tileset index to create a global tile ID
 			const globalTileId = packTileId(
 				geometry.x,
@@ -340,8 +349,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 							}
 						} else {
 							// Regular single tile - only place if within bounds
+							console.log('Placing regular tile:', { x, y, globalTileId, mapWidth, mapHeight });
 							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
 								const index = y * mapWidth + x;
+								console.log('Setting tile at index:', index, 'to:', globalTileId);
 								newTiles[index] = globalTileId;
 							}
 						}
@@ -350,8 +361,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 						// Apply autotiling if enabled
 						const autotilingEnabled = layer.autotilingEnabled !== false;
+						console.log('Autotiling check:', { autotilingEnabled, autotilingOverride });
 						if (autotilingEnabled && !autotilingOverride) {
 							const autotileGroups = getAllAutotileGroups(tilesets);
+							console.log('Autotile groups:', autotileGroups.length);
 
 							if (autotileGroups.length > 0) {
 								const positionsToUpdate: Array<{ x: number; y: number }> = [];
@@ -375,6 +388,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									positionsToUpdate.push({ x, y });
 								}
 
+								console.log('Positions to autotile:', positionsToUpdate);
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									positionsToUpdate,
@@ -382,14 +396,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									mapHeight,
 									tilesets,
 								);
+								console.log('Autotiled results:', autotiledTiles);
 
 								for (const update of autotiledTiles) {
+									console.log('Applying autotile update:', update);
 									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };
 							}
 						}
+						console.log('Final tiles array (first 10):', newTiles.slice(0, 10));
 
 						// No need to setCurrentLayer - it's component-local only
 						return updatedLayer;

@@ -1645,7 +1645,40 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 									console.log(`Found tileset at ${tilesetPath}, loading...`);
 									await loadTileset(tilesetPath);
 								} else {
+									// Tileset not found - prompt user to locate it manually
 									console.warn(`Could not find tileset file for ID: ${tilesetId}`);
+
+									const result = await window.__TAURI__.dialog.confirm(
+										`Could not find tileset with ID: ${tilesetId}\n\nWould you like to locate it manually?`,
+										{ title: 'Missing Tileset', kind: 'warning' }
+									);
+
+									if (result) {
+										// Show file picker
+										const selected = await window.__TAURI__.dialog.open({
+											title: `Locate Tileset: ${tilesetId}`,
+											directory: false,
+											multiple: false,
+											filters: [{
+												name: 'Tileset Files',
+												extensions: ['lostset']
+											}],
+											defaultPath: projectDirectory,
+										});
+
+										if (selected && typeof selected === 'string') {
+											try {
+												await loadTileset(selected);
+												console.log(`Successfully loaded tileset from ${selected}`);
+											} catch (error) {
+												console.error(`Failed to load tileset from ${selected}:`, error);
+												await window.__TAURI__.dialog.message(
+													`Failed to load tileset: ${error instanceof Error ? error.message : 'Unknown error'}`,
+													{ title: 'Error', kind: 'error' }
+												);
+											}
+										}
+									}
 								}
 							} catch (error) {
 								console.error(`Failed to find/load tileset ${tilesetId}:`, error);
@@ -1769,11 +1802,14 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			return;
 		}
 
-		// Create a new entity using EntityManager
-		const entity = entityManager.createEntity("New Entity");
-
-		// Set the file path
-		entity.filePath = result.filePath;
+		// Create a new entity definition
+		const entity: EntityDefinition = {
+			id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			name: "New Entity",
+			sprites: [],
+			colliders: [],
+			filePath: result.filePath,
+		};
 
 		// Save the entity immediately
 		try {

@@ -35,12 +35,16 @@ function getTileTerrainType(
 	const tileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
 	if (tileId === 0) return null;
 
-	// Unpack to get tileset index
+	// Unpack to get tileset index and geometry
 	const geometry = unpackTileId(tileId);
 	const tileset = tilesets[geometry.tilesetIndex];
 	if (!tileset) return null;
 
-	const tileDef = tileset.tiles.find((t) => t.id === tileId);
+	// Find tile definition by matching geometry (x, y coords in sprite sheet)
+	const tileDef = tileset.tiles.find((t) => {
+		const tGeometry = unpackTileId(t.id);
+		return tGeometry.x === geometry.x && tGeometry.y === geometry.y;
+	});
 	if (!tileDef) return null;
 
 	return tileDef.type || null;
@@ -63,12 +67,17 @@ export function applyAutotiling(
 	const currentTileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
 	if (currentTileId === 0) return null;
 
-	// Unpack to get tileset index
+	// Unpack to get tileset index and geometry
 	const geometry = unpackTileId(currentTileId);
 	const tileset = tilesets[geometry.tilesetIndex];
 	if (!tileset) return null;
 
-	const tileDef = tileset.tiles.find((t) => t.id === currentTileId);
+	// Find tile definition by matching geometry (x, y coords in sprite sheet)
+	// Tile definitions store local IDs (tileset index 0)
+	const tileDef = tileset.tiles.find((t) => {
+		const tGeometry = unpackTileId(t.id);
+		return tGeometry.x === geometry.x && tGeometry.y === geometry.y;
+	});
 	if (!tileDef || !tileDef.type) return null;
 
 	const terrainType = tileDef.type;

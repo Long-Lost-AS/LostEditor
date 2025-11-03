@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useEditor } from '../context/EditorContext'
 import { Dropdown } from './Dropdown'
+import { packTileId } from '../utils/tileId'
 
 export const TilesetPanel = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -352,11 +353,14 @@ export const TilesetPanel = () => {
           setSelectedTile(tileX, tileY)
         }
       } else {
-        // No compound tile found, just select the grid position
+        // No compound tile found, create a tile ID for the regular tile at this position
         const tileX = Math.floor(x / tileWidth)
         const tileY = Math.floor(y / tileHeight)
         setSelectedTile(tileX, tileY)
-        setSelectedTileId(null)
+
+        // Create a tile ID for this regular tile (with tileset index 0 for local ID)
+        const regularTileId = packTileId(tileX * tileWidth, tileY * tileHeight, 0, false, false)
+        setSelectedTileId(regularTileId)
       }
     } else {
       // Legacy: no current tileset, just select grid position
