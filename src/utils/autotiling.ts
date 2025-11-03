@@ -1,8 +1,25 @@
-import type { Layer, Tile, TerrainLayer, TilesetData } from "../types";
+import type { Layer, TerrainLayer, TilesetData, MapData } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "./bitmaskAutotiling";
+import { unpackTileId } from "./tileId";
+
+/**
+ * Get tile ID from dense array at position (x, y)
+ * Returns 0 if position is out of bounds
+ */
+function getTileIdAt(
+	layer: Layer,
+	x: number,
+	y: number,
+	mapWidth: number,
+	mapHeight: number
+): number {
+	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) return 0;
+	const index = y * mapWidth + x;
+	return layer.tiles[index] || 0;
+}
 
 /**
  * Check if a tile at the given position matches the specified terrain type
@@ -11,15 +28,19 @@ function getTileTerrainType(
 	layer: Layer,
 	x: number,
 	y: number,
-	tilesets: Map<string, TilesetData>,
+	mapWidth: number,
+	mapHeight: number,
+	tilesets: TilesetData[],
 ): string | null {
-	const tile = layer.tiles.get(`${x},${y}`);
-	if (!tile) return null;
+	const tileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
+	if (tileId === 0) return null;
 
-	const tileset = tilesets.get(tile.tilesetId);
+	// Unpack to get tileset index
+	const geometry = unpackTileId(tileId);
+	const tileset = tilesets[geometry.tilesetIndex];
 	if (!tileset) return null;
 
-	const tileDef = tileset.tiles.find((t) => t.id === tile.tileId);
+	const tileDef = tileset.tiles.find((t) => t.id === tileId);
 	if (!tileDef) return null;
 
 	return tileDef.type || null;
@@ -27,7 +48,7 @@ function getTileTerrainType(
 
 /**
  * Apply autotiling to a specific tile position
- * Returns the new tile that should be placed, or null if no autotile rule applies
+ * Returns the new tile ID that should be placed, or null if no autotile rule applies
  *
  * Uses Godot-style bitmask matching.
  */
@@ -35,15 +56,19 @@ export function applyAutotiling(
 	layer: Layer,
 	x: number,
 	y: number,
-	tilesets: Map<string, TilesetData>,
-): Tile | null {
-	const currentTile = layer.tiles.get(`${x},${y}`);
-	if (!currentTile) return null;
+	mapWidth: number,
+	mapHeight: number,
+	tilesets: TilesetData[],
+): number | null {
+	const currentTileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
+	if (currentTileId === 0) return null;
 
-	const tileset = tilesets.get(currentTile.tilesetId);
+	// Unpack to get tileset index
+	const geometry = unpackTileId(currentTileId);
+	const tileset = tilesets[geometry.tilesetIndex];
 	if (!tileset) return null;
 
-	const tileDef = tileset.tiles.find((t) => t.id === currentTile.tileId);
+	const tileDef = tileset.tiles.find((t) => t.id === currentTileId);
 	if (!tileDef || !tileDef.type) return null;
 
 	const terrainType = tileDef.type;
@@ -54,7 +79,7 @@ export function applyAutotiling(
 
 	// Create a neighbor check function
 	const hasNeighbor = (dx: number, dy: number): boolean => {
-		return getTileTerrainType(layer, x + dx, y + dy, tilesets) === terrainType;
+		return getTileTerrainType(layer, x + dx, y + dy, mapWidth, mapHeight, tilesets) === terrainType;
 	};
 
 	// Calculate the required bitmask based on neighbors
@@ -64,26 +89,25 @@ export function applyAutotiling(
 	const matchedTile = findTileByBitmask(tileset, terrainLayer, targetBitmask);
 
 	if (matchedTile) {
-		return {
-			...currentTile,
-			tileId: matchedTile.id,
-		};
+		return matchedTile.id;
 	}
 
 	// If no bitmask match found, keep current tile
-	return currentTile;
+	return currentTileId;
 }
 
 /**
  * Update a tile and all its neighbors with autotiling
- * Returns a map of position -> tile for all updated tiles
+ * Returns an array of { index, tileId } for all updated tiles
  */
 export function updateTileAndNeighbors(
 	layer: Layer,
 	positions: Array<{ x: number; y: number }>,
-	tilesets: Map<string, TilesetData>,
-): Map<string, Tile> {
-	const updatedTiles = new Map<string, Tile>();
+	mapWidth: number,
+	mapHeight: number,
+	tilesets: TilesetData[],
+): Array<{ index: number; tileId: number }> {
+	const updatedTiles: Array<{ index: number; tileId: number }> = [];
 	const positionsToUpdate = new Set<string>();
 
 	// Add all initial positions and their neighbors
@@ -94,7 +118,12 @@ export function updateTileAndNeighbors(
 		for (let dy = -1; dy <= 1; dy++) {
 			for (let dx = -1; dx <= 1; dx++) {
 				if (dx === 0 && dy === 0) continue;
-				positionsToUpdate.add(`${pos.x + dx},${pos.y + dy}`);
+				const nx = pos.x + dx;
+				const ny = pos.y + dy;
+				// Only add neighbors that are within bounds
+				if (nx >= 0 && ny >= 0 && nx < mapWidth && ny < mapHeight) {
+					positionsToUpdate.add(`${nx},${ny}`);
+				}
 			}
 		}
 	}
@@ -102,10 +131,11 @@ export function updateTileAndNeighbors(
 	// Apply autotiling to all positions
 	for (const posKey of positionsToUpdate) {
 		const [x, y] = posKey.split(",").map(Number);
-		const updatedTile = applyAutotiling(layer, x, y, tilesets);
+		const updatedTileId = applyAutotiling(layer, x, y, mapWidth, mapHeight, tilesets);
 
-		if (updatedTile) {
-			updatedTiles.set(posKey, updatedTile);
+		if (updatedTileId !== null) {
+			const index = y * mapWidth + x;
+			updatedTiles.push({ index, tileId: updatedTileId });
 		}
 	}
 
@@ -116,11 +146,11 @@ export function updateTileAndNeighbors(
  * Get all terrain layers from loaded tilesets
  */
 export function getAllAutotileGroups(
-	tilesets: Map<string, TilesetData>,
+	tilesets: TilesetData[],
 ): TerrainLayer[] {
 	const groups: TerrainLayer[] = [];
 
-	for (const tileset of tilesets.values()) {
+	for (const tileset of tilesets) {
 		if (tileset.terrainLayers) {
 			groups.push(...tileset.terrainLayers);
 		}
