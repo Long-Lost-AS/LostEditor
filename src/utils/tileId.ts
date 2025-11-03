@@ -1,124 +1,103 @@
 /**
  * Tile ID Packing Utilities
  *
- * Packs tile geometry and flip flags into a single 64-bit integer.
+ * Packs tile sprite position, tileset index, and flip flags into a single 48-bit number.
+ * Width and height are NOT packed - they are looked up from the tileset definition.
  *
- * Bit Layout (51 bits used, 13 reserved):
- * - Bits  0-11: source x (0-4095 pixels)
- * - Bits 12-23: source y (0-4095 pixels)
- * - Bits 24-35: width (0-4095 pixels)
- * - Bits 36-47: height (0-4095 pixels)
- * - Bit  48: flipX
- * - Bit  49: flipY
- * - Bit  50: isCompound (marks compound tiles)
- * - Bits 51-63: reserved for future use
+ * Bit Layout (48 bits, safely within JavaScript's 53-bit integer limit):
+ * - Bits  0-15: sprite x (0-65535 pixels) - position in tileset image
+ * - Bits 16-31: sprite y (0-65535 pixels) - position in tileset image
+ * - Bits 32-45: tileset index (0-16383 tilesets)
+ * - Bit  46: flipX
+ * - Bit  47: flipY
+ * - Bits 48-49: reserved for future use
  */
 
-const MAX_VALUE = 4095; // 12 bits = 2^12 - 1
-const MASK_12_BITS = 0xFFF; // 4095 in binary: 111111111111
+const MAX_SPRITE_COORD = 65535; // 16 bits = 2^16 - 1
+const MAX_TILESET_INDEX = 16383; // 14 bits = 2^14 - 1
+const MASK_16_BITS = 0xFFFF; // 65535
+const MASK_14_BITS = 0x3FFF; // 16383
 
 export interface TileGeometry {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  tilesetIndex: number;
   flipX: boolean;
   flipY: boolean;
-  isCompound: boolean;
 }
 
 /**
- * Packs tile geometry and flip flags into a single integer
+ * Packs tile sprite position, tileset index, and flip flags into a single number
+ * Note: Width and height are looked up from the tileset definition, not packed
  */
 export function packTileId(
   x: number,
   y: number,
-  width: number,
-  height: number,
+  tilesetIndex: number,
   flipX: boolean = false,
-  flipY: boolean = false,
-  isCompound: boolean = false
+  flipY: boolean = false
 ): number {
   // Validate inputs
-  if (x < 0 || x > MAX_VALUE) {
-    throw new Error(`Tile x coordinate ${x} out of range (0-${MAX_VALUE})`);
+  if (x < 0 || x > MAX_SPRITE_COORD) {
+    throw new Error(`Tile sprite x coordinate ${x} out of range (0-${MAX_SPRITE_COORD})`);
   }
-  if (y < 0 || y > MAX_VALUE) {
-    throw new Error(`Tile y coordinate ${y} out of range (0-${MAX_VALUE})`);
+  if (y < 0 || y > MAX_SPRITE_COORD) {
+    throw new Error(`Tile sprite y coordinate ${y} out of range (0-${MAX_SPRITE_COORD})`);
   }
-  if (width < 0 || width > MAX_VALUE) {
-    throw new Error(`Tile width ${width} out of range (0-${MAX_VALUE})`);
-  }
-  if (height < 0 || height > MAX_VALUE) {
-    throw new Error(`Tile height ${height} out of range (0-${MAX_VALUE})`);
+  if (tilesetIndex < 0 || tilesetIndex > MAX_TILESET_INDEX) {
+    throw new Error(`Tileset index ${tilesetIndex} out of range (0-${MAX_TILESET_INDEX})`);
   }
 
-  // Pack the values using multiplication (JS bitwise ops only work on 32-bit)
-  // Bits 0-11: x
+  // Pack the values
+  // Bits 0-15: sprite x
   let packed = x;
 
-  // Bits 12-23: y
-  packed += y * Math.pow(2, 12);
+  // Bits 16-31: sprite y (use bitwise OR since it's within 32 bits)
+  packed |= y << 16;
 
-  // Bits 24-35: width
-  packed += width * Math.pow(2, 24);
+  // Bits 32-45: tileset index (use multiplication since shift > 32 doesn't work in JS)
+  packed += tilesetIndex * (2 ** 32);
 
-  // Bits 36-47: height
-  packed += height * Math.pow(2, 36);
-
-  // Bit 48: flipX
+  // Bit 46: flipX (use multiplication for bits beyond 32)
   if (flipX) {
-    packed += Math.pow(2, 48);
+    packed += 2 ** 46;
   }
 
-  // Bit 49: flipY
+  // Bit 47: flipY (use multiplication for bits beyond 32)
   if (flipY) {
-    packed += Math.pow(2, 49);
-  }
-
-  // Bit 50: isCompound
-  if (isCompound) {
-    packed += Math.pow(2, 50);
+    packed += 2 ** 47;
   }
 
   return packed;
 }
 
 /**
- * Unpacks a tile ID into its geometry and flip flags
+ * Unpacks a tile ID into its sprite position, tileset index, and flip flags
+ * Note: Width and height must be looked up from the tileset definition
  */
 export function unpackTileId(tileId: number): TileGeometry {
-  // Extract each component using division/modulo (JS bitwise ops only work on 32-bit)
-  let remaining = tileId;
+  // Handle 0 (empty tile)
+  if (tileId === 0) {
+    return { x: 0, y: 0, tilesetIndex: 0, flipX: false, flipY: false };
+  }
 
-  // Bits 0-11: x
-  const x = Math.floor(remaining % Math.pow(2, 12));
-  remaining = Math.floor(remaining / Math.pow(2, 12));
+  // Extract each component
+  // Bits 0-15: sprite x (bitwise AND works fine)
+  const x = tileId & MASK_16_BITS;
 
-  // Bits 12-23: y
-  const y = Math.floor(remaining % Math.pow(2, 12));
-  remaining = Math.floor(remaining / Math.pow(2, 12));
+  // Bits 16-31: sprite y (bitwise shift works within 32 bits)
+  const y = (tileId >> 16) & MASK_16_BITS;
 
-  // Bits 24-35: width
-  const width = Math.floor(remaining % Math.pow(2, 12));
-  remaining = Math.floor(remaining / Math.pow(2, 12));
+  // Bits 32-45: tileset index (use division since shift > 32 doesn't work in JS)
+  const tilesetIndex = Math.floor(tileId / (2 ** 32)) & MASK_14_BITS;
 
-  // Bits 36-47: height
-  const height = Math.floor(remaining % Math.pow(2, 12));
-  remaining = Math.floor(remaining / Math.pow(2, 12));
+  // Bit 46: flipX (use division to access bits beyond 32)
+  const flipX = (Math.floor(tileId / (2 ** 46)) & 1) === 1;
 
-  // Bit 48: flipX
-  const flipX = (Math.floor(remaining % 2) === 1);
-  remaining = Math.floor(remaining / 2);
+  // Bit 47: flipY (use division to access bits beyond 32)
+  const flipY = (Math.floor(tileId / (2 ** 47)) & 1) === 1;
 
-  // Bit 49: flipY
-  const flipY = (Math.floor(remaining % 2) === 1);
-  remaining = Math.floor(remaining / 2);
-
-  // Bit 50: isCompound
-  const isCompound = (Math.floor(remaining % 2) === 1);
-
-  return { x, y, width, height, flipX, flipY, isCompound };
+  return { x, y, tilesetIndex, flipX, flipY };
 }
 
 /**
@@ -126,7 +105,7 @@ export function unpackTileId(tileId: number): TileGeometry {
  */
 export function setFlips(tileId: number, flipX: boolean, flipY: boolean): number {
   const geometry = unpackTileId(tileId);
-  return packTileId(geometry.x, geometry.y, geometry.width, geometry.height, flipX, flipY, geometry.isCompound);
+  return packTileId(geometry.x, geometry.y, geometry.tilesetIndex, flipX, flipY);
 }
 
 /**
@@ -134,7 +113,7 @@ export function setFlips(tileId: number, flipX: boolean, flipY: boolean): number
  */
 export function getBaseTileId(tileId: number): number {
   const geometry = unpackTileId(tileId);
-  return packTileId(geometry.x, geometry.y, geometry.width, geometry.height, false, false, geometry.isCompound);
+  return packTileId(geometry.x, geometry.y, geometry.tilesetIndex, false, false);
 }
 
 /**
