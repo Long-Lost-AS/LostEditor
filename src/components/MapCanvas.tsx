@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
-import { unpackTileId } from "../utils/tileId";
+import { unpackTileId, packTileId } from "../utils/tileId";
 import { MapData } from "../types";
 
 interface MapCanvasProps {
@@ -85,52 +85,62 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				if (!layer.visible) return;
 
 				if (layer.type === 'tile' || !layer.type) {
-					// Render tile layer
-					layer.tiles.forEach((tile) => {
-						if (!tile.tilesetId || !tile.tileId) return;
+					// Render tile layer - iterate dense array
+					let tileCount = 0;
+					for (let index = 0; index < layer.tiles.length; index++) {
+						const tileId = layer.tiles[index];
+						if (tileId === 0) continue; // Skip empty tiles
 
-						const tileset = getTilesetById(tile.tilesetId);
-						if (!tileset?.imageData) return;
+						tileCount++;
+						// Calculate x, y position from array index
+						const x = index % mapData.width;
+						const y = Math.floor(index / mapData.width);
 
-						// Unpack tile geometry from the packed ID
-						const geometry = unpackTileId(tile.tileId);
+						// Unpack tile geometry from the packed ID (includes tileset index)
+						const geometry = unpackTileId(tileId);
 
-						// Try to find tile definition for tiles with properties (optional)
-						const tileDefinition = tileset.tiles.find(t => t.id === tile.tileId);
+						console.log('Rendering tile:', {
+							index, x, y, tileId, geometry,
+							tilesetsLength: tilesets.length,
+							tilesetAtIndex: tilesets[geometry.tilesetIndex]?.id
+						});
 
-						// Handle compound tiles with cellX/cellY
-						if (tile.cellX !== undefined && tile.cellY !== undefined) {
-							// This is a cell of a compound tile
-							// Calculate source position based on cell offset
-							const sourceX = geometry.x + (tile.cellX * tileset.tileWidth);
-							const sourceY = geometry.y + (tile.cellY * tileset.tileHeight);
-
-							ctx.drawImage(
-								tileset.imageData,
-								sourceX,
-								sourceY,
-								tileset.tileWidth,
-								tileset.tileHeight,
-								tile.x * mapData.tileWidth,
-								tile.y * mapData.tileHeight,
-								tileset.tileWidth,
-								tileset.tileHeight,
-							);
-						} else {
-							// Regular single tile - use unpacked geometry
-							ctx.drawImage(
-								tileset.imageData,
-								geometry.x,
-								geometry.y,
-								geometry.width,
-								geometry.height,
-								tile.x * mapData.tileWidth,
-								tile.y * mapData.tileHeight,
-								geometry.width,
-								geometry.height
-							);
+						// Get tileset by index
+						const tileset = tilesets[geometry.tilesetIndex];
+						if (!tileset?.imageData) {
+							console.log('No tileset or imageData at index:', geometry.tilesetIndex);
+							continue;
 						}
-					});
+
+						// Create local tile ID (with tileset index 0) to find the tile definition
+						const localTileId = packTileId(geometry.x, geometry.y, 0, geometry.flipX, geometry.flipY);
+
+						// Try to find tile definition to get width/height for compound tiles
+						const tileDefinition = tileset.tiles.find(t => t.id === localTileId);
+
+						// Determine source width/height
+						let sourceWidth = tileset.tileWidth;
+						let sourceHeight = tileset.tileHeight;
+
+						if (tileDefinition?.width && tileDefinition?.height) {
+							// Compound tile - use definition's dimensions
+							sourceWidth = tileDefinition.width;
+							sourceHeight = tileDefinition.height;
+						}
+
+						// Draw the tile
+						ctx.drawImage(
+							tileset.imageData,
+							geometry.x,
+							geometry.y,
+							sourceWidth,
+							sourceHeight,
+							x * mapData.tileWidth,
+							y * mapData.tileHeight,
+							sourceWidth,
+							sourceHeight
+						);
+					}
 				} else if (layer.type === 'entity') {
 					// Render entity layer
 					layer.entities.forEach((entityInstance) => {
@@ -186,9 +196,17 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				const tileX = Math.floor(worldX / mapData.tileWidth);
 				const tileY = Math.floor(worldY / mapData.tileHeight);
 
-				const tileset = getTilesetById(tilesetId);
+				// Unpack tileId to get tileset index and geometry
+				const geometry = unpackTileId(tileId);
+				const tileset = tilesets[geometry.tilesetIndex];
 				if (tileset?.imageData) {
-					const geometry = unpackTileId(tileId);
+					// Create local tile ID to find definition
+					const localTileId = packTileId(geometry.x, geometry.y, 0, geometry.flipX, geometry.flipY);
+					const tileDef = tileset.tiles.find(t => t.id === localTileId);
+
+					// Determine dimensions (use tile definition if compound, otherwise use tileset defaults)
+					const sourceWidth = tileDef?.width || tileset.tileWidth;
+					const sourceHeight = tileDef?.height || tileset.tileHeight;
 
 					// Semi-transparent preview
 					ctx.globalAlpha = 0.5;
@@ -197,12 +215,12 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 						tileset.imageData,
 						geometry.x,
 						geometry.y,
-						geometry.width,
-						geometry.height,
+						sourceWidth,
+						sourceHeight,
 						tileX * mapData.tileWidth,
 						tileY * mapData.tileHeight,
-						geometry.width,
-						geometry.height
+						sourceWidth,
+						sourceHeight
 					);
 
 					ctx.globalAlpha = 1.0;

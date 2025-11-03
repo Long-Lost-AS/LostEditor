@@ -37,6 +37,7 @@ import {
 	updateTileAndNeighbors,
 	getAllAutotileGroups,
 } from "../utils/autotiling";
+import { unpackTileId, packTileId } from "../utils/tileId";
 
 interface EditorContextType {
 	// Tab state
@@ -466,57 +467,73 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
+			// Find tileset index for creating global tile IDs
+			const tilesetIndex = selectedTilesetId
+				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
+				: -1;
+
+			if (tilesetIndex === -1 || !selectedTileId) return;
+
+			// Unpack the selected tile ID (which may not have tileset index yet from old format)
+			const geometry = unpackTileId(selectedTileId);
+
+			// Repack with the correct tileset index to create a global tile ID
+			const globalTileId = packTileId(
+				geometry.x,
+				geometry.y,
+				tilesetIndex,
+				geometry.flipX,
+				geometry.flipY
+			);
+
 			// Update state immutably
 			setMapData((prev) => ({
 				...prev,
 				layers: prev.layers.map((layer) => {
 					if (layer.id === currentLayer.id) {
-						const newTiles = new Map(layer.tiles);
+						const newTiles = [...layer.tiles]; // Copy the dense array
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
 
-						// Handle compound tiles (tiles with width and height defined)
-						if (
-							selectedTileDef &&
-							selectedTileDef.width &&
-							selectedTileDef.height
-						) {
+						// Handle compound tiles
+						if (selectedTileDef && selectedTileDef.isCompound) {
 							// Calculate cells from width/height
 							const tileWidth = selectedTileset?.tileWidth || 16;
 							const tileHeight = selectedTileset?.tileHeight || 16;
-							const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
+							const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
 							const heightInTiles = Math.ceil(
-								selectedTileDef.height / tileHeight,
+								selectedTileDef.height! / tileHeight,
 							);
 
 							// Place all cells of the compound tile
 							for (let dy = 0; dy < heightInTiles; dy++) {
 								for (let dx = 0; dx < widthInTiles; dx++) {
-									if (!selectedTilesetId || !selectedTileId) continue;
-
 									const cellX = x + dx;
 									const cellY = y + dy;
 
-									const tile: Tile = {
-										x: cellX,
-										y: cellY,
-										tilesetId: selectedTilesetId,
-										tileId: selectedTileId, // Reference to the compound tile definition
-										cellX: dx, // Which cell within the compound tile
-										cellY: dy,
-									};
-
-									newTiles.set(`${cellX},${cellY}`, tile);
+									// Check bounds
+									if (cellX >= 0 && cellY >= 0 && cellX < mapWidth && cellY < mapHeight) {
+										// Each cell of the compound tile should reference a different part of the sprite
+										const cellSpriteX = geometry.x + (dx * tileWidth);
+										const cellSpriteY = geometry.y + (dy * tileHeight);
+										const cellTileId = packTileId(
+											cellSpriteX,
+											cellSpriteY,
+											tilesetIndex,
+											geometry.flipX,
+											geometry.flipY
+										);
+										const index = cellY * mapWidth + cellX;
+										newTiles[index] = cellTileId;
+									}
 								}
 							}
-						} else if (selectedTilesetId && selectedTileId) {
+						} else {
 							// Regular single tile
-							const tile: Tile = {
-								x,
-								y,
-								tilesetId: selectedTilesetId,
-								tileId: selectedTileId,
-							};
-
-							newTiles.set(`${x},${y}`, tile);
+							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+								const index = y * mapWidth + x;
+								newTiles[index] = globalTileId;
+							}
 						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
@@ -525,23 +542,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
 						if (autotilingEnabled && !autotilingOverride) {
 							// Get all autotile groups from loaded tilesets
-							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
-							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
 								// Determine which positions to update (placed tile + neighbors)
 								const positionsToUpdate: Array<{ x: number; y: number }> = [];
 
 								// Handle compound tiles (multiple cells)
-								if (
-									selectedTileDef &&
-									selectedTileDef.width &&
-									selectedTileDef.height
-								) {
+								if (selectedTileDef && selectedTileDef.isCompound) {
 									const tileWidth = selectedTileset?.tileWidth || 16;
 									const tileHeight = selectedTileset?.tileHeight || 16;
-									const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
-									const heightInTiles = Math.ceil(selectedTileDef.height / tileHeight);
+									const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
+									const heightInTiles = Math.ceil(selectedTileDef.height! / tileHeight);
 
 									for (let dy = 0; dy < heightInTiles; dy++) {
 										for (let dx = 0; dx < widthInTiles; dx++) {
@@ -557,13 +569,14 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									positionsToUpdate,
-									tilesetsMap,
-									autotileGroups
+									mapWidth,
+									mapHeight,
+									tilesets
 								);
 
 								// Merge autotiled tiles back into the layer
-								for (const [posKey, tile] of autotiledTiles) {
-									newTiles.set(posKey, tile);
+								for (const update of autotiledTiles) {
+									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };
@@ -598,8 +611,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				...prev,
 				layers: prev.layers.map((layer) => {
 					if (layer.id === currentLayer.id) {
-						const newTiles = new Map(layer.tiles);
-						newTiles.delete(`${x},${y}`);
+						const newTiles = [...layer.tiles]; // Copy the dense array
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
+
+						// Erase the tile by setting it to 0
+						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+							const index = y * mapWidth + x;
+							newTiles[index] = 0;
+						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
 
@@ -607,21 +627,21 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
 						if (autotilingEnabled && !autotilingOverride) {
 							// Get all autotile groups from loaded tilesets
-							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
-							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
 								// Update the 8 neighbors around the erased tile
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									[{ x, y }],
-									tilesetsMap,
-									autotileGroups
+									mapWidth,
+									mapHeight,
+									tilesets
 								);
 
 								// Merge autotiled tiles back into the layer
-								for (const [posKey, tile] of autotiledTiles) {
-									newTiles.set(posKey, tile);
+								for (const update of autotiledTiles) {
+									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };

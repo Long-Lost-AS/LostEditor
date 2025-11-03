@@ -9,6 +9,7 @@ import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { entityManager } from "../managers/EntityManager";
 import { updateTileAndNeighbors, getAllAutotileGroups } from "../utils/autotiling";
 import { createDefaultMapData } from "../schemas";
+import { unpackTileId, packTileId } from "../utils/tileId";
 
 interface MapEditorViewProps {
 	tab: MapTab;
@@ -173,7 +174,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			name: `Layer ${localMapData.layers.length + 1}`,
 			visible: true,
 			type: 'tile' as const,
-			tiles: new Map(),
+			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
 			entities: [],
 			autotilingEnabled: true,
 		};
@@ -262,59 +263,75 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
+			// Find tileset index for creating global tile IDs
+			const tilesetIndex = selectedTilesetId
+				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
+				: -1;
+
+			console.log('handlePlaceTile:', { x, y, selectedTilesetId, tilesetIndex, selectedTileId });
+
+			if (tilesetIndex === -1 || !selectedTileId) {
+				console.log('Returning early:', { tilesetIndex, selectedTileId });
+				return;
+			}
+
+			// Unpack the selected tile ID
+			const geometry = unpackTileId(selectedTileId);
+			console.log('Unpacked geometry:', geometry);
+
+			// Repack with the correct tileset index to create a global tile ID
+			const globalTileId = packTileId(
+				geometry.x,
+				geometry.y,
+				tilesetIndex,
+				geometry.flipX,
+				geometry.flipY
+			);
+
+	
 			// Update localMapData immutably
 			setLocalMapData((prev) => ({
 				...prev,
 				layers: prev.layers.map((layer) => {
 					if (layer.id === currentLayer.id) {
-						const newTiles = new Map(layer.tiles);
+						const newTiles = [...layer.tiles]; // Copy the dense array
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
 
 						// Handle compound tiles
-						if (
-							selectedTileDef &&
-							selectedTileDef.width &&
-							selectedTileDef.height
-						) {
+						if (selectedTileDef && selectedTileDef.isCompound) {
 							const tileWidth = selectedTileset?.tileWidth || 16;
 							const tileHeight = selectedTileset?.tileHeight || 16;
-							const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
-							const heightInTiles = Math.ceil(selectedTileDef.height / tileHeight);
+							const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
+							const heightInTiles = Math.ceil(selectedTileDef.height! / tileHeight);
 
 							for (let dy = 0; dy < heightInTiles; dy++) {
 								for (let dx = 0; dx < widthInTiles; dx++) {
-									if (!selectedTilesetId || !selectedTileId) continue;
-
 									const cellX = x + dx;
 									const cellY = y + dy;
 
 									// Only place tiles that are within map bounds
-									if (cellX < 0 || cellX >= prev.width || cellY < 0 || cellY >= prev.height) {
-										continue;
+									if (cellX >= 0 && cellY >= 0 && cellX < mapWidth && cellY < mapHeight) {
+										// Each cell of the compound tile should reference a different part of the sprite
+										const cellSpriteX = geometry.x + (dx * tileWidth);
+										const cellSpriteY = geometry.y + (dy * tileHeight);
+										const cellTileId = packTileId(
+											cellSpriteX,
+											cellSpriteY,
+											tilesetIndex,
+											geometry.flipX,
+											geometry.flipY
+										);
+										const index = cellY * mapWidth + cellX;
+										newTiles[index] = cellTileId;
 									}
-
-									const tile: Tile = {
-										x: cellX,
-										y: cellY,
-										tilesetId: selectedTilesetId,
-										tileId: selectedTileId,
-										cellX: dx,
-										cellY: dy,
-									};
-
-									newTiles.set(`${cellX},${cellY}`, tile);
 								}
 							}
-						} else if (selectedTilesetId && selectedTileId) {
+						} else {
 							// Regular single tile - only place if within bounds
-							if (x >= 0 && x < prev.width && y >= 0 && y < prev.height) {
-								const tile: Tile = {
-									x,
-									y,
-									tilesetId: selectedTilesetId,
-									tileId: selectedTileId,
-								};
-
-								newTiles.set(`${x},${y}`, tile);
+							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+								const index = y * mapWidth + x;
+								newTiles[index] = globalTileId;
 							}
 						}
 
@@ -323,21 +340,16 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						// Apply autotiling if enabled
 						const autotilingEnabled = layer.autotilingEnabled !== false;
 						if (autotilingEnabled && !autotilingOverride) {
-							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
-							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
 								const positionsToUpdate: Array<{ x: number; y: number }> = [];
 
-								if (
-									selectedTileDef &&
-									selectedTileDef.width &&
-									selectedTileDef.height
-								) {
+								if (selectedTileDef && selectedTileDef.isCompound) {
 									const tileWidth = selectedTileset?.tileWidth || 16;
 									const tileHeight = selectedTileset?.tileHeight || 16;
-									const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
-									const heightInTiles = Math.ceil(selectedTileDef.height / tileHeight);
+									const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
+									const heightInTiles = Math.ceil(selectedTileDef.height! / tileHeight);
 
 									for (let dy = 0; dy < heightInTiles; dy++) {
 										for (let dx = 0; dx < widthInTiles; dx++) {
@@ -351,12 +363,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									positionsToUpdate,
-									tilesetsMap,
-									autotileGroups
+									mapWidth,
+									mapHeight,
+									tilesets
 								);
 
-								for (const [posKey, tile] of autotiledTiles) {
-									newTiles.set(posKey, tile);
+								for (const update of autotiledTiles) {
+									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };
@@ -382,27 +395,34 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				...prev,
 				layers: prev.layers.map((layer) => {
 					if (layer.id === currentLayer.id) {
-						const newTiles = new Map(layer.tiles);
-						newTiles.delete(`${x},${y}`);
+						const newTiles = [...layer.tiles]; // Copy the dense array
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
+
+						// Erase the tile by setting it to 0
+						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+							const index = y * mapWidth + x;
+							newTiles[index] = 0;
+						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
 
 						// Apply autotiling to neighbors
 						const autotilingEnabled = layer.autotilingEnabled !== false;
 						if (autotilingEnabled && !autotilingOverride) {
-							const tilesetsMap = new Map(tilesets.map(ts => [ts.id, ts]));
-							const autotileGroups = getAllAutotileGroups(tilesetsMap);
+							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									[{ x, y }],
-									tilesetsMap,
-									autotileGroups
+									mapWidth,
+									mapHeight,
+									tilesets
 								);
 
-								for (const [posKey, tile] of autotiledTiles) {
-									newTiles.set(posKey, tile);
+								for (const update of autotiledTiles) {
+									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };
