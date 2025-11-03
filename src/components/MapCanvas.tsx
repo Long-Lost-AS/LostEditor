@@ -11,7 +11,12 @@ interface MapCanvasProps {
 	onPlaceEntity: (x: number, y: number) => void;
 }
 
-export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: MapCanvasProps) => {
+export const MapCanvas = ({
+	mapData,
+	onPlaceTile,
+	onEraseTile,
+	onPlaceEntity,
+}: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
 		currentTool,
@@ -33,7 +38,10 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartY, setDragStartY] = useState(0);
-	const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number } | null>(null);
+	const [mouseScreenPos, setMouseScreenPos] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
@@ -52,7 +60,15 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 		selectedTilesetIdRef.current = selectedTilesetId;
 		selectedTileIdRef.current = selectedTileId;
 		currentToolRef.current = currentTool;
-	}, [panX, panY, zoom, mouseScreenPos, selectedTilesetId, selectedTileId, currentTool]);
+	}, [
+		panX,
+		panY,
+		zoom,
+		mouseScreenPos,
+		selectedTilesetId,
+		selectedTileId,
+		currentTool,
+	]);
 
 	// Extract render logic to a function so we can call it synchronously after resize
 	const renderMap = useRef<() => void>(() => {});
@@ -68,7 +84,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 
 			// Guard against undefined/invalid mapData
 			if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
-				console.error('MapCanvas: Invalid mapData received', mapData);
+				console.error("MapCanvas: Invalid mapData received", mapData);
 				return;
 			}
 
@@ -84,7 +100,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 			mapData.layers.forEach((layer) => {
 				if (!layer.visible) return;
 
-				if (layer.type === 'tile' || !layer.type) {
+				if (layer.type === "tile" || !layer.type) {
 					// Render tile layer - iterate dense array
 					let tileCount = 0;
 					for (let index = 0; index < layer.tiles.length; index++) {
@@ -99,24 +115,29 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 						// Unpack tile geometry from the packed ID (includes tileset index)
 						const geometry = unpackTileId(tileId);
 
-						console.log('Rendering tile:', {
-							index, x, y, tileId, geometry,
-							tilesetsLength: tilesets.length,
-							tilesetAtIndex: tilesets[geometry.tilesetIndex]?.id
-						});
-
 						// Get tileset by index
 						const tileset = tilesets[geometry.tilesetIndex];
 						if (!tileset?.imageData) {
-							console.log('No tileset or imageData at index:', geometry.tilesetIndex);
+							console.log(
+								"No tileset or imageData at index:",
+								geometry.tilesetIndex,
+							);
 							continue;
 						}
 
 						// Create local tile ID (with tileset index 0) to find the tile definition
-						const localTileId = packTileId(geometry.x, geometry.y, 0, geometry.flipX, geometry.flipY);
+						const localTileId = packTileId(
+							geometry.x,
+							geometry.y,
+							0,
+							geometry.flipX,
+							geometry.flipY,
+						);
 
 						// Try to find tile definition to get width/height for compound tiles
-						const tileDefinition = tileset.tiles.find(t => t.id === localTileId);
+						const tileDefinition = tileset.tiles.find(
+							(t) => t.id === localTileId,
+						);
 
 						// Determine source width/height
 						let sourceWidth = tileset.tileWidth;
@@ -138,10 +159,10 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 							x * mapData.tileWidth,
 							y * mapData.tileHeight,
 							sourceWidth,
-							sourceHeight
+							sourceHeight,
 						);
 					}
-				} else if (layer.type === 'entity') {
+				} else if (layer.type === "entity") {
 					// Render entity layer
 					layer.entities.forEach((entityInstance) => {
 						const tileset = getTilesetById(entityInstance.tilesetId);
@@ -149,7 +170,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 
 						const entityDef = entityManager.getEntityDefinition(
 							entityInstance.tilesetId,
-							entityInstance.entityDefId
+							entityInstance.entityDefId,
 						);
 
 						if (!entityDef) return;
@@ -168,7 +189,10 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				for (let x = 0; x <= mapData.width; x++) {
 					ctx.beginPath();
 					ctx.moveTo(x * mapData.tileWidth, 0);
-					ctx.lineTo(x * mapData.tileWidth, mapData.height * mapData.tileHeight);
+					ctx.lineTo(
+						x * mapData.tileWidth,
+						mapData.height * mapData.tileHeight,
+					);
 					ctx.stroke();
 				}
 
@@ -186,7 +210,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 			const tilesetId = selectedTilesetIdRef.current;
 			const tileId = selectedTileIdRef.current;
 
-			if (mousePos && tool === 'pencil' && tilesetId && tileId && canvas) {
+			if (mousePos && tool === "pencil" && tilesetId && tileId && canvas) {
 				// Calculate tile position from screen coordinates using current pan/zoom
 				const rect = canvas.getBoundingClientRect();
 				const canvasX = mousePos.x - rect.left;
@@ -201,8 +225,14 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 				const tileset = tilesets[geometry.tilesetIndex];
 				if (tileset?.imageData) {
 					// Create local tile ID to find definition
-					const localTileId = packTileId(geometry.x, geometry.y, 0, geometry.flipX, geometry.flipY);
-					const tileDef = tileset.tiles.find(t => t.id === localTileId);
+					const localTileId = packTileId(
+						geometry.x,
+						geometry.y,
+						0,
+						geometry.flipX,
+						geometry.flipY,
+					);
+					const tileDef = tileset.tiles.find((t) => t.id === localTileId);
 
 					// Determine dimensions (use tile definition if compound, otherwise use tileset defaults)
 					const sourceWidth = tileDef?.width || tileset.tileWidth;
@@ -220,7 +250,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 						tileX * mapData.tileWidth,
 						tileY * mapData.tileHeight,
 						sourceWidth,
-						sourceHeight
+						sourceHeight,
 					);
 
 					ctx.globalAlpha = 1.0;
@@ -229,12 +259,38 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 
 			ctx.restore();
 		};
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, mouseScreenPos, currentTool, selectedTilesetId, selectedTileId]);
+	}, [
+		mapData,
+		tilesetImage,
+		tilesets,
+		zoom,
+		panX,
+		panY,
+		gridVisible,
+		getTilesetById,
+		mouseScreenPos,
+		currentTool,
+		selectedTilesetId,
+		selectedTileId,
+	]);
 
 	// Trigger render when dependencies change
 	useEffect(() => {
 		renderMap.current();
-	}, [mapData, tilesetImage, tilesets, zoom, panX, panY, gridVisible, getTilesetById, mouseScreenPos, currentTool, selectedTilesetId, selectedTileId]);
+	}, [
+		mapData,
+		tilesetImage,
+		tilesets,
+		zoom,
+		panX,
+		panY,
+		gridVisible,
+		getTilesetById,
+		mouseScreenPos,
+		currentTool,
+		selectedTilesetId,
+		selectedTileId,
+	]);
 
 	// Render an entity with its hierarchy
 	const renderEntity = (
@@ -244,14 +300,15 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 		tilesetImage: HTMLImageElement,
 		parentX: number = instance.x,
 		parentY: number = instance.y,
-		parentRotation: number = 0
+		parentRotation: number = 0,
 	) => {
 		ctx.save();
 
 		// Apply instance transform
 		const x = parentX + (entityDef.offset?.x || 0);
 		const y = parentY + (entityDef.offset?.y || 0);
-		const rotation = parentRotation + (entityDef.rotation || 0) + (instance.rotation || 0);
+		const rotation =
+			parentRotation + (entityDef.rotation || 0) + (instance.rotation || 0);
 
 		ctx.translate(x, y);
 		if (rotation !== 0) {
@@ -268,7 +325,7 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 			0,
 			0,
 			entityDef.sprite.width,
-			entityDef.sprite.height
+			entityDef.sprite.height,
 		);
 
 		ctx.restore();
@@ -427,19 +484,19 @@ export const MapCanvas = ({ mapData, onPlaceTile, onEraseTile, onPlaceEntity }: 
 			{autotilingOverride && (
 				<div
 					style={{
-						position: 'absolute',
-						top: '10px',
-						left: '50%',
-						transform: 'translateX(-50%)',
-						background: 'rgba(255, 165, 0, 0.9)',
-						color: 'white',
-						padding: '6px 12px',
-						borderRadius: '4px',
-						fontSize: '12px',
-						fontWeight: 'bold',
-						pointerEvents: 'none',
+						position: "absolute",
+						top: "10px",
+						left: "50%",
+						transform: "translateX(-50%)",
+						background: "rgba(255, 165, 0, 0.9)",
+						color: "white",
+						padding: "6px 12px",
+						borderRadius: "4px",
+						fontSize: "12px",
+						fontWeight: "bold",
+						pointerEvents: "none",
 						zIndex: 1000,
-						boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+						boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
 					}}
 				>
 					AUTOTILING DISABLED (Shift)

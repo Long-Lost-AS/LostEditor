@@ -7,7 +7,10 @@ import { TilesetPanel } from "./TilesetPanel";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { entityManager } from "../managers/EntityManager";
-import { updateTileAndNeighbors, getAllAutotileGroups } from "../utils/autotiling";
+import {
+	updateTileAndNeighbors,
+	getAllAutotileGroups,
+} from "../utils/autotiling";
 import { createDefaultMapData } from "../schemas";
 import { unpackTileId, packTileId } from "../utils/tileId";
 
@@ -35,7 +38,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Guard against undefined - map should always exist in global state
 	if (!mapData) {
 		return (
-			<div className="flex items-center justify-center h-full" style={{ background: "#1e1e1e", color: "#cccccc" }}>
+			<div
+				className="flex items-center justify-center h-full"
+				style={{ background: "#1e1e1e", color: "#cccccc" }}
+			>
 				<div className="text-center">
 					<div className="text-xl mb-2">Map not found</div>
 					<div className="text-sm opacity-70">Map ID: {tab.mapId}</div>
@@ -49,20 +55,16 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const [
 		localMapData,
 		setLocalMapData,
-		{
-			undo,
-			redo,
-			canUndo,
-			canRedo,
-			reset: resetMapHistory,
-		},
+		{ undo, redo, canUndo, canRedo, reset: resetMapHistory },
 	] = useUndoableReducer<MapData>(mapData);
 
 	// Register undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
 
 	const [isEditingName, setIsEditingName] = useState(false);
-	const [editedName, setEditedName] = useState(localMapData?.name || "Untitled Map");
+	const [editedName, setEditedName] = useState(
+		localMapData?.name || "Untitled Map",
+	);
 	const [rightPanelWidth, setRightPanelWidth] = useState(350);
 	const [isResizing, setIsResizing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
@@ -119,7 +121,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Sync current layer to EditorContext for MapCanvas and other components
 	useEffect(() => {
 		if (!localMapData?.layers) return;
-		const layer = localMapData.layers.find(l => l.id === currentLayerId);
+		const layer = localMapData.layers.find((l) => l.id === currentLayerId);
 		setCurrentLayer(layer || null);
 	}, [currentLayerId, localMapData?.layers, setCurrentLayer]);
 
@@ -157,7 +159,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		});
 	};
 
-	const handleTileSizeChange = (field: "tileWidth" | "tileHeight", value: number) => {
+	const handleTileSizeChange = (
+		field: "tileWidth" | "tileHeight",
+		value: number,
+	) => {
 		if (!localMapData) return;
 		setLocalMapData({
 			...localMapData,
@@ -166,14 +171,16 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	};
 
 	// Get current layer from local state
-	const currentLayer = localMapData?.layers?.find(l => l.id === currentLayerId);
+	const currentLayer = localMapData?.layers?.find(
+		(l) => l.id === currentLayerId,
+	);
 
 	const handleAddLayer = () => {
 		const newLayer = {
 			id: `layer-${Date.now()}`,
 			name: `Layer ${localMapData.layers.length + 1}`,
 			visible: true,
-			type: 'tile' as const,
+			type: "tile" as const,
 			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
 			entities: [],
 			autotilingEnabled: true,
@@ -190,7 +197,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
-			layers: localMapData.layers.filter(l => l.id !== layerId),
+			layers: localMapData.layers.filter((l) => l.id !== layerId),
 		});
 		if (currentLayerId === layerId) {
 			setCurrentLayerId(localMapData.layers[0]?.id || null);
@@ -201,8 +208,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
-			layers: localMapData.layers.map(l =>
-				l.id === layerId ? { ...l, visible } : l
+			layers: localMapData.layers.map((l) =>
+				l.id === layerId ? { ...l, visible } : l,
 			),
 		});
 	};
@@ -211,8 +218,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
-			layers: localMapData.layers.map(l =>
-				l.id === layerId ? { ...l, name } : l
+			layers: localMapData.layers.map((l) =>
+				l.id === layerId ? { ...l, name } : l,
 			),
 		});
 	};
@@ -221,8 +228,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
-			layers: localMapData.layers.map(l =>
-				l.id === layerId ? { ...l, autotilingEnabled: enabled } : l
+			layers: localMapData.layers.map((l) =>
+				l.id === layerId ? { ...l, autotilingEnabled: enabled } : l,
 			),
 		});
 	};
@@ -268,16 +275,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
 				: -1;
 
-			console.log('handlePlaceTile:', { x, y, selectedTilesetId, tilesetIndex, selectedTileId });
-
 			if (tilesetIndex === -1 || !selectedTileId) {
-				console.log('Returning early:', { tilesetIndex, selectedTileId });
 				return;
 			}
 
 			// Unpack the selected tile ID
 			const geometry = unpackTileId(selectedTileId);
-			console.log('Unpacked geometry:', geometry);
 
 			// Repack with the correct tileset index to create a global tile ID
 			const globalTileId = packTileId(
@@ -285,10 +288,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				geometry.y,
 				tilesetIndex,
 				geometry.flipX,
-				geometry.flipY
+				geometry.flipY,
 			);
 
-	
 			// Update localMapData immutably
 			setLocalMapData((prev) => ({
 				...prev,
@@ -302,8 +304,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						if (selectedTileDef && selectedTileDef.isCompound) {
 							const tileWidth = selectedTileset?.tileWidth || 16;
 							const tileHeight = selectedTileset?.tileHeight || 16;
-							const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
-							const heightInTiles = Math.ceil(selectedTileDef.height! / tileHeight);
+							const widthInTiles = Math.ceil(
+								selectedTileDef.width! / tileWidth,
+							);
+							const heightInTiles = Math.ceil(
+								selectedTileDef.height! / tileHeight,
+							);
 
 							for (let dy = 0; dy < heightInTiles; dy++) {
 								for (let dx = 0; dx < widthInTiles; dx++) {
@@ -311,16 +317,21 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									const cellY = y + dy;
 
 									// Only place tiles that are within map bounds
-									if (cellX >= 0 && cellY >= 0 && cellX < mapWidth && cellY < mapHeight) {
+									if (
+										cellX >= 0 &&
+										cellY >= 0 &&
+										cellX < mapWidth &&
+										cellY < mapHeight
+									) {
 										// Each cell of the compound tile should reference a different part of the sprite
-										const cellSpriteX = geometry.x + (dx * tileWidth);
-										const cellSpriteY = geometry.y + (dy * tileHeight);
+										const cellSpriteX = geometry.x + dx * tileWidth;
+										const cellSpriteY = geometry.y + dy * tileHeight;
 										const cellTileId = packTileId(
 											cellSpriteX,
 											cellSpriteY,
 											tilesetIndex,
 											geometry.flipX,
-											geometry.flipY
+											geometry.flipY,
 										);
 										const index = cellY * mapWidth + cellX;
 										newTiles[index] = cellTileId;
@@ -348,8 +359,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								if (selectedTileDef && selectedTileDef.isCompound) {
 									const tileWidth = selectedTileset?.tileWidth || 16;
 									const tileHeight = selectedTileset?.tileHeight || 16;
-									const widthInTiles = Math.ceil(selectedTileDef.width! / tileWidth);
-									const heightInTiles = Math.ceil(selectedTileDef.height! / tileHeight);
+									const widthInTiles = Math.ceil(
+										selectedTileDef.width! / tileWidth,
+									);
+									const heightInTiles = Math.ceil(
+										selectedTileDef.height! / tileHeight,
+									);
 
 									for (let dy = 0; dy < heightInTiles; dy++) {
 										for (let dx = 0; dx < widthInTiles; dx++) {
@@ -365,7 +380,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									positionsToUpdate,
 									mapWidth,
 									mapHeight,
-									tilesets
+									tilesets,
 								);
 
 								for (const update of autotiledTiles) {
@@ -384,7 +399,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			}));
 			setProjectModified(true);
 		},
-		[currentLayer, selectedTilesetId, selectedTileId, tilesets, autotilingOverride, setProjectModified],
+		[
+			currentLayer,
+			selectedTilesetId,
+			selectedTileId,
+			tilesets,
+			autotilingOverride,
+			setProjectModified,
+		],
 	);
 
 	const handleEraseTile = useCallback(
@@ -418,7 +440,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									[{ x, y }],
 									mapWidth,
 									mapHeight,
-									tilesets
+									tilesets,
 								);
 
 								for (const update of autotiledTiles) {
@@ -601,7 +623,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									<div className="flex items-center gap-2">
 										<DragNumberInput
 											value={localMapData?.tileWidth ?? 16}
-											onChange={(value) => handleTileSizeChange("tileWidth", value)}
+											onChange={(value) =>
+												handleTileSizeChange("tileWidth", value)
+											}
 											min={1}
 											max={256}
 											step={1}
@@ -611,7 +635,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										<span style={{ color: "#858585" }}>×</span>
 										<DragNumberInput
 											value={localMapData?.tileHeight ?? 16}
-											onChange={(value) => handleTileSizeChange("tileHeight", value)}
+											onChange={(value) =>
+												handleTileSizeChange("tileHeight", value)
+											}
 											min={1}
 											max={256}
 											step={1}
@@ -624,10 +650,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						</div>
 
 						{/* Layers Panel */}
-						<div
-							className="pt-4"
-							style={{ borderTop: "1px solid #3e3e42" }}
-						>
+						<div className="pt-4" style={{ borderTop: "1px solid #3e3e42" }}>
 							<div>
 								<div
 									className="text-xs font-semibold uppercase tracking-wide mb-2"
@@ -658,7 +681,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 												checked={layer.visible}
 												onChange={(e) => {
 													e.stopPropagation();
-													handleUpdateLayerVisibility(layer.id, e.target.checked);
+													handleUpdateLayerVisibility(
+														layer.id,
+														e.target.checked,
+													);
 												}}
 												title="Toggle visibility"
 												style={{ accentColor: "#007acc" }}
@@ -669,7 +695,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 														e.stopPropagation();
 														handleUpdateLayerAutotiling(
 															layer.id,
-															!(layer.autotilingEnabled !== false)
+															!(layer.autotilingEnabled !== false),
 														);
 													}}
 													title={
@@ -682,7 +708,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 														border: "none",
 														cursor: "pointer",
 														padding: "2px 4px",
-														opacity: layer.autotilingEnabled !== false ? 1 : 0.3,
+														opacity:
+															layer.autotilingEnabled !== false ? 1 : 0.3,
 														fontSize: "14px",
 													}}
 												>
@@ -730,7 +757,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										+ Add Layer
 									</button>
 									<button
-										onClick={() => currentLayer && handleRemoveLayer(currentLayer.id)}
+										onClick={() =>
+											currentLayer && handleRemoveLayer(currentLayer.id)
+										}
 										disabled={!currentLayer}
 										className="px-2 py-1.5 text-xs rounded transition-colors"
 										style={{
