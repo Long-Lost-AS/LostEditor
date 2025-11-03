@@ -34,9 +34,10 @@ export interface SpriteLayer {
 }
 
 export interface TileDefinition {
-  id: number        // Packed tile ID (geometry + flips encoded)
-  x: number
-  y: number
+  id: number        // Packed tile ID (sprite position + tileset index + flips)
+  x: number         // Sprite x position in tileset image
+  y: number         // Sprite y position in tileset image
+  isCompound?: boolean  // True if this is a compound/multi-tile sprite
   width?: number    // For compound tiles: width in pixels
   height?: number   // For compound tiles: height in pixels
   colliders?: PolygonCollider[]  // Multiple colliders
@@ -92,8 +93,7 @@ export interface TilesetData {
 export interface Tile {
   x: number              // Position on map (grid coordinates)
   y: number              // Position on map (grid coordinates)
-  tilesetId: string      // Reference to tileset
-  tileId: number         // Packed tile ID (geometry + flips encoded)
+  tileId: number         // Packed tile ID (sprite position + tileset index + flips)
   // For compound tiles: which cell within the compound tile (offset in tiles)
   cellX?: number
   cellY?: number
@@ -118,7 +118,7 @@ export interface Layer {
   name: string
   visible: boolean
   type: LayerType
-  tiles: Map<string, Tile>        // For tile layers
+  tiles: number[]                  // Dense array of packed tile IDs (width * height entries, 0 = empty)
   entities: EntityInstance[]       // For entity layers
   autotilingEnabled?: boolean      // Whether autotiling is enabled for this layer (default: true)
 }
@@ -130,6 +130,32 @@ export interface MapData {
   tileWidth: number
   tileHeight: number
   layers: Layer[]
+}
+
+// ===========================
+// Serialized Map Types (for .lostmap files)
+// ===========================
+
+// Serialized layer format (version 4.0 - dense array)
+export interface SerializedLayer {
+  id: string
+  name: string
+  visible: boolean
+  type: LayerType
+  tiles: number[]                // Dense array of packed tile IDs (width * height entries)
+  entities: EntityInstance[]     // Entities unchanged
+  autotilingEnabled?: boolean
+}
+
+// Serialized map format (what's stored in .lostmap files version 4.0)
+export interface SerializedMapData {
+  version: string                // Format version ("4.0")
+  name: string
+  width: number
+  height: number
+  tileWidth: number
+  tileHeight: number
+  layers: SerializedLayer[]
 }
 
 // ===========================

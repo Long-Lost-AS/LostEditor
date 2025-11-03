@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+// Note: BigIntSchema removed - we now use regular numbers for tile IDs
+
 // ===========================
 // Collision Schemas
 // ===========================
@@ -50,6 +52,7 @@ export const TileDefinitionSchema = z.object({
   id: z.number(),
   x: z.number().optional(),  // Optional in saved files (unpacked from ID on load)
   y: z.number().optional(),  // Optional in saved files (unpacked from ID on load)
+  isCompound: z.boolean().optional(),  // True if this is a compound/multi-tile sprite
   width: z.number().optional(),
   height: z.number().optional(),
   colliders: z.array(PolygonColliderSchema).optional(),
@@ -101,15 +104,7 @@ export const TilesetDataSchema = z.object({
 // Map Schemas
 // ===========================
 
-export const TileSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  tilesetId: z.string(),
-  tileId: z.number(),
-  // For compound tiles: which cell within the compound tile
-  cellX: z.number().optional(),
-  cellY: z.number().optional()
-})
+// TileSchema removed - tiles are now stored as dense array of numbers
 
 // Entity instance is also recursive
 export const EntityInstanceSchema: z.ZodType<any> = z.lazy(() =>
@@ -136,7 +131,7 @@ export const LayerSchema = z.object({
   name: z.string(),
   visible: z.boolean(),
   type: LayerTypeSchema,
-  tiles: z.array(TileSchema).default([]), // Will be converted to Map in code
+  tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
   entities: z.array(EntityInstanceSchema).default([]),
   autotilingEnabled: z.boolean().optional().default(true)
 })
@@ -150,16 +145,111 @@ export const MapDataSchema = z.object({
   layers: z.array(LayerSchema).default([])
 })
 
-// Map file schema (for .lostmap files)
-export const MapFileSchema = z.object({
+// Schemas for serialized format (version 4.0 - dense array with regular numbers)
+export const SerializedLayerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  visible: z.boolean(),
+  type: LayerTypeSchema,
+  tiles: z.array(z.number()).default([]),  // Dense array of packed tile IDs
+  entities: z.array(EntityInstanceSchema).default([]),
+  autotilingEnabled: z.boolean().optional().default(true)
+})
+
+export const SerializedMapDataSchema = z.object({
+  version: z.literal("4.0"),  // New version
   name: z.string(),
   width: z.number().positive(),
   height: z.number().positive(),
   tileWidth: z.number().positive(),
   tileHeight: z.number().positive(),
-  layers: z.array(LayerSchema).default([]),
-  lastModified: z.string()
+  layers: z.array(SerializedLayerSchema).default([])
 })
+
+// Map file schema (for .lostmap files) - accepts old and new formats
+export const MapFileSchema = z.union([
+  // Version 1: Original format (without version field, with tilesetId)
+  z.object({
+    name: z.string(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    tileWidth: z.number().positive(),
+    tileHeight: z.number().positive(),
+    layers: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      visible: z.boolean(),
+      type: LayerTypeSchema,
+      tiles: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        tilesetId: z.string(),
+        tileId: z.number(),
+        cellX: z.number().optional(),
+        cellY: z.number().optional()
+      })).default([]),
+      entities: z.array(EntityInstanceSchema).default([]),
+      autotilingEnabled: z.boolean().optional().default(true)
+    })).default([]),
+    lastModified: z.string()
+  }),
+  // Version 2: firstgid format (with version "2.0" and tilesetReferences)
+  z.object({
+    version: z.literal("2.0"),
+    name: z.string(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    tileWidth: z.number().positive(),
+    tileHeight: z.number().positive(),
+    tilesetReferences: z.array(z.object({
+      id: z.string(),
+      source: z.string(),
+      firstgid: z.number(),
+      tileCount: z.number()
+    })),
+    layers: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      visible: z.boolean(),
+      type: LayerTypeSchema,
+      tiles: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        gid: z.number(),
+        cellX: z.number().optional(),
+        cellY: z.number().optional()
+      })).default([]),
+      entities: z.array(EntityInstanceSchema).default([]),
+      autotilingEnabled: z.boolean().optional().default(true)
+    })).default([])
+  }),
+  // Version 3: BigInt global tile IDs (with version "3.0" - sparse array)
+  z.object({
+    version: z.literal("3.0"),
+    name: z.string(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    tileWidth: z.number().positive(),
+    tileHeight: z.number().positive(),
+    layers: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      visible: z.boolean(),
+      type: LayerTypeSchema,
+      tiles: z.array(z.object({
+        x: z.number(),
+        y: z.number(),
+        gid: z.string(),  // BigInt as string
+        cellX: z.number().optional(),
+        cellY: z.number().optional()
+      })).default([]),
+      entities: z.array(EntityInstanceSchema).default([]),
+      autotilingEnabled: z.boolean().optional().default(true)
+    })).default([])
+  }),
+  // Version 4: Dense array with regular numbers (current format)
+  SerializedMapDataSchema
+])
 
 // ===========================
 // Project Schemas
@@ -229,14 +319,22 @@ export function createDefaultLayer(name: string = 'Layer 1', type: 'tile' | 'ent
 /**
  * Create valid default map data
  */
-export function createDefaultMapData(name: string = 'Untitled Map'): MapDataJson {
+export function createDefaultMapData(name: string = 'Untitled Map', width: number = 32, height: number = 32): MapDataJson {
   return MapDataSchema.parse({
     name,
-    width: 32,
-    height: 32,
+    width,
+    height,
     tileWidth: 16,
     tileHeight: 16,
-    layers: [createDefaultLayer('Layer 1', 'tile')]
+    layers: [{
+      id: `layer-${Date.now()}`,
+      name: 'Layer 1',
+      visible: true,
+      type: 'tile' as const,
+      tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
+      entities: [],
+      autotilingEnabled: true
+    }]
   })
 }
 
