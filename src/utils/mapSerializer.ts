@@ -1,0 +1,79 @@
+/**
+ * Map serialization utilities
+ * Converts between runtime format (MapData) and serialized format (SerializedMapData)
+ * Version 4.0: Uses dense arrays of regular numbers (48-bit packed tile IDs)
+ */
+
+import {
+	MapData,
+	Layer,
+	SerializedMapData,
+	SerializedLayer,
+} from "../types";
+
+/**
+ * Serialize map data to file format (dense array of tile IDs)
+ * @param mapData - Runtime map data
+ * @returns Serialized map data ready for JSON.stringify
+ */
+export function serializeMapData(mapData: MapData): SerializedMapData {
+	// Convert layers - tiles are already in the right format!
+	const serializedLayers: SerializedLayer[] = mapData.layers.map((layer) => ({
+		id: layer.id,
+		name: layer.name,
+		visible: layer.visible,
+		type: layer.type,
+		tiles: layer.tiles, // Dense array - already serializable!
+		entities: layer.entities,
+		autotilingEnabled: layer.autotilingEnabled,
+	}));
+
+	return {
+		version: "4.0",
+		name: mapData.name,
+		width: mapData.width,
+		height: mapData.height,
+		tileWidth: mapData.tileWidth,
+		tileHeight: mapData.tileHeight,
+		layers: serializedLayers,
+	};
+}
+
+/**
+ * Deserialize map data from file format
+ * @param serialized - Serialized map data from JSON
+ * @returns Runtime map data
+ */
+export function deserializeMapData(serialized: SerializedMapData): MapData {
+	// Convert layers - ensure tiles array has correct size
+	const layers: Layer[] = serialized.layers.map((layer) => {
+		// Tiles are already in the correct format
+		// Just ensure the array exists and has the right size for the map
+		const expectedSize = serialized.width * serialized.height;
+		let tiles = layer.tiles || [];
+
+		// If tiles array is too small, pad with zeros
+		if (tiles.length < expectedSize) {
+			tiles = [...tiles, ...new Array(expectedSize - tiles.length).fill(0)];
+		}
+
+		return {
+			id: layer.id,
+			name: layer.name,
+			visible: layer.visible,
+			type: layer.type,
+			tiles,
+			entities: layer.entities,
+			autotilingEnabled: layer.autotilingEnabled,
+		};
+	});
+
+	return {
+		name: serialized.name,
+		width: serialized.width,
+		height: serialized.height,
+		tileWidth: serialized.tileWidth,
+		tileHeight: serialized.tileHeight,
+		layers,
+	};
+}

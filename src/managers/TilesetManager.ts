@@ -36,9 +36,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       tileHeight: data.tileHeight,
       tiles: data.tiles
         .filter(tile => {
-          // Check if this is a compound tile by unpacking its ID
-          const geometry = unpackTileId(tile.id)
-          if (geometry.isCompound) return true
+          // Check if this is a compound tile
+          if (tile.isCompound) return true
 
           // For regular tiles, only save if they have properties
           return (tile.colliders && tile.colliders.length > 0) ||
@@ -46,8 +45,17 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
                  tile.type
         })
         .map(tile => {
-          // Only save id and properties (geometry is in the packed ID)
+          // Save id and properties (sprite position is in the packed ID)
           const saved: any = { id: tile.id }
+
+          // For compound tiles, save isCompound flag and dimensions
+          if (tile.isCompound) {
+            saved.isCompound = true
+            saved.width = tile.width
+            saved.height = tile.height
+          }
+
+          // Save optional properties
           if (tile.colliders && tile.colliders.length > 0) saved.colliders = tile.colliders
           if (tile.name) saved.name = tile.name
           if (tile.type) saved.type = tile.type
@@ -56,7 +64,12 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       terrainLayers: data.terrainLayers?.map(layer => ({
         ...layer,
         // Filter out tiles with bitmask 0 (nothing painted)
-        tiles: layer.tiles?.filter(t => t.bitmask !== 0)
+        tiles: layer.tiles
+          ?.filter(t => t.bitmask !== 0)
+          .map(t => ({
+            tileId: t.tileId, // No conversion needed - already a number
+            bitmask: t.bitmask
+          }))
       }))
     }
   }

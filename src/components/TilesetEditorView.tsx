@@ -290,12 +290,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.strokeStyle = "rgba(34, 197, 94, 0.8)"; // Green color
 			ctx.lineWidth = 2 / viewState.scale;
 			for (const tile of tilesetData.tiles) {
-				// Check isCompound flag from tile ID
-				const geometry = unpackTileId(tile.id);
-				if (geometry.isCompound) {
+				// Check the isCompound flag
+				if (tile.isCompound) {
 					// This is a compound tile
-					const tileWidth = tile.width || geometry.width;
-					const tileHeight = tile.height || geometry.height;
+					const tileWidth = tile.width!;
+					const tileHeight = tile.height!;
 
 					// Draw border around it
 					ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
@@ -427,11 +426,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tilePosY = tileY * tilesetData.tileHeight;
 
 							// Calculate tile ID for this position (terrain layers use IDs directly)
+							// Use 0 for tileset index - will be replaced with actual index when placed on map
+							// Width/height are looked up from tileset, not packed in ID
 							const tileId = packTileId(
 								tilePosX,
 								tilePosY,
-								tilesetData.tileWidth,
-								tilesetData.tileHeight,
+								0  // tileset index
 							);
 
 							// Get bitmask from terrain layer
@@ -600,11 +600,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// For terrain layers, we don't need tile entries in tiles[]
 		// Just work directly with the packed tile ID
+		// Use 0 for tileset index - will be replaced when placed on map
 		const tileId = packTileId(
 			tilePosX,
 			tilePosY,
-			tilesetData.tileWidth,
-			tilesetData.tileHeight,
+			0 // tileset index
 		);
 
 		// Get current bitmask from terrain layer
@@ -659,11 +659,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			const bitIndex = clampedRow * 3 + clampedCol;
 
 			// Calculate tile ID for this position (terrain layers use IDs directly)
+			// Use 0 for tileset index - will be replaced when placed on map
 			const tileId = packTileId(
 				tilePosX,
 				tilePosY,
-				tilesetData.tileWidth,
-				tilesetData.tileHeight,
+				0 // tileset index
 			);
 
 			// Determine the action based on whether the bit is currently set
@@ -784,11 +784,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					setSelectedCompoundTileId(existingTile.id);
 				} else {
 					// No tile entry exists yet, generate an ID for potential property editing
+					// Use 0 for tileset index - will be replaced when placed on map
 					const tileId = packTileId(
 						tilePosX,
 						tilePosY,
-						tilesetData.tileWidth,
-						tilesetData.tileHeight,
+						0 // tileset index
 					);
 					setSelectedCompoundTileId(tileId);
 				}
@@ -894,9 +894,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileWidth = width * tilesetData.tileWidth;
 		const tileHeight = height * tilesetData.tileHeight;
 		const newTile = {
-			id: packTileId(tileX, tileY, tileWidth, tileHeight, false, false, true), // isCompound=true
+			id: packTileId(tileX, tileY, 0), // tileset index=0 (compound tile)
 			x: tileX,
 			y: tileY,
+			isCompound: true,
 			width: tileWidth,
 			height: tileHeight,
 		};
