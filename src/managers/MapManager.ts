@@ -184,11 +184,48 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
     // Save the serialized data
     const fullPath = fileManager.resolvePath(filePath)
     const normalizedPath = fileManager.normalize(fullPath)
-    const jsonString = JSON.stringify(serialized, null, 2)
+
+    // Format tiles array with width-based rows for readability
+    const jsonString = this.formatMapJSON(serialized, mapData.width)
     await writeTextFile(fullPath, jsonString)
 
     // Update cache with the runtime format
     this.cache.set(normalizedPath, mapData)
+  }
+
+  /**
+   * Format map JSON with tiles arranged in rows matching map width
+   * @private
+   */
+  private formatMapJSON(serialized: SerializedMapData, mapWidth: number): string {
+    // First, stringify everything except tiles arrays normally
+    const replacer = (key: string, value: any) => {
+      // Don't process tiles arrays here - we'll handle them manually
+      if (key === 'tiles' && Array.isArray(value)) {
+        return '__TILES_PLACEHOLDER__'
+      }
+      return value
+    }
+
+    let jsonString = JSON.stringify(serialized, replacer, 2)
+
+    // Now replace each tiles placeholder with formatted flat array (row-based line breaks)
+    serialized.layers.forEach((layer) => {
+      if (layer.tiles && layer.tiles.length > 0) {
+        // Build a flat array string with line breaks every mapWidth tiles
+        const parts: string[] = []
+        for (let i = 0; i < layer.tiles.length; i += mapWidth) {
+          const row = layer.tiles.slice(i, i + mapWidth)
+          parts.push(row.join(', '))
+        }
+        const formattedTiles = `[\n        ${parts.join(',\n        ')}\n      ]`
+
+        // Replace the first occurrence of the placeholder
+        jsonString = jsonString.replace('"__TILES_PLACEHOLDER__"', formattedTiles)
+      }
+    })
+
+    return jsonString
   }
 
   /**
