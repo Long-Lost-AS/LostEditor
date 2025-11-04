@@ -44,6 +44,7 @@ export interface TileDefinition {
   colliders?: PolygonCollider[]  // Multiple colliders
   name?: string     // User-defined name for the tile
   type?: string     // Type classification for the tile
+  properties?: Record<string, string>  // Custom properties for compound tiles
 }
 
 export interface EntityDefinition {

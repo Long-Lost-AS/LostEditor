@@ -42,7 +42,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
           // For regular tiles, only save if they have properties
           return (tile.colliders && tile.colliders.length > 0) ||
                  tile.name ||
-                 tile.type
+                 tile.type ||
+                 (tile.properties && Object.keys(tile.properties).length > 0)
         })
         .map(tile => {
           // Save id and properties (sprite position is in the packed ID)
@@ -59,6 +60,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
           if (tile.colliders && tile.colliders.length > 0) saved.colliders = tile.colliders
           if (tile.name) saved.name = tile.name
           if (tile.type) saved.type = tile.type
+          if (tile.origin) saved.origin = tile.origin
+          if (tile.properties && Object.keys(tile.properties).length > 0) saved.properties = tile.properties
           return saved
         }),
       terrainLayers: data.terrainLayers?.map(layer => ({

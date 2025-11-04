@@ -5,6 +5,7 @@ import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { ShieldIcon, TrashIcon } from "./Icons";
 import { packTileId, unpackTileId } from "../utils/tileId";
+import { DragNumberInput } from "./DragNumberInput";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
@@ -69,6 +70,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		string | null
 	>(null);
 	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState("");
+	const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(
+		null,
+	);
+	const [editingPropertyValue, setEditingPropertyValue] = useState<
+		string | null
+	>(null);
 
 	// Unified undo/redo state for the entire tileset (tiles + terrainLayers)
 	// This ensures all operations share a single chronological history
@@ -1079,6 +1086,123 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 	};
 
+	// Add new property
+	const handleAddProperty = () => {
+		if (!selectedCompoundTileId) return;
+
+		// Generate a unique temporary key for the new property
+		const newKey = `__temp_${Date.now()}`;
+
+		const selectedTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
+
+		if (selectedTile) {
+			const updatedProperties = {
+				...(selectedTile.properties || {}),
+				[newKey]: "",
+			};
+
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
+					t.id === selectedCompoundTileId
+						? { ...t, properties: updatedProperties }
+						: t,
+				),
+				terrainLayers: localTerrainLayers,
+			});
+
+			setEditingPropertyKey(newKey);
+		}
+	};
+
+	// Delete property
+	const handleDeleteProperty = (key: string) => {
+		if (!selectedCompoundTileId) return;
+
+		const selectedTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
+
+		if (selectedTile && selectedTile.properties) {
+			const updatedProperties = { ...selectedTile.properties };
+			delete updatedProperties[key];
+
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
+					t.id === selectedCompoundTileId
+						? { ...t, properties: updatedProperties }
+						: t,
+				),
+				terrainLayers: localTerrainLayers,
+			});
+		}
+	};
+
+	// Update property key (rename)
+	const handleUpdatePropertyKey = (oldKey: string, newKey: string) => {
+		if (!selectedCompoundTileId) return;
+
+		// If empty key, delete the property
+		if (!newKey.trim()) {
+			handleDeleteProperty(oldKey);
+			setEditingPropertyKey(null);
+			return;
+		}
+
+		if (oldKey === newKey) return;
+
+		const selectedTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
+
+		if (selectedTile && selectedTile.properties) {
+			// Check if new key already exists
+			if (selectedTile.properties[newKey] && newKey !== oldKey) {
+				return; // Don't allow duplicate keys
+			}
+
+			const updatedProperties = { ...selectedTile.properties };
+			const value = updatedProperties[oldKey];
+			delete updatedProperties[oldKey];
+			updatedProperties[newKey] = value;
+
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
+					t.id === selectedCompoundTileId
+						? { ...t, properties: updatedProperties }
+						: t,
+				),
+				terrainLayers: localTerrainLayers,
+			});
+		}
+	};
+
+	// Update property value
+	const handleUpdatePropertyValue = (key: string, value: string) => {
+		if (!selectedCompoundTileId) return;
+
+		const selectedTile = localTiles.find(
+			(t) => t.id === selectedCompoundTileId,
+		);
+
+		if (selectedTile) {
+			const updatedProperties = {
+				...(selectedTile.properties || {}),
+				[key]: value,
+			};
+
+			setLocalTilesetState({
+				tiles: localTiles.map((t) =>
+					t.id === selectedCompoundTileId
+						? { ...t, properties: updatedProperties }
+						: t,
+				),
+				terrainLayers: localTerrainLayers,
+			});
+		}
+	};
+
 	const handleUpdateBitmask = (
 		tileId: number,
 		layerId: string,
@@ -1431,8 +1555,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							</div>
 						</div>
 
-						{/* Tile Properties */}
-						{selectedCompoundTileId && (
+						{/* Tile Properties moved to right sidebar */}
+						{false && selectedCompoundTileId && (
 							<div
 								className="mt-6 pt-4"
 								style={{ borderTop: "1px solid #3e3e42" }}
@@ -1652,7 +1776,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				</div>
 			</div>
 
-			{/* Right Side - Canvas Area */}
+			{/* Center - Canvas Area */}
 			<div
 				ref={containerRef}
 				className="flex-1 overflow-hidden bg-gray-900 relative"
@@ -1741,6 +1865,320 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					</div>
 				)}
 			</div>
+
+			{/* Right Sidebar - Tile Properties */}
+			{selectedCompoundTileId && (
+				<div
+					className="w-64 flex flex-col overflow-auto"
+					style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
+				>
+					<div className="p-4">
+						<div
+							className="text-xs font-semibold uppercase tracking-wide mb-3"
+							style={{ color: "#858585" }}
+						>
+							Tile Properties
+						</div>
+						<div className="space-y-3">
+							<div>
+								<label
+									className="text-xs font-medium block mb-1.5"
+									style={{ color: "#858585" }}
+								>
+									Name
+								</label>
+								{isEditingTileName ? (
+									<input
+										type="text"
+										defaultValue={selectedTile?.name || ""}
+										onBlur={(e) => {
+											handleUpdateTileName(e.target.value);
+											setIsEditingTileName(false);
+										}}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												handleUpdateTileName(e.currentTarget.value);
+												setIsEditingTileName(false);
+											} else if (e.key === "Escape") {
+												setIsEditingTileName(false);
+											}
+										}}
+										className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+										style={{
+											background: "#3e3e42",
+											color: "#cccccc",
+											border: "1px solid #1177bb",
+										}}
+										autoFocus
+									/>
+								) : (
+									<div
+										onClick={() => setIsEditingTileName(true)}
+										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
+										style={{
+											background: "#3e3e42",
+											color: "#cccccc",
+											border: "1px solid transparent",
+										}}
+										onMouseEnter={(e) =>
+											(e.currentTarget.style.borderColor = "#555")
+										}
+										onMouseLeave={(e) =>
+											(e.currentTarget.style.borderColor = "transparent")
+										}
+									>
+										{selectedTile?.name || "(none)"}
+									</div>
+								)}
+							</div>
+							<div>
+								<label
+									className="text-xs font-medium block mb-1.5"
+									style={{ color: "#858585" }}
+								>
+									Type
+								</label>
+								{isEditingTileType ? (
+									<input
+										type="text"
+										defaultValue={selectedTile?.type || ""}
+										onBlur={(e) => {
+											handleUpdateTileType(e.target.value);
+											setIsEditingTileType(false);
+										}}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												handleUpdateTileType(e.currentTarget.value);
+												setIsEditingTileType(false);
+											} else if (e.key === "Escape") {
+												setIsEditingTileType(false);
+											}
+										}}
+										className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+										style={{
+											background: "#3e3e42",
+											color: "#cccccc",
+											border: "1px solid #1177bb",
+										}}
+										autoFocus
+									/>
+								) : (
+									<div
+										onClick={() => setIsEditingTileType(true)}
+										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
+										style={{
+											background: "#3e3e42",
+											color: "#cccccc",
+											border: "1px solid transparent",
+										}}
+										onMouseEnter={(e) =>
+											(e.currentTarget.style.borderColor = "#555")
+										}
+										onMouseLeave={(e) =>
+											(e.currentTarget.style.borderColor = "transparent")
+										}
+									>
+										{selectedTile?.type || "(none)"}
+									</div>
+								)}
+							</div>
+							{/* Only show origin for compound tiles */}
+							{selectedTile?.isCompound && (
+								<div>
+									<label
+										className="text-xs font-medium block mb-1.5"
+										style={{ color: "#858585" }}
+									>
+										Origin
+									</label>
+									<div className="grid grid-cols-2 gap-2">
+										<div className="flex">
+											<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+												X
+											</div>
+											<div className="flex-1">
+												<DragNumberInput
+													value={selectedTile?.origin?.x ?? 0}
+													onChange={(value) => handleUpdateTileOrigin(value, selectedTile?.origin?.y ?? 0)}
+													min={0}
+													max={1}
+													step={0.01}
+													dragSpeed={0.01}
+													precision={2}
+													roundedLeft={false}
+												/>
+											</div>
+										</div>
+										<div className="flex">
+											<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+												Y
+											</div>
+											<div className="flex-1">
+												<DragNumberInput
+													value={selectedTile?.origin?.y ?? 0}
+													onChange={(value) => handleUpdateTileOrigin(selectedTile?.origin?.x ?? 0, value)}
+													min={0}
+													max={1}
+													step={0.01}
+													dragSpeed={0.01}
+													precision={2}
+													roundedLeft={false}
+												/>
+											</div>
+										</div>
+									</div>
+								</div>
+							)}
+							{/* Custom Properties Section */}
+							{selectedTile?.isCompound && (
+								<div>
+									<div className="flex items-center justify-between mb-1.5">
+										<label
+											className="text-xs font-medium"
+											style={{ color: "#858585" }}
+										>
+											Custom Properties
+										</label>
+										<button
+											onClick={handleAddProperty}
+											className="text-xs px-2 py-1 rounded transition-colors"
+											style={{ background: "#3e3e42", color: "#cccccc" }}
+										>
+											+ Add
+										</button>
+									</div>
+									{selectedTile.properties &&
+									Object.keys(selectedTile.properties).length > 0 ? (
+										<div className="space-y-2">
+											{Object.entries(selectedTile.properties).map(
+												([key, value]) => {
+													const isTemp = key.startsWith("__temp_");
+													const displayKey = isTemp ? "" : key;
+
+													return (
+														<div key={key} className="flex items-center gap-2">
+															<div className="flex-1" style={{ minWidth: 0 }}>
+																{editingPropertyKey === key ? (
+																	<input
+																		type="text"
+																		value={displayKey}
+																		onChange={(e) => {
+																			const newKey = e.target.value;
+																			handleUpdatePropertyKey(key, newKey);
+																			if (newKey && newKey.trim()) {
+																				setEditingPropertyKey(newKey);
+																			}
+																		}}
+																		onBlur={() => {
+																			setEditingPropertyKey(null);
+																			// If still empty after blur, delete it
+																			if (isTemp) {
+																				handleDeleteProperty(key);
+																			}
+																		}}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter" || e.key === "Escape") {
+																				setEditingPropertyKey(null);
+																				// If still empty after Enter/Escape, delete it
+																				if (isTemp || !displayKey.trim()) {
+																					handleDeleteProperty(key);
+																				}
+																			} else if (e.key === "Tab" && !e.shiftKey) {
+																				e.preventDefault();
+																				setEditingPropertyKey(null);
+																				setEditingPropertyValue(key);
+																			}
+																		}}
+																		placeholder="Key"
+																		className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+																		style={{
+																			background: "#3e3e42",
+																			color: "#cccccc",
+																			border: "1px solid #007acc",
+																		}}
+																		autoFocus
+																	/>
+																) : (
+																	<div
+																		onClick={() => setEditingPropertyKey(key)}
+																		className="text-xs cursor-text px-2.5 py-1.5 rounded"
+																		style={{
+																			background: "#3e3e42",
+																			color: "#cccccc",
+																			border: "1px solid transparent",
+																		}}
+																	>
+																		{displayKey || "(empty)"}
+																	</div>
+																)}
+															</div>
+															<div className="flex-1" style={{ minWidth: 0 }}>
+																{editingPropertyValue === key ? (
+																	<input
+																		type="text"
+																		value={value}
+																		onChange={(e) =>
+																			handleUpdatePropertyValue(
+																				key,
+																				e.target.value,
+																			)
+																		}
+																		onBlur={() => setEditingPropertyValue(null)}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter" || e.key === "Escape") {
+																				setEditingPropertyValue(null);
+																			} else if (e.key === "Tab" && e.shiftKey) {
+																				e.preventDefault();
+																				setEditingPropertyValue(null);
+																				setEditingPropertyKey(key);
+																			}
+																		}}
+																		placeholder="Value"
+																		className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+																		style={{
+																			background: "#3e3e42",
+																			color: "#cccccc",
+																			border: "1px solid #007acc",
+																		}}
+																		autoFocus
+																	/>
+																) : (
+																	<div
+																		onClick={() => setEditingPropertyValue(key)}
+																		className="text-xs cursor-text px-2.5 py-1.5 rounded"
+																		style={{
+																			background: "#3e3e42",
+																			color: "#cccccc",
+																			border: "1px solid transparent",
+																		}}
+																	>
+																		{value || "(empty)"}
+																	</div>
+																)}
+															</div>
+															<button
+																onClick={() => handleDeleteProperty(key)}
+																className="p-1 hover:bg-red-600/20 rounded transition-colors"
+																style={{ color: "#f48771" }}
+															>
+																<TrashIcon size={14} />
+															</button>
+														</div>
+													);
+												},
+											)}
+										</div>
+									) : (
+										<div className="text-xs" style={{ color: "#858585" }}>
+											No properties
+										</div>
+									)}
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Context Menu */}
 			{contextMenu && (
