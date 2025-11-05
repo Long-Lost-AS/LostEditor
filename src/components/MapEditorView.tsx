@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { MapTab, MapData, Tile } from "../types";
 import { DragNumberInput } from "./DragNumberInput";
@@ -81,6 +82,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	}, [currentLayerId, localMapData?.layers]);
 	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 	const [editingLayerName, setEditingLayerName] = useState("");
+
+	// Context menu state
+	const [contextMenu, setContextMenu] = useState<{
+		x: number;
+		y: number;
+		layerId: string;
+	} | null>(null);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
@@ -254,6 +262,16 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			setEditingLayerId(null);
 			setEditingLayerName("");
 		}
+	};
+
+	const handleLayerContextMenu = (e: React.MouseEvent, layerId: string) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setContextMenu({
+			x: e.clientX,
+			y: e.clientY,
+			layerId
+		});
 	};
 
 	// Paint functions (tile placement, erasing, entity placement)
@@ -501,6 +519,22 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		};
 	}, [isResizing, dragStartX, dragStartWidth]);
 
+	// Close context menu on Escape key
+	useEffect(() => {
+		if (!contextMenu) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				setContextMenu(null);
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [contextMenu]);
+
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
@@ -646,6 +680,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 											style={{ border: "1px solid #3e3e42" }}
 											onClick={() => setCurrentLayerId(layer.id)}
 											onDoubleClick={() => handleLayerDoubleClick(layer)}
+											onContextMenu={(e) => handleLayerContextMenu(e, layer.id)}
 											onMouseDown={(e) => {
 												if (e.detail > 1) {
 													e.preventDefault();
@@ -714,10 +749,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										</div>
 									))}
 								</div>
-								<div className="flex gap-2 mt-2">
+								<div className="mt-2">
 									<button
 										onClick={handleAddLayer}
-										className="flex-1 px-2 py-1.5 text-xs rounded transition-colors"
+										className="w-full px-2 py-1.5 text-xs rounded transition-colors"
 										style={{
 											background: "#0e639c",
 											color: "#ffffff",
@@ -731,31 +766,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										}
 									>
 										+ Add Layer
-									</button>
-									<button
-										onClick={() =>
-											currentLayer && handleRemoveLayer(currentLayer.id)
-										}
-										disabled={!currentLayer}
-										className="px-2 py-1.5 text-xs rounded transition-colors"
-										style={{
-											background: currentLayer ? "#5a5a5a" : "#3e3e42",
-											color: currentLayer ? "#ffffff" : "#858585",
-											border: "none",
-											cursor: currentLayer ? "pointer" : "not-allowed",
-										}}
-										onMouseEnter={(e) => {
-											if (currentLayer) {
-												e.currentTarget.style.background = "#6a6a6a";
-											}
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.background = currentLayer
-												? "#5a5a5a"
-												: "#3e3e42";
-										}}
-									>
-										- Remove
 									</button>
 								</div>
 							</div>
@@ -797,6 +807,58 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			>
 				<TilesetPanel />
 			</div>
+
+			{/* Context Menu */}
+			{contextMenu && createPortal(
+				<>
+					{/* Backdrop */}
+					<div
+						style={{
+							position: "fixed",
+							inset: 0,
+							zIndex: 40,
+						}}
+						onClick={() => setContextMenu(null)}
+					/>
+					{/* Menu */}
+					<div
+						style={{
+							position: "fixed",
+							top: contextMenu.y,
+							left: contextMenu.x,
+							zIndex: 50,
+							background: "#252526",
+							border: "1px solid #3e3e42",
+							borderRadius: "4px",
+							minWidth: "160px",
+							boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+						}}
+					>
+						<div
+							onClick={() => {
+								handleRemoveLayer(contextMenu.layerId);
+								setContextMenu(null);
+							}}
+							style={{
+								padding: "8px 12px",
+								fontSize: "13px",
+								color: "#cccccc",
+								cursor: "pointer",
+								transition: "background 0.1s",
+							}}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = "#2a2d2e";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = "transparent";
+							}}
+						>
+							Delete Layer
+						</div>
+					</div>
+				</>,
+				document.body
+			)}
 		</div>
 	);
 };
