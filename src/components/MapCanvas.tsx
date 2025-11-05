@@ -102,7 +102,10 @@ export const MapCanvas = ({
 
 				if (layer.type === "tile" || !layer.type) {
 					// Render tile layer - iterate dense array
+					// Collect compound tile positions to draw indicators after all tiles
+					const compoundTilePositions: Array<{ x: number; y: number }> = [];
 					let tileCount = 0;
+
 					for (let index = 0; index < layer.tiles.length; index++) {
 						const tileId = layer.tiles[index];
 						if (tileId === 0) continue; // Skip empty tiles
@@ -153,6 +156,9 @@ export const MapCanvas = ({
 								originOffsetX = tileDefinition.origin.x * sourceWidth;
 								originOffsetY = tileDefinition.origin.y * sourceHeight;
 							}
+
+							// Store position for indicator drawing later
+							compoundTilePositions.push({ x, y });
 						}
 
 						// Draw the tile with origin offset
@@ -168,6 +174,28 @@ export const MapCanvas = ({
 							sourceHeight,
 						);
 					}
+
+					// Draw compound tile indicators on top of all tiles
+					compoundTilePositions.forEach(({ x, y }) => {
+						// Draw a small dot at the center of the cell that stores this compound tile
+						const cellCenterX = x * mapData.tileWidth + mapData.tileWidth / 2;
+						const cellCenterY = y * mapData.tileHeight + mapData.tileHeight / 2;
+
+						ctx.fillStyle = "rgba(255, 165, 0, 0.7)";
+						ctx.beginPath();
+						ctx.arc(cellCenterX, cellCenterY, 3 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+
+						// Draw a small outline around the origin cell
+						ctx.strokeStyle = "rgba(255, 165, 0, 0.5)";
+						ctx.lineWidth = 1 / zoom;
+						ctx.strokeRect(
+							x * mapData.tileWidth,
+							y * mapData.tileHeight,
+							mapData.tileWidth,
+							mapData.tileHeight,
+						);
+					});
 				} else if (layer.type === "entity") {
 					// Render entity layer
 					layer.entities.forEach((entityInstance) => {
