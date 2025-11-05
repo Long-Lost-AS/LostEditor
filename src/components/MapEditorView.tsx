@@ -14,6 +14,7 @@ import {
 } from "../utils/autotiling";
 import { createDefaultMapData } from "../schemas";
 import { unpackTileId, packTileId } from "../utils/tileId";
+import { calculateMenuPosition } from "../utils/menuPositioning";
 
 interface MapEditorViewProps {
 	tab: MapTab;
@@ -267,9 +268,16 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const handleLayerContextMenu = (e: React.MouseEvent, layerId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
+
+		// Estimate menu dimensions
+		const menuWidth = 160;
+		const menuHeight = 40; // Single item menu
+
+		const position = calculateMenuPosition(e.clientX, e.clientY, menuWidth, menuHeight);
+
 		setContextMenu({
-			x: e.clientX,
-			y: e.clientY,
+			x: position.x,
+			y: position.y,
 			layerId
 		});
 	};
@@ -741,6 +749,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 														background: "#3e3e42",
 														color: "#cccccc",
 														border: "1px solid #1177bb",
+														minWidth: 0,
+														maxWidth: "100%",
 													}}
 												/>
 											) : (
