@@ -132,6 +132,7 @@ export interface MapData {
   tileWidth: number
   tileHeight: number
   layers: Layer[]
+  entities?: EntityInstance[]  // Entities at map level, rendered on top of all tiles
 }
 
 // ===========================
@@ -158,6 +159,7 @@ export interface SerializedMapData {
   tileWidth: number
   tileHeight: number
   layers: SerializedLayer[]
+  entities?: EntityInstance[]    // Entities at map level
 }
 
 // ===========================
@@ -178,7 +180,7 @@ export interface ProjectData {
 // Editor Types
 // ===========================
 
-export type Tool = 'pencil' | 'eraser' | 'fill' | 'rect' | 'entity' | 'collision'
+export type Tool = 'pointer' | 'pencil' | 'eraser' | 'fill' | 'rect' | 'entity' | 'collision'
 
 export interface CollisionEditState {
   tilesetId: string

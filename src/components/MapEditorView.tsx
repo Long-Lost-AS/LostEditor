@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
-import { MapTab, MapData, Tile, Layer, Tool } from "../types";
+import { MapTab, MapData, Tile, Layer, Tool, EntityInstance } from "../types";
 import {
 	DndContext,
 	closestCenter,
@@ -22,6 +22,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { DragNumberInput } from "./DragNumberInput";
 import { MapCanvas } from "./MapCanvas";
 import { TilesetPanel } from "./TilesetPanel";
+import { EntityPanel } from "./EntityPanel";
+import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { Toolbar } from "./Toolbar";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
@@ -218,6 +220,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const [isResizing, setIsResizing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartWidth, setDragStartWidth] = useState(0);
+	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
@@ -291,6 +294,11 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		const layer = localMapData.layers.find((l) => l.id === currentLayerId);
 		setCurrentLayer(layer || null);
 	}, [currentLayerId, localMapData?.layers, setCurrentLayer]);
+
+	// Debug: log entities
+	useEffect(() => {
+		console.log('localMapData.entities:', localMapData?.entities);
+	}, [localMapData?.entities]);
 
 	const handleNameClick = () => {
 		setIsEditingName(true);
@@ -781,7 +789,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 	const handlePlaceEntity = useCallback(
 		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "entity") return;
 			if (!selectedTilesetId || !selectedEntityDefId) return;
 
 			const entityInstance = entityManager.createInstance(
@@ -793,23 +800,59 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 			if (!entityInstance) return;
 
+			// Place entity at map level (not per-layer)
 			setLocalMapData((prev) => ({
 				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const updatedLayer = {
-							...layer,
-							entities: [...layer.entities, entityInstance],
-						};
-						// No need to setCurrentLayer - it's component-local only
-						return updatedLayer;
-					}
-					return layer;
-				}),
+				entities: [...(prev.entities || []), entityInstance],
 			}));
 			setProjectModified(true);
 		},
-		[currentLayer, selectedTilesetId, selectedEntityDefId, setProjectModified],
+		[selectedTilesetId, selectedEntityDefId, setProjectModified],
+	);
+
+	// Handle moving an entity
+	const handleMoveEntity = useCallback(
+		(entityId: string, newX: number, newY: number) => {
+			console.log('handleMoveEntity called:', entityId, 'to:', newX, newY);
+			console.log('localMapData.entities at time of move:', localMapData?.entities);
+
+			if (!localMapData) return;
+
+			const newEntities = (localMapData.entities || []).map((entity) => {
+				console.log('Checking entity:', entity.id, 'against:', entityId);
+				return entity.id === entityId
+					? { ...entity, x: newX, y: newY }
+					: entity;
+			});
+			console.log('New entities:', newEntities);
+
+			setLocalMapData({
+				...localMapData,
+				entities: newEntities,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setProjectModified],
+	);
+
+	// Handle updating entity properties
+	const handleUpdateEntity = useCallback(
+		(entityId: string, updates: Partial<EntityInstance>) => {
+			if (!localMapData) return;
+
+			const newEntities = (localMapData.entities || []).map((entity) =>
+				entity.id === entityId
+					? { ...entity, ...updates }
+					: entity
+			);
+
+			setLocalMapData({
+				...localMapData,
+				entities: newEntities,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setProjectModified],
 	);
 
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
@@ -1306,6 +1349,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onPlaceTilesBatch={handlePlaceTilesBatch}
 						onEraseTile={handleEraseTile}
 						onPlaceEntity={handlePlaceEntity}
+						onMoveEntity={handleMoveEntity}
+						onEntitySelected={setSelectedEntityId}
 					/>
 				</div>
 			</div>
@@ -1331,7 +1376,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					borderLeft: "1px solid #3e3e42",
 				}}
 			>
-				<TilesetPanel />
+				{(tab.viewState.currentTool || 'pencil') === 'pointer' && selectedEntityId ? (
+					<EntityPropertiesPanel
+						selectedEntityId={selectedEntityId}
+						mapData={localMapData}
+						onUpdateEntity={handleUpdateEntity}
+					/>
+				) : (tab.viewState.currentTool || 'pencil') === 'entity' ? (
+					<EntityPanel />
+				) : (
+					<TilesetPanel />
+				)}
 			</div>
 
 			{/* Context Menu */}

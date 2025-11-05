@@ -12,6 +12,8 @@ interface MapCanvasProps {
 	onPlaceTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
 	onEraseTile: (x: number, y: number) => void;
 	onPlaceEntity: (x: number, y: number) => void;
+	onMoveEntity: (entityId: string, newX: number, newY: number) => void;
+	onEntitySelected?: (entityId: string | null) => void;
 }
 
 export const MapCanvas = ({
@@ -22,6 +24,8 @@ export const MapCanvas = ({
 	onPlaceTilesBatch,
 	onEraseTile,
 	onPlaceEntity,
+	onMoveEntity,
+	onEntitySelected,
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
@@ -37,6 +41,7 @@ export const MapCanvas = ({
 		autotilingOverride,
 		selectedTilesetId,
 		selectedTileId,
+		selectedEntityDefId,
 	} = useEditor();
 
 	const [isDragging, setIsDragging] = useState(false);
@@ -51,6 +56,14 @@ export const MapCanvas = ({
 	// Rectangle tool state
 	const [isDrawingRect, setIsDrawingRect] = useState(false);
 	const [rectStartTile, setRectStartTile] = useState<{ x: number; y: number } | null>(null);
+
+	// Pointer tool state (for selecting and moving entities)
+	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+	const [isDraggingEntity, setIsDraggingEntity] = useState(false);
+	const [entityDragStart, setEntityDragStart] = useState<{ x: number; y: number } | null>(null);
+	const [entityDragOffset, setEntityDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+	const [tempEntityPosition, setTempEntityPosition] = useState<{ x: number; y: number } | null>(null);
+	const DRAG_THRESHOLD = 5; // pixels before starting drag
 
 	// Fill tool - flood fill helper function
 	const floodFill = (startX: number, startY: number) => {
@@ -134,6 +147,7 @@ export const MapCanvas = ({
 	const mouseScreenPosRef = useRef<{ x: number; y: number } | null>(null);
 	const selectedTilesetIdRef = useRef(selectedTilesetId);
 	const selectedTileIdRef = useRef(selectedTileId);
+	const selectedEntityDefIdRef = useRef(selectedEntityDefId);
 	const currentToolRef = useRef(currentTool);
 
 	useEffect(() => {
@@ -143,6 +157,7 @@ export const MapCanvas = ({
 		mouseScreenPosRef.current = mouseScreenPos;
 		selectedTilesetIdRef.current = selectedTilesetId;
 		selectedTileIdRef.current = selectedTileId;
+		selectedEntityDefIdRef.current = selectedEntityDefId;
 		currentToolRef.current = currentTool;
 	}, [
 		panX,
@@ -151,6 +166,7 @@ export const MapCanvas = ({
 		mouseScreenPos,
 		selectedTilesetId,
 		selectedTileId,
+		selectedEntityDefId,
 		currentTool,
 	]);
 
@@ -276,7 +292,8 @@ export const MapCanvas = ({
 						);
 					});
 				} else if (layer.type === "entity") {
-					// Render entity layer
+					// Legacy entity layer support (entities stored per-layer)
+					// This is kept for backward compatibility with old map files
 					layer.entities.forEach((entityInstance) => {
 						const tileset = getTilesetById(entityInstance.tilesetId);
 						if (!tileset?.imageData) return;
@@ -293,6 +310,29 @@ export const MapCanvas = ({
 					});
 				}
 			});
+
+			// Render map-level entities (on top of all layers)
+			if (mapData.entities && mapData.entities.length > 0) {
+				mapData.entities.forEach((entityInstance) => {
+					const tileset = getTilesetById(entityInstance.tilesetId);
+					if (!tileset?.imageData) return;
+
+					const entityDef = entityManager.getEntityDefinition(
+						entityInstance.tilesetId,
+						entityInstance.entityDefId,
+					);
+
+					if (!entityDef) return;
+
+					// Use temp position if this entity is being dragged
+					const instanceToRender = (isDraggingEntity && selectedEntityId === entityInstance.id && tempEntityPosition)
+						? { ...entityInstance, x: tempEntityPosition.x, y: tempEntityPosition.y }
+						: entityInstance;
+
+					// Render entity with hierarchy
+					renderEntity(ctx, entityDef, instanceToRender, tileset.imageData);
+				});
+			}
 
 			// Draw grid
 			if (gridVisible) {
@@ -401,6 +441,131 @@ export const MapCanvas = ({
 				}
 			}
 
+			// Draw entity preview (when entity tool is active)
+			if (mousePos && tool === "entity" && selectedTilesetId && selectedEntityDefId && canvas) {
+				const entityDefId = selectedEntityDefIdRef.current;
+				if (entityDefId) {
+					const entityDef = entityManager.getEntityDefinition(selectedTilesetId, entityDefId);
+					const tileset = getTilesetById(selectedTilesetId);
+
+					if (entityDef && tileset?.imageData && entityDef.sprites && entityDef.sprites.length > 0) {
+						// Calculate world position from screen coordinates
+						const rect = canvas.getBoundingClientRect();
+						const canvasX = mousePos.x - rect.left;
+						const canvasY = mousePos.y - rect.top;
+						const worldX = (canvasX - panX) / zoom;
+						const worldY = (canvasY - panY) / zoom;
+
+						// Draw entity with semi-transparency
+						ctx.globalAlpha = 0.5;
+
+						// Render each sprite in the entity
+						entityDef.sprites.forEach((spriteLayer) => {
+							// Skip if sprite is missing
+							if (!spriteLayer.sprite) return;
+
+							const sprite = spriteLayer.sprite;
+							const offset = spriteLayer.offset || { x: 0, y: 0 };
+							const origin = spriteLayer.origin || { x: 0.5, y: 1 };
+
+							// Calculate position based on origin point
+							const originOffsetX = origin.x * sprite.width;
+							const originOffsetY = origin.y * sprite.height;
+
+							const drawX = worldX - originOffsetX + offset.x;
+							const drawY = worldY - originOffsetY + offset.y;
+
+							ctx.drawImage(
+								tileset.imageData,
+								sprite.x,
+								sprite.y,
+								sprite.width,
+								sprite.height,
+								drawX,
+								drawY,
+								sprite.width,
+								sprite.height
+							);
+						});
+
+						ctx.globalAlpha = 1.0;
+
+						// Draw crosshair at cursor position to indicate placement point
+						ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
+						ctx.lineWidth = 2 / zoom;
+						const markerSize = 6 / zoom;
+
+						ctx.beginPath();
+						ctx.moveTo(worldX - markerSize, worldY);
+						ctx.lineTo(worldX + markerSize, worldY);
+						ctx.moveTo(worldX, worldY - markerSize);
+						ctx.lineTo(worldX, worldY + markerSize);
+						ctx.stroke();
+
+						// Draw center dot
+						ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
+						ctx.beginPath();
+						ctx.arc(worldX, worldY, 2 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+					}
+				}
+			}
+
+			// Draw selection highlight for selected entity
+			if (selectedEntityId && mapData.entities) {
+				const selectedEntity = mapData.entities.find(e => e.id === selectedEntityId);
+				if (selectedEntity) {
+					const tileset = getTilesetById(selectedEntity.tilesetId);
+					const entityDef = entityManager.getEntityDefinition(
+						selectedEntity.tilesetId,
+						selectedEntity.entityDefId
+					);
+
+					if (entityDef && tileset?.imageData && entityDef.sprites && entityDef.sprites.length > 0) {
+						// Use temp position if dragging, otherwise use actual position
+						const entityX = (isDraggingEntity && tempEntityPosition) ? tempEntityPosition.x : selectedEntity.x;
+						const entityY = (isDraggingEntity && tempEntityPosition) ? tempEntityPosition.y : selectedEntity.y;
+
+						// Calculate bounding box for the entity
+						let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+						entityDef.sprites.forEach((spriteLayer) => {
+							if (!spriteLayer.sprite) return;
+
+							const sprite = spriteLayer.sprite;
+							const offset = spriteLayer.offset || { x: 0, y: 0 };
+							const origin = spriteLayer.origin || { x: 0.5, y: 1 };
+
+							const originOffsetX = origin.x * sprite.width;
+							const originOffsetY = origin.y * sprite.height;
+
+							const drawX = entityX - originOffsetX + offset.x;
+							const drawY = entityY - originOffsetY + offset.y;
+
+							minX = Math.min(minX, drawX);
+							minY = Math.min(minY, drawY);
+							maxX = Math.max(maxX, drawX + sprite.width);
+							maxY = Math.max(maxY, drawY + sprite.height);
+						});
+
+						// Draw selection box
+						ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
+						ctx.lineWidth = 2 / zoom;
+						ctx.setLineDash([5 / zoom, 5 / zoom]);
+						ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+						ctx.setLineDash([]);
+
+						// Draw corner handles
+						const handleSize = 6 / zoom;
+						ctx.fillStyle = "rgba(0, 150, 255, 1)";
+						ctx.fillRect(minX - handleSize / 2, minY - handleSize / 2, handleSize, handleSize);
+						ctx.fillRect(maxX - handleSize / 2, minY - handleSize / 2, handleSize, handleSize);
+						ctx.fillRect(minX - handleSize / 2, maxY - handleSize / 2, handleSize, handleSize);
+						ctx.fillRect(maxX - handleSize / 2, maxY - handleSize / 2, handleSize, handleSize);
+					}
+				}
+			}
+
 			// Draw rectangle preview (when dragging with rect tool)
 			if (isDrawingRect && rectStartTile && mousePos && canvas) {
 				const rect = canvas.getBoundingClientRect();
@@ -486,38 +651,54 @@ export const MapCanvas = ({
 		parentY: number = instance.y,
 		parentRotation: number = 0,
 	) => {
-		ctx.save();
+		// Render all sprite layers in the entity
+		if (entityDef.sprites && entityDef.sprites.length > 0) {
+			entityDef.sprites.forEach((spriteLayer: any) => {
+				// Skip if sprite is missing
+				if (!spriteLayer.sprite) return;
 
-		// Apply instance transform
-		const x = parentX + (entityDef.offset?.x || 0);
-		const y = parentY + (entityDef.offset?.y || 0);
-		const rotation =
-			parentRotation + (entityDef.rotation || 0) + (instance.rotation || 0);
+				ctx.save();
 
-		ctx.translate(x, y);
-		if (rotation !== 0) {
-			ctx.rotate((rotation * Math.PI) / 180);
+				const sprite = spriteLayer.sprite;
+				const offset = spriteLayer.offset || { x: 0, y: 0 };
+				const origin = spriteLayer.origin || { x: 0.5, y: 1 };
+				const rotation = parentRotation + (spriteLayer.rotation || 0) + (instance.rotation || 0);
+
+				// Calculate position based on origin point
+				const originOffsetX = origin.x * sprite.width;
+				const originOffsetY = origin.y * sprite.height;
+
+				const x = parentX - originOffsetX + offset.x;
+				const y = parentY - originOffsetY + offset.y;
+
+				// Apply rotation if needed
+				if (rotation !== 0) {
+					ctx.translate(parentX, parentY);
+					ctx.rotate((rotation * Math.PI) / 180);
+					ctx.translate(-parentX, -parentY);
+				}
+
+				// Draw sprite
+				ctx.drawImage(
+					tilesetImage,
+					sprite.x,
+					sprite.y,
+					sprite.width,
+					sprite.height,
+					x,
+					y,
+					sprite.width,
+					sprite.height,
+				);
+
+				ctx.restore();
+			});
 		}
 
-		// Draw sprite
-		ctx.drawImage(
-			tilesetImage,
-			entityDef.sprite.x,
-			entityDef.sprite.y,
-			entityDef.sprite.width,
-			entityDef.sprite.height,
-			0,
-			0,
-			entityDef.sprite.width,
-			entityDef.sprite.height,
-		);
-
-		ctx.restore();
-
-		// Render children
+		// Render children (if entity definitions support hierarchical children)
 		if (entityDef.children) {
 			entityDef.children.forEach((child: any) => {
-				renderEntity(ctx, child, instance, tilesetImage, x, y, rotation);
+				renderEntity(ctx, child, instance, tilesetImage, parentX, parentY, parentRotation);
 			});
 		}
 	};
@@ -550,11 +731,60 @@ export const MapCanvas = ({
 			setDragStartX(e.clientX - panX);
 			setDragStartY(e.clientY - panY);
 		} else if (e.button === 0) {
-			// Left click = Draw
+			// Left click = Draw / Select
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
-			if (currentTool === "rect") {
+			if (currentTool === "pointer") {
+				// Pointer tool: select entity at click position
+				if (mapData.entities) {
+					// Check entities in reverse order (top to bottom)
+					let foundEntity = null;
+					for (let i = mapData.entities.length - 1; i >= 0; i--) {
+						const entity = mapData.entities[i];
+						const entityDef = entityManager.getEntityDefinition(entity.tilesetId, entity.entityDefId);
+
+						if (entityDef && entityDef.sprites && entityDef.sprites.length > 0) {
+							const firstSprite = entityDef.sprites[0];
+							if (firstSprite.sprite) {
+								const sprite = firstSprite.sprite;
+								const origin = firstSprite.origin || { x: 0.5, y: 1 };
+								const offset = firstSprite.offset || { x: 0, y: 0 };
+
+								// Calculate entity bounds
+								const originOffsetX = origin.x * sprite.width;
+								const originOffsetY = origin.y * sprite.height;
+								const entityX = entity.x - originOffsetX + offset.x;
+								const entityY = entity.y - originOffsetY + offset.y;
+
+								// Check if click is within entity bounds
+								if (worldX >= entityX && worldX <= entityX + sprite.width &&
+									worldY >= entityY && worldY <= entityY + sprite.height) {
+									foundEntity = entity;
+									break;
+								}
+							}
+						}
+					}
+
+					if (foundEntity) {
+						console.log('Entity selected:', foundEntity.id, 'at position:', foundEntity.x, foundEntity.y);
+						console.log('Total entities in map:', mapData.entities.length);
+						setSelectedEntityId(foundEntity.id);
+						onEntitySelected?.(foundEntity.id);
+						// Store drag start position but don't start dragging yet
+						setEntityDragStart({ x: e.clientX, y: e.clientY });
+						setEntityDragOffset({
+							x: worldX - foundEntity.x,
+							y: worldY - foundEntity.y
+						});
+					} else {
+						console.log('No entity found at click position');
+						setSelectedEntityId(null);
+						onEntitySelected?.(null);
+					}
+				}
+			} else if (currentTool === "rect") {
 				// Rectangle tool: start drawing rectangle
 				setIsDrawingRect(true);
 				setRectStartTile({ x: tileX, y: tileY });
@@ -584,6 +814,23 @@ export const MapCanvas = ({
 
 		if (isDragging) {
 			setPan(e.clientX - dragStartX, e.clientY - dragStartY);
+		} else if (entityDragStart && selectedEntityId) {
+			// Check if we've moved enough to start dragging
+			const dx = e.clientX - entityDragStart.x;
+			const dy = e.clientY - entityDragStart.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+
+			if (distance > DRAG_THRESHOLD) {
+				// Start dragging
+				if (!isDraggingEntity) {
+					setIsDraggingEntity(true);
+				}
+				// Update temp position
+				const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+				const newX = Math.floor(worldX - entityDragOffset.x);
+				const newY = Math.floor(worldY - entityDragOffset.y);
+				setTempEntityPosition({ x: newX, y: newY });
+			}
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			if (currentTool === "pencil") {
@@ -600,7 +847,17 @@ export const MapCanvas = ({
 	};
 
 	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-		if (isDrawingRect && rectStartTile) {
+		if (isDraggingEntity && tempEntityPosition && selectedEntityId) {
+			// Finish entity drag - commit the position change
+			console.log('Committing entity move to:', tempEntityPosition.x, tempEntityPosition.y);
+			onMoveEntity(selectedEntityId, tempEntityPosition.x, tempEntityPosition.y);
+			setIsDraggingEntity(false);
+			setTempEntityPosition(null);
+			setEntityDragStart(null);
+		} else if (entityDragStart) {
+			// Click without drag - just clear drag start
+			setEntityDragStart(null);
+		} else if (isDrawingRect && rectStartTile) {
 			// Finish drawing rectangle - place tiles in the rectangular area
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 

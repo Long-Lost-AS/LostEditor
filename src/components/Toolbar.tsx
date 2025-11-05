@@ -1,4 +1,4 @@
-import { PencilIcon, EraserIcon, FillIcon, RectangleIcon } from './Icons'
+import { PointerIcon, PencilIcon, EraserIcon, FillIcon, RectangleIcon, EntityIcon } from './Icons'
 import { Tool } from '../types'
 
 interface ToolbarProps {
@@ -9,6 +9,13 @@ interface ToolbarProps {
 export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
   return (
     <div className="toolbar">
+      <button
+        className={`tool-btn ${currentTool === 'pointer' ? 'active' : ''}`}
+        onClick={() => onToolChange('pointer')}
+        title="Pointer Tool (Select & Move)"
+      >
+        <PointerIcon size={20} />
+      </button>
       <button
         className={`tool-btn ${currentTool === 'pencil' ? 'active' : ''}`}
         onClick={() => onToolChange('pencil')}
@@ -36,6 +43,13 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
         title="Rectangle Tool"
       >
         <RectangleIcon size={20} />
+      </button>
+      <button
+        className={`tool-btn ${currentTool === 'entity' ? 'active' : ''}`}
+        onClick={() => onToolChange('entity')}
+        title="Entity Tool"
+      >
+        <EntityIcon size={20} />
       </button>
     </div>
   )
