@@ -1,128 +1,159 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useEditor } from '../context/EditorContext'
 import { EntityDefinition } from '../types'
 import { entityManager } from '../managers/EntityManager'
-import { ShieldIcon } from './Icons'
-import { Dropdown } from './Dropdown'
+import { fileManager } from '../managers/FileManager'
+import { readDir } from '@tauri-apps/plugin-fs'
 
-interface EntityTreeNodeProps {
+interface EntityListItemProps {
   entity: EntityDefinition
-  depth: number
-  tilesetId: string
-  onSelect: (tilesetId: string, entityId: string) => void
+  onSelect: (entityDefId: string, tilesetId: string) => void
   selectedEntityDefId: string | null
 }
 
-const EntityTreeNode = ({ entity, depth, tilesetId, onSelect, selectedEntityDefId }: EntityTreeNodeProps) => {
-  const [expanded, setExpanded] = useState(true)
-  const hasChildren = entity.children && entity.children.length > 0
+const EntityListItem = ({ entity, onSelect, selectedEntityDefId }: EntityListItemProps) => {
   const isSelected = selectedEntityDefId === entity.id
 
-  return (
-    <div>
-      <div
-        className={`flex items-center py-1 px-2 cursor-pointer rounded hover:bg-gray-700 ${
-          isSelected ? 'bg-blue-600' : ''
-        }`}
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        onClick={() => onSelect(tilesetId, entity.id)}
-      >
-        {hasChildren && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setExpanded(!expanded)
-            }}
-            className="mr-1 text-xs w-4 h-4 flex items-center justify-center hover:bg-gray-600 rounded"
-          >
-            {expanded ? '▼' : '▶'}
-          </button>
-        )}
-        {!hasChildren && <span className="mr-1 w-4" />}
-        <span className="text-sm text-white flex-1 truncate">{entity.id}</span>
-        {entity.collision && (
-          <span className="ml-1 text-green-400" title="Has collision">
-            <ShieldIcon size={14} />
-          </span>
-        )}
-      </div>
+  // Get the first sprite's tileset ID if available
+  const tilesetId = entity.sprites && entity.sprites.length > 0
+    ? entity.sprites[0].tilesetId
+    : ''
 
-      {hasChildren && expanded && (
-        <div>
-          {entity.children!.map((child, idx) => (
-            <EntityTreeNode
-              key={`${child.id}-${idx}`}
-              entity={child}
-              depth={depth + 1}
-              tilesetId={tilesetId}
-              onSelect={onSelect}
-              selectedEntityDefId={selectedEntityDefId}
-            />
-          ))}
-        </div>
+  return (
+    <div
+      className={`flex items-center py-2 px-3 cursor-pointer rounded hover:bg-gray-700 ${
+        isSelected ? 'bg-blue-600' : ''
+      }`}
+      onClick={() => onSelect(entity.id, tilesetId)}
+    >
+      <span className="text-sm text-white flex-1 truncate">{entity.name || entity.id}</span>
+      {entity.sprites && entity.sprites.length > 0 && (
+        <span className="ml-2 text-xs text-gray-400">{entity.sprites.length} sprite{entity.sprites.length !== 1 ? 's' : ''}</span>
       )}
     </div>
   )
 }
 
+/**
+ * Recursively scan directory for .lostentity files
+ */
+async function scanForEntityFiles(dirPath: string): Promise<string[]> {
+  const entityFiles: string[] = []
+
+  try {
+    const entries = await readDir(dirPath)
+
+    for (const entry of entries) {
+      const fullPath = fileManager.join(dirPath, entry.name)
+
+      if (entry.isDirectory) {
+        // Skip hidden directories
+        if (entry.name.startsWith('.')) {
+          continue
+        }
+
+        // Recursively scan subdirectories
+        const subFiles = await scanForEntityFiles(fullPath)
+        entityFiles.push(...subFiles)
+      } else if (entry.name.endsWith('.lostentity')) {
+        entityFiles.push(fullPath)
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to scan directory ${dirPath}:`, error)
+  }
+
+  return entityFiles
+}
+
 export const EntityPanel = () => {
   const {
-    tilesets,
-    currentTileset,
+    projectDirectory,
     selectedEntityDefId,
     setSelectedEntityDefId,
     setSelectedTilesetId,
     setSelectedTileId
   } = useEditor()
 
-  const [filterTilesetId, setFilterTilesetId] = useState<string>('all')
+  const [entities, setEntities] = useState<EntityDefinition[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // Entities are stored separately, not in tilesets
-  const allEntities: Array<{ tilesetId: string; entity: any }> = []
+  // Load all entity files from project
+  useEffect(() => {
+    if (!projectDirectory) {
+      setEntities([])
+      return
+    }
 
-  // Filter by tileset if needed
-  const filteredEntities = filterTilesetId === 'all'
-    ? allEntities
-    : allEntities.filter(e => e.tilesetId === filterTilesetId)
+    const loadEntities = async () => {
+      setLoading(true)
+      try {
+        // Scan for .lostentity files
+        const entityFiles = await scanForEntityFiles(projectDirectory)
 
-  const handleSelect = (tilesetId: string, entityId: string) => {
+        // Get currently cached paths
+        const cachedPaths = entityManager.getCachedPaths()
+
+        // Normalize scanned file paths for comparison
+        const normalizedScannedPaths = new Set(
+          entityFiles.map(path => fileManager.normalize(path))
+        )
+
+        // Remove cached entities that no longer exist in the file system
+        for (const cachedPath of cachedPaths) {
+          if (!normalizedScannedPaths.has(cachedPath)) {
+            entityManager.invalidate(cachedPath)
+          }
+        }
+
+        // Load each entity file
+        const loadedEntities: EntityDefinition[] = []
+        for (const filePath of entityFiles) {
+          try {
+            const entity = await entityManager.load(filePath)
+            loadedEntities.push(entity)
+          } catch (error) {
+            console.error(`Failed to load entity ${filePath}:`, error)
+          }
+        }
+
+        setEntities(loadedEntities)
+      } catch (error) {
+        console.error('Failed to scan for entities:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadEntities()
+  }, [projectDirectory])
+
+  const handleSelect = (entityDefId: string, tilesetId: string) => {
+    setSelectedEntityDefId(entityDefId)
     setSelectedTilesetId(tilesetId)
-    setSelectedEntityDefId(entityId)
     setSelectedTileId(null) // Clear tile selection
   }
 
   // Get info about selected entity
-  const selectedEntity = selectedEntityDefId && currentTileset
-    ? entityManager.getEntityDefinition(currentTileset.id, selectedEntityDefId)
+  const selectedEntity = selectedEntityDefId
+    ? entities.find(e => e.id === selectedEntityDefId)
     : null
 
   return (
     <div className="panel">
       <h3>Entities</h3>
 
-      {/* Tileset filter */}
-      {tilesets.length > 1 && (
-        <div className="mb-2">
-          <Dropdown
-            items={[{ id: 'all', name: 'All Tilesets' }, ...tilesets]}
-            value={tilesets.find(t => t.id === filterTilesetId) || { id: 'all', name: 'All Tilesets' }}
-            onChange={(item) => setFilterTilesetId(item.id)}
-            getItemLabel={(item) => item.name}
-            getItemKey={(item) => item.id}
-            searchKeys={['name']}
-          />
+      {/* Entity list */}
+      {loading ? (
+        <div className="text-gray-400 text-sm p-4 text-center">
+          Loading entities...
         </div>
-      )}
-
-      {/* Entity tree */}
-      {filteredEntities.length > 0 ? (
+      ) : entities.length > 0 ? (
         <div className="max-h-96 overflow-y-auto border border-gray-700 rounded p-1">
-          {filteredEntities.map(({ tilesetId, entity }) => (
-            <EntityTreeNode
-              key={`${tilesetId}-${entity.id}`}
+          {entities.map((entity) => (
+            <EntityListItem
+              key={entity.id}
               entity={entity}
-              depth={0}
-              tilesetId={tilesetId}
               onSelect={handleSelect}
               selectedEntityDefId={selectedEntityDefId}
             />
@@ -131,29 +162,30 @@ export const EntityPanel = () => {
       ) : (
         <div className="text-gray-400 text-sm p-4 text-center">
           No entities available.<br/>
-          Load a tileset with entity definitions.
+          Create entity files (.lostentity) in your project.
         </div>
       )}
 
       {/* Selected entity info */}
       {selectedEntity && (
         <div className="mt-3 p-2 bg-gray-800 rounded text-xs">
-          <div className="font-semibold text-white mb-1">{selectedEntity.id}</div>
+          <div className="font-semibold text-white mb-1">{selectedEntity.name || selectedEntity.id}</div>
           <div className="text-gray-400 space-y-0.5">
-            <div>Sprite: {selectedEntity.sprite.width}×{selectedEntity.sprite.height}</div>
-            {selectedEntity.offset && (
-              <div>Offset: ({selectedEntity.offset.x}, {selectedEntity.offset.y})</div>
+            {selectedEntity.sprites && selectedEntity.sprites.length > 0 && (
+              <>
+                <div>Sprites: {selectedEntity.sprites.length}</div>
+                {selectedEntity.sprites[0] && (
+                  <div>Primary: {selectedEntity.sprites[0].sprite.width}×{selectedEntity.sprites[0].sprite.height}px</div>
+                )}
+              </>
             )}
-            {selectedEntity.rotation !== undefined && (
-              <div>Rotation: {selectedEntity.rotation}°</div>
-            )}
-            {selectedEntity.collision && (
+            {selectedEntity.colliders && selectedEntity.colliders.length > 0 && (
               <div className="text-green-400">
-                Collision: {selectedEntity.collision.points.length} points
+                Colliders: {selectedEntity.colliders.length}
               </div>
             )}
-            {selectedEntity.children && selectedEntity.children.length > 0 && (
-              <div>Children: {selectedEntity.children.length}</div>
+            {selectedEntity.properties && Object.keys(selectedEntity.properties).length > 0 && (
+              <div>Properties: {Object.keys(selectedEntity.properties).length}</div>
             )}
           </div>
         </div>
