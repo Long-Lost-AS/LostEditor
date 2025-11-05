@@ -12,6 +12,7 @@ import { MapEditorView } from "./components/MapEditorView";
 import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
 import { CommandPalette } from "./components/CommandPalette";
+import { EntitySelectMenu } from "./components/EntitySelectMenu";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
 import "./style.css";
 
@@ -40,6 +41,7 @@ const AppContent = () => {
 
 	const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true);
 	const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+	const [isEntitySelectMenuOpen, setIsEntitySelectMenuOpen] = useState(false);
 	const [rightPanelWidth, setRightPanelWidth] = useState(350);
 	const [isResizing, setIsResizing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
@@ -340,7 +342,7 @@ const AppContent = () => {
 		};
 	}, [isResizingBottom, dragStartY, dragStartHeight]);
 
-	// Global keyboard handler for Shift+Space (toggle ResourceBrowser) and Cmd/Ctrl+P (toggle CommandPalette)
+	// Global keyboard handler for Shift+Space (toggle ResourceBrowser), Cmd/Ctrl+P (toggle CommandPalette), and Cmd/Ctrl+E (toggle EntitySelectMenu)
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: KeyboardEvent) => {
 			// Don't intercept shortcuts when user is typing in an input field
@@ -369,6 +371,17 @@ const AppContent = () => {
 			) {
 				e.preventDefault();
 				setIsCommandPaletteOpen((prev) => !prev);
+			}
+
+			// Cmd/Ctrl+E - Toggle EntitySelectMenu
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "e" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				setIsEntitySelectMenuOpen((prev) => !prev);
 			}
 		};
 
@@ -467,6 +480,12 @@ const AppContent = () => {
 			<CommandPalette
 				isOpen={isCommandPaletteOpen}
 				onClose={() => setIsCommandPaletteOpen(false)}
+			/>
+
+			{/* Entity Select Menu (Cmd/Ctrl+E) */}
+			<EntitySelectMenu
+				isOpen={isEntitySelectMenuOpen}
+				onClose={() => setIsEntitySelectMenuOpen(false)}
 			/>
 		</div>
 	);
