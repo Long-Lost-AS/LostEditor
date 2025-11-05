@@ -7,9 +7,11 @@ interface EntityPropertiesPanelProps {
   selectedEntityId: string | null
   mapData: any
   onUpdateEntity?: (entityId: string, updates: Partial<EntityInstance>) => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
 }
 
-export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntity }: EntityPropertiesPanelProps) => {
+export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntity, onDragStart, onDragEnd }: EntityPropertiesPanelProps) => {
   const { tilesets } = useEditor()
 
   if (!selectedEntityId || !mapData.entities) {
@@ -89,6 +91,8 @@ export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntit
                     value={entity.x}
                     onChange={(x) => handleUpdatePosition(x, entity.y)}
                     onInput={(x) => handleUpdatePosition(x, entity.y)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     dragSpeed={1}
                     precision={0}
                     roundedLeft={false}
@@ -104,6 +108,8 @@ export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntit
                     value={entity.y}
                     onChange={(y) => handleUpdatePosition(entity.x, y)}
                     onInput={(y) => handleUpdatePosition(entity.x, y)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     dragSpeed={1}
                     precision={0}
                     roundedLeft={false}
@@ -122,6 +128,8 @@ export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntit
               value={entity.rotation || 0}
               onChange={handleUpdateRotation}
               onInput={handleUpdateRotation}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
               dragSpeed={1}
               precision={1}
             />
@@ -142,6 +150,8 @@ export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntit
                     value={entity.scale?.x || 1}
                     onChange={(x) => handleUpdateScale(x, entity.scale?.y || 1)}
                     onInput={(x) => handleUpdateScale(x, entity.scale?.y || 1)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     dragSpeed={0.1}
                     precision={2}
                     roundedLeft={false}
@@ -157,6 +167,8 @@ export const EntityPropertiesPanel = ({ selectedEntityId, mapData, onUpdateEntit
                     value={entity.scale?.y || 1}
                     onChange={(y) => handleUpdateScale(entity.scale?.x || 1, y)}
                     onInput={(y) => handleUpdateScale(entity.scale?.x || 1, y)}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     dragSpeed={0.1}
                     precision={2}
                     roundedLeft={false}

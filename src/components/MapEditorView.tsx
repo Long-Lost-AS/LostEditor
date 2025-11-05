@@ -206,7 +206,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const [
 		localMapData,
 		setLocalMapData,
-		{ undo, redo, canUndo, canRedo, reset: resetMapHistory },
+		{ undo, redo, canUndo, canRedo, startBatch, endBatch, reset: resetMapHistory },
 	] = useUndoableReducer<MapData>(mapData);
 
 	// Register undo/redo keyboard shortcuts
@@ -1381,6 +1381,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						selectedEntityId={selectedEntityId}
 						mapData={localMapData}
 						onUpdateEntity={handleUpdateEntity}
+						onDragStart={startBatch}
+						onDragEnd={endBatch}
 					/>
 				) : (tab.viewState.currentTool || 'pencil') === 'entity' ? (
 					<EntityPanel />
