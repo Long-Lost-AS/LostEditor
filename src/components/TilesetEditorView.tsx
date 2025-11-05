@@ -6,6 +6,7 @@ import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { ShieldIcon, TrashIcon } from "./Icons";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { DragNumberInput } from "./DragNumberInput";
+import { calculateMenuPosition } from "../utils/menuPositioning";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
@@ -907,9 +908,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// If we clicked on a compound tile, show delete option
 		// Otherwise, only allow right-click if there's a selection for creating compound tile
 		if (clickedCompoundTile || viewState.selectedTileRegion) {
+			const position = calculateMenuPosition(e.clientX, e.clientY, 200, 80);
 			setContextMenu({
-				x: e.clientX,
-				y: e.clientY,
+				x: position.x,
+				y: position.y,
 				compoundTileId: clickedCompoundTile,
 			});
 		}

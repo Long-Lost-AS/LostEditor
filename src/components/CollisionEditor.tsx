@@ -4,6 +4,7 @@ import { LightbulbIcon, TrashIcon, PlusIcon } from "./Icons";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { DragNumberInput } from "./DragNumberInput";
+import { calculateMenuPosition } from "../utils/menuPositioning";
 
 interface CollisionEditorProps {
 	width: number;
@@ -629,9 +630,10 @@ export const CollisionEditor = ({
 				unsnappedCoords.y,
 			);
 			if (pointIndex !== null && collider.id) {
+				const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 				setContextMenu({
-					x: e.clientX,
-					y: e.clientY,
+					x: position.x,
+					y: position.y,
 					colliderId: collider.id,
 					pointIndex,
 				});
@@ -647,9 +649,10 @@ export const CollisionEditor = ({
 				unsnappedCoords.y,
 			);
 			if (edge && collider.id) {
+				const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 				setContextMenu({
-					x: e.clientX,
-					y: e.clientY,
+					x: position.x,
+					y: position.y,
 					colliderId: collider.id,
 					edgeIndex: edge.edgeIndex,
 					insertPosition: edge.insertPosition,
@@ -666,9 +669,10 @@ export const CollisionEditor = ({
 
 		if (!colliderId) {
 			// Right-click on empty space - offer to create new collider
+			const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 			setContextMenu({
-				x: e.clientX,
-				y: e.clientY,
+				x: position.x,
+				y: position.y,
 				colliderId: "",
 				insertPosition: unsnappedCoords,
 			});
@@ -676,9 +680,10 @@ export const CollisionEditor = ({
 		}
 
 		// Right-click on collider but not on point or edge - offer to delete
+		const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 		setContextMenu({
-			x: e.clientX,
-			y: e.clientY,
+			x: position.x,
+			y: position.y,
 			colliderId,
 		});
 	};

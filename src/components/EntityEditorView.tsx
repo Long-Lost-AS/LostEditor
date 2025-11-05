@@ -6,6 +6,7 @@ import { DragNumberInput } from "./DragNumberInput";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { Dropdown } from "./Dropdown";
+import { calculateMenuPosition } from "../utils/menuPositioning";
 
 interface EntityEditorViewProps {
 	tab: EntityEditorTab;
@@ -1196,9 +1197,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					worldY,
 				);
 				if (pointIndex !== null) {
+					const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 					setContextMenu({
-						x: e.clientX,
-						y: e.clientY,
+						x: position.x,
+						y: position.y,
 						spriteLayerId: null,
 						colliderId: selectedCollider.id,
 						pointIndex,
@@ -1213,9 +1215,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					worldY,
 				);
 				if (edge) {
+					const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 					setContextMenu({
-						x: e.clientX,
-						y: e.clientY,
+						x: position.x,
+						y: position.y,
 						spriteLayerId: null,
 						colliderId: selectedCollider.id,
 						edgeIndex: edge.edgeIndex,
@@ -1232,9 +1235,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				collider.points.length >= 3 &&
 				isPointInPolygon(worldX, worldY, collider.points)
 			) {
+				const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 				setContextMenu({
-					x: e.clientX,
-					y: e.clientY,
+					x: position.x,
+					y: position.y,
 					spriteLayerId: null,
 					colliderId: collider.id,
 				});
@@ -1273,9 +1277,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 		}
 
+		const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 		setContextMenu({
-			x: e.clientX,
-			y: e.clientY,
+			x: position.x,
+			y: position.y,
 			spriteLayerId: clickedSpriteId,
 			colliderId: undefined,
 		});

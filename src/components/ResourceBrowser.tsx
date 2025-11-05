@@ -6,6 +6,7 @@ import { openPath } from '@tauri-apps/plugin-opener'
 import { fileManager } from '../managers/FileManager'
 import { referenceManager } from '../managers/ReferenceManager'
 import { TilesetTab } from '../types'
+import { calculateMenuPosition } from '../utils/menuPositioning'
 import {
   DndContext,
   useSensor,
@@ -213,9 +214,16 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
     e.preventDefault()
     e.stopPropagation()
     console.log('Context menu triggered:', { item, x: e.clientX, y: e.clientY })
+
+    // Estimate menu dimensions based on content
+    const menuWidth = 200
+    const menuHeight = 150 // Approximate height for typical menu items
+
+    const position = calculateMenuPosition(e.clientX, e.clientY, menuWidth, menuHeight)
+
     setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
+      x: position.x,
+      y: position.y,
       item
     })
   }
