@@ -55,9 +55,14 @@ export const TileDefinitionSchema = z.object({
   isCompound: z.boolean().optional(),  // True if this is a compound/multi-tile sprite
   width: z.number().optional(),
   height: z.number().optional(),
+  origin: z.object({
+    x: z.number(),
+    y: z.number()
+  }).optional(),
   colliders: z.array(PolygonColliderSchema).optional(),
   name: z.string().optional(),
-  type: z.string().optional()
+  type: z.string().optional(),
+  properties: z.record(z.string()).optional()
 })
 
 export const TerrainTileSchema = z.object({

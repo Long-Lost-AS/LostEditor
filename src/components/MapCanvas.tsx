@@ -125,7 +125,7 @@ export const MapCanvas = ({
 							continue;
 						}
 
-						// Create local tile ID (with tileset index 0) to find the tile definition
+						// Create local tile ID to find definition
 						const localTileId = packTileId(
 							geometry.x,
 							geometry.y,
@@ -134,30 +134,36 @@ export const MapCanvas = ({
 							geometry.flipY,
 						);
 
-						// Try to find tile definition to get width/height for compound tiles
-						const tileDefinition = tileset.tiles.find(
-							(t) => t.id === localTileId,
-						);
+						// Find tile definition
+						const tileDefinition = tileset.tiles.find((t) => t.id === localTileId);
 
-						// Determine source width/height
+						// Determine dimensions
 						let sourceWidth = tileset.tileWidth;
 						let sourceHeight = tileset.tileHeight;
+						let originOffsetX = 0;
+						let originOffsetY = 0;
 
-						if (tileDefinition?.width && tileDefinition?.height) {
-							// Compound tile - use definition's dimensions
+						if (tileDefinition?.isCompound && tileDefinition.width && tileDefinition.height) {
+							// Compound tile - use full dimensions
 							sourceWidth = tileDefinition.width;
 							sourceHeight = tileDefinition.height;
+
+							// Apply origin offset if specified
+							if (tileDefinition.origin) {
+								originOffsetX = tileDefinition.origin.x * sourceWidth;
+								originOffsetY = tileDefinition.origin.y * sourceHeight;
+							}
 						}
 
-						// Draw the tile
+						// Draw the tile with origin offset
 						ctx.drawImage(
 							tileset.imageData,
 							geometry.x,
 							geometry.y,
 							sourceWidth,
 							sourceHeight,
-							x * mapData.tileWidth,
-							y * mapData.tileHeight,
+							x * mapData.tileWidth - originOffsetX,
+							y * mapData.tileHeight - originOffsetY,
 							sourceWidth,
 							sourceHeight,
 						);
@@ -238,6 +244,12 @@ export const MapCanvas = ({
 					const sourceWidth = tileDef?.width || tileset.tileWidth;
 					const sourceHeight = tileDef?.height || tileset.tileHeight;
 
+					// Calculate origin offset (default to top-left if not specified)
+					const originX = tileDef?.origin?.x ?? 0;
+					const originY = tileDef?.origin?.y ?? 0;
+					const offsetX = originX * sourceWidth;
+					const offsetY = originY * sourceHeight;
+
 					// Semi-transparent preview
 					ctx.globalAlpha = 0.5;
 
@@ -247,13 +259,38 @@ export const MapCanvas = ({
 						geometry.y,
 						sourceWidth,
 						sourceHeight,
-						tileX * mapData.tileWidth,
-						tileY * mapData.tileHeight,
+						tileX * mapData.tileWidth - offsetX,
+						tileY * mapData.tileHeight - offsetY,
 						sourceWidth,
 						sourceHeight,
 					);
 
 					ctx.globalAlpha = 1.0;
+
+					// Draw origin point indicator for compound tiles
+					if (tileDef?.isCompound) {
+						// Center of the tile where the mouse is
+						const originWorldX = tileX * mapData.tileWidth + mapData.tileWidth / 2;
+						const originWorldY = tileY * mapData.tileHeight + mapData.tileHeight / 2;
+
+						// Draw crosshair
+						ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
+						ctx.lineWidth = 2 / zoom;
+						const markerSize = 6 / zoom;
+
+						ctx.beginPath();
+						ctx.moveTo(originWorldX - markerSize, originWorldY);
+						ctx.lineTo(originWorldX + markerSize, originWorldY);
+						ctx.moveTo(originWorldX, originWorldY - markerSize);
+						ctx.lineTo(originWorldX, originWorldY + markerSize);
+						ctx.stroke();
+
+						// Draw center dot
+						ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
+						ctx.beginPath();
+						ctx.arc(originWorldX, originWorldY, 2 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+					}
 				}
 			}
 

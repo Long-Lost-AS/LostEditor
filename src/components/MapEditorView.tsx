@@ -309,52 +309,11 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						const mapWidth = prev.width;
 						const mapHeight = prev.height;
 
-						// Handle compound tiles
-						if (selectedTileDef && selectedTileDef.isCompound) {
-							const tileWidth = selectedTileset?.tileWidth || 16;
-							const tileHeight = selectedTileset?.tileHeight || 16;
-							const widthInTiles = Math.ceil(
-								selectedTileDef.width! / tileWidth,
-							);
-							const heightInTiles = Math.ceil(
-								selectedTileDef.height! / tileHeight,
-							);
-
-							for (let dy = 0; dy < heightInTiles; dy++) {
-								for (let dx = 0; dx < widthInTiles; dx++) {
-									const cellX = x + dx;
-									const cellY = y + dy;
-
-									// Only place tiles that are within map bounds
-									if (
-										cellX >= 0 &&
-										cellY >= 0 &&
-										cellX < mapWidth &&
-										cellY < mapHeight
-									) {
-										// Each cell of the compound tile should reference a different part of the sprite
-										const cellSpriteX = geometry.x + dx * tileWidth;
-										const cellSpriteY = geometry.y + dy * tileHeight;
-										const cellTileId = packTileId(
-											cellSpriteX,
-											cellSpriteY,
-											tilesetIndex,
-											geometry.flipX,
-											geometry.flipY,
-										);
-										const index = cellY * mapWidth + cellX;
-										newTiles[index] = cellTileId;
-									}
-								}
-							}
-						} else {
-							// Regular single tile - only place if within bounds
-							console.log('Placing regular tile:', { x, y, globalTileId, mapWidth, mapHeight });
-							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-								const index = y * mapWidth + x;
-								console.log('Setting tile at index:', index, 'to:', globalTileId);
-								newTiles[index] = globalTileId;
-							}
+						// Place tile in a single cell - both regular and compound tiles
+						// Compound tiles will render larger, but only occupy one cell in the map
+						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+							const index = y * mapWidth + x;
+							newTiles[index] = globalTileId;
 						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
