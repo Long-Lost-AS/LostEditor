@@ -36,6 +36,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		tileWidth: mapData.tileWidth,
 		tileHeight: mapData.tileHeight,
 		layers: serializedLayers,
+		entities: mapData.entities || [],  // Entities at map level
 	};
 }
 
@@ -75,5 +76,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		tileWidth: serialized.tileWidth,
 		tileHeight: serialized.tileHeight,
 		layers,
+		entities: serialized.entities || [],  // Entities at map level
 	};
 }

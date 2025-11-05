@@ -86,6 +86,29 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
   }
 
   /**
+   * Create a new entity instance
+   * @param tilesetId - Reference to tileset containing the entity sprites
+   * @param entityDefId - Reference to entity definition
+   * @param x - X position in pixel coordinates
+   * @param y - Y position in pixel coordinates
+   * @returns A new EntityInstance object
+   */
+  createInstance(
+    tilesetId: string,
+    entityDefId: string,
+    x: number,
+    y: number
+  ): EntityInstance {
+    return {
+      id: `instance-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      x,
+      y,
+      entityDefId,
+      tilesetId
+    }
+  }
+
+  /**
    * Apply transform recursively to an entity instance and its children
    */
   applyTransformRecursive(
