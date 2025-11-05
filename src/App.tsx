@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
-import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { ResourceBrowser } from "./components/ResourceBrowser";
 import { TilesetEditorView } from "./components/TilesetEditorView";
@@ -373,7 +372,6 @@ const AppContent = () => {
 
 	return (
 		<div className="app-container">
-			<Toolbar />
 			<TabBar
 				tabs={tabs}
 				activeTabId={activeTabId}

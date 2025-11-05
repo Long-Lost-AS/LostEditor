@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
-import { MapTab, MapData, Tile, Layer } from "../types";
+import { MapTab, MapData, Tile, Layer, Tool } from "../types";
 import {
 	DndContext,
 	closestCenter,
@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DragNumberInput } from "./DragNumberInput";
 import { MapCanvas } from "./MapCanvas";
 import { TilesetPanel } from "./TilesetPanel";
+import { Toolbar } from "./Toolbar";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { entityManager } from "../managers/EntityManager";
@@ -368,6 +369,15 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		if (currentLayerId === layerId) {
 			setCurrentLayerId(localMapData.layers[0]?.id || null);
 		}
+	};
+
+	const handleToolChange = (tool: Tool) => {
+		updateTabData(tab.id, {
+			viewState: {
+				...tab.viewState,
+				currentTool: tool,
+			},
+		});
 	};
 
 	const handleUpdateLayerVisibility = (layerId: string, visible: boolean) => {
@@ -827,6 +837,196 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		[currentLayer, selectedTilesetId, selectedEntityDefId, setProjectModified],
 	);
 
+	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
+	const handlePlaceTilesBatch = useCallback(
+		(tiles: Array<{ x: number; y: number }>) => {
+			if (!currentLayer || currentLayer.type !== "tile") {
+				return;
+			}
+			if (tiles.length === 0) {
+				return;
+			}
+
+			// Check if we're in terrain painting mode
+			if (selectedTerrainLayerId) {
+				// For terrain tiles, we need to place each one and update neighbors
+				// But we can batch the entire operation into one state update
+				const selectedTileset = selectedTilesetId
+					? tilesets.find((ts) => ts.id === selectedTilesetId)
+					: null;
+				if (!selectedTileset?.terrainLayers) return;
+
+				const terrainLayer = selectedTileset.terrainLayers.find(
+					(l) => l.id === selectedTerrainLayerId,
+				);
+				if (!terrainLayer) return;
+
+				const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
+				if (tilesetIndex === -1) return;
+
+				setLocalMapData((prev) => ({
+					...prev,
+					layers: prev.layers.map((layer) => {
+						if (layer.id === currentLayer.id) {
+							const newTiles = [...layer.tiles];
+							const mutableLayer = { ...layer, tiles: newTiles };
+
+							// Place all tiles
+							tiles.forEach(({ x, y }) => {
+								placeTerrainTile(
+									mutableLayer,
+									x,
+									y,
+									prev.width,
+									prev.height,
+									terrainLayer,
+									selectedTileset,
+									tilesetIndex,
+									tilesets,
+								);
+							});
+
+							// Update neighbors for all placed tiles
+							tiles.forEach(({ x, y }) => {
+								updateNeighborsAround(
+									mutableLayer,
+									x,
+									y,
+									prev.width,
+									prev.height,
+									terrainLayer.id,
+									selectedTileset,
+									tilesetIndex,
+									tilesets,
+								);
+							});
+
+							return { ...layer, tiles: mutableLayer.tiles };
+						}
+						return layer;
+					}),
+				}));
+				setProjectModified(true);
+				return;
+			}
+
+			// Regular tile placement
+			const selectedTileset = selectedTilesetId
+				? tilesets.find((ts) => ts.id === selectedTilesetId)
+				: null;
+			const selectedTileDef =
+				selectedTileset && selectedTileId
+					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
+					: null;
+
+			const tilesetIndex = selectedTilesetId
+				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
+				: -1;
+
+			if (tilesetIndex === -1 || !selectedTileId) {
+				return;
+			}
+
+			const geometry = unpackTileId(selectedTileId);
+			const globalTileId = packTileId(
+				geometry.x,
+				geometry.y,
+				tilesetIndex,  // Use the correct tileset index, not the one from unpacking
+				geometry.flipX,
+				geometry.flipY,
+			);
+
+			setLocalMapData((prev) => ({
+				...prev,
+				layers: prev.layers.map((layer) => {
+					if (layer.id === currentLayer.id) {
+						// Ensure tiles array is properly sized
+						const totalSize = prev.width * prev.height;
+						const newTiles = layer.tiles && layer.tiles.length === totalSize
+							? [...layer.tiles]
+							: new Array(totalSize).fill(0);
+
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
+
+						// Place all tiles
+						tiles.forEach(({ x, y }) => {
+							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+								const index = y * mapWidth + x;
+								newTiles[index] = globalTileId;
+							}
+						});
+
+						let updatedLayer = { ...layer, tiles: newTiles };
+
+						// Apply autotiling if enabled
+						const autotilingEnabled = layer.autotilingEnabled !== false;
+						if (autotilingEnabled && !autotilingOverride) {
+							const autotileGroups = getAllAutotileGroups(tilesets);
+
+							if (autotileGroups.length > 0) {
+								const positionsToUpdate: Array<{ x: number; y: number }> = [];
+
+								// Collect all positions that need autotiling
+								tiles.forEach(({ x, y }) => {
+									if (selectedTileDef && selectedTileDef.isCompound) {
+										const tileWidth = selectedTileset?.tileWidth || 16;
+										const tileHeight = selectedTileset?.tileHeight || 16;
+										const widthInTiles = Math.ceil(
+											selectedTileDef.width! / tileWidth,
+										);
+										const heightInTiles = Math.ceil(
+											selectedTileDef.height! / tileHeight,
+										);
+
+										for (let dy = 0; dy < heightInTiles; dy++) {
+											for (let dx = 0; dx < widthInTiles; dx++) {
+												positionsToUpdate.push({ x: x + dx, y: y + dy });
+											}
+										}
+									} else {
+										positionsToUpdate.push({ x, y });
+									}
+								});
+
+								const autotiledTiles = updateTileAndNeighbors(
+									updatedLayer,
+									positionsToUpdate,
+									mapWidth,
+									mapHeight,
+									autotileGroups,
+									tilesets,
+								);
+
+								if (autotiledTiles && autotiledTiles.length > 0) {
+									// Apply autotiling updates to the tiles array
+									const finalTiles = [...updatedLayer.tiles];
+									for (const update of autotiledTiles) {
+										finalTiles[update.index] = update.tileId;
+									}
+									updatedLayer = { ...updatedLayer, tiles: finalTiles };
+								}
+							}
+						}
+
+						return updatedLayer;
+					}
+					return layer;
+				}),
+			}));
+			setProjectModified(true);
+		},
+		[
+			currentLayer,
+			selectedTilesetId,
+			selectedTileId,
+			selectedTerrainLayerId,
+			tilesets,
+			autotilingOverride,
+			setProjectModified,
+		],
+	);
+
 	// Resize panel handlers
 	const handleResizeStart = (e: React.MouseEvent) => {
 		setIsResizing(true);
@@ -1113,14 +1313,26 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				</div>
 			</div>
 
-			{/* Center - Map Canvas */}
-			<div className="flex-1 flex relative">
-				<MapCanvas
-					mapData={localMapData}
-					onPlaceTile={handlePlaceTile}
-					onEraseTile={handleEraseTile}
-					onPlaceEntity={handlePlaceEntity}
+			{/* Center - Toolbar and Map Canvas */}
+			<div className="flex-1 flex flex-col relative">
+				{/* Toolbar */}
+				<Toolbar
+					currentTool={tab.viewState.currentTool || "pencil"}
+					onToolChange={handleToolChange}
 				/>
+
+				{/* Map Canvas */}
+				<div className="flex-1 flex relative">
+					<MapCanvas
+						mapData={localMapData}
+						currentTool={tab.viewState.currentTool || "pencil"}
+						currentLayerId={currentLayerId}
+						onPlaceTile={handlePlaceTile}
+						onPlaceTilesBatch={handlePlaceTilesBatch}
+						onEraseTile={handleEraseTile}
+						onPlaceEntity={handlePlaceEntity}
+					/>
+				</div>
 			</div>
 
 			{/* Resize Handle */}
