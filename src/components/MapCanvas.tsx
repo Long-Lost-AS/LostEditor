@@ -2,24 +2,29 @@ import { useRef, useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import { unpackTileId, packTileId } from "../utils/tileId";
-import { MapData } from "../types";
+import { MapData, Tool } from "../types";
 
 interface MapCanvasProps {
 	mapData: MapData;
+	currentTool: Tool;
+	currentLayerId: string | null;
 	onPlaceTile: (x: number, y: number) => void;
+	onPlaceTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
 	onEraseTile: (x: number, y: number) => void;
 	onPlaceEntity: (x: number, y: number) => void;
 }
 
 export const MapCanvas = ({
 	mapData,
+	currentTool,
+	currentLayerId,
 	onPlaceTile,
+	onPlaceTilesBatch,
 	onEraseTile,
 	onPlaceEntity,
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
-		currentTool,
 		tilesetImage,
 		tilesets,
 		getTilesetById,
@@ -42,6 +47,85 @@ export const MapCanvas = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	// Rectangle tool state
+	const [isDrawingRect, setIsDrawingRect] = useState(false);
+	const [rectStartTile, setRectStartTile] = useState<{ x: number; y: number } | null>(null);
+
+	// Fill tool - flood fill helper function
+	const floodFill = (startX: number, startY: number) => {
+		// Get the current active layer
+		if (!currentLayerId) {
+			return;
+		}
+		const activeLayer = mapData.layers.find(layer => layer.id === currentLayerId);
+		if (!activeLayer || activeLayer.type === 'entity') {
+			return;
+		}
+
+		// Get the target tile ID (what we're replacing)
+		const startIndex = startY * mapData.width + startX;
+		const targetTileId = activeLayer.tiles[startIndex] || 0; // Treat undefined as 0 (empty)
+
+		// Get the replacement tile ID and convert to global tile ID
+		if (!selectedTileId || !selectedTilesetId) {
+			return;
+		}
+
+		const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
+		if (tilesetIndex === -1) {
+			return;
+		}
+
+		const geometry = unpackTileId(selectedTileId);
+		const globalTileId = packTileId(
+			geometry.x,
+			geometry.y,
+			tilesetIndex,
+			geometry.flipX,
+			geometry.flipY,
+		);
+
+		// Don't fill if clicking on the same tile
+		if (targetTileId === globalTileId) {
+			return;
+		}
+
+		// Collect all tiles to fill in a single batch
+		const tilesToFill: Array<{ x: number; y: number }> = [];
+		const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
+		const visited = new Set<number>();
+
+		while (queue.length > 0) {
+			const { x, y } = queue.shift()!;
+			const index = y * mapData.width + x;
+
+			// Skip if out of bounds
+			if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height) continue;
+
+			// Skip if already visited
+			if (visited.has(index)) continue;
+			visited.add(index);
+
+			// Skip if not the target tile (treat undefined as 0)
+			const currentTileId = activeLayer.tiles[index] || 0;
+			if (currentTileId !== targetTileId) continue;
+
+			// Add to batch
+			tilesToFill.push({ x, y });
+
+			// Add neighbors to queue
+			queue.push({ x: x + 1, y });
+			queue.push({ x: x - 1, y });
+			queue.push({ x, y: y + 1 });
+			queue.push({ x, y: y - 1 });
+		}
+
+		// Place all tiles in a single batch operation
+		if (tilesToFill.length > 0) {
+			onPlaceTilesBatch(tilesToFill);
+		}
+	};
 
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
@@ -322,6 +406,42 @@ export const MapCanvas = ({
 				}
 			}
 
+			// Draw rectangle preview (when dragging with rect tool)
+			if (isDrawingRect && rectStartTile && mousePos && canvas) {
+				const rect = canvas.getBoundingClientRect();
+				const canvasX = mousePos.x - rect.left;
+				const canvasY = mousePos.y - rect.top;
+				const worldX = (canvasX - panX) / zoom;
+				const worldY = (canvasY - panY) / zoom;
+				const currentTileX = Math.floor(worldX / mapData.tileWidth);
+				const currentTileY = Math.floor(worldY / mapData.tileHeight);
+
+				// Calculate rectangle bounds
+				const minX = Math.min(rectStartTile.x, currentTileX);
+				const maxX = Math.max(rectStartTile.x, currentTileX);
+				const minY = Math.min(rectStartTile.y, currentTileY);
+				const maxY = Math.max(rectStartTile.y, currentTileY);
+
+				// Draw semi-transparent fill
+				ctx.fillStyle = "rgba(0, 150, 255, 0.2)";
+				ctx.fillRect(
+					minX * mapData.tileWidth,
+					minY * mapData.tileHeight,
+					(maxX - minX + 1) * mapData.tileWidth,
+					(maxY - minY + 1) * mapData.tileHeight
+				);
+
+				// Draw rectangle outline
+				ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
+				ctx.lineWidth = 2 / zoom;
+				ctx.strokeRect(
+					minX * mapData.tileWidth,
+					minY * mapData.tileHeight,
+					(maxX - minX + 1) * mapData.tileWidth,
+					(maxY - minY + 1) * mapData.tileHeight
+				);
+			}
+
 			ctx.restore();
 		};
 	}, [
@@ -337,6 +457,8 @@ export const MapCanvas = ({
 		currentTool,
 		selectedTilesetId,
 		selectedTileId,
+		isDrawingRect,
+		rectStartTile,
 	]);
 
 	// Trigger render when dependencies change
@@ -355,6 +477,8 @@ export const MapCanvas = ({
 		currentTool,
 		selectedTilesetId,
 		selectedTileId,
+		isDrawingRect,
+		rectStartTile,
 	]);
 
 	// Render an entity with its hierarchy
@@ -432,17 +556,26 @@ export const MapCanvas = ({
 			setDragStartY(e.clientY - panY);
 		} else if (e.button === 0) {
 			// Left click = Draw
-			setIsDrawing(true);
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
-			if (currentTool === "pencil") {
-				onPlaceTile(tileX, tileY);
-			} else if (currentTool === "eraser") {
-				onEraseTile(tileX, tileY);
-			} else if (currentTool === "entity") {
-				// Place entity at pixel coordinates
-				onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
+			if (currentTool === "rect") {
+				// Rectangle tool: start drawing rectangle
+				setIsDrawingRect(true);
+				setRectStartTile({ x: tileX, y: tileY });
+			} else if (currentTool === "fill") {
+				// Fill tool: perform flood fill
+				floodFill(tileX, tileY);
+			} else {
+				setIsDrawing(true);
+				if (currentTool === "pencil") {
+					onPlaceTile(tileX, tileY);
+				} else if (currentTool === "eraser") {
+					onEraseTile(tileX, tileY);
+				} else if (currentTool === "entity") {
+					// Place entity at pixel coordinates
+					onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
+				}
 			}
 		}
 	};
@@ -471,7 +604,32 @@ export const MapCanvas = ({
 		setMouseScreenPos(null);
 	};
 
-	const handleMouseUp = () => {
+	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+		if (isDrawingRect && rectStartTile) {
+			// Finish drawing rectangle - place tiles in the rectangular area
+			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
+
+			// Calculate rectangle bounds
+			const minX = Math.min(rectStartTile.x, tileX);
+			const maxX = Math.max(rectStartTile.x, tileX);
+			const minY = Math.min(rectStartTile.y, tileY);
+			const maxY = Math.max(rectStartTile.y, tileY);
+
+			// Collect all tiles in the rectangle
+			const tilesToPlace: Array<{ x: number; y: number }> = [];
+			for (let y = minY; y <= maxY; y++) {
+				for (let x = minX; x <= maxX; x++) {
+					tilesToPlace.push({ x, y });
+				}
+			}
+
+			// Place all tiles in a single batch operation
+			onPlaceTilesBatch(tilesToPlace);
+
+			setIsDrawingRect(false);
+			setRectStartTile(null);
+		}
+
 		setIsDragging(false);
 		setIsDrawing(false);
 	};
