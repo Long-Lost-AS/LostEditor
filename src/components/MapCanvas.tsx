@@ -647,6 +647,7 @@ export const MapCanvas = ({
 		currentTool,
 		selectedTilesetId,
 		selectedTileId,
+		selectedEntityDefId,
 		isDrawingRect,
 		rectStartTile,
 		selectedEntityId,
