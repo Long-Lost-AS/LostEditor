@@ -279,7 +279,7 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                         .accelerator("CmdOrCtrl+M")
                         .build(app)?,
                     &MenuItemBuilder::with_id("new-tileset", "New Tileset")
-                        .accelerator("CmdOrCtrl+T")
+                        .accelerator("CmdOrCtrl+Shift+T")
                         .build(app)?,
                     &MenuItemBuilder::with_id("new-entity", "New Entity")
                         .accelerator("CmdOrCtrl+Shift+E")

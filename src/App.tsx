@@ -13,6 +13,7 @@ import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
 import { CommandPalette } from "./components/CommandPalette";
 import { EntitySelectMenu } from "./components/EntitySelectMenu";
+import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
 import "./style.css";
 
@@ -42,6 +43,7 @@ const AppContent = () => {
 	const [isAssetBrowserOpen, setIsAssetBrowserOpen] = useState(true);
 	const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 	const [isEntitySelectMenuOpen, setIsEntitySelectMenuOpen] = useState(false);
+	const [isTilesetSelectMenuOpen, setIsTilesetSelectMenuOpen] = useState(false);
 	const [rightPanelWidth, setRightPanelWidth] = useState(350);
 	const [isResizing, setIsResizing] = useState(false);
 	const [dragStartX, setDragStartX] = useState(0);
@@ -342,7 +344,7 @@ const AppContent = () => {
 		};
 	}, [isResizingBottom, dragStartY, dragStartHeight]);
 
-	// Global keyboard handler for Shift+Space (toggle ResourceBrowser), Cmd/Ctrl+P (toggle CommandPalette), and Cmd/Ctrl+E (toggle EntitySelectMenu)
+	// Global keyboard handler for Shift+Space (toggle ResourceBrowser), Cmd/Ctrl+P (toggle CommandPalette), Cmd/Ctrl+E (toggle EntitySelectMenu), and Cmd/Ctrl+T (toggle TilesetSelectMenu)
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: KeyboardEvent) => {
 			// Don't intercept shortcuts when user is typing in an input field
@@ -382,6 +384,17 @@ const AppContent = () => {
 			) {
 				e.preventDefault();
 				setIsEntitySelectMenuOpen((prev) => !prev);
+			}
+
+			// Cmd/Ctrl+T - Toggle TilesetSelectMenu
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "t" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				setIsTilesetSelectMenuOpen((prev) => !prev);
 			}
 		};
 
@@ -486,6 +499,12 @@ const AppContent = () => {
 			<EntitySelectMenu
 				isOpen={isEntitySelectMenuOpen}
 				onClose={() => setIsEntitySelectMenuOpen(false)}
+			/>
+
+			{/* Tileset Select Menu (Cmd/Ctrl+T) */}
+			<TilesetSelectMenu
+				isOpen={isTilesetSelectMenuOpen}
+				onClose={() => setIsTilesetSelectMenuOpen(false)}
 			/>
 		</div>
 	);
