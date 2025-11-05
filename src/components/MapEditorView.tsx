@@ -15,6 +15,12 @@ import {
 import { createDefaultMapData } from "../schemas";
 import { unpackTileId, packTileId } from "../utils/tileId";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import {
+	placeTerrainTile,
+	updateNeighborsAround,
+	getTerrainLayerForTile,
+	removeTerrainTile,
+} from "../utils/terrainDrawing";
 
 interface MapEditorViewProps {
 	tab: MapTab;
@@ -29,6 +35,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		selectedTilesetId,
 		selectedTileId,
 		selectedEntityDefId,
+		selectedTerrainLayerId,
 		tilesets,
 		autotilingOverride,
 		setProjectModified,
@@ -282,10 +289,108 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		});
 	};
 
+	// Terrain painting function
+	const handlePlaceTerrain = useCallback(
+		(x: number, y: number) => {
+			console.log('handlePlaceTerrain called:', { x, y, currentLayer, selectedTerrainLayerId, selectedTilesetId });
+
+			if (!currentLayer || currentLayer.type !== "tile") {
+				console.log('No current layer or not a tile layer');
+				return;
+			}
+			if (!selectedTerrainLayerId || !selectedTilesetId) {
+				console.log('No terrain layer or tileset selected');
+				return;
+			}
+
+			// Find the selected tileset and terrain layer
+			const tileset = tilesets.find((ts) => ts.id === selectedTilesetId);
+			console.log('Found tileset:', tileset);
+			if (!tileset || !tileset.terrainLayers) {
+				console.log('No tileset or terrain layers');
+				return;
+			}
+
+			const terrainLayer = tileset.terrainLayers.find(
+				(l) => l.id === selectedTerrainLayerId,
+			);
+			console.log('Found terrain layer:', terrainLayer);
+			if (!terrainLayer) {
+				console.log('No matching terrain layer found');
+				return;
+			}
+
+			const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
+			console.log('Tileset index:', tilesetIndex);
+			if (tilesetIndex === -1) {
+				console.log('Invalid tileset index');
+				return;
+			}
+
+			// Update the map with terrain tile placement
+			setLocalMapData((prev) => ({
+				...prev,
+				layers: prev.layers.map((layer) => {
+					if (layer.id === currentLayer.id) {
+						const newTiles = [...layer.tiles]; // Copy the dense array
+						const mapWidth = prev.width;
+						const mapHeight = prev.height;
+
+						// Create a mutable layer object for the terrain utilities
+						const mutableLayer = { ...layer, tiles: newTiles };
+
+						// Place the terrain tile with smart bitmask calculation
+						placeTerrainTile(
+							mutableLayer,
+							x,
+							y,
+							mapWidth,
+							mapHeight,
+							terrainLayer,
+							tileset,
+							tilesetIndex,
+							tilesets,
+						);
+
+						// Update all 8 neighbors to adjust their bitmasks
+						updateNeighborsAround(
+							mutableLayer,
+							x,
+							y,
+							mapWidth,
+							mapHeight,
+							terrainLayer.id,
+							tileset,
+							tilesetIndex,
+							tilesets,
+						);
+
+						return { ...layer, tiles: mutableLayer.tiles };
+					}
+					return layer;
+				}),
+			}));
+			setProjectModified(true);
+		},
+		[
+			currentLayer,
+			selectedTerrainLayerId,
+			selectedTilesetId,
+			tilesets,
+			setProjectModified,
+		],
+	);
+
 	// Paint functions (tile placement, erasing, entity placement)
 	const handlePlaceTile = useCallback(
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "tile") return;
+
+			// Check if we're in terrain painting mode
+			if (selectedTerrainLayerId) {
+				handlePlaceTerrain(x, y);
+				return;
+			}
 
 			// Check if selected tile is a compound tile
 			const selectedTileset = selectedTilesetId
@@ -423,13 +528,42 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						const mapWidth = prev.width;
 						const mapHeight = prev.height;
 
+						// Check if the tile being erased is a terrain tile
+						const index = y * mapWidth + x;
+						const tileId = newTiles[index];
+						const terrainLayerId = getTerrainLayerForTile(tileId, tilesets);
+
 						// Erase the tile by setting it to 0
 						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-							const index = y * mapWidth + x;
 							newTiles[index] = 0;
 						}
 
 						let updatedLayer = { ...layer, tiles: newTiles };
+
+						// If it was a terrain tile, update neighbors
+						if (terrainLayerId) {
+							const tileset = tilesets.find((ts) =>
+								ts.terrainLayers?.some((l) => l.id === terrainLayerId),
+							);
+							if (tileset) {
+								const tilesetIndex = tilesets.indexOf(tileset);
+								const mutableLayer = { ...layer, tiles: newTiles };
+								updateNeighborsAround(
+									mutableLayer,
+									x,
+									y,
+									mapWidth,
+									mapHeight,
+									terrainLayerId,
+									tileset,
+									tilesetIndex,
+									tilesets,
+								);
+								updatedLayer = { ...layer, tiles: mutableLayer.tiles };
+							}
+						}
+
+						updatedLayer = { ...layer, tiles: newTiles };
 
 						// Apply autotiling to neighbors
 						const autotilingEnabled = layer.autotilingEnabled !== false;

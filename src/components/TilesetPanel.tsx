@@ -411,7 +411,6 @@ export const TilesetPanel = () => {
         </div>
       )}
 
-
       {/* Tileset canvas */}
       {displayImage ? (
         <div
@@ -484,13 +483,18 @@ export const TilesetPanel = () => {
                 }}
                 onClick={() => {
                   // Toggle selection: click again to deselect
-                  setSelectedTerrainLayerId(
-                    selectedTerrainLayerId === layer.id ? null : layer.id
-                  )
-                  // Clear tile/entity selection when selecting terrain
-                  if (selectedTerrainLayerId !== layer.id) {
+                  const newTerrainLayerId = selectedTerrainLayerId === layer.id ? null : layer.id
+                  setSelectedTerrainLayerId(newTerrainLayerId)
+
+                  // When selecting a terrain layer, set the tileset ID
+                  if (newTerrainLayerId && currentTileset) {
+                    setSelectedTilesetId(currentTileset.id)
+                    // Clear tile/entity selection when selecting terrain
                     setSelectedTileId(null)
                     setSelectedEntityDefId(null)
+                  } else if (!newTerrainLayerId) {
+                    // When deselecting terrain, clear the tileset ID too
+                    setSelectedTilesetId(null)
                   }
                 }}
               >

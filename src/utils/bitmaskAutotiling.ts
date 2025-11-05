@@ -86,42 +86,51 @@ export function calculateBitmaskFromNeighbors(
  *
  * Looks for tiles with matching bitmask in the terrain layer.
  * If no exact match, finds the closest match (most matching bits).
+ * As ultimate fallback, uses the center-only tile (bitmask 16) if available.
  *
  * @param tileset - The tileset to search
  * @param terrainLayer - The terrain layer to match
  * @param targetBitmask - The target bitmask to match
- * @returns The matching tile definition, or null if none found
+ * @returns The matching terrain tile (with tileId), or null if none found
  */
 export function findTileByBitmask(
   tileset: TilesetData,
   terrainLayer: TerrainLayer,
   targetBitmask: number
-): TileDefinition | null {
-  let bestMatch: TileDefinition | null = null
+): { tileId: number } | null {
+  let bestMatch: { tileId: number } | null = null
   let bestMatchScore = -1
+  let centerTile: { tileId: number } | null = null
 
   const terrainTiles = terrainLayer.tiles || []
+  console.log('findTileByBitmask:', { targetBitmask, terrainTilesCount: terrainTiles.length });
 
   for (const terrainTile of terrainTiles) {
-    const tile = tileset.tiles.find(t => t.id === terrainTile.tileId)
-    if (!tile) continue
-
     const tileBitmask = terrainTile.bitmask
 
     // Check for exact match
     if (tileBitmask === targetBitmask) {
-      return tile
+      console.log('Exact match found! tileId:', terrainTile.tileId);
+      return { tileId: terrainTile.tileId }
+    }
+
+    // Save center-only tile (bitmask 16 = bit 4 only) as fallback
+    if (tileBitmask === 16) {
+      console.log('Found center tile for fallback, tileId:', terrainTile.tileId);
+      centerTile = { tileId: terrainTile.tileId }
     }
 
     // Calculate match score (number of matching bits)
     const matchingBits = countMatchingBits(tileBitmask, targetBitmask)
     if (matchingBits > bestMatchScore) {
       bestMatchScore = matchingBits
-      bestMatch = tile
+      bestMatch = { tileId: terrainTile.tileId }
     }
   }
 
-  return bestMatch
+  console.log('Final result:', { bestMatchTileId: bestMatch?.tileId, centerTileTileId: centerTile?.tileId, bestMatchScore });
+  // Use best match if found, otherwise use center tile as fallback
+  return bestMatch || centerTile
 }
 
 /**

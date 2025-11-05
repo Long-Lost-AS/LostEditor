@@ -275,8 +275,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		string | null
 	>(null);
 
-	// Autotiling state
-	const [autotilingOverride, setAutotilingOverride] = useState(false);
+	// Autotiling state (always false, no shift override)
+	const autotilingOverride = false;
 
 	// Multi-tileset state
 	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
@@ -312,29 +312,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		onContinue: () => void;
 		onCancel: () => void;
 	} | null>(null);
-
-	// Keyboard listeners for autotiling override (Shift key)
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Shift') {
-				setAutotilingOverride(true);
-			}
-		};
-
-		const handleKeyUp = (e: KeyboardEvent) => {
-			if (e.key === 'Shift') {
-				setAutotilingOverride(false);
-			}
-		};
-
-		window.addEventListener('keydown', handleKeyDown);
-		window.addEventListener('keyup', handleKeyUp);
-
-		return () => {
-			window.removeEventListener('keydown', handleKeyDown);
-			window.removeEventListener('keyup', handleKeyUp);
-		};
-	}, []);
 
 	// [REMOVED] Circular dependency: tabs → mapData sync
 	// Each view now manages its own state and fetches from maps array
