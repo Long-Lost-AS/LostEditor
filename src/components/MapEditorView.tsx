@@ -1,7 +1,24 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
-import { MapTab, MapData, Tile } from "../types";
+import { MapTab, MapData, Tile, Layer } from "../types";
+import {
+	DndContext,
+	closestCenter,
+	PointerSensor,
+	useSensor,
+	useSensors,
+	DragEndEvent,
+	DragStartEvent,
+	DragOverlay,
+} from '@dnd-kit/core';
+import {
+	SortableContext,
+	verticalListSortingStrategy,
+	useSortable,
+	arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { DragNumberInput } from "./DragNumberInput";
 import { MapCanvas } from "./MapCanvas";
 import { TilesetPanel } from "./TilesetPanel";
@@ -26,6 +43,127 @@ interface MapEditorViewProps {
 	tab: MapTab;
 }
 
+interface SortableLayerItemProps {
+	layer: Layer;
+	isActive: boolean;
+	isEditing: boolean;
+	editingName: string;
+	onClick: () => void;
+	onDoubleClick: () => void;
+	onContextMenu: (e: React.MouseEvent) => void;
+	onVisibilityChange: (visible: boolean) => void;
+	onAutotilingChange: (enabled: boolean) => void;
+	onNameChange: (name: string) => void;
+	onNameSubmit: () => void;
+	onKeyDown: (e: React.KeyboardEvent) => void;
+}
+
+const SortableLayerItem = ({
+	layer,
+	isActive,
+	isEditing,
+	editingName,
+	onClick,
+	onDoubleClick,
+	onContextMenu,
+	onVisibilityChange,
+	onAutotilingChange,
+	onNameChange,
+	onNameSubmit,
+	onKeyDown,
+}: SortableLayerItemProps) => {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: layer.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : 1,
+	};
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			className={`px-2 py-1.5 text-xs rounded transition-colors flex items-center gap-2 ${
+				isActive
+					? "bg-[#0e639c] text-white"
+					: "bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3e3e42]"
+			} ${isDragging ? "opacity-50 cursor-grabbing" : "cursor-grab"}`}
+			onClick={onClick}
+			onDoubleClick={onDoubleClick}
+			onContextMenu={onContextMenu}
+			onMouseDown={(e) => {
+				if (e.detail > 1) {
+					e.preventDefault();
+				}
+			}}
+			{...attributes}
+			{...listeners}
+		>
+			<input
+				type="checkbox"
+				checked={layer.visible}
+				onChange={(e) => {
+					e.stopPropagation();
+					onVisibilityChange(e.target.checked);
+				}}
+				onClick={(e) => e.stopPropagation()}
+				title="Toggle visibility"
+				style={{ accentColor: "#007acc" }}
+			/>
+			{layer.type === "tile" && (
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						onAutotilingChange(!(layer.autotilingEnabled !== false));
+					}}
+					title={
+						layer.autotilingEnabled !== false
+							? "Autotiling ON"
+							: "Autotiling OFF"
+					}
+					style={{
+						background: "none",
+						border: "none",
+						cursor: "pointer",
+						padding: "2px 4px",
+						opacity: layer.autotilingEnabled !== false ? 1 : 0.3,
+						fontSize: "14px",
+					}}
+				>
+					🗠
+				</button>
+			)}
+			{isEditing ? (
+				<input
+					type="text"
+					value={editingName}
+					onChange={(e) => onNameChange(e.target.value)}
+					onBlur={onNameSubmit}
+					onKeyDown={onKeyDown}
+					onClick={(e) => e.stopPropagation()}
+					autoFocus
+					className="flex-1 px-1 py-0.5 text-xs rounded"
+					style={{
+						background: "#3e3e42",
+						color: "#cccccc",
+						border: "1px solid #1177bb",
+					}}
+				/>
+			) : (
+				<span className="flex-1 select-none">{layer.name}</span>
+			)}
+		</div>
+	);
+};
+
 export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const {
 		getMapById,
@@ -39,6 +177,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		tilesets,
 		autotilingOverride,
 		setProjectModified,
+		reorderLayers,
 	} = useEditor();
 
 	// Fetch map data by ID (following TilesetEditorView pattern)
@@ -97,6 +236,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		y: number;
 		layerId: string;
 	} | null>(null);
+
+	// Drag-and-drop state
+	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
+	const sensors = useSensors(
+		useSensor(PointerSensor, {
+			activationConstraint: {
+				delay: 150, // 150ms delay before drag starts
+				tolerance: 5, // 5px tolerance during delay
+			},
+		})
+	);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
@@ -287,6 +437,52 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			y: position.y,
 			layerId
 		});
+	};
+
+	// Drag-and-drop handlers for layer reordering
+	const handleDragStart = (event: DragStartEvent) => {
+		setActiveLayerId(event.active.id as string);
+
+		// Select the layer being dragged
+		const draggedLayer = localMapData?.layers.find((l) => l.id === event.active.id);
+		if (draggedLayer) {
+			setCurrentLayerId(draggedLayer.id);
+		}
+	};
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+		setActiveLayerId(null);
+
+		if (!over || active.id === over.id || !localMapData) {
+			return;
+		}
+
+		// Get the reversed array (UI order: top layer at top)
+		const reversedLayers = [...localMapData.layers].reverse();
+
+		// Find indices in the reversed array
+		const oldIndex = reversedLayers.findIndex((l) => l.id === active.id);
+		const newIndex = reversedLayers.findIndex((l) => l.id === over.id);
+
+		if (oldIndex === -1 || newIndex === -1) {
+			return;
+		}
+
+		// Reorder in the reversed array
+		const reorderedReversed = arrayMove(reversedLayers, oldIndex, newIndex);
+
+		// Reverse back to get the correct internal order (bottom to top)
+		const newLayersOrder = reorderedReversed.reverse();
+
+		// Update local map data
+		setLocalMapData({
+			...localMapData,
+			layers: newLayersOrder,
+		});
+
+		// Also update global state through reorderLayers
+		reorderLayers(newLayersOrder);
 	};
 
 	// Terrain painting function
@@ -810,89 +1006,88 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								>
 									Layers
 								</div>
-								<div className="space-y-1">
-									{localMapData?.layers?.map((layer) => (
-										<div
-											key={layer.id}
-											className={`px-2 py-1.5 text-xs rounded cursor-pointer transition-colors flex items-center gap-2 ${
-												currentLayer?.id === layer.id
-													? "bg-[#0e639c] text-white"
-													: "bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3e3e42]"
-											}`}
-											style={{ border: "1px solid #3e3e42" }}
-											onClick={() => setCurrentLayerId(layer.id)}
-											onDoubleClick={() => handleLayerDoubleClick(layer)}
-											onContextMenu={(e) => handleLayerContextMenu(e, layer.id)}
-											onMouseDown={(e) => {
-												if (e.detail > 1) {
-													e.preventDefault();
-												}
-											}}
-										>
-											<input
-												type="checkbox"
-												checked={layer.visible}
-												onChange={(e) => {
-													e.stopPropagation();
-													handleUpdateLayerVisibility(
-														layer.id,
-														e.target.checked,
-													);
-												}}
-												title="Toggle visibility"
-												style={{ accentColor: "#007acc" }}
-											/>
-											{layer.type === "tile" && (
-												<button
-													onClick={(e) => {
-														e.stopPropagation();
-														handleUpdateLayerAutotiling(
-															layer.id,
-															!(layer.autotilingEnabled !== false),
-														);
-													}}
-													title={
-														layer.autotilingEnabled !== false
-															? "Autotiling ON"
-															: "Autotiling OFF"
+								<DndContext
+									sensors={sensors}
+									collisionDetection={closestCenter}
+									onDragStart={handleDragStart}
+									onDragEnd={handleDragEnd}
+								>
+									<SortableContext
+										items={(localMapData?.layers || []).slice().reverse().map((l) => l.id)}
+										strategy={verticalListSortingStrategy}
+									>
+										<div className="space-y-1">
+											{localMapData?.layers?.slice().reverse().map((layer) => (
+												<SortableLayerItem
+													key={layer.id}
+													layer={layer}
+													isActive={currentLayer?.id === layer.id}
+													isEditing={editingLayerId === layer.id}
+													editingName={editingLayerName}
+													onClick={() => setCurrentLayerId(layer.id)}
+													onDoubleClick={() => handleLayerDoubleClick(layer)}
+													onContextMenu={(e) => handleLayerContextMenu(e, layer.id)}
+													onVisibilityChange={(visible) =>
+														handleUpdateLayerVisibility(layer.id, visible)
 													}
-													style={{
-														background: "none",
-														border: "none",
-														cursor: "pointer",
-														padding: "2px 4px",
-														opacity:
-															layer.autotilingEnabled !== false ? 1 : 0.3,
-														fontSize: "14px",
-													}}
-												>
-													🗠
-												</button>
-											)}
-											{editingLayerId === layer.id ? (
-												<input
-													type="text"
-													value={editingLayerName}
-													onChange={(e) => setEditingLayerName(e.target.value)}
-													onBlur={() => handleLayerNameSubmit(layer.id)}
+													onAutotilingChange={(enabled) =>
+														handleUpdateLayerAutotiling(layer.id, enabled)
+													}
+													onNameChange={setEditingLayerName}
+													onNameSubmit={() => handleLayerNameSubmit(layer.id)}
 													onKeyDown={(e) => handleLayerNameKeyDown(e, layer.id)}
-													onClick={(e) => e.stopPropagation()}
-													autoFocus
-													className="flex-1 px-2 py-1 text-xs rounded focus:outline-none"
-													style={{
-														background: "#3e3e42",
-														color: "#cccccc",
-														border: "1px solid #1177bb",
-														minWidth: 0,
-														maxWidth: "100%",
-													}}
 												/>
-											) : (
-												<span className="flex-1">{layer.name}</span>
-											)}
+											))}
 										</div>
-									))}
-								</div>
+									</SortableContext>
+									<DragOverlay>
+										{activeLayerId && localMapData ? (
+											<div
+												className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
+												style={{ border: "1px solid #1177bb", cursor: "grabbing" }}
+											>
+												{(() => {
+													const activeLayer = localMapData.layers.find(
+														(l) => l.id === activeLayerId
+													);
+													if (!activeLayer) return null;
+													return (
+														<>
+															<input
+																type="checkbox"
+																checked={activeLayer.visible}
+																readOnly
+																title="Toggle visibility"
+																style={{ accentColor: "#007acc" }}
+															/>
+															{activeLayer.type === "tile" && (
+																<button
+																	title={
+																		activeLayer.autotilingEnabled !== false
+																			? "Autotiling ON"
+																			: "Autotiling OFF"
+																	}
+																	style={{
+																		background: "none",
+																		border: "none",
+																		cursor: "pointer",
+																		padding: "2px 4px",
+																		opacity:
+																			activeLayer.autotilingEnabled !== false ? 1 : 0.3,
+																		fontSize: "14px",
+																	}}
+																>
+																	🗠
+																</button>
+															)}
+															<span className="flex-1 select-none">{activeLayer.name}</span>
+														</>
+													);
+												})()}
+											</div>
+										) : null}
+									</DragOverlay>
+								</DndContext>
 								<div className="mt-2">
 									<button
 										onClick={handleAddLayer}

@@ -133,6 +133,7 @@ interface EditorContextType {
 	updateLayerVisibility: (layerId: string, visible: boolean) => void;
 	updateLayerName: (layerId: string, name: string) => void;
 	updateLayerAutotiling: (layerId: string, enabled: boolean) => void;
+	reorderLayers: (newLayersOrder: Layer[]) => void;
 
 	// Tile Actions
 	placeTile: (x: number, y: number) => void;
@@ -427,6 +428,14 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			layers: prev.layers.map((l) =>
 				l.id === layerId ? { ...l, autotilingEnabled: enabled } : l
 			),
+		}));
+		setProjectModified(true);
+	}, []);
+
+	const reorderLayers = useCallback((newLayersOrder: Layer[]) => {
+		setMapData((prev) => ({
+			...prev,
+			layers: newLayersOrder,
 		}));
 		setProjectModified(true);
 	}, []);
@@ -2071,6 +2080,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		updateLayerVisibility,
 		updateLayerName,
 		updateLayerAutotiling,
+		reorderLayers,
 		placeTile,
 		eraseTile,
 		autotilingOverride,

@@ -327,10 +327,12 @@ body {
   background: #3e3e42;
   border: 1px solid #555;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: grab;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .layer-item:hover {
@@ -340,6 +342,18 @@ body {
 .layer-item.active {
   background: #0e639c;
   border-color: #1177bb;
+}
+
+.layer-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.layer-item.drag-overlay {
+  background: #0e639c;
+  border-color: #1177bb;
+  cursor: grabbing;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .layer-name-input {
