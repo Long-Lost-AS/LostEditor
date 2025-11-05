@@ -7,6 +7,7 @@ import { fileManager } from '../managers/FileManager'
 import { referenceManager } from '../managers/ReferenceManager'
 import { TilesetTab } from '../types'
 import { calculateMenuPosition } from '../utils/menuPositioning'
+import { isEditableElementFocused } from '../utils/keyboardUtils'
 import {
   DndContext,
   useSensor,
@@ -89,7 +90,6 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
   useEffect(() => {
     const handleClick = () => setContextMenu(null)
     if (contextMenu) {
-      console.log('Context menu opened:', contextMenu)
       document.addEventListener('click', handleClick)
       return () => document.removeEventListener('click', handleClick)
     }
@@ -109,6 +109,11 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
   // Keyboard shortcuts - stable handler using ref
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts when user is typing in an input field
+      if (isEditableElementFocused(e)) {
+        return
+      }
+
       // Ctrl+A or Cmd+A - Select all
       if ((e.ctrlKey || e.metaKey) && e.key === 'a' && filesRef.current.length > 0) {
         e.preventDefault()
@@ -122,8 +127,9 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    // Use capture phase to run before other handlers
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
   }, []) // Empty deps - handler registered once
 
   // File operation handlers
@@ -213,7 +219,6 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
   const handleContextMenu = (e: React.MouseEvent, item: FileItem | null) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Context menu triggered:', { item, x: e.clientX, y: e.clientY })
 
     // Estimate menu dimensions based on content
     const menuWidth = 200
@@ -371,7 +376,7 @@ export const ResourceBrowser = ({ onClose, isModal = false }: ResourceBrowserPro
         break
 
       default:
-        console.log('File type not supported for opening:', extension)
+        break
     }
   }
 

@@ -1106,7 +1106,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const loadProject = useCallback(
 		async (filePath: string) => {
 			// Clear manager caches and React state before loading new project
-			console.log("Clearing manager caches before loading new project");
 			tilesetManager.unloadAll();
 			mapManager.unloadAll();
 			setTilesets([]); // Clear React state to prevent stale tileset references
@@ -1126,14 +1125,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				const parsedData = JSON.parse(data);
 				const projectData = ProjectDataSchema.parse(parsedData);
 
-				console.log("Loading project data:", projectData);
-
 				// Set project directory for relative path resolution
 				const projectDir = fileManager.dirname(filePath);
 				fileManager.setProjectDir(projectDir);
 
 				// Validate file references before loading tilesets
-				console.log("Validating project references...");
 				try {
 					const brokenReferences =
 						await referenceManager.validateReferences(projectDir);
@@ -1158,13 +1154,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								},
 								onCancel: () => {
 									setBrokenReferencesModalData(null);
-									console.log("Project load cancelled by user");
 									reject(new Error("Project load cancelled"));
 								},
 							});
 						});
-					} else {
-						console.log("All file references are valid");
 					}
 				} catch (error) {
 					if (
@@ -1180,7 +1173,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Load tilesets first
 				if (projectData.tilesets && projectData.tilesets.length > 0) {
-					console.log("Loading tilesets:", projectData.tilesets);
 					for (const tilesetPath of projectData.tilesets) {
 						try {
 							// Load tileset using FileManager's global projectDir
@@ -1324,8 +1316,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					} else {
 						setActiveTabId(null);
 					}
-
-					console.log("Restored tabs:", restoredTabs);
 				} else {
 					// No saved tabs, reset to default
 					setTabs([]);
@@ -1333,7 +1323,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 
 				// Validate file references after loading
-				console.log("Validating project references...");
 				try {
 					const brokenReferences =
 						await referenceManager.validateReferences(projectDir);
@@ -1349,14 +1338,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						alert(
 							`Warning: Found ${brokenReferences.length} broken file reference(s). Check console for details.`,
 						);
-					} else {
-						console.log("All file references are valid");
 					}
 				} catch (error) {
 					console.error("Failed to validate references:", error);
 				}
-
-				console.log("Project loaded successfully");
 			} catch (error: any) {
 				console.error("Failed to load project:", error);
 				alert(`Failed to parse project file: ${error.message}`);
@@ -1621,14 +1606,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				for (const tilesetId of tilesetIds) {
 					const existingTileset = tilesetManager.getTilesetById(tilesetId);
 					if (!existingTileset) {
-						console.log(`Tileset ${tilesetId} not loaded, searching for it...`);
-
 						// Search project directory for the tileset
 						if (projectDirectory) {
 							try {
 								const tilesetPath = await findTilesetByIdInProject(projectDirectory, tilesetId);
 								if (tilesetPath) {
-									console.log(`Found tileset at ${tilesetPath}, loading...`);
 									await loadTileset(tilesetPath);
 								} else {
 									// Tileset not found - prompt user to locate it manually
@@ -1655,7 +1637,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 										if (selected && typeof selected === 'string') {
 											try {
 												await loadTileset(selected);
-												console.log(`Successfully loaded tileset from ${selected}`);
 											} catch (error) {
 												console.error(`Failed to load tileset from ${selected}:`, error);
 												await window.__TAURI__.dialog.message(
@@ -1784,7 +1765,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		);
 
 		if (result.canceled || !result.filePath) {
-			console.log("Entity creation canceled");
 			return;
 		}
 
@@ -1800,7 +1780,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		// Save the entity immediately
 		try {
 			await entityManager.saveEntity(entity, result.filePath);
-			console.log("Saved new entity to:", result.filePath);
 		} catch (error) {
 			console.error("Failed to save new entity:", error);
 			alert(`Failed to save entity: ${error}`);
@@ -1881,12 +1860,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			return;
 		}
 
-		console.log(
-			"Saving tileset with tiles:",
-			tileset.tiles.length,
-			tileset.tiles,
-		);
-
 		// If no file path, show save dialog
 		let targetPath = tileset.filePath;
 		if (!targetPath) {
@@ -1923,8 +1896,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				isDirty: false,
 				title: fileManager.basename(targetPath, ".lostset"),
 			});
-
-			console.log(`Saved tileset: ${targetPath}`);
 		} catch (error) {
 			console.error("Failed to save tileset:", error);
 			alert(`Failed to save tileset: ${error}`);
@@ -1954,8 +1925,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
-
-				console.log(`Saved tileset: ${tileset.filePath}`);
 			} catch (error) {
 				console.error(`Failed to save tileset ${tileset.name}:`, error);
 				alert(`Failed to save tileset ${tileset.name}: ${error}`);
@@ -1984,8 +1953,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
-
-				console.log(`Saved entity: ${entity.filePath}`);
 			} catch (error) {
 				console.error(`Failed to save entity ${entity.name}:`, error);
 				alert(`Failed to save entity ${entity.name}: ${error}`);

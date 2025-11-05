@@ -59,14 +59,12 @@ export abstract class FileLoader<TData, TJson> {
     // Check cache first
     const cached = this.cache.get(normalizedPath)
     if (cached) {
-      console.log(`Cache hit for ${normalizedPath}`)
       return cached
     }
 
     // Check if already loading
     const loadingPromise = this.loadingPromises.get(normalizedPath)
     if (loadingPromise) {
-      console.log(`Waiting for in-progress load of ${normalizedPath}`)
       return loadingPromise
     }
 
@@ -77,7 +75,6 @@ export abstract class FileLoader<TData, TJson> {
     try {
       const data = await promise
       this.cache.set(normalizedPath, data)
-      console.log(`Cached ${normalizedPath}`)
       return data
     } finally {
       this.loadingPromises.delete(normalizedPath)
@@ -98,7 +95,6 @@ export abstract class FileLoader<TData, TJson> {
   ): Promise<TData> {
     try {
       // Read file
-      console.log(`Loading ${fullPath}`)
       const rawData = await readTextFile(fullPath)
 
       // Parse JSON
@@ -135,8 +131,6 @@ export abstract class FileLoader<TData, TJson> {
     const normalizedPath = fileManager.normalize(fullPath)
 
     try {
-      console.log(`Saving to ${fullPath}`)
-
       // Prepare data for serialization
       const jsonData = this.prepareForSave(data)
 
@@ -145,8 +139,6 @@ export abstract class FileLoader<TData, TJson> {
 
       // Write to file
       await writeTextFile(fullPath, jsonString)
-
-      console.log(`Saved to ${fullPath}`)
 
       // Update cache
       this.cache.set(normalizedPath, data)
@@ -175,7 +167,6 @@ export abstract class FileLoader<TData, TJson> {
     if (data) {
       this.cache.delete(oldNormalized)
       this.cache.set(newNormalized, data)
-      console.log(`Updated cache key: ${oldNormalized} -> ${newNormalized}`)
     }
   }
 
@@ -188,7 +179,6 @@ export abstract class FileLoader<TData, TJson> {
     const fullPath = fileManager.resolvePath(relativePath)
     const normalizedPath = fileManager.normalize(fullPath)
     this.cache.delete(normalizedPath)
-    console.log(`Invalidated cache for ${normalizedPath}`)
   }
 
   /**
@@ -197,7 +187,6 @@ export abstract class FileLoader<TData, TJson> {
   clearCache(): void {
     this.cache.clear()
     this.loadingPromises.clear()
-    console.log(`Cleared cache for ${this.constructor.name}`)
   }
 
   /**

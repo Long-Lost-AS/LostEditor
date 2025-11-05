@@ -103,20 +103,17 @@ export function findTileByBitmask(
   let centerTile: { tileId: number } | null = null
 
   const terrainTiles = terrainLayer.tiles || []
-  console.log('findTileByBitmask:', { targetBitmask, terrainTilesCount: terrainTiles.length });
 
   for (const terrainTile of terrainTiles) {
     const tileBitmask = terrainTile.bitmask
 
     // Check for exact match
     if (tileBitmask === targetBitmask) {
-      console.log('Exact match found! tileId:', terrainTile.tileId);
       return { tileId: terrainTile.tileId }
     }
 
     // Save center-only tile (bitmask 16 = bit 4 only) as fallback
     if (tileBitmask === 16) {
-      console.log('Found center tile for fallback, tileId:', terrainTile.tileId);
       centerTile = { tileId: terrainTile.tileId }
     }
 
@@ -128,7 +125,6 @@ export function findTileByBitmask(
     }
   }
 
-  console.log('Final result:', { bestMatchTileId: bestMatch?.tileId, centerTileTileId: centerTile?.tileId, bestMatchScore });
   // Use best match if found, otherwise use center tile as fallback
   return bestMatch || centerTile
 }

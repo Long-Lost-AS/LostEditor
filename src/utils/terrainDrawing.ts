@@ -75,8 +75,6 @@ export function placeTerrainTile(
 	tilesetIndex: number,
 	tilesets: Tileset[],
 ): void {
-	console.log('placeTerrainTile:', { x, y, terrainLayerId: terrainLayer.id, terrainLayerName: terrainLayer.name });
-
 	// Calculate bitmask based on neighbors
 	const bitmask = calculateBitmaskFromNeighbors((dx, dy) => {
 		return isTerrainAtPosition(
@@ -89,17 +87,11 @@ export function placeTerrainTile(
 			tilesets,
 		);
 	});
-	console.log('Calculated bitmask:', bitmask);
 
 	// Find matching tile from terrain layer (with fallback to center tile)
 	const matchingTile = findTileByBitmask(tileset, terrainLayer, bitmask);
-	console.log('Matching tile:', matchingTile);
 
 	if (!matchingTile) {
-		console.warn(
-			`No tile found for terrain layer "${terrainLayer.name}" with bitmask ${bitmask}`,
-		);
-		console.log('Terrain layer tiles:', terrainLayer.tiles);
 		return;
 	}
 

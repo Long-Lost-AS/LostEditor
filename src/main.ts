@@ -128,7 +128,6 @@ async function init() {
 		.getElementById("load-tileset")
 		?.addEventListener("click", loadTileset);
 	document.getElementById("save-project-btn")?.addEventListener("click", () => {
-		console.log("Save button clicked!");
 		saveProject();
 	});
 	tilesetCanvas.addEventListener("click", handleTilesetClick);
@@ -163,27 +162,20 @@ async function init() {
 	// Menu events
 	if (typeof window.electron !== "undefined") {
 		window.electron.onMenuNewProject(() => {
-			console.log("Menu: New Project");
 			newProject();
 		});
 		window.electron.onMenuSaveProject(() => {
-			console.log("Menu: Save Project triggered");
 			saveProject();
 		});
 		window.electron.onMenuSaveProjectAs((_event: any, filePath: string) => {
-			console.log("Menu: Save Project As", filePath);
 			saveProjectAs(filePath);
 		});
 		window.electron.onMenuOpenProject((_event: any, filePath: string) => {
-			console.log("Menu: Open Project", filePath);
 			loadProject(filePath);
 		});
 		window.electron.onAutoLoadProject((_event: any, filePath: string) => {
-			console.log("Auto-load Project", filePath);
 			loadProject(filePath);
 		});
-	} else {
-		console.warn("Electron API not available");
 	}
 
 	// Set up auto-save
@@ -783,29 +775,21 @@ function newProject() {
 }
 
 async function saveProject() {
-	console.log("saveProject() called, currentProjectPath:", currentProjectPath);
-
 	try {
 		if (!currentProjectPath) {
 			// Need to prompt for save location
 			if (typeof window.electron === "undefined") {
-				console.error("Electron API not available");
 				return;
 			}
 
-			console.log("Showing save dialog...");
 			const result = await window.electron.showSaveDialog({
 				filters: [{ name: "Lost Editor Projects", extensions: ["lostproj"] }],
 			});
 
-			console.log("Save dialog result:", JSON.stringify(result, null, 2));
-
 			if (result.canceled || !result.filePath) {
-				console.log("Save canceled or no file path");
 				return;
 			}
 
-			console.log("Saving to:", result.filePath);
 			await saveProjectAs(result.filePath);
 			return;
 		}
@@ -819,8 +803,6 @@ async function saveProject() {
 
 async function saveProjectAs(filePath: string) {
 	if (typeof window.electron === "undefined") return;
-
-	console.log("saveProjectAs called with:", filePath);
 
 	const projectData: ProjectData = {
 		version: "1.0",
@@ -843,9 +825,7 @@ async function saveProjectAs(filePath: string) {
 	};
 
 	const json = JSON.stringify(projectData, null, 2);
-	console.log("Writing file, data length:", json.length);
 	const result = await window.electron.writeFile(filePath, json);
-	console.log("Write result:", result);
 
 	if (result.success) {
 		currentProjectPath = filePath;
@@ -858,7 +838,6 @@ async function saveProjectAs(filePath: string) {
 		settingsManager.addRecentFile(filePath);
 		settingsManager.setLastOpenedProject(filePath);
 		await saveSettings();
-		console.log("Project saved successfully");
 	} else {
 		alert(`Failed to save project: ${result.error}`);
 	}
@@ -880,28 +859,15 @@ async function loadProject(filePath: string) {
 	try {
 		const projectData: ProjectData = JSON.parse(result.data);
 
-		console.log("Loading project:", projectData);
-		console.log("Layers in file:", projectData.mapData.layers);
-		console.log("First layer tiles:", projectData.mapData.layers[0]?.tiles);
-
 		// Load map data FIRST (needed for tileset calculations)
 		mapData.width = projectData.mapData.width;
 		mapData.height = projectData.mapData.height;
 		mapData.tileWidth = projectData.mapData.tileWidth;
 		mapData.tileHeight = projectData.mapData.tileHeight;
 
-		console.log(
-			"Map data loaded - tile size:",
-			mapData.tileWidth,
-			"x",
-			mapData.tileHeight,
-		);
-
 		// Load tileset BEFORE layers (so it's ready for rendering)
 		if (projectData.tilesetImageData) {
-			console.log("Loading tileset from data URL...");
 			await loadTilesetFromDataURL(projectData.tilesetImageData);
-			console.log("Tileset loaded:", tilesetCols, "x", tilesetRows);
 		}
 
 		// Load layers
@@ -913,9 +879,6 @@ async function loadProject(filePath: string) {
 				layerData.tiles.map((tile: Tile) => [`${tile.x},${tile.y}`, tile]),
 			),
 		}));
-
-		console.log("Layers loaded:", mapData.layers.length);
-		console.log("First layer tiles count:", mapData.layers[0]?.tiles.size);
 
 		currentLayer = mapData.layers[0] || null;
 		updateLayersList();

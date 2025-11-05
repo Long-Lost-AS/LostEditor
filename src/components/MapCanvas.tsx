@@ -168,7 +168,6 @@ export const MapCanvas = ({
 
 			// Guard against undefined/invalid mapData
 			if (!mapData || !mapData.layers || !Array.isArray(mapData.layers)) {
-				console.error("MapCanvas: Invalid mapData received", mapData);
 				return;
 			}
 
@@ -205,10 +204,6 @@ export const MapCanvas = ({
 						// Get tileset by index
 						const tileset = tilesets[geometry.tilesetIndex];
 						if (!tileset?.imageData) {
-							console.log(
-								"No tileset or imageData at index:",
-								geometry.tilesetIndex,
-							);
 							continue;
 						}
 

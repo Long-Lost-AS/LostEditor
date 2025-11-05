@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, ReactNode } from 'react'
+import { isEditableElementFocused } from '../utils/keyboardUtils'
 
 interface UndoRedoContextValue {
   registerCallbacks: (callbacks: UndoRedoCallbacks) => void
@@ -68,6 +69,11 @@ export function UndoRedoProvider({ children }: UndoRedoProviderProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       const callbacks = callbacksRef.current
       if (!callbacks) return
+
+      // Don't intercept shortcuts when user is typing in an input field
+      if (isEditableElementFocused(e)) {
+        return
+      }
 
       // Undo: Cmd/Ctrl+Z (without Shift)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {

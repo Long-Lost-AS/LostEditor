@@ -186,6 +186,7 @@ export function Dropdown<T>({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
+              spellCheck={false}
               className="w-full p-2 rounded text-sm"
               style={{
                 backgroundColor: '#2d2d30',

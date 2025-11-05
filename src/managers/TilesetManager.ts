@@ -89,14 +89,6 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
     const baseDir = projectDir || fileManager.dirname(filePath)
     const imagePath = fileManager.normalize(fileManager.join(baseDir, validated.imagePath))
 
-    console.log('Loading tileset image:', {
-      filePath,
-      projectDir,
-      baseDir,
-      relativeImagePath: validated.imagePath,
-      finalImagePath: imagePath
-    })
-
     // Load the image
     const imageElement = await this.loadImage(imagePath)
 
@@ -191,7 +183,6 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       const normalizedTilesetImagePath = fileManager.normalize(tileset.imagePath)
       if (normalizedTilesetImagePath === normalizedOld) {
         tileset.imagePath = normalizedNew
-        console.log(`Updated tileset ${tileset.name} imagePath: ${oldImagePath} -> ${newImagePath}`)
       }
     }
   }

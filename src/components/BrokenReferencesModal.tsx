@@ -131,8 +131,6 @@ export const BrokenReferencesModal = ({ references, projectDir, onClose, onConti
         newPath: selectedPath,
         affectedFiles
       } : r))
-
-      console.log(`Fixed reference: ${ref.expectedPath} -> ${selectedPath}`)
     } catch (error) {
       console.error('Failed to fix reference:', error)
       setRefs(prev => prev.map((r, i) => i === index ? {

@@ -150,20 +150,14 @@ export class ReferenceManager {
 
 		if (isDirectory) {
 			// Handle directory move: update references for all files within
-			console.log(`Detected directory move: ${oldPath} -> ${newPath}`);
 			await this.updateDirectoryReferences(oldPath, newPath, projectDir);
 		} else {
 			// Handle single file move
 			const references = await this.findReferences(oldPath, projectDir);
 
 			if (references.size === 0) {
-				console.log("No references found to update");
 				return;
 			}
-
-			console.log(
-				`Updating ${references.size} file(s) with references to ${oldPath}`,
-			);
 
 			// Update each referencing file
 			for (const [refFilePath, refTypes] of references.entries()) {
@@ -236,10 +230,6 @@ export class ReferenceManager {
 
 		const filesInNewDir = await findFilesRecursively(newDirPath);
 
-		console.log(
-			`Found ${filesInNewDir.length} relevant files in moved directory`,
-		);
-
 		// For each file, calculate its old path and update references
 		for (const newFilePath of filesInNewDir) {
 			// Calculate the relative path within the directory
@@ -250,9 +240,6 @@ export class ReferenceManager {
 			const references = await this.findReferences(oldFilePath, projectDir);
 
 			if (references.size > 0) {
-				console.log(
-					`Updating ${references.size} reference(s) to ${oldFilePath}`,
-				);
 				for (const [refFilePath, refTypes] of references.entries()) {
 					try {
 						await this.updateReferencingFile(
@@ -318,9 +305,6 @@ export class ReferenceManager {
 				const relativePath = tileset.filePath.substring(oldDirPath.length);
 				const newTilesetPath = newDirPath + relativePath;
 				tilesetManager.updateTilesetPath(tileset.filePath, newTilesetPath);
-				console.log(
-					`Updated tileset cache: ${tileset.filePath} -> ${newTilesetPath}`,
-				);
 			}
 		}
 
@@ -330,9 +314,6 @@ export class ReferenceManager {
 				const relativePath = tileset.imagePath.substring(oldDirPath.length);
 				const newImagePath = newDirPath + relativePath;
 				tilesetManager.updateImagePath(tileset.imagePath, newImagePath);
-				console.log(
-					`Updated tileset imagePath: ${tileset.imagePath} -> ${newImagePath}`,
-				);
 			}
 		}
 	}
@@ -543,14 +524,12 @@ export class ReferenceManager {
 					) {
 						tab.filePath = newPath;
 						modified = true;
-						console.log(`Updated tab filePath: ${oldPath} -> ${newPath}`);
 					}
 				}
 			}
 
 			if (modified) {
 				await writeTextFile(refFilePath, JSON.stringify(data, null, 2));
-				console.log(`Updated references in ${refFilePath}`);
 			}
 		} catch (error) {
 			console.error(`Error updating references in ${refFilePath}:`, error);

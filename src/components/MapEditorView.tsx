@@ -498,38 +498,28 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Terrain painting function
 	const handlePlaceTerrain = useCallback(
 		(x: number, y: number) => {
-			console.log('handlePlaceTerrain called:', { x, y, currentLayer, selectedTerrainLayerId, selectedTilesetId });
-
 			if (!currentLayer || currentLayer.type !== "tile") {
-				console.log('No current layer or not a tile layer');
 				return;
 			}
 			if (!selectedTerrainLayerId || !selectedTilesetId) {
-				console.log('No terrain layer or tileset selected');
 				return;
 			}
 
 			// Find the selected tileset and terrain layer
 			const tileset = tilesets.find((ts) => ts.id === selectedTilesetId);
-			console.log('Found tileset:', tileset);
 			if (!tileset || !tileset.terrainLayers) {
-				console.log('No tileset or terrain layers');
 				return;
 			}
 
 			const terrainLayer = tileset.terrainLayers.find(
 				(l) => l.id === selectedTerrainLayerId,
 			);
-			console.log('Found terrain layer:', terrainLayer);
 			if (!terrainLayer) {
-				console.log('No matching terrain layer found');
 				return;
 			}
 
 			const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
-			console.log('Tileset index:', tilesetIndex);
 			if (tilesetIndex === -1) {
-				console.log('Invalid tileset index');
 				return;
 			}
 
@@ -619,15 +609,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			// Unpack the selected tile ID
 			const geometry = unpackTileId(selectedTileId);
 
-			console.log('handlePlaceTile:', {
-				x, y,
-				selectedTileId,
-				geometry,
-				tilesetIndex,
-				selectedTileDef,
-				isCompound: selectedTileDef?.isCompound
-			});
-
 			// Repack with the correct tileset index to create a global tile ID
 			const globalTileId = packTileId(
 				geometry.x,
@@ -657,10 +638,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 						// Apply autotiling if enabled
 						const autotilingEnabled = layer.autotilingEnabled !== false;
-						console.log('Autotiling check:', { autotilingEnabled, autotilingOverride });
 						if (autotilingEnabled && !autotilingOverride) {
 							const autotileGroups = getAllAutotileGroups(tilesets);
-							console.log('Autotile groups:', autotileGroups.length);
 
 							if (autotileGroups.length > 0) {
 								const positionsToUpdate: Array<{ x: number; y: number }> = [];
@@ -684,7 +663,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									positionsToUpdate.push({ x, y });
 								}
 
-								console.log('Positions to autotile:', positionsToUpdate);
 								const autotiledTiles = updateTileAndNeighbors(
 									updatedLayer,
 									positionsToUpdate,
@@ -692,17 +670,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									mapHeight,
 									tilesets,
 								);
-								console.log('Autotiled results:', autotiledTiles);
 
 								for (const update of autotiledTiles) {
-									console.log('Applying autotile update:', update);
 									newTiles[update.index] = update.tileId;
 								}
 
 								updatedLayer = { ...layer, tiles: newTiles };
 							}
 						}
-						console.log('Final tiles array (first 10):', newTiles.slice(0, 10));
 
 						// No need to setCurrentLayer - it's component-local only
 						return updatedLayer;

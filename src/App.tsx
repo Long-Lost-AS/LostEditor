@@ -12,6 +12,7 @@ import { MapEditorView } from "./components/MapEditorView";
 import { EmptyState } from "./components/EmptyState";
 import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
 import { CommandPalette } from "./components/CommandPalette";
+import { isEditableElementFocused } from "./utils/keyboardUtils";
 import "./style.css";
 
 const AppContent = () => {
@@ -342,6 +343,11 @@ const AppContent = () => {
 	// Global keyboard handler for Shift+Space (toggle ResourceBrowser) and Cmd/Ctrl+P (toggle CommandPalette)
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: KeyboardEvent) => {
+			// Don't intercept shortcuts when user is typing in an input field
+			if (isEditableElementFocused(e)) {
+				return;
+			}
+
 			// Shift+Space - Toggle ResourceBrowser
 			if (
 				e.shiftKey &&
