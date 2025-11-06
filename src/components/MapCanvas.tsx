@@ -316,7 +316,38 @@ export const MapCanvas = ({
 
 			// Render map-level entities (on top of all layers)
 			if (mapData.entities && mapData.entities.length > 0) {
-				mapData.entities.forEach((entityInstance) => {
+				// Helper function to calculate Y-sort position for an entity
+				const getEntityYSortPosition = (instance: any) => {
+					const entityDef = entityManager.getEntityDefinition(
+						instance.tilesetId,
+						instance.entityDefId,
+					);
+
+					if (!entityDef?.sprites || entityDef.sprites.length === 0) {
+						return instance.y;
+					}
+
+					// Find the minimum ysortOffset among all sprite layers
+					// (entities with lower ysortOffset should render first)
+					let minYSortOffset = 0;
+					entityDef.sprites.forEach((sprite: any) => {
+						const ysortOffset = sprite.ysortOffset || 0;
+						if (ysortOffset < minYSortOffset) {
+							minYSortOffset = ysortOffset;
+						}
+					});
+
+					return instance.y + minYSortOffset;
+				};
+
+				// Sort entities by Y position + ySortOffset for proper depth rendering
+				const sortedEntities = [...mapData.entities].sort((a, b) => {
+					const aY = getEntityYSortPosition(a);
+					const bY = getEntityYSortPosition(b);
+					return aY - bY;
+				});
+
+				sortedEntities.forEach((entityInstance) => {
 					const tileset = getTilesetById(entityInstance.tilesetId);
 					if (!tileset?.imageData) return;
 

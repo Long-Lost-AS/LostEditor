@@ -258,13 +258,20 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Track previous tab ID to detect tab switches
 	const prevTabIdRef = useRef<string | null>(null);
 
-	// Reset undo history when switching to a different map tab
+	// Reset undo history when switching to a different map tab OR when mapData.id changes (map reloaded)
+	const prevMapIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
-		if (prevTabIdRef.current !== null && prevTabIdRef.current !== tab.id) {
-			// Switching to a different map tab, reset history
+		const mapId = (mapData as any).id;
+		const tabChanged = prevTabIdRef.current !== null && prevTabIdRef.current !== tab.id;
+		const mapReloaded = prevMapIdRef.current !== undefined && prevMapIdRef.current !== mapId;
+
+		if (tabChanged || mapReloaded) {
+			// Switching to a different map tab OR map was reloaded, reset history
 			resetMapHistory(mapData);
 		}
+
 		prevTabIdRef.current = tab.id;
+		prevMapIdRef.current = mapId;
 	}, [tab.id, mapData, resetMapHistory]);
 
 	// One-way sync: local map data → global maps array (source of truth)
@@ -295,10 +302,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		setCurrentLayer(layer || null);
 	}, [currentLayerId, localMapData?.layers, setCurrentLayer]);
 
-	// Debug: log entities
-	useEffect(() => {
-		console.log('localMapData.entities:', localMapData?.entities);
-	}, [localMapData?.entities]);
 
 	const handleNameClick = () => {
 		setIsEditingName(true);
@@ -816,18 +819,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Handle moving an entity
 	const handleMoveEntity = useCallback(
 		(entityId: string, newX: number, newY: number) => {
-			console.log('handleMoveEntity called:', entityId, 'to:', newX, newY);
-			console.log('localMapData.entities at time of move:', localMapData?.entities);
-
 			if (!localMapData) return;
 
 			const newEntities = (localMapData.entities || []).map((entity) => {
-				console.log('Checking entity:', entity.id, 'against:', entityId);
 				return entity.id === entityId
 					? { ...entity, x: newX, y: newY }
 					: entity;
 			});
-			console.log('New entities:', newEntities);
 
 			setLocalMapData({
 				...localMapData,

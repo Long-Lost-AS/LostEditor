@@ -168,7 +168,8 @@ export const SerializedMapDataSchema = z.object({
   height: z.number().positive(),
   tileWidth: z.number().positive(),
   tileHeight: z.number().positive(),
-  layers: z.array(SerializedLayerSchema).default([])
+  layers: z.array(SerializedLayerSchema).default([]),
+  entities: z.array(EntityInstanceSchema).optional().default([])  // Entities at map level
 })
 
 // Map file schema (for .lostmap files) - accepts old and new formats
