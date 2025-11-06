@@ -825,6 +825,11 @@ export const MapCanvas = ({
 				} else if (currentTool === "eraser") {
 					onEraseTile(tileX, tileY);
 				} else if (currentTool === "entity") {
+					// Clear any entity selection when using entity tool
+					setSelectedEntityId(null);
+					selectedEntityIdRef.current = null;
+					setEntityDragStart(null);
+					onEntitySelected?.(null); // Clear parent's selection state too
 					// Place entity at pixel coordinates
 					onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
 				}
@@ -885,8 +890,8 @@ export const MapCanvas = ({
 
 		if (isDragging) {
 			setPan(e.clientX - dragStartX, e.clientY - dragStartY);
-		} else if (entityDragStart && selectedEntityId) {
-			// Check if we've moved enough to start dragging
+		} else if (entityDragStart && selectedEntityId && currentTool === 'pointer') {
+			// Check if we've moved enough to start dragging - only for pointer tool
 			const dx = e.clientX - entityDragStart.x;
 			const dy = e.clientY - entityDragStart.y;
 			const distance = Math.sqrt(dx * dx + dy * dy);
@@ -920,15 +925,15 @@ export const MapCanvas = ({
 	};
 
 	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-		if (isDraggingEntity && tempEntityPosition && selectedEntityId) {
-			// Finish entity drag - commit the position change
+		if (isDraggingEntity && tempEntityPosition && selectedEntityId && currentTool === 'pointer') {
+			// Finish entity drag - commit the position change - only for pointer tool
 			onMoveEntity(selectedEntityId, tempEntityPosition.x, tempEntityPosition.y);
 			setIsDraggingEntity(false);
 			setTempEntityPosition(null);
 			tempEntityPositionRef.current = null;
 			setEntityDragStart(null);
-		} else if (entityDragStart) {
-			// Click without drag - just clear drag start
+		} else if (entityDragStart && currentTool === 'pointer') {
+			// Click without drag - just clear drag start - only for pointer tool
 			setEntityDragStart(null);
 		} else if (isDrawingRect && rectStartTile) {
 			// Finish drawing rectangle - place tiles in the rectangular area

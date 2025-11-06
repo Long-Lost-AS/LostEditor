@@ -187,17 +187,22 @@ export function useUndoableReducer<T>(
 		batchStart: null,
 	});
 
+	// Use a ref to always get the latest state
+	const stateRef = useRef(state);
+	stateRef.current = state;
+
 	// Stable callbacks using useCallback
 	const setState = useCallback((newState: T | ((prev: T) => T)) => {
 		// Support updater function pattern like React's setState
 		if (typeof newState === 'function') {
 			const updater = newState as (prev: T) => T;
-			const computed = updater(state.present);
+			// Always use the latest state from the ref, not from closure
+			const computed = updater(stateRef.current.present);
 			dispatch({ type: "SET", payload: computed });
 		} else {
 			dispatch({ type: "SET", payload: newState });
 		}
-	}, [state.present]);
+	}, []); // No dependencies - stable callback
 
 	const undo = useCallback(() => {
 		dispatch({ type: "UNDO" });

@@ -801,10 +801,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			if (!entityInstance) return;
 
 			// Place entity at map level (not per-layer)
-			setLocalMapData((prev) => ({
-				...prev,
-				entities: [...(prev.entities || []), entityInstance],
-			}));
+			setLocalMapData((prev) => {
+				const newEntities = [...(prev.entities || []), entityInstance];
+				return {
+					...prev,
+					entities: newEntities,
+				};
+			});
 			setProjectModified(true);
 		},
 		[selectedTilesetId, selectedEntityDefId, setProjectModified],
