@@ -72,21 +72,32 @@ export interface TerrainTile {
 export interface TerrainLayer {
   id: string
   name: string  // The terrain identifier (e.g., "Grass", "Dirt")
-  tiles?: TerrainTile[]  // Tiles that belong to this terrain with their bitmasks
+  tiles: TerrainTile[]  // Tiles that belong to this terrain with their bitmasks (required, can be empty)
 }
 
-export interface TilesetData {
+// Base tileset data (JSON-serializable)
+export interface TilesetDataJson {
   version: string
   name: string
   id: string
   order: number  // Numeric order for deterministic tileset ordering
   imagePath: string
-  imageData?: HTMLImageElement
-  filePath?: string  // Path to the .lostset file (undefined for unsaved tilesets)
   tileWidth: number
   tileHeight: number
   tiles: TileDefinition[]
-  terrainLayers?: TerrainLayer[]  // Terrain layers for Godot-style autotiling
+  terrainLayers: TerrainLayer[]  // Terrain layers for Godot-style autotiling (required, can be empty)
+}
+
+// Loaded tileset with image data (runtime only)
+export interface LoadedTileset extends TilesetDataJson {
+  imageData: HTMLImageElement  // Always present after loading
+  filePath: string  // Path to the .lostset file (required for loaded tilesets)
+}
+
+// Union type for tileset data (use LoadedTileset when rendering)
+export type TilesetData = TilesetDataJson & {
+  imageData?: HTMLImageElement
+  filePath?: string  // Path to the .lostset file (undefined for unsaved tilesets)
 }
 
 // ===========================
@@ -133,7 +144,7 @@ export interface MapData {
   tileWidth: number
   tileHeight: number
   layers: Layer[]
-  entities?: EntityInstance[]  // Entities at map level, rendered on top of all tiles
+  entities: EntityInstance[]  // Entities at map level, rendered on top of all tiles (required, can be empty)
 }
 
 // ===========================
@@ -160,7 +171,7 @@ export interface SerializedMapData {
   tileWidth: number
   tileHeight: number
   layers: SerializedLayer[]
-  entities?: EntityInstance[]    // Entities at map level
+  entities: EntityInstance[]     // Entities at map level (required, can be empty)
 }
 
 // ===========================
@@ -280,4 +291,16 @@ export interface Transform {
   y: number
   rotation: number
   scale: { x: number; y: number }
+}
+
+// ===========================
+// Type Guards
+// ===========================
+
+export function isLoadedTileset(tileset: TilesetData): tileset is LoadedTileset {
+  return tileset.imageData !== undefined && tileset.filePath !== undefined
+}
+
+export function hasImageData(tileset: TilesetData): tileset is TilesetData & { imageData: HTMLImageElement } {
+  return tileset.imageData !== undefined
 }

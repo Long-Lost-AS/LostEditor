@@ -73,7 +73,7 @@ export const TerrainTileSchema = z.object({
 export const TerrainLayerSchema = z.object({
   id: z.string(),
   name: z.string(),
-  tiles: z.array(TerrainTileSchema).optional()
+  tiles: z.array(TerrainTileSchema).default([])
 })
 
 // Entity definition is recursive, so we need to define it with z.lazy
@@ -96,14 +96,15 @@ export const EntityDefinitionSchema: z.ZodType<any> = z.lazy(() =>
 )
 
 export const TilesetDataSchema = z.object({
+  version: z.string().optional().default("1.0"),
   name: z.string(),
   id: z.string().optional(),
   order: z.number().int().nonnegative(), // Numeric order for deterministic ordering
   imagePath: z.string(),
   tileWidth: z.number(),
   tileHeight: z.number(),
-  tiles: z.array(TileDefinitionSchema).optional(),
-  terrainLayers: z.array(TerrainLayerSchema).optional()
+  tiles: z.array(TileDefinitionSchema).default([]),
+  terrainLayers: z.array(TerrainLayerSchema).default([])
 })
 
 // ===========================
@@ -148,7 +149,8 @@ export const MapDataSchema = z.object({
   height: z.number().positive(),
   tileWidth: z.number().positive(),
   tileHeight: z.number().positive(),
-  layers: z.array(LayerSchema).default([])
+  layers: z.array(LayerSchema).default([]),
+  entities: z.array(EntityInstanceSchema).default([])
 })
 
 // Schemas for serialized format (version 4.0 - dense array with regular numbers)
@@ -170,93 +172,11 @@ export const SerializedMapDataSchema = z.object({
   tileWidth: z.number().positive(),
   tileHeight: z.number().positive(),
   layers: z.array(SerializedLayerSchema).default([]),
-  entities: z.array(EntityInstanceSchema).optional().default([])  // Entities at map level
+  entities: z.array(EntityInstanceSchema).default([])  // Entities at map level (required, can be empty)
 })
 
-// Map file schema (for .lostmap files) - accepts old and new formats
-export const MapFileSchema = z.union([
-  // Version 1: Original format (without version field, with tilesetId)
-  z.object({
-    name: z.string(),
-    width: z.number().positive(),
-    height: z.number().positive(),
-    tileWidth: z.number().positive(),
-    tileHeight: z.number().positive(),
-    layers: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      visible: z.boolean(),
-      type: LayerTypeSchema,
-      tiles: z.array(z.object({
-        x: z.number(),
-        y: z.number(),
-        tilesetId: z.string(),
-        tileId: z.number(),
-        cellX: z.number().optional(),
-        cellY: z.number().optional()
-      })).default([]),
-      entities: z.array(EntityInstanceSchema).default([]),
-      autotilingEnabled: z.boolean().optional().default(true)
-    })).default([]),
-    lastModified: z.string()
-  }),
-  // Version 2: firstgid format (with version "2.0" and tilesetReferences)
-  z.object({
-    version: z.literal("2.0"),
-    name: z.string(),
-    width: z.number().positive(),
-    height: z.number().positive(),
-    tileWidth: z.number().positive(),
-    tileHeight: z.number().positive(),
-    tilesetReferences: z.array(z.object({
-      id: z.string(),
-      source: z.string(),
-      firstgid: z.number(),
-      tileCount: z.number()
-    })),
-    layers: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      visible: z.boolean(),
-      type: LayerTypeSchema,
-      tiles: z.array(z.object({
-        x: z.number(),
-        y: z.number(),
-        gid: z.number(),
-        cellX: z.number().optional(),
-        cellY: z.number().optional()
-      })).default([]),
-      entities: z.array(EntityInstanceSchema).default([]),
-      autotilingEnabled: z.boolean().optional().default(true)
-    })).default([])
-  }),
-  // Version 3: BigInt global tile IDs (with version "3.0" - sparse array)
-  z.object({
-    version: z.literal("3.0"),
-    name: z.string(),
-    width: z.number().positive(),
-    height: z.number().positive(),
-    tileWidth: z.number().positive(),
-    tileHeight: z.number().positive(),
-    layers: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      visible: z.boolean(),
-      type: LayerTypeSchema,
-      tiles: z.array(z.object({
-        x: z.number(),
-        y: z.number(),
-        gid: z.string(),  // BigInt as string
-        cellX: z.number().optional(),
-        cellY: z.number().optional()
-      })).default([]),
-      entities: z.array(EntityInstanceSchema).default([]),
-      autotilingEnabled: z.boolean().optional().default(true)
-    })).default([])
-  }),
-  // Version 4: Dense array with regular numbers (current format)
-  SerializedMapDataSchema
-])
+// Map file schema (for .lostmap files) - version 4.0 only
+export const MapFileSchema = SerializedMapDataSchema
 
 // ===========================
 // Project Schemas
@@ -339,14 +259,15 @@ export function createDefaultMapData(name: string = 'Untitled Map', width: numbe
       tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
       entities: [],
       autotilingEnabled: true
-    }]
+    }],
+    entities: []  // Map-level entities
   })
 }
 
 /**
  * Validate and ensure MapData is complete
  */
-export function ensureValidMapData(data: any): MapDataJson {
+export function ensureValidMapData(data: unknown): MapDataJson {
   // Parse with schema - this will throw if invalid
   return MapDataSchema.parse(data)
 }
@@ -355,7 +276,7 @@ export function ensureValidMapData(data: any): MapDataJson {
  * Check if data is valid MapData without throwing
  * Returns true if valid, false otherwise
  */
-export function validateMapData(data: any): boolean {
+export function validateMapData(data: unknown): boolean {
   try {
     MapDataSchema.parse(data)
     return true
