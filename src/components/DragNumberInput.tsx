@@ -158,7 +158,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 			role="spinbutton"
 			aria-valuenow={value ?? 0}
 			tabIndex={isEditing ? -1 : 0}
-			aria-label={label || "Drag to adjust number"}
+			aria-label="Drag to adjust number"
 		>
 			{isEditing ? (
 				<input
