@@ -273,9 +273,14 @@ export const ResourceBrowser = ({
 			const items: FileItem[] = [];
 
 			for (const entry of entries) {
+				// Skip hidden files and folders (starting with .)
+				if (entry.name.startsWith(".")) {
+					continue;
+				}
+
 				const fullPath = fileManager.join(dirPath, entry.name);
 
-				// Always show directories
+				// Always show directories (except hidden ones)
 				if (entry.isDirectory) {
 					items.push({
 						name: entry.name,
