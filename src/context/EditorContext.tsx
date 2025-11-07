@@ -1770,6 +1770,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [],
+			terrainLayers: [],
 		};
 
 		// Add tileset to global tilesets array

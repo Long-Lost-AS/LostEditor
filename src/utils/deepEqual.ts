@@ -4,7 +4,7 @@
  * @param b Second value
  * @returns true if values are deeply equal
  */
-export function deepEqual(a: any, b: any): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   // Same reference or both null/undefined
   if (a === b) return true
 

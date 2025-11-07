@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor } from '../context/EditorContext'
 import { tilesetManager } from '../managers/TilesetManager'
-import { Tileset } from '../types'
+import { TilesetData } from '../types'
 import { packTileId } from '../utils/tileId'
 import Fuse from 'fuse.js'
 

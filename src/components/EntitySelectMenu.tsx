@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useEditor } from '../context/EditorContext'
 import { entityManager } from '../managers/EntityManager'
 import { fileManager } from '../managers/FileManager'
-import { EntityDefinition } from '../types'
+import { EntityDefinition, hasImageData } from '../types'
 import Fuse from 'fuse.js'
 
 interface EntitySelectMenuProps {
@@ -103,7 +103,7 @@ export const EntitySelectMenu = ({ isOpen, onClose }: EntitySelectMenuProps) => 
     const firstSprite = entity.sprites[0]
     const tileset = getTilesetById(firstSprite.tilesetId)
 
-    if (!tileset?.imageData) {
+    if (!tileset || !hasImageData(tileset)) {
       ctx.fillStyle = '#858585'
       ctx.font = '12px sans-serif'
       ctx.textAlign = 'center'

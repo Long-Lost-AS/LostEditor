@@ -30,6 +30,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
     const relativeImagePath = fileManager.makeRelativeTo(baseDir, data.imagePath)
 
     return {
+      version: data.version || "1.0",
       name: data.name,
       id: data.id,
       order: data.order, // Save the order to file

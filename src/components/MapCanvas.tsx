@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import { unpackTileId, packTileId } from "../utils/tileId";
-import { MapData, Tool } from "../types";
+import { MapData, Tool, hasImageData, EntityDefinition, EntityInstance, SpriteLayer } from "../types";
 
 interface MapCanvasProps {
 	mapData: MapData;
@@ -318,7 +318,7 @@ export const MapCanvas = ({
 			// Render map-level entities (on top of all layers)
 			if (mapData.entities && mapData.entities.length > 0) {
 				// Helper function to calculate Y-sort position for an entity
-				const getEntityYSortPosition = (instance: any) => {
+				const getEntityYSortPosition = (instance: EntityInstance) => {
 					const entityDef = entityManager.getEntityDefinition(
 						instance.tilesetId,
 						instance.entityDefId,
@@ -331,7 +331,7 @@ export const MapCanvas = ({
 					// Find the minimum ysortOffset among all sprite layers
 					// (entities with lower ysortOffset should render first)
 					let minYSortOffset = 0;
-					entityDef.sprites.forEach((sprite: any) => {
+					entityDef.sprites.forEach((sprite: SpriteLayer) => {
 						const ysortOffset = sprite.ysortOffset || 0;
 						if (ysortOffset < minYSortOffset) {
 							minYSortOffset = ysortOffset;
@@ -483,7 +483,7 @@ export const MapCanvas = ({
 					const entityDef = entityManager.getEntityDefinition(selectedTilesetId, entityDefId);
 					const tileset = getTilesetById(selectedTilesetId);
 
-					if (entityDef && tileset?.imageData && entityDef.sprites && entityDef.sprites.length > 0) {
+					if (entityDef && tileset && hasImageData(tileset) && entityDef.sprites && entityDef.sprites.length > 0) {
 						// Calculate world position from screen coordinates
 						const rect = canvas.getBoundingClientRect();
 						const canvasX = mousePos.x - rect.left;
@@ -690,8 +690,8 @@ export const MapCanvas = ({
 	// Render an entity with its hierarchy
 	const renderEntity = (
 		ctx: CanvasRenderingContext2D,
-		entityDef: any,
-		instance: any,
+		entityDef: EntityDefinition,
+		instance: EntityInstance,
 		tilesetImage: HTMLImageElement,
 		parentX: number = instance.x,
 		parentY: number = instance.y,
@@ -699,7 +699,7 @@ export const MapCanvas = ({
 	) => {
 		// Render all sprite layers in the entity
 		if (entityDef.sprites && entityDef.sprites.length > 0) {
-			entityDef.sprites.forEach((spriteLayer: any) => {
+			entityDef.sprites.forEach((spriteLayer: SpriteLayer) => {
 				// Skip if sprite is missing
 				if (!spriteLayer.sprite) return;
 
@@ -748,7 +748,7 @@ export const MapCanvas = ({
 
 		// Render children (if entity definitions support hierarchical children)
 		if (entityDef.children) {
-			entityDef.children.forEach((child: any) => {
+			entityDef.children.forEach((child: EntityDefinition) => {
 				renderEntity(ctx, child, instance, tilesetImage, parentX, parentY, parentRotation);
 			});
 		}

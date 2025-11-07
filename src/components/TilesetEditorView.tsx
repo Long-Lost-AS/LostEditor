@@ -36,6 +36,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		);
 	}
 
+	// If image not loaded, show loading message
+	if (!tilesetData.imageData) {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-gray-400">Loading tileset image...</div>
+			</div>
+		);
+	}
+
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -724,8 +733,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			if (
 				canvasX < 0 ||
 				canvasY < 0 ||
-				canvasX >= tilesetData.imageData.width ||
-				canvasY >= tilesetData.imageData.height
+				canvasX >= tilesetData.imageData!.width ||
+				canvasY >= tilesetData.imageData!.height
 			) {
 				// Clicked outside the tileset, clear selection
 				updateTabData(tab.id, {
@@ -1266,6 +1275,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const newLayer: TerrainLayer = {
 			id: `terrain-${Date.now()}`,
 			name: `Terrain ${terrainLayers.length + 1}`,
+			tiles: [],
 		};
 
 		updateTerrainLayersNoHistory([...terrainLayers, newLayer]);
