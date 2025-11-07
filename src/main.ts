@@ -36,7 +36,7 @@ interface MapData {
 type Tool = "pencil" | "eraser" | "fill" | "rect";
 
 // State
-let mapData: MapData = {
+const mapData: MapData = {
 	width: 32,
 	height: 32,
 	tileWidth: 16,
@@ -167,13 +167,13 @@ async function init() {
 		window.electron.onMenuSaveProject(() => {
 			saveProject();
 		});
-		window.electron.onMenuSaveProjectAs((_event: any, filePath: string) => {
+		window.electron.onMenuSaveProjectAs((_event: unknown, filePath: string) => {
 			saveProjectAs(filePath);
 		});
-		window.electron.onMenuOpenProject((_event: any, filePath: string) => {
+		window.electron.onMenuOpenProject((_event: unknown, filePath: string) => {
 			loadProject(filePath);
 		});
-		window.electron.onAutoLoadProject((_event: any, filePath: string) => {
+		window.electron.onAutoLoadProject((_event: unknown, filePath: string) => {
 			loadProject(filePath);
 		});
 	}
@@ -899,8 +899,9 @@ async function loadProject(filePath: string) {
 
 		updateMapCanvas();
 		render();
-	} catch (error: any) {
-		alert(`Failed to parse project file: ${error.message}`);
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		alert(`Failed to parse project file: ${message}`);
 	}
 }
 
@@ -940,14 +941,14 @@ declare global {
 			// Menu events
 			onMenuNewProject: (callback: () => void) => void;
 			onMenuOpenProject: (
-				callback: (event: any, filePath: string) => void,
+				callback: (event: unknown, filePath: string) => void,
 			) => void;
 			onMenuSaveProject: (callback: () => void) => void;
 			onMenuSaveProjectAs: (
-				callback: (event: any, filePath: string) => void,
+				callback: (event: unknown, filePath: string) => void,
 			) => void;
 			onAutoLoadProject: (
-				callback: (event: any, filePath: string) => void,
+				callback: (event: unknown, filePath: string) => void,
 			) => void;
 
 			// File operations
@@ -970,8 +971,8 @@ declare global {
 			) => Promise<{ success: boolean; error?: string }>;
 
 			// Dialogs
-			showOpenDialog: (options: any) => Promise<any>;
-			showSaveDialog: (options: any) => Promise<any>;
+			showOpenDialog: (options: unknown) => Promise<unknown>;
+			showSaveDialog: (options: unknown) => Promise<unknown>;
 
 			// Menu
 			rebuildMenu: () => void;

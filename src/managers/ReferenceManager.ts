@@ -1,9 +1,16 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import { fileManager } from "./FileManager";
-import { tilesetManager } from "./TilesetManager";
-import { mapManager } from "./MapManager";
+import {
+	type MapFileJson,
+	MapFileSchema,
+	type ProjectDataJson,
+	ProjectDataSchema,
+	type TilesetDataJson,
+	TilesetDataSchema,
+} from "../schemas";
 import type { ProjectData } from "../types";
-import { ProjectDataSchema, TilesetDataSchema, MapFileSchema } from "../schemas";
+import { fileManager } from "./FileManager";
+import { mapManager } from "./MapManager";
+import { tilesetManager } from "./TilesetManager";
 
 /**
  * ReferenceManager tracks file references and updates them when files are moved/renamed
@@ -467,11 +474,13 @@ export class ReferenceManager {
 			const parsedData = JSON.parse(content);
 
 			// Validate based on file extension
-			let data: any;
-			if (refFilePath.endsWith('.lostproj')) {
+			let data: ProjectDataJson | TilesetDataJson | MapFileJson | unknown;
+			if (refFilePath.endsWith(".lostproj")) {
 				data = ProjectDataSchema.parse(parsedData);
-			} else if (refFilePath.endsWith('.lostset')) {
+			} else if (refFilePath.endsWith(".lostset")) {
 				data = TilesetDataSchema.parse(parsedData);
+			} else if (refFilePath.endsWith(".lostmap")) {
+				data = MapFileSchema.parse(parsedData);
 			} else {
 				// For unknown file types, use raw data with validation warning
 				console.warn(`Unknown file type for reference update: ${refFilePath}`);

@@ -3,183 +3,190 @@
  * Browser-compatible implementation without Node.js path module
  */
 export class FileManager {
-  private projectDir: string | null = null
+	private projectDir: string | null = null;
 
-  /**
-   * Set the project directory for resolving relative paths
-   */
-  setProjectDir(dirPath: string): void {
-    this.projectDir = dirPath
-  }
+	/**
+	 * Set the project directory for resolving relative paths
+	 */
+	setProjectDir(dirPath: string): void {
+		this.projectDir = dirPath;
+	}
 
-  /**
-   * Get the current project directory
-   */
-  getProjectDir(): string | null {
-    return this.projectDir
-  }
+	/**
+	 * Get the current project directory
+	 */
+	getProjectDir(): string | null {
+		return this.projectDir;
+	}
 
-  /**
-   * Resolve a relative path to an absolute path using the project directory
-   */
-  resolvePath(relativePath: string): string {
-    if (!this.projectDir) {
-      throw new Error('Project directory not set. Cannot resolve relative paths.')
-    }
+	/**
+	 * Resolve a relative path to an absolute path using the project directory
+	 */
+	resolvePath(relativePath: string): string {
+		if (!this.projectDir) {
+			throw new Error(
+				"Project directory not set. Cannot resolve relative paths.",
+			);
+		}
 
-    // If already absolute, return as-is
-    if (this.isAbsolute(relativePath)) {
-      return relativePath
-    }
+		// If already absolute, return as-is
+		if (this.isAbsolute(relativePath)) {
+			return relativePath;
+		}
 
-    return this.join(this.projectDir, relativePath)
-  }
+		return this.join(this.projectDir, relativePath);
+	}
 
-  /**
-   * Convert an absolute path to a relative path from the project directory
-   */
-  makeRelative(absolutePath: string): string {
-    if (!this.projectDir) {
-      throw new Error('Project directory not set. Cannot make path relative.')
-    }
-    return this.makeRelativeTo(this.projectDir, absolutePath)
-  }
+	/**
+	 * Convert an absolute path to a relative path from the project directory
+	 */
+	makeRelative(absolutePath: string): string {
+		if (!this.projectDir) {
+			throw new Error("Project directory not set. Cannot make path relative.");
+		}
+		return this.makeRelativeTo(this.projectDir, absolutePath);
+	}
 
-  /**
-   * Convert an absolute path to a relative path from a specific directory
-   */
-  makeRelativeTo(fromDir: string, toPath: string): string {
-    // If toPath is not absolute, return as-is
-    if (!this.isAbsolute(toPath)) {
-      return toPath
-    }
+	/**
+	 * Convert an absolute path to a relative path from a specific directory
+	 */
+	makeRelativeTo(fromDir: string, toPath: string): string {
+		// If toPath is not absolute, return as-is
+		if (!this.isAbsolute(toPath)) {
+			return toPath;
+		}
 
-    // If fromDir is not absolute, can't make relative
-    if (!this.isAbsolute(fromDir)) {
-      return toPath
-    }
+		// If fromDir is not absolute, can't make relative
+		if (!this.isAbsolute(fromDir)) {
+			return toPath;
+		}
 
-    // Simple relative path calculation
-    const fromParts = fromDir.split(/[/\\]/).filter(Boolean)
-    const toParts = toPath.split(/[/\\]/).filter(Boolean)
+		// Simple relative path calculation
+		const fromParts = fromDir.split(/[/\\]/).filter(Boolean);
+		const toParts = toPath.split(/[/\\]/).filter(Boolean);
 
-    // Find common base
-    let i = 0
-    while (i < fromParts.length && i < toParts.length && fromParts[i] === toParts[i]) {
-      i++
-    }
+		// Find common base
+		let i = 0;
+		while (
+			i < fromParts.length &&
+			i < toParts.length &&
+			fromParts[i] === toParts[i]
+		) {
+			i++;
+		}
 
-    // If no common base (e.g., different drives on Windows or paths from root),
-    // keep as absolute path
-    if (i === 0 && fromParts.length > 0 && toParts.length > 0) {
-      return toPath
-    }
+		// If no common base (e.g., different drives on Windows or paths from root),
+		// keep as absolute path
+		if (i === 0 && fromParts.length > 0 && toParts.length > 0) {
+			return toPath;
+		}
 
-    // Build relative path
-    const upLevels = fromParts.length - i
-    const downPath = toParts.slice(i)
+		// Build relative path
+		const upLevels = fromParts.length - i;
+		const downPath = toParts.slice(i);
 
-    const parts = Array(upLevels).fill('..').concat(downPath)
-    return parts.join('/')
-  }
+		const parts = Array(upLevels).fill("..").concat(downPath);
+		return parts.join("/");
+	}
 
-  /**
-   * Check if a path is absolute
-   */
-  isAbsolute(filePath: string): boolean {
-    // Check for absolute paths (Unix: starts with /, Windows: starts with drive letter)
-    return /^([a-zA-Z]:)?[/\\]/.test(filePath)
-  }
+	/**
+	 * Check if a path is absolute
+	 */
+	isAbsolute(filePath: string): boolean {
+		// Check for absolute paths (Unix: starts with /, Windows: starts with drive letter)
+		return /^([a-zA-Z]:)?[/\\]/.test(filePath);
+	}
 
-  /**
-   * Get the directory name from a file path
-   */
-  dirname(filePath: string): string {
-    const normalized = filePath.replace(/\\/g, '/')
-    const lastSlash = normalized.lastIndexOf('/')
-    if (lastSlash === -1) return '.'
-    if (lastSlash === 0) return '/'
-    return normalized.substring(0, lastSlash)
-  }
+	/**
+	 * Get the directory name from a file path
+	 */
+	dirname(filePath: string): string {
+		const normalized = filePath.replace(/\\/g, "/");
+		const lastSlash = normalized.lastIndexOf("/");
+		if (lastSlash === -1) return ".";
+		if (lastSlash === 0) return "/";
+		return normalized.substring(0, lastSlash);
+	}
 
-  /**
-   * Get the base name from a file path
-   */
-  basename(filePath: string, ext?: string): string {
-    const normalized = filePath.replace(/\\/g, '/')
-    const lastSlash = normalized.lastIndexOf('/')
-    let base = lastSlash === -1 ? normalized : normalized.substring(lastSlash + 1)
+	/**
+	 * Get the base name from a file path
+	 */
+	basename(filePath: string, ext?: string): string {
+		const normalized = filePath.replace(/\\/g, "/");
+		const lastSlash = normalized.lastIndexOf("/");
+		let base =
+			lastSlash === -1 ? normalized : normalized.substring(lastSlash + 1);
 
-    if (ext && base.endsWith(ext)) {
-      base = base.substring(0, base.length - ext.length)
-    }
+		if (ext && base.endsWith(ext)) {
+			base = base.substring(0, base.length - ext.length);
+		}
 
-    return base
-  }
+		return base;
+	}
 
-  /**
-   * Join multiple path segments
-   */
-  join(...segments: string[]): string {
-    const parts: string[] = []
+	/**
+	 * Join multiple path segments
+	 */
+	join(...segments: string[]): string {
+		const parts: string[] = [];
 
-    for (const segment of segments) {
-      if (!segment) continue
-      const normalized = segment.replace(/\\/g, '/')
-      parts.push(normalized)
-    }
+		for (const segment of segments) {
+			if (!segment) continue;
+			const normalized = segment.replace(/\\/g, "/");
+			parts.push(normalized);
+		}
 
-    let joined = parts.join('/')
+		let joined = parts.join("/");
 
-    // Normalize multiple slashes
-    joined = joined.replace(/\/+/g, '/')
+		// Normalize multiple slashes
+		joined = joined.replace(/\/+/g, "/");
 
-    // Remove trailing slash unless it's the root
-    if (joined.length > 1 && joined.endsWith('/')) {
-      joined = joined.slice(0, -1)
-    }
+		// Remove trailing slash unless it's the root
+		if (joined.length > 1 && joined.endsWith("/")) {
+			joined = joined.slice(0, -1);
+		}
 
-    return joined
-  }
+		return joined;
+	}
 
-  /**
-   * Get the file extension
-   */
-  extname(filePath: string): string {
-    const base = this.basename(filePath)
-    const lastDot = base.lastIndexOf('.')
-    if (lastDot === -1 || lastDot === 0) return ''
-    return base.substring(lastDot)
-  }
+	/**
+	 * Get the file extension
+	 */
+	extname(filePath: string): string {
+		const base = this.basename(filePath);
+		const lastDot = base.lastIndexOf(".");
+		if (lastDot === -1 || lastDot === 0) return "";
+		return base.substring(lastDot);
+	}
 
-  /**
-   * Normalize a path (resolve . and .. segments)
-   */
-  normalize(filePath: string): string {
-    const isAbs = this.isAbsolute(filePath)
-    const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean)
-    const result: string[] = []
+	/**
+	 * Normalize a path (resolve . and .. segments)
+	 */
+	normalize(filePath: string): string {
+		const isAbs = this.isAbsolute(filePath);
+		const parts = filePath.replace(/\\/g, "/").split("/").filter(Boolean);
+		const result: string[] = [];
 
-    for (const part of parts) {
-      if (part === '..') {
-        if (result.length > 0 && result[result.length - 1] !== '..') {
-          result.pop()
-        } else if (!isAbs) {
-          result.push('..')
-        }
-      } else if (part !== '.') {
-        result.push(part)
-      }
-    }
+		for (const part of parts) {
+			if (part === "..") {
+				if (result.length > 0 && result[result.length - 1] !== "..") {
+					result.pop();
+				} else if (!isAbs) {
+					result.push("..");
+				}
+			} else if (part !== ".") {
+				result.push(part);
+			}
+		}
 
-    let normalized = result.join('/')
-    if (isAbs && !normalized.startsWith('/')) {
-      normalized = '/' + normalized
-    }
+		let normalized = result.join("/");
+		if (isAbs && !normalized.startsWith("/")) {
+			normalized = "/" + normalized;
+		}
 
-    return normalized || '.'
-  }
+		return normalized || ".";
+	}
 }
 
 // Export a singleton instance
-export const fileManager = new FileManager()
+export const fileManager = new FileManager();

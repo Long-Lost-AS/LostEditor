@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { TileDefinition, EntityDefinition, TilesetData } from "../types";
+import { useEffect, useRef, useState } from "react";
 import { fileManager } from "../managers/FileManager";
+import type { EntityDefinition, TileDefinition, TilesetData } from "../types";
 import { CollisionEditor } from "./CollisionEditor";
 
 interface TilesetCreatorProps {
@@ -429,7 +428,7 @@ export const TilesetCreator = ({
 									value={tilesetName}
 									onChange={(e) => setTilesetName(e.target.value)}
 									className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
-									style={{ fontSize: '13px' }}
+									style={{ fontSize: "13px" }}
 								/>
 							</div>
 
@@ -442,7 +441,7 @@ export const TilesetCreator = ({
 									value={tilesetId}
 									onChange={(e) => setTilesetId(e.target.value)}
 									className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
-									style={{ fontSize: '13px' }}
+									style={{ fontSize: "13px" }}
 								/>
 							</div>
 
@@ -475,7 +474,7 @@ export const TilesetCreator = ({
 											setTileWidth(parseInt(e.target.value) || 16)
 										}
 										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
-										style={{ fontSize: '13px' }}
+										style={{ fontSize: "13px" }}
 									/>
 								</div>
 								<div>
@@ -489,7 +488,7 @@ export const TilesetCreator = ({
 											setTileHeight(parseInt(e.target.value) || 16)
 										}
 										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
-										style={{ fontSize: '13px' }}
+										style={{ fontSize: "13px" }}
 									/>
 								</div>
 							</div>

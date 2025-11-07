@@ -1,46 +1,53 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { useEditor } from "../context/EditorContext";
-import { MapTab, MapData, Tile, Layer, Tool, EntityInstance } from "../types";
 import {
-	DndContext,
 	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	DragOverlay,
+	type DragStartEvent,
 	PointerSensor,
 	useSensor,
 	useSensors,
-	DragEndEvent,
-	DragStartEvent,
-	DragOverlay,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
-	SortableContext,
-	verticalListSortingStrategy,
-	useSortable,
 	arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { DragNumberInput } from "./DragNumberInput";
-import { MapCanvas } from "./MapCanvas";
-import { TilesetPanel } from "./TilesetPanel";
-import { EntityPanel } from "./EntityPanel";
-import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
-import { Toolbar } from "./Toolbar";
-import { useUndoableReducer } from "../hooks/useUndoableReducer";
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { entityManager } from "../managers/EntityManager";
-import {
-	updateTileAndNeighbors,
-	getAllAutotileGroups,
-} from "../utils/autotiling";
 import { createDefaultMapData } from "../schemas";
-import { unpackTileId, packTileId } from "../utils/tileId";
+import {
+	type EntityInstance,
+	type Layer,
+	type MapData,
+	type MapTab,
+	Tile,
+	type Tool,
+} from "../types";
+import {
+	getAllAutotileGroups,
+	updateTileAndNeighbors,
+} from "../utils/autotiling";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
-	placeTerrainTile,
-	updateNeighborsAround,
 	getTerrainLayerForTile,
+	placeTerrainTile,
 	removeTerrainTile,
+	updateNeighborsAround,
 } from "../utils/terrainDrawing";
+import { packTileId, unpackTileId } from "../utils/tileId";
+import { DragNumberInput } from "./DragNumberInput";
+import { EntityPanel } from "./EntityPanel";
+import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
+import { MapCanvas } from "./MapCanvas";
+import { TilesetPanel } from "./TilesetPanel";
+import { Toolbar } from "./Toolbar";
 
 interface MapEditorViewProps {
 	tab: MapTab;
@@ -206,7 +213,15 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	const [
 		localMapData,
 		setLocalMapData,
-		{ undo, redo, canUndo, canRedo, startBatch, endBatch, reset: resetMapHistory },
+		{
+			undo,
+			redo,
+			canUndo,
+			canRedo,
+			startBatch,
+			endBatch,
+			reset: resetMapHistory,
+		},
 	] = useUndoableReducer<MapData>(mapData);
 
 	// Register undo/redo keyboard shortcuts
@@ -249,7 +264,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				delay: 150, // 150ms delay before drag starts
 				tolerance: 5, // 5px tolerance during delay
 			},
-		})
+		}),
 	);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
@@ -261,9 +276,11 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Reset undo history when switching to a different map tab OR when mapData.id changes (map reloaded)
 	const prevMapIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
-		const mapId = (mapData as any).id;
-		const tabChanged = prevTabIdRef.current !== null && prevTabIdRef.current !== tab.id;
-		const mapReloaded = prevMapIdRef.current !== undefined && prevMapIdRef.current !== mapId;
+		const mapId = mapData.id;
+		const tabChanged =
+			prevTabIdRef.current !== null && prevTabIdRef.current !== tab.id;
+		const mapReloaded =
+			prevMapIdRef.current !== undefined && prevMapIdRef.current !== mapId;
 
 		if (tabChanged || mapReloaded) {
 			// Switching to a different map tab OR map was reloaded, reset history
@@ -301,7 +318,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		const layer = localMapData.layers.find((l) => l.id === currentLayerId);
 		setCurrentLayer(layer || null);
 	}, [currentLayerId, localMapData?.layers, setCurrentLayer]);
-
 
 	const handleNameClick = () => {
 		setIsEditingName(true);
@@ -421,7 +437,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		});
 	};
 
-	const handleLayerDoubleClick = (layer: any) => {
+	const handleLayerDoubleClick = (layer: Layer) => {
 		setEditingLayerId(layer.id);
 		setEditingLayerName(layer.name);
 	};
@@ -451,12 +467,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		const menuWidth = 160;
 		const menuHeight = 40; // Single item menu
 
-		const position = calculateMenuPosition(e.clientX, e.clientY, menuWidth, menuHeight);
+		const position = calculateMenuPosition(
+			e.clientX,
+			e.clientY,
+			menuWidth,
+			menuHeight,
+		);
 
 		setContextMenu({
 			x: position.x,
 			y: position.y,
-			layerId
+			layerId,
 		});
 	};
 
@@ -465,7 +486,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		setActiveLayerId(event.active.id as string);
 
 		// Select the layer being dragged
-		const draggedLayer = localMapData?.layers.find((l) => l.id === event.active.id);
+		const draggedLayer = localMapData?.layers.find(
+			(l) => l.id === event.active.id,
+		);
 		if (draggedLayer) {
 			setCurrentLayerId(draggedLayer.id);
 		}
@@ -840,9 +863,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			if (!localMapData) return;
 
 			const newEntities = (localMapData.entities || []).map((entity) =>
-				entity.id === entityId
-					? { ...entity, ...updates }
-					: entity
+				entity.id === entityId ? { ...entity, ...updates } : entity,
 			);
 
 			setLocalMapData({
@@ -946,7 +967,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			const globalTileId = packTileId(
 				geometry.x,
 				geometry.y,
-				tilesetIndex,  // Use the correct tileset index, not the one from unpacking
+				tilesetIndex, // Use the correct tileset index, not the one from unpacking
 				geometry.flipX,
 				geometry.flipY,
 			);
@@ -957,9 +978,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					if (layer.id === currentLayer.id) {
 						// Ensure tiles array is properly sized
 						const totalSize = prev.width * prev.height;
-						const newTiles = layer.tiles && layer.tiles.length === totalSize
-							? [...layer.tiles]
-							: new Array(totalSize).fill(0);
+						const newTiles =
+							layer.tiles && layer.tiles.length === totalSize
+								? [...layer.tiles]
+								: new Array(totalSize).fill(0);
 
 						const mapWidth = prev.width;
 						const mapHeight = prev.height;
@@ -1228,42 +1250,55 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									onDragEnd={handleDragEnd}
 								>
 									<SortableContext
-										items={(localMapData?.layers || []).slice().reverse().map((l) => l.id)}
+										items={(localMapData?.layers || [])
+											.slice()
+											.reverse()
+											.map((l) => l.id)}
 										strategy={verticalListSortingStrategy}
 									>
 										<div className="space-y-1">
-											{localMapData?.layers?.slice().reverse().map((layer) => (
-												<SortableLayerItem
-													key={layer.id}
-													layer={layer}
-													isActive={currentLayer?.id === layer.id}
-													isEditing={editingLayerId === layer.id}
-													editingName={editingLayerName}
-													onClick={() => setCurrentLayerId(layer.id)}
-													onDoubleClick={() => handleLayerDoubleClick(layer)}
-													onContextMenu={(e) => handleLayerContextMenu(e, layer.id)}
-													onVisibilityChange={(visible) =>
-														handleUpdateLayerVisibility(layer.id, visible)
-													}
-													onAutotilingChange={(enabled) =>
-														handleUpdateLayerAutotiling(layer.id, enabled)
-													}
-													onNameChange={setEditingLayerName}
-													onNameSubmit={() => handleLayerNameSubmit(layer.id)}
-													onKeyDown={(e) => handleLayerNameKeyDown(e, layer.id)}
-												/>
-											))}
+											{localMapData?.layers
+												?.slice()
+												.reverse()
+												.map((layer) => (
+													<SortableLayerItem
+														key={layer.id}
+														layer={layer}
+														isActive={currentLayer?.id === layer.id}
+														isEditing={editingLayerId === layer.id}
+														editingName={editingLayerName}
+														onClick={() => setCurrentLayerId(layer.id)}
+														onDoubleClick={() => handleLayerDoubleClick(layer)}
+														onContextMenu={(e) =>
+															handleLayerContextMenu(e, layer.id)
+														}
+														onVisibilityChange={(visible) =>
+															handleUpdateLayerVisibility(layer.id, visible)
+														}
+														onAutotilingChange={(enabled) =>
+															handleUpdateLayerAutotiling(layer.id, enabled)
+														}
+														onNameChange={setEditingLayerName}
+														onNameSubmit={() => handleLayerNameSubmit(layer.id)}
+														onKeyDown={(e) =>
+															handleLayerNameKeyDown(e, layer.id)
+														}
+													/>
+												))}
 										</div>
 									</SortableContext>
 									<DragOverlay>
 										{activeLayerId && localMapData ? (
 											<div
 												className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
-												style={{ border: "1px solid #1177bb", cursor: "grabbing" }}
+												style={{
+													border: "1px solid #1177bb",
+													cursor: "grabbing",
+												}}
 											>
 												{(() => {
 													const activeLayer = localMapData.layers.find(
-														(l) => l.id === activeLayerId
+														(l) => l.id === activeLayerId,
 													);
 													if (!activeLayer) return null;
 													return (
@@ -1288,14 +1323,18 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 																		cursor: "pointer",
 																		padding: "2px 4px",
 																		opacity:
-																			activeLayer.autotilingEnabled !== false ? 1 : 0.3,
+																			activeLayer.autotilingEnabled !== false
+																				? 1
+																				: 0.3,
 																		fontSize: "14px",
 																	}}
 																>
 																	🗠
 																</button>
 															)}
-															<span className="flex-1 select-none">{activeLayer.name}</span>
+															<span className="flex-1 select-none">
+																{activeLayer.name}
+															</span>
 														</>
 													);
 												})()}
@@ -1373,7 +1412,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					borderLeft: "1px solid #3e3e42",
 				}}
 			>
-				{(tab.viewState.currentTool || 'pencil') === 'pointer' && selectedEntityId ? (
+				{(tab.viewState.currentTool || "pencil") === "pointer" &&
+				selectedEntityId ? (
 					<EntityPropertiesPanel
 						selectedEntityId={selectedEntityId}
 						mapData={localMapData}
@@ -1381,7 +1421,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onDragStart={startBatch}
 						onDragEnd={endBatch}
 					/>
-				) : (tab.viewState.currentTool || 'pencil') === 'entity' ? (
+				) : (tab.viewState.currentTool || "pencil") === "entity" ? (
 					<EntityPanel />
 				) : (
 					<TilesetPanel />
@@ -1389,56 +1429,57 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			</div>
 
 			{/* Context Menu */}
-			{contextMenu && createPortal(
-				<>
-					{/* Backdrop */}
-					<div
-						style={{
-							position: "fixed",
-							inset: 0,
-							zIndex: 40,
-						}}
-						onClick={() => setContextMenu(null)}
-					/>
-					{/* Menu */}
-					<div
-						style={{
-							position: "fixed",
-							top: contextMenu.y,
-							left: contextMenu.x,
-							zIndex: 50,
-							background: "#252526",
-							border: "1px solid #3e3e42",
-							borderRadius: "4px",
-							minWidth: "160px",
-							boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-						}}
-					>
+			{contextMenu &&
+				createPortal(
+					<>
+						{/* Backdrop */}
 						<div
-							onClick={() => {
-								handleRemoveLayer(contextMenu.layerId);
-								setContextMenu(null);
-							}}
 							style={{
-								padding: "8px 12px",
-								fontSize: "13px",
-								color: "#cccccc",
-								cursor: "pointer",
-								transition: "background 0.1s",
+								position: "fixed",
+								inset: 0,
+								zIndex: 40,
 							}}
-							onMouseEnter={(e) => {
-								e.currentTarget.style.background = "#2a2d2e";
-							}}
-							onMouseLeave={(e) => {
-								e.currentTarget.style.background = "transparent";
+							onClick={() => setContextMenu(null)}
+						/>
+						{/* Menu */}
+						<div
+							style={{
+								position: "fixed",
+								top: contextMenu.y,
+								left: contextMenu.x,
+								zIndex: 50,
+								background: "#252526",
+								border: "1px solid #3e3e42",
+								borderRadius: "4px",
+								minWidth: "160px",
+								boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
 							}}
 						>
-							Delete Layer
+							<div
+								onClick={() => {
+									handleRemoveLayer(contextMenu.layerId);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: "8px 12px",
+									fontSize: "13px",
+									color: "#cccccc",
+									cursor: "pointer",
+									transition: "background 0.1s",
+								}}
+								onMouseEnter={(e) => {
+									e.currentTarget.style.background = "#2a2d2e";
+								}}
+								onMouseLeave={(e) => {
+									e.currentTarget.style.background = "transparent";
+								}}
+							>
+								Delete Layer
+							</div>
 						</div>
-					</div>
-				</>,
-				document.body
-			)}
+					</>,
+					document.body,
+				)}
 		</div>
 	);
 };

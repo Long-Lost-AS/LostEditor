@@ -1,6 +1,9 @@
-import { MapLayer, Tileset, TerrainLayer } from "../types";
+import type { MapLayer, TerrainLayer, Tileset } from "../types";
+import {
+	calculateBitmaskFromNeighbors,
+	findTileByBitmask,
+} from "./bitmaskAutotiling";
 import { packTileId, unpackTileId } from "./tileId";
-import { calculateBitmaskFromNeighbors, findTileByBitmask } from "./bitmaskAutotiling";
 
 /**
  * Check if a specific position on the map has terrain from a specific terrain layer
@@ -51,9 +54,7 @@ export function getTerrainLayerForTile(
 
 	// Check each terrain layer to see if this tile belongs to it
 	for (const terrainLayer of tileset.terrainLayers) {
-		if (
-			terrainLayer.tiles?.some((tt) => tt.tileId === localTileId)
-		) {
+		if (terrainLayer.tiles?.some((tt) => tt.tileId === localTileId)) {
 			return terrainLayer.id;
 		}
 	}

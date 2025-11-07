@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
-import { TilesetTab, TerrainLayer } from "../types";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
-import { ShieldIcon, TrashIcon } from "./Icons";
+import type { TerrainLayer, TilesetTab } from "../types";
+import { calculateMenuPosition } from "../utils/menuPositioning";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { DragNumberInput } from "./DragNumberInput";
-import { calculateMenuPosition } from "../utils/menuPositioning";
+import { ShieldIcon, TrashIcon } from "./Icons";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
@@ -473,7 +473,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tileId = packTileId(
 								tilePosX,
 								tilePosY,
-								0  // tileset index
+								0, // tileset index
 							);
 
 							// Get bitmask from terrain layer
@@ -648,7 +648,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileId = packTileId(
 			tilePosX,
 			tilePosY,
-			0 // tileset index
+			0, // tileset index
 		);
 
 		// Get current bitmask from terrain layer
@@ -707,7 +707,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			const tileId = packTileId(
 				tilePosX,
 				tilePosY,
-				0 // tileset index
+				0, // tileset index
 			);
 
 			// Determine the action based on whether the bit is currently set
@@ -832,7 +832,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					const tileId = packTileId(
 						tilePosX,
 						tilePosY,
-						0 // tileset index
+						0, // tileset index
 					);
 					setSelectedCompoundTileId(tileId);
 				}
@@ -1597,7 +1597,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														onChange={(e) => {
 															const value = parseFloat(e.target.value) || 0;
 															const clamped = Math.max(0, Math.min(1, value));
-															handleUpdateTileOrigin(clamped, selectedTile?.origin?.y ?? 0);
+															handleUpdateTileOrigin(
+																clamped,
+																selectedTile?.origin?.y ?? 0,
+															);
 														}}
 														step="0.1"
 														min="0"
@@ -1610,7 +1613,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 															fontSize: "13px",
 														}}
 													/>
-													<div className="text-[10px] mt-0.5" style={{ color: "#858585" }}>
+													<div
+														className="text-[10px] mt-0.5"
+														style={{ color: "#858585" }}
+													>
 														X
 													</div>
 												</div>
@@ -1621,7 +1627,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														onChange={(e) => {
 															const value = parseFloat(e.target.value) || 0;
 															const clamped = Math.max(0, Math.min(1, value));
-															handleUpdateTileOrigin(selectedTile?.origin?.x ?? 0, clamped);
+															handleUpdateTileOrigin(
+																selectedTile?.origin?.x ?? 0,
+																clamped,
+															);
 														}}
 														step="0.1"
 														min="0"
@@ -1634,12 +1643,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 															fontSize: "13px",
 														}}
 													/>
-													<div className="text-[10px] mt-0.5" style={{ color: "#858585" }}>
+													<div
+														className="text-[10px] mt-0.5"
+														style={{ color: "#858585" }}
+													>
 														Y
 													</div>
 												</div>
 											</div>
-											<div className="mt-1 text-[10px]" style={{ color: "#858585" }}>
+											<div
+												className="mt-1 text-[10px]"
+												style={{ color: "#858585" }}
+											>
 												Quick:
 												<button
 													onClick={() => handleUpdateTileOrigin(0, 0)}
@@ -2011,7 +2026,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											<div className="flex-1">
 												<DragNumberInput
 													value={selectedTile?.origin?.x ?? 0}
-													onChange={(value) => handleUpdateTileOrigin(value, selectedTile?.origin?.y ?? 0)}
+													onChange={(value) =>
+														handleUpdateTileOrigin(
+															value,
+															selectedTile?.origin?.y ?? 0,
+														)
+													}
 													min={0}
 													max={1}
 													step={0.01}
@@ -2028,7 +2048,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											<div className="flex-1">
 												<DragNumberInput
 													value={selectedTile?.origin?.y ?? 0}
-													onChange={(value) => handleUpdateTileOrigin(selectedTile?.origin?.x ?? 0, value)}
+													onChange={(value) =>
+														handleUpdateTileOrigin(
+															selectedTile?.origin?.x ?? 0,
+															value,
+														)
+													}
 													min={0}
 													max={1}
 													step={0.01}
@@ -2089,13 +2114,19 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																			}
 																		}}
 																		onKeyDown={(e) => {
-																			if (e.key === "Enter" || e.key === "Escape") {
+																			if (
+																				e.key === "Enter" ||
+																				e.key === "Escape"
+																			) {
 																				setEditingPropertyKey(null);
 																				// If still empty after Enter/Escape, delete it
 																				if (isTemp || !displayKey.trim()) {
 																					handleDeleteProperty(key);
 																				}
-																			} else if (e.key === "Tab" && !e.shiftKey) {
+																			} else if (
+																				e.key === "Tab" &&
+																				!e.shiftKey
+																			) {
 																				e.preventDefault();
 																				setEditingPropertyKey(null);
 																				setEditingPropertyValue(key);
@@ -2137,9 +2168,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																		}
 																		onBlur={() => setEditingPropertyValue(null)}
 																		onKeyDown={(e) => {
-																			if (e.key === "Enter" || e.key === "Escape") {
+																			if (
+																				e.key === "Enter" ||
+																				e.key === "Escape"
+																			) {
 																				setEditingPropertyValue(null);
-																			} else if (e.key === "Tab" && e.shiftKey) {
+																			} else if (
+																				e.key === "Tab" &&
+																				e.shiftKey
+																			) {
 																				e.preventDefault();
 																				setEditingPropertyValue(null);
 																				setEditingPropertyKey(key);

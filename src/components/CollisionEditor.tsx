@@ -1,10 +1,10 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { PolygonCollider } from "../types";
-import { LightbulbIcon, TrashIcon, PlusIcon } from "./Icons";
-import { useUndoableReducer } from "../hooks/useUndoableReducer";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
-import { DragNumberInput } from "./DragNumberInput";
+import { useUndoableReducer } from "../hooks/useUndoableReducer";
+import type { PolygonCollider } from "../types";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import { DragNumberInput } from "./DragNumberInput";
+import { LightbulbIcon, PlusIcon, TrashIcon } from "./Icons";
 
 interface CollisionEditorProps {
 	width: number;

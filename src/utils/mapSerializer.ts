@@ -4,11 +4,11 @@
  * Version 4.0: Uses dense arrays of regular numbers (48-bit packed tile IDs)
  */
 
-import {
-	MapData,
+import type {
 	Layer,
-	SerializedMapData,
+	MapData,
 	SerializedLayer,
+	SerializedMapData,
 } from "../types";
 
 /**
@@ -36,7 +36,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		tileWidth: mapData.tileWidth,
 		tileHeight: mapData.tileHeight,
 		layers: serializedLayers,
-		entities: mapData.entities || [],  // Entities at map level
+		entities: mapData.entities || [], // Entities at map level
 	};
 }
 
@@ -76,6 +76,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		tileWidth: serialized.tileWidth,
 		tileHeight: serialized.tileHeight,
 		layers,
-		entities: serialized.entities || [],  // Entities at map level
+		entities: serialized.entities || [], // Entities at map level
 	};
 }

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface DragNumberInputProps {
 	value: number;
@@ -88,7 +89,17 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 				document.body.style.cursor = "default";
 			};
 		}
-	}, [isDragging, dragStartX, dragStartValue, dragSpeed, value, onChange, onInput, onDragStart, onDragEnd]);
+	}, [
+		isDragging,
+		dragStartX,
+		dragStartValue,
+		dragSpeed,
+		value,
+		onChange,
+		onInput,
+		onDragStart,
+		onDragEnd,
+	]);
 
 	const handleDoubleClick = () => {
 		setIsEditing(true);

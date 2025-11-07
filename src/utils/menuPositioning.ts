@@ -11,7 +11,7 @@ export function calculateMenuPosition(
 	mouseX: number,
 	mouseY: number,
 	menuWidth: number,
-	menuHeight: number
+	menuHeight: number,
 ): { x: number; y: number } {
 	const viewportWidth = window.innerWidth;
 	const viewportHeight = window.innerHeight;

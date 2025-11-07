@@ -1,8 +1,15 @@
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
-import { unpackTileId, packTileId } from "../utils/tileId";
-import { MapData, Tool, hasImageData, EntityDefinition, EntityInstance, SpriteLayer } from "../types";
+import {
+	type EntityDefinition,
+	type EntityInstance,
+	hasImageData,
+	type MapData,
+	type SpriteLayer,
+	type Tool,
+} from "../types";
+import { packTileId, unpackTileId } from "../utils/tileId";
 
 interface MapCanvasProps {
 	mapData: MapData;
@@ -55,17 +62,30 @@ export const MapCanvas = ({
 
 	// Rectangle tool state
 	const [isDrawingRect, setIsDrawingRect] = useState(false);
-	const [rectStartTile, setRectStartTile] = useState<{ x: number; y: number } | null>(null);
+	const [rectStartTile, setRectStartTile] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 
 	// Pointer tool state (for selecting and moving entities)
 	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 	const selectedEntityIdRef = useRef<string | null>(null); // Ref for immediate access
 	const [isDraggingEntity, setIsDraggingEntity] = useState(false);
-	const [entityDragStart, setEntityDragStart] = useState<{ x: number; y: number } | null>(null);
-	const [entityDragOffset, setEntityDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-	const [tempEntityPosition, setTempEntityPosition] = useState<{ x: number; y: number } | null>(null);
+	const [entityDragStart, setEntityDragStart] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
+	const [entityDragOffset, setEntityDragOffset] = useState<{
+		x: number;
+		y: number;
+	}>({ x: 0, y: 0 });
+	const [tempEntityPosition, setTempEntityPosition] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 	const tempEntityPositionRef = useRef<{ x: number; y: number } | null>(null); // Ref for immediate access
-	const [isHoveringSelectedEntity, setIsHoveringSelectedEntity] = useState(false);
+	const [isHoveringSelectedEntity, setIsHoveringSelectedEntity] =
+		useState(false);
 	const DRAG_THRESHOLD = 5; // pixels before starting drag
 
 	// Fill tool - flood fill helper function
@@ -74,8 +94,10 @@ export const MapCanvas = ({
 		if (!currentLayerId) {
 			return;
 		}
-		const activeLayer = mapData.layers.find(layer => layer.id === currentLayerId);
-		if (!activeLayer || activeLayer.type === 'entity') {
+		const activeLayer = mapData.layers.find(
+			(layer) => layer.id === currentLayerId,
+		);
+		if (!activeLayer || activeLayer.type === "entity") {
 			return;
 		}
 
@@ -237,7 +259,9 @@ export const MapCanvas = ({
 						);
 
 						// Find tile definition
-						const tileDefinition = tileset.tiles.find((t) => t.id === localTileId);
+						const tileDefinition = tileset.tiles.find(
+							(t) => t.id === localTileId,
+						);
 
 						// Determine dimensions
 						let sourceWidth = tileset.tileWidth;
@@ -245,7 +269,11 @@ export const MapCanvas = ({
 						let originOffsetX = 0;
 						let originOffsetY = 0;
 
-						if (tileDefinition?.isCompound && tileDefinition.width && tileDefinition.height) {
+						if (
+							tileDefinition?.isCompound &&
+							tileDefinition.width &&
+							tileDefinition.height
+						) {
 							// Compound tile - use full dimensions
 							sourceWidth = tileDefinition.width;
 							sourceHeight = tileDefinition.height;
@@ -360,9 +388,16 @@ export const MapCanvas = ({
 					if (!entityDef) return;
 
 					// Use temp position if this entity is being dragged
-					const instanceToRender = (isDraggingEntity && selectedEntityId === entityInstance.id && tempEntityPosition)
-						? { ...entityInstance, x: tempEntityPosition.x, y: tempEntityPosition.y }
-						: entityInstance;
+					const instanceToRender =
+						isDraggingEntity &&
+						selectedEntityId === entityInstance.id &&
+						tempEntityPosition
+							? {
+									...entityInstance,
+									x: tempEntityPosition.x,
+									y: tempEntityPosition.y,
+								}
+							: entityInstance;
 
 					// Render entity with hierarchy
 					renderEntity(ctx, entityDef, instanceToRender, tileset.imageData);
@@ -452,8 +487,10 @@ export const MapCanvas = ({
 					// Draw origin point indicator for compound tiles
 					if (tileDef?.isCompound) {
 						// Center of the tile where the mouse is
-						const originWorldX = tileX * mapData.tileWidth + mapData.tileWidth / 2;
-						const originWorldY = tileY * mapData.tileHeight + mapData.tileHeight / 2;
+						const originWorldX =
+							tileX * mapData.tileWidth + mapData.tileWidth / 2;
+						const originWorldY =
+							tileY * mapData.tileHeight + mapData.tileHeight / 2;
 
 						// Draw crosshair
 						ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
@@ -477,13 +514,28 @@ export const MapCanvas = ({
 			}
 
 			// Draw entity preview (when entity tool is active)
-			if (mousePos && tool === "entity" && selectedTilesetId && selectedEntityDefId && canvas) {
+			if (
+				mousePos &&
+				tool === "entity" &&
+				selectedTilesetId &&
+				selectedEntityDefId &&
+				canvas
+			) {
 				const entityDefId = selectedEntityDefIdRef.current;
 				if (entityDefId) {
-					const entityDef = entityManager.getEntityDefinition(selectedTilesetId, entityDefId);
+					const entityDef = entityManager.getEntityDefinition(
+						selectedTilesetId,
+						entityDefId,
+					);
 					const tileset = getTilesetById(selectedTilesetId);
 
-					if (entityDef && tileset && hasImageData(tileset) && entityDef.sprites && entityDef.sprites.length > 0) {
+					if (
+						entityDef &&
+						tileset &&
+						hasImageData(tileset) &&
+						entityDef.sprites &&
+						entityDef.sprites.length > 0
+					) {
 						// Calculate world position from screen coordinates
 						const rect = canvas.getBoundingClientRect();
 						const canvasX = mousePos.x - rect.left;
@@ -519,7 +571,7 @@ export const MapCanvas = ({
 								drawX,
 								drawY,
 								sprite.width,
-								sprite.height
+								sprite.height,
 							);
 						});
 
@@ -550,22 +602,38 @@ export const MapCanvas = ({
 			const currentSelectedId = selectedEntityIdRef.current;
 			const currentTempPos = tempEntityPositionRef.current;
 			if (currentSelectedId && mapData.entities) {
-				const selectedEntity = mapData.entities.find(e => e.id === currentSelectedId);
+				const selectedEntity = mapData.entities.find(
+					(e) => e.id === currentSelectedId,
+				);
 				if (selectedEntity) {
 					const tileset = getTilesetById(selectedEntity.tilesetId);
 					const entityDef = entityManager.getEntityDefinition(
 						selectedEntity.tilesetId,
-						selectedEntity.entityDefId
+						selectedEntity.entityDefId,
 					);
 
-					if (entityDef && tileset?.imageData && entityDef.sprites && entityDef.sprites.length > 0) {
+					if (
+						entityDef &&
+						tileset?.imageData &&
+						entityDef.sprites &&
+						entityDef.sprites.length > 0
+					) {
 						// Use temp position if dragging, otherwise use actual position
-						const entityX = (isDraggingEntity && currentTempPos) ? currentTempPos.x : selectedEntity.x;
-						const entityY = (isDraggingEntity && currentTempPos) ? currentTempPos.y : selectedEntity.y;
+						const entityX =
+							isDraggingEntity && currentTempPos
+								? currentTempPos.x
+								: selectedEntity.x;
+						const entityY =
+							isDraggingEntity && currentTempPos
+								? currentTempPos.y
+								: selectedEntity.y;
 						const scale = selectedEntity.scale || { x: 1, y: 1 };
 
 						// Calculate bounding box for the entity
-						let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+						let minX = Infinity,
+							minY = Infinity,
+							maxX = -Infinity,
+							maxY = -Infinity;
 
 						entityDef.sprites.forEach((spriteLayer) => {
 							if (!spriteLayer.sprite) return;
@@ -600,10 +668,30 @@ export const MapCanvas = ({
 						// Draw corner handles
 						const handleSize = 6 / zoom;
 						ctx.fillStyle = "rgba(0, 150, 255, 1)";
-						ctx.fillRect(minX - handleSize / 2, minY - handleSize / 2, handleSize, handleSize);
-						ctx.fillRect(maxX - handleSize / 2, minY - handleSize / 2, handleSize, handleSize);
-						ctx.fillRect(minX - handleSize / 2, maxY - handleSize / 2, handleSize, handleSize);
-						ctx.fillRect(maxX - handleSize / 2, maxY - handleSize / 2, handleSize, handleSize);
+						ctx.fillRect(
+							minX - handleSize / 2,
+							minY - handleSize / 2,
+							handleSize,
+							handleSize,
+						);
+						ctx.fillRect(
+							maxX - handleSize / 2,
+							minY - handleSize / 2,
+							handleSize,
+							handleSize,
+						);
+						ctx.fillRect(
+							minX - handleSize / 2,
+							maxY - handleSize / 2,
+							handleSize,
+							handleSize,
+						);
+						ctx.fillRect(
+							maxX - handleSize / 2,
+							maxY - handleSize / 2,
+							handleSize,
+							handleSize,
+						);
 					}
 				}
 			}
@@ -630,7 +718,7 @@ export const MapCanvas = ({
 					minX * mapData.tileWidth,
 					minY * mapData.tileHeight,
 					(maxX - minX + 1) * mapData.tileWidth,
-					(maxY - minY + 1) * mapData.tileHeight
+					(maxY - minY + 1) * mapData.tileHeight,
 				);
 
 				// Draw rectangle outline
@@ -640,7 +728,7 @@ export const MapCanvas = ({
 					minX * mapData.tileWidth,
 					minY * mapData.tileHeight,
 					(maxX - minX + 1) * mapData.tileWidth,
-					(maxY - minY + 1) * mapData.tileHeight
+					(maxY - minY + 1) * mapData.tileHeight,
 				);
 			}
 
@@ -708,7 +796,10 @@ export const MapCanvas = ({
 				const sprite = spriteLayer.sprite;
 				const offset = spriteLayer.offset || { x: 0, y: 0 };
 				const origin = spriteLayer.origin || { x: 0.5, y: 1 };
-				const rotation = parentRotation + (spriteLayer.rotation || 0) + (instance.rotation || 0);
+				const rotation =
+					parentRotation +
+					(spriteLayer.rotation || 0) +
+					(instance.rotation || 0);
 				const scale = instance.scale || { x: 1, y: 1 };
 
 				// Calculate scaled dimensions
@@ -749,7 +840,15 @@ export const MapCanvas = ({
 		// Render children (if entity definitions support hierarchical children)
 		if (entityDef.children) {
 			entityDef.children.forEach((child: EntityDefinition) => {
-				renderEntity(ctx, child, instance, tilesetImage, parentX, parentY, parentRotation);
+				renderEntity(
+					ctx,
+					child,
+					instance,
+					tilesetImage,
+					parentX,
+					parentY,
+					parentRotation,
+				);
 			});
 		}
 	};
@@ -793,9 +892,16 @@ export const MapCanvas = ({
 					let foundEntity = null;
 					for (let i = mapData.entities.length - 1; i >= 0; i--) {
 						const entity = mapData.entities[i];
-						const entityDef = entityManager.getEntityDefinition(entity.tilesetId, entity.entityDefId);
+						const entityDef = entityManager.getEntityDefinition(
+							entity.tilesetId,
+							entity.entityDefId,
+						);
 
-						if (entityDef && entityDef.sprites && entityDef.sprites.length > 0) {
+						if (
+							entityDef &&
+							entityDef.sprites &&
+							entityDef.sprites.length > 0
+						) {
 							const firstSprite = entityDef.sprites[0];
 							if (firstSprite.sprite) {
 								const sprite = firstSprite.sprite;
@@ -814,8 +920,12 @@ export const MapCanvas = ({
 								const entityY = entity.y - originOffsetY + offset.y;
 
 								// Check if click is within entity bounds
-								if (worldX >= entityX && worldX <= entityX + scaledWidth &&
-									worldY >= entityY && worldY <= entityY + scaledHeight) {
+								if (
+									worldX >= entityX &&
+									worldX <= entityX + scaledWidth &&
+									worldY >= entityY &&
+									worldY <= entityY + scaledHeight
+								) {
 									foundEntity = entity;
 									break;
 								}
@@ -831,7 +941,7 @@ export const MapCanvas = ({
 						setEntityDragStart({ x: e.clientX, y: e.clientY });
 						setEntityDragOffset({
 							x: worldX - foundEntity.x,
-							y: worldY - foundEntity.y
+							y: worldY - foundEntity.y,
 						});
 						// Trigger immediate render to show selection
 						renderMap.current();
@@ -874,12 +984,22 @@ export const MapCanvas = ({
 		setMouseScreenPos({ x: e.clientX, y: e.clientY });
 
 		// Check if hovering over selected entity (for cursor change)
-		if (currentTool === 'pointer' && selectedEntityId && !isDraggingEntity && !entityDragStart) {
+		if (
+			currentTool === "pointer" &&
+			selectedEntityId &&
+			!isDraggingEntity &&
+			!entityDragStart
+		) {
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
-			const selectedEntity = mapData.entities?.find(e => e.id === selectedEntityId);
+			const selectedEntity = mapData.entities?.find(
+				(e) => e.id === selectedEntityId,
+			);
 
 			if (selectedEntity) {
-				const entityDef = entityManager.getEntityDefinition(selectedEntity.tilesetId, selectedEntity.entityDefId);
+				const entityDef = entityManager.getEntityDefinition(
+					selectedEntity.tilesetId,
+					selectedEntity.entityDefId,
+				);
 
 				if (entityDef && entityDef.sprites && entityDef.sprites.length > 0) {
 					const firstSprite = entityDef.sprites[0];
@@ -900,8 +1020,11 @@ export const MapCanvas = ({
 						const entityY = selectedEntity.y - originOffsetY + offset.y;
 
 						// Check if mouse is within entity bounds
-						const isHovering = worldX >= entityX && worldX <= entityX + scaledWidth &&
-							worldY >= entityY && worldY <= entityY + scaledHeight;
+						const isHovering =
+							worldX >= entityX &&
+							worldX <= entityX + scaledWidth &&
+							worldY >= entityY &&
+							worldY <= entityY + scaledHeight;
 
 						setIsHoveringSelectedEntity(isHovering);
 					} else {
@@ -922,7 +1045,11 @@ export const MapCanvas = ({
 
 		if (isDragging) {
 			setPan(e.clientX - dragStartX, e.clientY - dragStartY);
-		} else if (entityDragStart && selectedEntityId && currentTool === 'pointer') {
+		} else if (
+			entityDragStart &&
+			selectedEntityId &&
+			currentTool === "pointer"
+		) {
 			// Check if we've moved enough to start dragging - only for pointer tool
 			const dx = e.clientX - entityDragStart.x;
 			const dy = e.clientY - entityDragStart.y;
@@ -957,14 +1084,23 @@ export const MapCanvas = ({
 	};
 
 	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-		if (isDraggingEntity && tempEntityPosition && selectedEntityId && currentTool === 'pointer') {
+		if (
+			isDraggingEntity &&
+			tempEntityPosition &&
+			selectedEntityId &&
+			currentTool === "pointer"
+		) {
 			// Finish entity drag - commit the position change - only for pointer tool
-			onMoveEntity(selectedEntityId, tempEntityPosition.x, tempEntityPosition.y);
+			onMoveEntity(
+				selectedEntityId,
+				tempEntityPosition.x,
+				tempEntityPosition.y,
+			);
 			setIsDraggingEntity(false);
 			setTempEntityPosition(null);
 			tempEntityPositionRef.current = null;
 			setEntityDragStart(null);
-		} else if (entityDragStart && currentTool === 'pointer') {
+		} else if (entityDragStart && currentTool === "pointer") {
 			// Click without drag - just clear drag start - only for pointer tool
 			setEntityDragStart(null);
 		} else if (isDrawingRect && rectStartTile) {
@@ -1058,26 +1194,28 @@ export const MapCanvas = ({
 
 	// Handle keyboard arrow keys to move selected entity
 	useEffect(() => {
-		if (currentTool !== 'pointer' || !selectedEntityId) {
+		if (currentTool !== "pointer" || !selectedEntityId) {
 			return;
 		}
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Only handle arrow keys
-			if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+			if (
+				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+			) {
 				return;
 			}
 
 			// Don't move entity if user is typing in an input field
 			const target = e.target as HTMLElement;
-			if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+			if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
 				return;
 			}
 
 			e.preventDefault();
 
 			// Find the selected entity
-			const entity = mapData.entities?.find(e => e.id === selectedEntityId);
+			const entity = mapData.entities?.find((e) => e.id === selectedEntityId);
 			if (!entity) {
 				return;
 			}
@@ -1087,16 +1225,16 @@ export const MapCanvas = ({
 			let newY = entity.y;
 
 			switch (e.key) {
-				case 'ArrowUp':
+				case "ArrowUp":
 					newY -= 1;
 					break;
-				case 'ArrowDown':
+				case "ArrowDown":
 					newY += 1;
 					break;
-				case 'ArrowLeft':
+				case "ArrowLeft":
 					newX -= 1;
 					break;
-				case 'ArrowRight':
+				case "ArrowRight":
 					newX += 1;
 					break;
 			}
@@ -1105,8 +1243,8 @@ export const MapCanvas = ({
 			onMoveEntity(selectedEntityId, newX, newY);
 		};
 
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [currentTool, selectedEntityId, mapData.entities, onMoveEntity]);
 
 	return (
@@ -1119,10 +1257,13 @@ export const MapCanvas = ({
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseLeave}
 				style={{
-					cursor: isDraggingEntity ? 'grabbing' :
-						(currentTool === 'pointer' && isHoveringSelectedEntity) ? 'grab' :
-						isDragging ? 'grabbing' :
-						'default'
+					cursor: isDraggingEntity
+						? "grabbing"
+						: currentTool === "pointer" && isHoveringSelectedEntity
+							? "grab"
+							: isDragging
+								? "grabbing"
+								: "default",
 				}}
 			/>
 			{autotilingOverride && (

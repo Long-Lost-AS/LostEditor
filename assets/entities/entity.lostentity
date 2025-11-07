@@ -1,0 +1,30 @@
+{
+  "id": "entity-1762199312635-4jh1rhu1g",
+  "name": "Entity",
+  "sprites": [
+    {
+      "id": "sprite_1762199794576",
+      "name": "Layer 1",
+      "tilesetId": "tileset-1762119192460",
+      "sprite": {
+        "x": 64,
+        "y": 16,
+        "width": 208,
+        "height": 304
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "origin": {
+        "x": 0.5,
+        "y": 1
+      },
+      "rotation": 0,
+      "zIndex": 0,
+      "ysortOffset": -70
+    }
+  ],
+  "colliders": [],
+  "properties": {}
+}

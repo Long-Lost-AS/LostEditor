@@ -11,18 +11,17 @@
  * @param event Optional keyboard event to check the target element
  */
 export function isEditableElementFocused(event?: KeyboardEvent): boolean {
-  // Check both event target and document.activeElement for robustness
-  const target = (event?.target as HTMLElement) || document.activeElement as HTMLElement
+	// Check both event target and document.activeElement for robustness
+	const target =
+		(event?.target as HTMLElement) || (document.activeElement as HTMLElement);
 
-  if (!target) {
-    return false
-  }
+	if (!target) {
+		return false;
+	}
 
-  const tagName = target.tagName
+	const tagName = target.tagName;
 
-  return (
-    tagName === 'INPUT' ||
-    tagName === 'TEXTAREA' ||
-    target.isContentEditable
-  )
+	return (
+		tagName === "INPUT" || tagName === "TEXTAREA" || target.isContentEditable
+	);
 }

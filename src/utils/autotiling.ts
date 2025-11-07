@@ -1,4 +1,4 @@
-import type { Layer, TerrainLayer, TilesetData, MapData } from "../types";
+import type { Layer, MapData, TerrainLayer, TilesetData } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
@@ -14,7 +14,7 @@ function getTileIdAt(
 	x: number,
 	y: number,
 	mapWidth: number,
-	mapHeight: number
+	mapHeight: number,
 ): number {
 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) return 0;
 	const index = y * mapWidth + x;
@@ -83,12 +83,23 @@ export function applyAutotiling(
 	const terrainType = tileDef.type;
 
 	// Find the terrain layer for this terrain type
-	const terrainLayer = tileset.terrainLayers?.find(layer => layer.name === terrainType);
+	const terrainLayer = tileset.terrainLayers?.find(
+		(layer) => layer.name === terrainType,
+	);
 	if (!terrainLayer) return null; // No terrain layer found
 
 	// Create a neighbor check function
 	const hasNeighbor = (dx: number, dy: number): boolean => {
-		return getTileTerrainType(layer, x + dx, y + dy, mapWidth, mapHeight, tilesets) === terrainType;
+		return (
+			getTileTerrainType(
+				layer,
+				x + dx,
+				y + dy,
+				mapWidth,
+				mapHeight,
+				tilesets,
+			) === terrainType
+		);
 	};
 
 	// Calculate the required bitmask based on neighbors
@@ -140,7 +151,14 @@ export function updateTileAndNeighbors(
 	// Apply autotiling to all positions
 	for (const posKey of positionsToUpdate) {
 		const [x, y] = posKey.split(",").map(Number);
-		const updatedTileId = applyAutotiling(layer, x, y, mapWidth, mapHeight, tilesets);
+		const updatedTileId = applyAutotiling(
+			layer,
+			x,
+			y,
+			mapWidth,
+			mapHeight,
+			tilesets,
+		);
 
 		if (updatedTileId !== null) {
 			const index = y * mapWidth + x;
@@ -154,9 +172,7 @@ export function updateTileAndNeighbors(
 /**
  * Get all terrain layers from loaded tilesets
  */
-export function getAllAutotileGroups(
-	tilesets: TilesetData[],
-): TerrainLayer[] {
+export function getAllAutotileGroups(tilesets: TilesetData[]): TerrainLayer[] {
 	const groups: TerrainLayer[] = [];
 
 	for (const tileset of tilesets) {

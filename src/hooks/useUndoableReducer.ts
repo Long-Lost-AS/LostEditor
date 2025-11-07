@@ -1,4 +1,5 @@
-import { useReducer, useRef, useCallback } from "react";
+import { useCallback, useReducer, useRef } from "react";
+import { deepEqual } from "../utils/deepEqual";
 
 // Action types for undo/redo
 export type UndoableAction<T> =
@@ -16,44 +17,6 @@ export interface UndoableState<T> {
 	future: T[];
 	isBatching: boolean;
 	batchStart: T | null;
-}
-
-// Deep equality check (simple implementation)
-function deepEqual(a: any, b: any): boolean {
-	if (a === b) return true;
-	if (a == null || b == null) return false;
-	if (typeof a !== "object" || typeof b !== "object") return false;
-
-	// Handle Map objects
-	if (a instanceof Map && b instanceof Map) {
-		if (a.size !== b.size) return false;
-		for (const [key, value] of a) {
-			if (!b.has(key) || !deepEqual(value, b.get(key))) return false;
-		}
-		return true;
-	}
-
-	// Handle Arrays
-	if (Array.isArray(a) && Array.isArray(b)) {
-		if (a.length !== b.length) return false;
-		for (let i = 0; i < a.length; i++) {
-			if (!deepEqual(a[i], b[i])) return false;
-		}
-		return true;
-	}
-
-	// Handle plain objects
-	const keysA = Object.keys(a);
-	const keysB = Object.keys(b);
-
-	if (keysA.length !== keysB.length) return false;
-
-	for (const key of keysA) {
-		if (!keysB.includes(key)) return false;
-		if (!deepEqual(a[key], b[key])) return false;
-	}
-
-	return true;
 }
 
 // Reducer with undo/redo logic
@@ -161,14 +124,14 @@ function undoableReducer<T>(
 	}
 }
 
-export interface UndoableControls {
+export interface UndoableControls<T = unknown> {
 	undo: () => void;
 	redo: () => void;
 	canUndo: boolean;
 	canRedo: boolean;
 	startBatch: () => void;
 	endBatch: () => void;
-	reset: (newState: any) => void;
+	reset: (newState: T) => void;
 }
 
 /**
@@ -178,7 +141,7 @@ export interface UndoableControls {
  */
 export function useUndoableReducer<T>(
 	initialState: T,
-): [T, (newState: T | ((prev: T) => T)) => void, UndoableControls] {
+): [T, (newState: T | ((prev: T) => T)) => void, UndoableControls<T>] {
 	const [state, dispatch] = useReducer(undoableReducer<T>, {
 		past: [],
 		present: initialState,
@@ -194,7 +157,7 @@ export function useUndoableReducer<T>(
 	// Stable callbacks using useCallback
 	const setState = useCallback((newState: T | ((prev: T) => T)) => {
 		// Support updater function pattern like React's setState
-		if (typeof newState === 'function') {
+		if (typeof newState === "function") {
 			const updater = newState as (prev: T) => T;
 			// Always use the latest state from the ref, not from closure
 			const computed = updater(stateRef.current.present);

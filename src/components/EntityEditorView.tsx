@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
-import { EntityEditorTab, SpriteLayer, PolygonCollider } from "../types";
-import { DragNumberInput } from "./DragNumberInput";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
-import { Dropdown } from "./Dropdown";
+import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import { DragNumberInput } from "./DragNumberInput";
+import { Dropdown } from "./Dropdown";
 
 interface EntityEditorViewProps {
 	tab: EntityEditorTab;
@@ -1197,7 +1197,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					worldY,
 				);
 				if (pointIndex !== null) {
-					const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
+					const position = calculateMenuPosition(
+						e.clientX,
+						e.clientY,
+						180,
+						100,
+					);
 					setContextMenu({
 						x: position.x,
 						y: position.y,
@@ -1215,7 +1220,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					worldY,
 				);
 				if (edge) {
-					const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
+					const position = calculateMenuPosition(
+						e.clientX,
+						e.clientY,
+						180,
+						100,
+					);
 					setContextMenu({
 						x: position.x,
 						y: position.y,
@@ -1359,7 +1369,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	// Add new property
 	const handleAddProperty = () => {
 		// Generate a unique temporary key for the new property
-		let newKey = `__temp_${Date.now()}`;
+		const newKey = `__temp_${Date.now()}`;
 
 		const updatedProperties = {
 			...localProperties,
@@ -2334,7 +2344,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	].x
 																}
 																onChange={(x) => {
-																	const newPoints = [...selectedCollider.points];
+																	const newPoints = [
+																		...selectedCollider.points,
+																	];
 																	newPoints[selectedColliderPointIndex] = {
 																		...newPoints[selectedColliderPointIndex],
 																		x: Math.round(x),
@@ -2344,7 +2356,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	});
 																}}
 																onInput={(x) => {
-																	const newPoints = [...selectedCollider.points];
+																	const newPoints = [
+																		...selectedCollider.points,
+																	];
 																	newPoints[selectedColliderPointIndex] = {
 																		...newPoints[selectedColliderPointIndex],
 																		x: Math.round(x),
@@ -2373,7 +2387,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	].y
 																}
 																onChange={(y) => {
-																	const newPoints = [...selectedCollider.points];
+																	const newPoints = [
+																		...selectedCollider.points,
+																	];
 																	newPoints[selectedColliderPointIndex] = {
 																		...newPoints[selectedColliderPointIndex],
 																		y: Math.round(y),
@@ -2383,7 +2399,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																	});
 																}}
 																onInput={(y) => {
-																	const newPoints = [...selectedCollider.points];
+																	const newPoints = [
+																		...selectedCollider.points,
+																	];
 																	newPoints[selectedColliderPointIndex] = {
 																		...newPoints[selectedColliderPointIndex],
 																		y: Math.round(y),
@@ -3089,15 +3107,21 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									</label>
 									<Dropdown
 										items={tilesets}
-										value={tilesets.find(t => t.id === selectedTilesetId) || null}
+										value={
+											tilesets.find((t) => t.id === selectedTilesetId) || null
+										}
 										onChange={(tileset) => {
 											setSelectedTilesetId(tileset.id);
 											setSelectedRegion(null);
 										}}
 										getItemLabel={(tileset) => tileset.name}
 										getItemKey={(tileset) => tileset.id}
-										placeholder={tilesets.length === 0 ? "No tilesets available" : "Select a tileset..."}
-										searchKeys={['name']}
+										placeholder={
+											tilesets.length === 0
+												? "No tilesets available"
+												: "Select a tileset..."
+										}
+										searchKeys={["name"]}
 										disabled={tilesets.length === 0}
 									/>
 								</div>

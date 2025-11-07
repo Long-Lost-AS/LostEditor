@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { useEffect, useRef, useState } from "react";
+import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
+import { CollisionEditorView } from "./components/CollisionEditorView";
+import { CommandPalette } from "./components/CommandPalette";
+import { EmptyState } from "./components/EmptyState";
+import { EntityEditorView } from "./components/EntityEditorView";
+import { EntitySelectMenu } from "./components/EntitySelectMenu";
+import { MapEditorView } from "./components/MapEditorView";
+import { ResourceBrowser } from "./components/ResourceBrowser";
+import { TabBar } from "./components/TabBar";
+import { TilesetEditorView } from "./components/TilesetEditorView";
+import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
-import { TabBar } from "./components/TabBar";
-import { ResourceBrowser } from "./components/ResourceBrowser";
-import { TilesetEditorView } from "./components/TilesetEditorView";
-import { EntityEditorView } from "./components/EntityEditorView";
-import { CollisionEditorView } from "./components/CollisionEditorView";
-import { MapEditorView } from "./components/MapEditorView";
-import { EmptyState } from "./components/EmptyState";
-import { BrokenReferencesModal } from "./components/BrokenReferencesModal";
-import { CommandPalette } from "./components/CommandPalette";
-import { EntitySelectMenu } from "./components/EntitySelectMenu";
-import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
 import "./style.css";
 
@@ -177,18 +177,18 @@ const AppContent = () => {
 					isSavingProjectAs = true;
 
 					try {
-						const result = await invoke<{ canceled: boolean; filePath?: string }>(
-							"show_save_dialog",
-							{
-								options: {
-									title: "Save Project As",
-									defaultPath: "untitled.lostproj",
-									filters: [
-										{ name: "Lost Editor Project", extensions: ["lostproj"] },
-									],
-								},
+						const result = await invoke<{
+							canceled: boolean;
+							filePath?: string;
+						}>("show_save_dialog", {
+							options: {
+								title: "Save Project As",
+								defaultPath: "untitled.lostproj",
+								filters: [
+									{ name: "Lost Editor Project", extensions: ["lostproj"] },
+								],
 							},
-						);
+						});
 
 						if (result.filePath) {
 							await saveProjectAsRef.current(result.filePath);
@@ -248,7 +248,9 @@ const AppContent = () => {
 	const activeMapTab = getActiveMapTab();
 	const activeTilesetTab = getActiveTilesetTab();
 	const activeEntityTab = getActiveEntityTab();
-	const activeCollisionTab = tabs.find(tab => tab.type === 'collision-editor' && tab.id === activeTabId) as any;
+	const activeCollisionTab = tabs.find(
+		(tab) => tab.type === "collision-editor" && tab.id === activeTabId,
+	) as CollisionEditorTab | undefined;
 
 	// Handle right panel resize drag
 	const handleResizeStart = (e: React.MouseEvent) => {

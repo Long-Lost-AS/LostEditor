@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { useEditor } from "../context/EditorContext";
-import { CollisionEditorTab, PolygonCollider, EntityEditorTab } from "../types";
+import type {
+	CollisionEditorTab,
+	EntityEditorTab,
+	PolygonCollider,
+} from "../types";
 import { CollisionEditor } from "./CollisionEditor";
 
 interface CollisionEditorViewProps {
