@@ -24,7 +24,6 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 	onDragEnd,
 	min = -Infinity,
 	max = Infinity,
-	step = 0.01,
 	dragSpeed = 0.01,
 	precision = 2,
 	className = "",

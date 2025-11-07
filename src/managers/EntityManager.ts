@@ -19,7 +19,7 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 	 */
 	protected prepareForSave(data: EntityDefinition): EntityDefinitionJson {
 		// Exclude filePath from serialization (runtime-only field)
-		const { filePath, ...jsonData } = data;
+		const { filePath: _filePath, ...jsonData } = data;
 		return jsonData as EntityDefinitionJson;
 	}
 

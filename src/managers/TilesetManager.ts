@@ -125,7 +125,6 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		});
 
 		// Handle tileset order assignment
-		let tilesetOrder: number;
 		// Check for order conflicts with already-loaded tilesets
 		const existingTileset = Array.from(this.cache.values()).find(
 			(ts) =>
@@ -140,7 +139,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		}
 
 		// Use order from file
-		tilesetOrder = validated.order;
+		const tilesetOrder = validated.order;
 		tilesetIndexManager.registerIndex(tilesetOrder);
 
 		// Create the TilesetData object with runtime fields

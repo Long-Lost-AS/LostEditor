@@ -35,15 +35,12 @@ interface ResourceBrowserProps {
 
 export const ResourceBrowser = ({
 	onClose,
-	isModal = false,
 }: ResourceBrowserProps) => {
 	const {
 		projectDirectory,
 		openMapFromFile,
 		openTilesetFromFile,
 		openEntityFromFile,
-		openTab,
-		tilesets,
 		newMap,
 		newTileset,
 		newEntity,

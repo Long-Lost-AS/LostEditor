@@ -50,7 +50,7 @@ export const CollisionEditor = ({
 	const [
 		localColliders,
 		setLocalColliders,
-		{ undo, redo, canUndo, canRedo, startBatch, endBatch, reset },
+		{ undo, redo, canUndo, canRedo, startBatch, endBatch },
 	] = useUndoableReducer<PolygonCollider[]>(colliders);
 
 	// Pan/zoom state

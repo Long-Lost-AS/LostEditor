@@ -36,7 +36,6 @@ export const MapCanvas = ({
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
-		tilesetImage,
 		tilesets,
 		getTilesetById,
 		zoom,
