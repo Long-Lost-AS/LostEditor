@@ -1475,12 +1475,53 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Load the map using mapManager
 				const mapData = await mapManager.loadMap(filePath);
 
+				// Load all entity definitions that are referenced in the map
+				if (mapData.entities && mapData.entities.length > 0) {
+					const entityDefIds = new Set(mapData.entities.map(e => e.entityDefId));
+					console.log('[openMapFromFile] Found entity definition IDs:', Array.from(entityDefIds));
+
+					// Get the project root (parent directory of the map file)
+					const mapDir = fileManager.dirname(filePath);
+					const projectRoot = fileManager.dirname(mapDir); // Go up from maps/ to project root
+					const entitiesDir = fileManager.join(projectRoot, 'entities');
+
+					console.log('[openMapFromFile] Looking for entities in:', entitiesDir);
+
+					// Try to load all .lostentity files from the entities directory
+					try {
+						const entityFiles = await fileManager.readDir(entitiesDir);
+						console.log('[openMapFromFile] Found entity files:', entityFiles);
+
+						for (const file of entityFiles) {
+							if (file.endsWith('.lostentity')) {
+								const entityPath = fileManager.join(entitiesDir, file);
+								try {
+									await entityManager.load(entityPath);
+									console.log('[openMapFromFile] Loaded entity:', entityPath);
+								} catch (error) {
+									console.warn(`Failed to load entity ${entityPath}:`, error);
+								}
+							}
+						}
+					} catch (error) {
+						console.warn(`Failed to read entities directory ${entitiesDir}:`, error);
+					}
+				}
+
 				// Extract map name from file path
 				const mapName = fileManager.basename(filePath, ".lostmap");
+
+				// DEBUG: Log loaded map data
+				console.log('[openMapFromFile] Loaded mapData:', mapData);
+				console.log('[openMapFromFile] Entities count:', mapData.entities?.length || 0);
 
 				// Create a new MapTab
 				const mapId = `map-${Date.now()}`;
 				const mapWithId = { ...mapData, id: mapId };
+
+				// DEBUG: Log mapWithId
+				console.log('[openMapFromFile] mapWithId:', mapWithId);
+				console.log('[openMapFromFile] mapWithId.entities:', mapWithId.entities);
 
 				// Add to global maps array
 				setMaps((prevMaps) => [...prevMaps, mapWithId]);
