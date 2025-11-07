@@ -387,15 +387,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			points: drawingPoints,
 		};
 
-		setLocalEntityState({
-			sprites: localSprites,
-			colliders: [...localColliders, newCollider],
-			properties: localProperties,
-		});
+		setLocalEntityState((prev) => ({
+			sprites: prev.sprites,
+			colliders: [...prev.colliders, newCollider],
+			properties: prev.properties,
+		}));
 
 		setIsDrawing(false);
 		setDrawingPoints([]);
-	}, [drawingPoints, localSprites, localColliders, localProperties]);
+	}, [drawingPoints]);
 
 	// Handle keyboard shortcuts for drawing mode
 	useEffect(() => {
