@@ -1,0 +1,97 @@
+{
+  "name": "village_building",
+  "id": "tileset-1762119192460",
+  "order": 0,
+  "imagePath": "tilesets/village_building.png",
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "tiles": [
+    {
+      "id": 1048640,
+      "isCompound": true,
+      "width": 208,
+      "height": 304,
+      "colliders": [
+        {
+          "id": "collider-1762009253493",
+          "points": [
+            {
+              "x": 188,
+              "y": 302
+            },
+            {
+              "x": 187,
+              "y": 112
+            },
+            {
+              "x": 11,
+              "y": 112
+            },
+            {
+              "x": 11,
+              "y": 236
+            },
+            {
+              "x": 65,
+              "y": 236
+            },
+            {
+              "x": 65,
+              "y": 302
+            },
+            {
+              "x": 141,
+              "y": 302
+            },
+            {
+              "x": 141,
+              "y": 292
+            },
+            {
+              "x": 168,
+              "y": 292
+            },
+            {
+              "x": 168,
+              "y": 302
+            }
+          ]
+        },
+        {
+          "id": "collider-1762030601846",
+          "type": "transparent",
+          "points": [
+            {
+              "x": 11,
+              "y": 112
+            },
+            {
+              "x": 126,
+              "y": 23
+            },
+            {
+              "x": 187,
+              "y": 69
+            },
+            {
+              "x": 187,
+              "y": 112
+            }
+          ]
+        }
+      ],
+      "name": "House01",
+      "origin": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "id": 368,
+      "isCompound": true,
+      "width": 192,
+      "height": 352
+    }
+  ],
+  "terrainLayers": []
+}
