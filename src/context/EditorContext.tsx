@@ -321,11 +321,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	// [REMOVED] Circular dependency: tabs → mapData sync
 	// Each view now manages its own state and fetches from maps array
 
-	const setSelectedTile = useCallback((x: number, y: number) => {
-		setSelectedTileX(x);
-		setSelectedTileY(y);
-	}, []);
-
 	const setPan = useCallback(
 		(x: number, y: number) => {
 			setPanX(x);
