@@ -97,8 +97,8 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		value,
 		onChange,
 		onInput,
-		onDragStart,
 		onDragEnd,
+		clampValue,
 	]);
 
 	const handleDoubleClick = () => {
@@ -114,7 +114,7 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 
 	const handleInputBlur = () => {
 		const parsed = parseFloat(inputValue);
-		if (!isNaN(parsed)) {
+		if (!Number.isNaN(parsed)) {
 			onChange(clampValue(parsed));
 		} else {
 			setInputValue((value ?? 0).toFixed(precision));
@@ -161,7 +161,6 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 				/>
 			) : (
 				<div
-					tabIndex={0}
 					onFocus={handleDivFocus}
 					className={`px-2.5 py-1.5 text-xs bg-[#3c3c3c] text-[#cccccc] border border-[#3e3e42] select-none ${roundedLeft ? "rounded" : "rounded-r"}`}
 					style={{ fontFamily: "monospace" }}

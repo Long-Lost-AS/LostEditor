@@ -6,6 +6,7 @@ interface IconProps {
 // Tab icons
 export const MapIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -24,6 +25,7 @@ export const MapIcon = ({ className, size = 16 }: IconProps) => (
 
 export const TilesetIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -43,6 +45,7 @@ export const TilesetIcon = ({ className, size = 16 }: IconProps) => (
 
 export const EntityIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -62,6 +65,7 @@ export const EntityIcon = ({ className, size = 16 }: IconProps) => (
 
 export const FileIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -80,6 +84,7 @@ export const FileIcon = ({ className, size = 16 }: IconProps) => (
 // Drawing tool icons
 export const PointerIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -97,6 +102,7 @@ export const PointerIcon = ({ className, size = 16 }: IconProps) => (
 
 export const PencilIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -113,6 +119,7 @@ export const PencilIcon = ({ className, size = 16 }: IconProps) => (
 
 export const EraserIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -130,6 +137,7 @@ export const EraserIcon = ({ className, size = 16 }: IconProps) => (
 
 export const FillIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -148,6 +156,7 @@ export const FillIcon = ({ className, size = 16 }: IconProps) => (
 
 export const RectangleIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -165,6 +174,7 @@ export const RectangleIcon = ({ className, size = 16 }: IconProps) => (
 // File tree icons
 export const FolderIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -181,6 +191,7 @@ export const FolderIcon = ({ className, size = 16 }: IconProps) => (
 
 export const FolderOpenIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -198,6 +209,7 @@ export const FolderOpenIcon = ({ className, size = 16 }: IconProps) => (
 
 export const ImageIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -216,6 +228,7 @@ export const ImageIcon = ({ className, size = 16 }: IconProps) => (
 
 export const PackageIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -235,6 +248,7 @@ export const PackageIcon = ({ className, size = 16 }: IconProps) => (
 // Other icons
 export const ShieldIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -251,6 +265,7 @@ export const ShieldIcon = ({ className, size = 16 }: IconProps) => (
 
 export const TrashIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -270,6 +285,7 @@ export const TrashIcon = ({ className, size = 16 }: IconProps) => (
 
 export const LightbulbIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"
@@ -288,6 +304,7 @@ export const LightbulbIcon = ({ className, size = 16 }: IconProps) => (
 
 export const PlusIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
+		aria-hidden="true"
 		width={size}
 		height={size}
 		viewBox="0 0 24 24"

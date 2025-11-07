@@ -117,7 +117,7 @@ export function removeTerrainTile(
 	x: number,
 	y: number,
 	mapWidth: number,
-	mapHeight: number,
+	_mapHeight: number,
 ): void {
 	const index = y * mapWidth + x;
 	layer.tiles[index] = 0;

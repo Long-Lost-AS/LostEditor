@@ -219,6 +219,13 @@ export const BrokenReferencesModal = ({
 				className="absolute inset-0"
 				style={{ background: "rgba(0, 0, 0, 0.5)" }}
 				onClick={onClose}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						onClose();
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			/>
 
 			{/* Modal Content */}
@@ -226,6 +233,8 @@ export const BrokenReferencesModal = ({
 				className="relative z-10 p-6 rounded shadow-xl max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col"
 				style={{ background: "#2d2d30", border: "1px solid #3e3e42" }}
 				onClick={(e) => e.stopPropagation()}
+				onKeyDown={(e) => e.stopPropagation()}
+				role="presentation"
 			>
 				{/* Header */}
 				<div className="mb-4">
@@ -257,6 +266,14 @@ export const BrokenReferencesModal = ({
 									handleFix(ref, index);
 								}
 							}}
+							onKeyDown={(e) => {
+								if (
+									(e.key === "Enter" || e.key === " ") &&
+									(ref.status === "pending" || ref.status === "error")
+								) {
+									handleFix(ref, index);
+								}
+							}}
 							onMouseEnter={(e) => {
 								if (ref.status === "pending" || ref.status === "error") {
 									e.currentTarget.style.background = "#2a2a2b";
@@ -267,6 +284,14 @@ export const BrokenReferencesModal = ({
 								e.currentTarget.style.background = "#252526";
 								e.currentTarget.style.borderColor = "#3e3e42";
 							}}
+							role={
+								ref.status === "pending" || ref.status === "error"
+									? "button"
+									: "presentation"
+							}
+							tabIndex={
+								ref.status === "pending" || ref.status === "error" ? 0 : -1
+							}
 						>
 							{/* Type Badge and Status */}
 							<div className="flex items-center justify-between mb-2">
@@ -298,9 +323,11 @@ export const BrokenReferencesModal = ({
 										style={{ color: "#16a34a" }}
 									>
 										<svg
+											role="img"
 											className="w-5 h-5"
 											fill="currentColor"
 											viewBox="0 0 20 20"
+											aria-label="Fixed"
 										>
 											<path
 												fillRule="evenodd"
@@ -377,6 +404,7 @@ export const BrokenReferencesModal = ({
 					style={{ borderColor: "#3e3e42" }}
 				>
 					<button
+						type="button"
 						onClick={onClose}
 						className="px-4 py-2 rounded text-sm text-gray-300 hover:text-white hover:bg-gray-700"
 					>
@@ -384,6 +412,7 @@ export const BrokenReferencesModal = ({
 					</button>
 
 					<button
+						type="button"
 						onClick={onContinue}
 						disabled={!allFixed}
 						className="px-4 py-2 rounded text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"

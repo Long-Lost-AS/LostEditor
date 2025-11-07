@@ -50,6 +50,7 @@ export const BitmaskEditor = ({
 
 						return (
 							<button
+								type="button"
 								key={`${row}-${col}`}
 								onClick={() => handleCellClick(row, col)}
 								onMouseEnter={() => setHoveredCell({ row, col })}
@@ -78,12 +79,14 @@ export const BitmaskEditor = ({
 								{isSet && (
 									<div className="w-full h-full flex items-center justify-center">
 										<svg
+											role="img"
 											width="12"
 											height="12"
 											viewBox="0 0 24 24"
 											fill="none"
 											stroke="#ffffff"
 											strokeWidth="3"
+											aria-label="Selected"
 										>
 											<path d="M20 6L9 17l-5-5" />
 										</svg>

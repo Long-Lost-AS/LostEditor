@@ -64,12 +64,12 @@ export const EntityPropertiesPanel = ({
 				<div className="p-4 space-y-4">
 					{/* Type */}
 					<div>
-						<label
+						<div
 							className="text-xs font-medium block mb-1.5"
 							style={{ color: "#858585" }}
 						>
 							Type
-						</label>
+						</div>
 						<div
 							className="text-white text-sm px-2.5 py-1.5 rounded"
 							style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -80,12 +80,12 @@ export const EntityPropertiesPanel = ({
 
 					{/* Tileset */}
 					<div>
-						<label
+						<div
 							className="text-xs font-medium block mb-1.5"
 							style={{ color: "#858585" }}
 						>
 							Tileset
-						</label>
+						</div>
 						<div
 							className="text-white text-sm px-2.5 py-1.5 rounded"
 							style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -96,12 +96,12 @@ export const EntityPropertiesPanel = ({
 
 					{/* Position */}
 					<div>
-						<label
+						<div
 							className="text-xs font-medium block mb-1.5"
 							style={{ color: "#858585" }}
 						>
 							Position
-						</label>
+						</div>
 						<div className="grid grid-cols-2 gap-2">
 							<div className="flex">
 								<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -142,12 +142,12 @@ export const EntityPropertiesPanel = ({
 
 					{/* Rotation */}
 					<div>
-						<label
+						<div
 							className="text-xs font-medium block mb-1.5"
 							style={{ color: "#858585" }}
 						>
 							Rotation (degrees)
-						</label>
+						</div>
 						<DragNumberInput
 							value={entity.rotation || 0}
 							onChange={handleUpdateRotation}
@@ -161,12 +161,12 @@ export const EntityPropertiesPanel = ({
 
 					{/* Scale */}
 					<div>
-						<label
+						<div
 							className="text-xs font-medium block mb-1.5"
 							style={{ color: "#858585" }}
 						>
 							Scale
-						</label>
+						</div>
 						<div className="grid grid-cols-2 gap-2">
 							<div className="flex">
 								<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -206,14 +206,14 @@ export const EntityPropertiesPanel = ({
 					</div>
 
 					{/* Sprite Layers */}
-					{entityDef && entityDef.sprites && (
+					{entityDef?.sprites && (
 						<div>
-							<label
+							<div
 								className="text-xs font-medium block mb-1.5"
 								style={{ color: "#858585" }}
 							>
 								Sprite Layers
-							</label>
+							</div>
 							<div
 								className="px-2.5 py-1.5 text-xs rounded"
 								style={{ background: "#3e3e42", color: "#858585" }}
@@ -226,12 +226,12 @@ export const EntityPropertiesPanel = ({
 					{/* Custom Properties */}
 					{entity.properties && Object.keys(entity.properties).length > 0 && (
 						<div>
-							<label
+							<div
 								className="text-xs font-medium block mb-1.5"
 								style={{ color: "#858585" }}
 							>
 								Custom Properties
-							</label>
+							</div>
 							<div className="space-y-1">
 								{Object.entries(entity.properties).map(([key, value]) => (
 									<div

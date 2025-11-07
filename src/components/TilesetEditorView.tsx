@@ -27,24 +27,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Look up the tileset data by ID
 	const tilesetData = getTilesetById(tab.tilesetId);
 
-	// If tileset not found, show error
-	if (!tilesetData) {
-		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<div className="text-red-400">Tileset not found: {tab.tilesetId}</div>
-			</div>
-		);
-	}
-
-	// If image not loaded, show loading message
-	if (!tilesetData.imageData) {
-		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<div className="text-gray-400">Loading tileset image...</div>
-			</div>
-		);
-	}
-
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -65,7 +47,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		tileY: number;
 	} | null>(null);
 	const [isEditingName, setIsEditingName] = useState(false);
-	const [editedName, setEditedName] = useState(tilesetData.name);
+	const [editedName, setEditedName] = useState(tilesetData?.name || "");
 	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<
 		number | null
 	>(null);
@@ -107,8 +89,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			reset: resetTilesetHistory,
 		},
 	] = useUndoableReducer<TilesetUndoState>({
-		tiles: tilesetData.tiles || [],
-		terrainLayers: tilesetData.terrainLayers || [],
+		tiles: tilesetData?.tiles || [],
+		terrainLayers: tilesetData?.terrainLayers || [],
 	});
 
 	// Extract individual parts for convenience
@@ -130,6 +112,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
+		if (!tilesetData) return;
 		if (
 			prevTilesetIdRef.current !== null &&
 			prevTilesetIdRef.current !== tilesetData.id
@@ -142,9 +125,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 		prevTilesetIdRef.current = tilesetData.id;
 	}, [
-		tilesetData.id,
-		tilesetData.terrainLayers,
-		tilesetData.tiles,
+		tilesetData,
+		tilesetData?.id,
+		tilesetData?.terrainLayers,
+		tilesetData?.tiles,
 		resetTilesetHistory,
 	]);
 
@@ -169,10 +153,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				isFirstRun.current = false;
 			}, 0);
 		}
-	}, [localTilesetState, tab.tilesetId, tab.id, updateTileset, updateTabData]);
+	}, [
+		tab.tilesetId,
+		tab.id,
+		updateTileset,
+		updateTabData,
+		localTerrainLayers,
+		localTiles,
+	]);
 
 	// Memoized tile position map for O(1) lookups
-	const tilePositionMap = useMemo(() => {
+	const _tilePositionMap = useMemo(() => {
 		const map = new Map<string, (typeof localTiles)[0]>();
 		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
@@ -186,7 +177,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		const container = containerRef.current;
-		if (!canvas || !container || !tilesetData.imageData) return;
+		if (!canvas || !container || !tilesetData?.imageData) return;
 
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
@@ -310,8 +301,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Check the isCompound flag
 				if (tile.isCompound) {
 					// This is a compound tile
-					const tileWidth = tile.width!;
-					const tileHeight = tile.height!;
+					const tileWidth = tile.width;
+					const tileHeight = tile.height;
 
 					// Draw border around it
 					ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
@@ -538,9 +529,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		pan,
 		viewState.scale,
 		selectedTerrainLayer,
-		localTerrainLayers,
 		selectedCompoundTileId,
 		localTiles,
+		getTerrainLayers,
 	]);
 
 	// Setup wheel event listener for zoom and pan
@@ -733,8 +724,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			if (
 				canvasX < 0 ||
 				canvasY < 0 ||
-				canvasX >= tilesetData.imageData!.width ||
-				canvasY >= tilesetData.imageData!.height
+				canvasX >= tilesetData.imageData?.width ||
+				canvasY >= tilesetData.imageData?.height
 			) {
 				// Clicked outside the tileset, clear selection
 				updateTabData(tab.id, {
@@ -1135,7 +1126,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			(t) => t.id === selectedCompoundTileId,
 		);
 
-		if (selectedTile && selectedTile.properties) {
+		if (selectedTile?.properties) {
 			const updatedProperties = { ...selectedTile.properties };
 			delete updatedProperties[key];
 
@@ -1167,7 +1158,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			(t) => t.id === selectedCompoundTileId,
 		);
 
-		if (selectedTile && selectedTile.properties) {
+		if (selectedTile?.properties) {
 			// Check if new key already exists
 			if (selectedTile.properties[newKey] && newKey !== oldKey) {
 				return; // Don't allow duplicate keys
@@ -1304,6 +1295,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	const selectedTile = localTiles.find((t) => t.id === selectedCompoundTileId);
 
+	// If tileset not found, show error (after all hooks)
+	if (!tilesetData) {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-red-400">Tileset not found: {tab.tilesetId}</div>
+			</div>
+		);
+	}
+
+	// If image not loaded, show loading message (after all hooks)
+	if (!tilesetData.imageData) {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-gray-400">Loading tileset image...</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
@@ -1326,7 +1335,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								color: "#cccccc",
 								border: "1px solid #1177bb",
 							}}
-							autoFocus
 						/>
 					) : (
 						<div
@@ -1362,17 +1370,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							<div className="space-y-2">
 								<div className="grid grid-cols-2 gap-2">
 									<div>
-										<label
+										<div
 											className="text-xs block mb-1"
 											style={{ color: "#858585" }}
 										>
 											Tile Width
-										</label>
+										</div>
 										<input
 											type="number"
 											value={tilesetData.tileWidth}
 											onChange={(e) => {
-												const value = parseInt(e.target.value) || 1;
+												const value = parseInt(e.target.value, 10) || 1;
 												updateTileset(tab.tilesetId, { tileWidth: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
@@ -1387,17 +1395,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										/>
 									</div>
 									<div>
-										<label
+										<div
 											className="text-xs block mb-1"
 											style={{ color: "#858585" }}
 										>
 											Tile Height
-										</label>
+										</div>
 										<input
 											type="number"
 											value={tilesetData.tileHeight}
 											onChange={(e) => {
-												const value = parseInt(e.target.value) || 1;
+												const value = parseInt(e.target.value, 10) || 1;
 												updateTileset(tab.tilesetId, { tileHeight: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
@@ -1425,15 +1433,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									Terrain Layers
 								</div>
 								<button
+									type="button"
 									onClick={handleAddTerrainLayer}
 									className="px-2 py-1 text-xs rounded transition-colors"
 									style={{ background: "#0e639c", color: "#ffffff" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#1177bb")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "#0e639c")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#1177bb";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "#0e639c";
+									}}
 								>
 									+ Add Layer
 								</button>
@@ -1521,7 +1530,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														color: "#cccccc",
 														border: "1px solid #1177bb",
 													}}
-													autoFocus
 												/>
 											) : (
 												<div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1542,6 +1550,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												</div>
 											)}
 											<button
+												type="button"
 												onClick={(e) => {
 													e.stopPropagation();
 													handleDeleteTerrainLayer(layer.id);
@@ -1583,12 +1592,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									{/* Only show origin for compound tiles */}
 									{selectedTile?.isCompound && (
 										<div>
-											<label
+											<div
 												className="text-xs font-medium block mb-1.5"
 												style={{ color: "#858585" }}
 											>
 												Origin (normalized 0-1)
-											</label>
+											</div>
 											<div className="grid grid-cols-2 gap-2">
 												<div>
 													<input
@@ -1657,6 +1666,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											>
 												Quick:
 												<button
+													type="button"
 													onClick={() => handleUpdateTileOrigin(0, 0)}
 													className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
 													style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -1664,6 +1674,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													Top-Left
 												</button>
 												<button
+													type="button"
 													onClick={() => handleUpdateTileOrigin(0.5, 0)}
 													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
 													style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -1671,6 +1682,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													Top-Center
 												</button>
 												<button
+													type="button"
 													onClick={() => handleUpdateTileOrigin(0, 1)}
 													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
 													style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -1678,6 +1690,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													Bottom-Left
 												</button>
 												<button
+													type="button"
 													onClick={() => handleUpdateTileOrigin(0.5, 1)}
 													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
 													style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -1685,6 +1698,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													Bottom-Center
 												</button>
 												<button
+													type="button"
 													onClick={() => handleUpdateTileOrigin(0.5, 0.5)}
 													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
 													style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -1695,12 +1709,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										</div>
 									)}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Name
-										</label>
+										</div>
 										{isEditingTileName ? (
 											<input
 												type="text"
@@ -1723,7 +1737,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid #1177bb",
 												}}
-												autoFocus
 											/>
 										) : (
 											<div
@@ -1734,24 +1747,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid transparent",
 												}}
-												onMouseEnter={(e) =>
-													(e.currentTarget.style.borderColor = "#555")
-												}
-												onMouseLeave={(e) =>
-													(e.currentTarget.style.borderColor = "transparent")
-												}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.borderColor = "#555";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.borderColor = "transparent";
+												}}
 											>
 												{selectedTile?.name || "(none)"}
 											</div>
 										)}
 									</div>
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Type
-										</label>
+										</div>
 										{isEditingTileType ? (
 											<input
 												type="text"
@@ -1774,7 +1787,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid #1177bb",
 												}}
-												autoFocus
 											/>
 										) : (
 											<div
@@ -1785,12 +1797,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid transparent",
 												}}
-												onMouseEnter={(e) =>
-													(e.currentTarget.style.borderColor = "#555")
-												}
-												onMouseLeave={(e) =>
-													(e.currentTarget.style.borderColor = "transparent")
-												}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.borderColor = "#555";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.borderColor = "transparent";
+												}}
 											>
 												{selectedTile?.type || "(none)"}
 											</div>
@@ -1908,12 +1920,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						</div>
 						<div className="space-y-3">
 							<div>
-								<label
+								<div
 									className="text-xs font-medium block mb-1.5"
 									style={{ color: "#858585" }}
 								>
 									Name
-								</label>
+								</div>
 								{isEditingTileName ? (
 									<input
 										type="text"
@@ -1936,7 +1948,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid #1177bb",
 										}}
-										autoFocus
 									/>
 								) : (
 									<div
@@ -1947,24 +1958,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid transparent",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.borderColor = "#555")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.borderColor = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.borderColor = "#555";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.borderColor = "transparent";
+										}}
 									>
 										{selectedTile?.name || "(none)"}
 									</div>
 								)}
 							</div>
 							<div>
-								<label
+								<div
 									className="text-xs font-medium block mb-1.5"
 									style={{ color: "#858585" }}
 								>
 									Type
-								</label>
+								</div>
 								{isEditingTileType ? (
 									<input
 										type="text"
@@ -1987,7 +1998,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid #1177bb",
 										}}
-										autoFocus
 									/>
 								) : (
 									<div
@@ -1998,12 +2008,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid transparent",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.borderColor = "#555")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.borderColor = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.borderColor = "#555";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.borderColor = "transparent";
+										}}
 									>
 										{selectedTile?.type || "(none)"}
 									</div>
@@ -2012,12 +2022,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							{/* Only show origin for compound tiles */}
 							{selectedTile?.isCompound && (
 								<div>
-									<label
+									<div
 										className="text-xs font-medium block mb-1.5"
 										style={{ color: "#858585" }}
 									>
 										Origin
-									</label>
+									</div>
 									<div className="grid grid-cols-2 gap-2">
 										<div className="flex">
 											<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -2070,13 +2080,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							{selectedTile?.isCompound && (
 								<div>
 									<div className="flex items-center justify-between mb-1.5">
-										<label
+										<div
 											className="text-xs font-medium"
 											style={{ color: "#858585" }}
 										>
 											Custom Properties
-										</label>
+										</div>
 										<button
+											type="button"
 											onClick={handleAddProperty}
 											className="text-xs px-2 py-1 rounded transition-colors"
 											style={{ background: "#3e3e42", color: "#cccccc" }}
@@ -2102,7 +2113,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																		onChange={(e) => {
 																			const newKey = e.target.value;
 																			handleUpdatePropertyKey(key, newKey);
-																			if (newKey && newKey.trim()) {
+																			if (newKey?.trim()) {
 																				setEditingPropertyKey(newKey);
 																			}
 																		}}
@@ -2139,7 +2150,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																			color: "#cccccc",
 																			border: "1px solid #007acc",
 																		}}
-																		autoFocus
 																	/>
 																) : (
 																	<div
@@ -2189,7 +2199,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																			color: "#cccccc",
 																			border: "1px solid #007acc",
 																		}}
-																		autoFocus
 																	/>
 																) : (
 																	<div
@@ -2206,6 +2215,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																)}
 															</div>
 															<button
+																type="button"
 																onClick={() => handleDeleteProperty(key)}
 																className="p-1 hover:bg-red-600/20 rounded transition-colors"
 																style={{ color: "#f48771" }}
@@ -2254,12 +2264,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleAddCollider}
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 								>
 									<ShieldIcon size={16} />
 									<span>Add/Edit Collider</span>
@@ -2268,12 +2278,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleDeleteCompoundTile}
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#f48771" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 								>
 									<TrashIcon size={16} />
 									<span>Delete Compound Tile</span>
@@ -2286,12 +2296,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleMarkAsCompoundTile}
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 								>
 									<span>✓</span>
 									<span>Mark as Compound Tile</span>
@@ -2300,12 +2310,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onClick={handleClearSelection}
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 								>
 									<span>✕</span>
 									<span>Clear Selection</span>

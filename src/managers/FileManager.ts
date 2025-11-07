@@ -181,7 +181,7 @@ export class FileManager {
 
 		let normalized = result.join("/");
 		if (isAbs && !normalized.startsWith("/")) {
-			normalized = "/" + normalized;
+			normalized = `/${normalized}`;
 		}
 
 		return normalized || ".";

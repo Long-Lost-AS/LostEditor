@@ -114,7 +114,7 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 			// Focus input when opened
 			setTimeout(() => inputRef.current?.focus(), 100);
 		}
-	}, [isOpen, projectDirectory]);
+	}, [isOpen, projectDirectory, scanDirectory]);
 
 	// Fuzzy search using Fuse.js
 	const fuse = new Fuse(assets, {
@@ -130,7 +130,7 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 	// Reset selected index when search query changes
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [searchQuery]);
+	}, []);
 
 	// Scroll selected item into view
 	useEffect(() => {
@@ -206,7 +206,14 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 		switch (type) {
 			case "map":
 				return (
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+					<svg
+						role="img"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						aria-label="Map"
+					>
 						<path
 							d="M20.5 3L20.34 3.03L15 5.1L9 3L3.36 4.9C3.15 4.97 3 5.15 3 5.38V20.5C3 20.78 3.22 21 3.5 21L3.66 20.97L9 18.9L15 21L20.64 19.1C20.85 19.03 21 18.85 21 18.62V3.5C21 3.22 20.78 3 20.5 3ZM15 19L9 16.89V5L15 7.11V19Z"
 							fill="#6bb6ff"
@@ -215,7 +222,14 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 				);
 			case "tileset":
 				return (
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+					<svg
+						role="img"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						aria-label="Tileset"
+					>
 						<path
 							d="M12 3C10.34 3 9 4.34 9 6C9 7.66 10.34 9 12 9C13.66 9 15 7.66 15 6C15 4.34 13.66 3 12 3ZM6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C7.66 15 9 13.66 9 12C9 10.34 7.66 9 6 9ZM18 9C16.34 9 15 10.34 15 12C15 13.66 16.34 15 18 15C19.66 15 21 13.66 21 12C21 10.34 19.66 9 18 9ZM12 15C10.34 15 9 16.34 9 18C9 19.66 10.34 21 12 21C13.66 21 15 19.66 15 18C15 16.34 13.66 15 12 15Z"
 							fill="#c586c0"
@@ -224,7 +238,14 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 				);
 			case "entity":
 				return (
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+					<svg
+						role="img"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						aria-label="Entity"
+					>
 						<path
 							d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z"
 							fill="#4ec9b0"
@@ -249,6 +270,13 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 				className="absolute inset-0"
 				style={{ background: "rgba(0, 0, 0, 0.6)" }}
 				onClick={onClose}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						onClose();
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			/>
 
 			{/* Command Palette */}
@@ -261,7 +289,14 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 					className="flex items-center gap-3 px-4 py-3"
 					style={{ borderBottom: "1px solid #3e3e42" }}
 				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+					<svg
+						role="img"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						aria-label="Search"
+					>
 						<path
 							d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
 							fill="#858585"
@@ -320,7 +355,14 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 											: "3px solid transparent",
 								}}
 								onClick={() => handleOpenAsset(asset)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										handleOpenAsset(asset);
+									}
+								}}
 								onMouseEnter={() => setSelectedIndex(index)}
+								role="button"
+								tabIndex={0}
 							>
 								{getIcon(asset.type)}
 								<div className="flex-1 min-w-0">

@@ -2,7 +2,6 @@ import { type EntityDefinitionJson, EntityDefinitionSchema } from "../schemas";
 import type { EntityDefinition, EntityInstance, Transform } from "../types";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";
-import { tilesetManager } from "./TilesetManager";
 
 /**
  * EntityManager handles entity instances and hierarchy transformations
@@ -43,7 +42,7 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 	 * Note: tilesetId parameter is ignored (legacy parameter, entities are no longer stored in tilesets)
 	 */
 	getEntityDefinition(
-		tilesetId: string,
+		_tilesetId: string,
 		entityId: string,
 	): EntityDefinition | undefined {
 		// Search through all loaded entities to find one with matching ID

@@ -7,7 +7,6 @@ import {
 	type TilesetDataJson,
 	TilesetDataSchema,
 } from "../schemas";
-import type { ProjectData } from "../types";
 import { fileManager } from "./FileManager";
 import { mapManager } from "./MapManager";
 import { tilesetManager } from "./TilesetManager";
@@ -150,7 +149,7 @@ export class ReferenceManager {
 		try {
 			const stats = await stat(newPath);
 			isDirectory = stats.isDirectory;
-		} catch (error) {
+		} catch (_error) {
 			// If stat fails, assume it's a file
 			console.warn(`Could not stat ${newPath}, assuming it's a file`);
 		}
@@ -308,7 +307,7 @@ export class ReferenceManager {
 		// Update all tilesets whose paths start with oldDirPath
 		const allTilesets = tilesetManager.getAllTilesets();
 		for (const tileset of allTilesets) {
-			if (tileset.filePath && tileset.filePath.startsWith(oldDirPath)) {
+			if (tileset.filePath?.startsWith(oldDirPath)) {
 				const relativePath = tileset.filePath.substring(oldDirPath.length);
 				const newTilesetPath = newDirPath + relativePath;
 				tilesetManager.updateTilesetPath(tileset.filePath, newTilesetPath);
@@ -317,7 +316,7 @@ export class ReferenceManager {
 
 		// Update image paths in tilesets if their images were inside the moved directory
 		for (const tileset of allTilesets) {
-			if (tileset.imagePath && tileset.imagePath.startsWith(oldDirPath)) {
+			if (tileset.imagePath?.startsWith(oldDirPath)) {
 				const relativePath = tileset.imagePath.substring(oldDirPath.length);
 				const newImagePath = newDirPath + relativePath;
 				tilesetManager.updateImagePath(tileset.imagePath, newImagePath);
@@ -467,7 +466,7 @@ export class ReferenceManager {
 		oldPath: string,
 		newPath: string,
 		refTypes: ReferenceType[],
-		projectDir: string,
+		_projectDir: string,
 	): Promise<void> {
 		try {
 			const content = await readTextFile(refFilePath);
@@ -524,7 +523,7 @@ export class ReferenceManager {
 			}
 
 			// Also update openTabs in project file if present
-			if (data.openTabs && data.openTabs.tabs) {
+			if (data.openTabs?.tabs) {
 				for (const tab of data.openTabs.tabs) {
 					if (
 						tab.filePath &&

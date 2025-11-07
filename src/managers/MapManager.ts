@@ -1,11 +1,6 @@
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import {
-	createDefaultMapData,
-	type MapFileJson,
-	MapFileSchema,
-	validateMapData,
-} from "../schemas";
-import { Layer, type MapData, type SerializedMapData, Tile } from "../types";
+import { type MapFileJson, MapFileSchema } from "../schemas";
+import type { MapData, SerializedMapData } from "../types";
 import { deserializeMapData, serializeMapData } from "../utils/mapSerializer";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";
@@ -35,7 +30,7 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 	 */
 	protected async postProcess(
 		validated: MapFileJson,
-		filePath: string,
+		_filePath: string,
 	): Promise<MapData> {
 		// All maps should be version 4.0 now
 		const serialized = validated as unknown as SerializedMapData;

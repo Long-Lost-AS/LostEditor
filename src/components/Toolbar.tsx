@@ -17,6 +17,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 	return (
 		<div className="toolbar">
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "pointer" ? "active" : ""}`}
 				onClick={() => onToolChange("pointer")}
 				title="Pointer Tool (Select & Move)"
@@ -24,6 +25,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 				<PointerIcon size={20} />
 			</button>
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "pencil" ? "active" : ""}`}
 				onClick={() => onToolChange("pencil")}
 				title="Pencil Tool"
@@ -31,6 +33,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 				<PencilIcon size={20} />
 			</button>
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "eraser" ? "active" : ""}`}
 				onClick={() => onToolChange("eraser")}
 				title="Eraser Tool"
@@ -38,6 +41,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 				<EraserIcon size={20} />
 			</button>
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "fill" ? "active" : ""}`}
 				onClick={() => onToolChange("fill")}
 				title="Fill Tool"
@@ -45,6 +49,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 				<FillIcon size={20} />
 			</button>
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "rect" ? "active" : ""}`}
 				onClick={() => onToolChange("rect")}
 				title="Rectangle Tool"
@@ -52,6 +57,7 @@ export const Toolbar = ({ currentTool, onToolChange }: ToolbarProps) => {
 				<RectangleIcon size={20} />
 			</button>
 			<button
+				type="button"
 				className={`tool-btn ${currentTool === "entity" ? "active" : ""}`}
 				onClick={() => onToolChange("entity")}
 				title="Entity Tool"

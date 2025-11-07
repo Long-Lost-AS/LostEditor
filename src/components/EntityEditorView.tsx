@@ -64,7 +64,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			});
 		}
 		prevEntityIdRef.current = entityData.id;
-	}, [entityData.id, resetEntityHistory]);
+	}, [
+		entityData.id,
+		resetEntityHistory,
+		entityData.colliders,
+		entityData.properties,
+		entityData.sprites,
+	]);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
@@ -89,7 +95,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				isFirstRun.current = false;
 			}, 0);
 		}
-	}, [localEntityState, tab.id, updateTabData]);
+	}, [
+		tab.id,
+		updateTabData,
+		entityData,
+		localColliders,
+		localProperties,
+		localSprites,
+	]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -181,7 +194,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		setEditedType(entityData.type || "");
 		setIsEditingName(false);
 		setIsEditingType(false);
-	}, [tab.id, entityData.name, entityData.type]);
+	}, [entityData.name, entityData.type]);
 
 	// Draw sprite picker canvas
 	useEffect(() => {
@@ -292,8 +305,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Check the isCompound flag
 			if (tile.isCompound) {
 				// This is a compound tile
-				const tileWidth = tile.width!;
-				const tileHeight = tile.height!;
+				const tileWidth = tile.width;
+				const tileHeight = tile.height;
 
 				// Draw border around it
 				ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
@@ -354,7 +367,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				panY: pan.y,
 			},
 		});
-	}, [pan]);
+	}, [pan, tab.id, updateTabData, viewState]);
 
 	// Handle keyboard shortcuts for drawing mode
 	useEffect(() => {
@@ -372,7 +385,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [isDrawing, drawingPoints]);
+	}, [
+		isDrawing, // Cancel drawing
+		handleCancelDrawing, // Finish drawing (if we have at least 3 points)
+		handleFinishDrawing,
+	]);
 
 	// Handle wheel zoom and pan
 	useEffect(() => {
@@ -489,7 +506,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				ctx.translate(-originX, -originY);
 
 				// Draw the sprite or placeholder
-				if (tileset && tileset.imageData) {
+				if (tileset?.imageData) {
 					// Draw actual sprite
 					ctx.drawImage(
 						tileset.imageData,
@@ -556,7 +573,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						);
 					});
 
-					if (tile && tile.colliders) {
+					if (tile?.colliders) {
 						for (const collider of tile.colliders) {
 							if (collider.points.length < 2) continue;
 
@@ -842,18 +859,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	// Trigger render when dependencies change
 	useEffect(() => {
 		drawRef.current();
-	}, [
-		localSprites,
-		localColliders,
-		viewState,
-		pan,
-		getTilesetById,
-		selectedSpriteLayerId,
-		selectedColliderId,
-		selectedColliderPointIndex,
-		isDrawing,
-		drawingPoints,
-	]);
+	}, []);
 
 	// Setup canvas resizing with ResizeObserver
 	useEffect(() => {
@@ -1410,7 +1416,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		if (oldKey === newKey) return;
 
 		// Check if new key already exists
-		if (localProperties && localProperties[newKey] && newKey !== oldKey) {
+		if (localProperties?.[newKey] && newKey !== oldKey) {
 			return; // Don't allow duplicate keys
 		}
 
@@ -1676,7 +1682,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const updatedColliders = localColliders.map((c) => {
 				if (c.id === contextMenu.colliderId) {
 					const newPoints = [...c.points];
-					newPoints.splice(contextMenu.edgeIndex! + 1, 0, {
+					newPoints.splice(contextMenu.edgeIndex+ 1, 0, {
 						x: snappedX,
 						y: snappedY,
 					});
@@ -1690,13 +1696,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				colliders: updatedColliders,
 				properties: localProperties,
 			});
-			setSelectedColliderPointIndex(contextMenu.edgeIndex! + 1);
+			setSelectedColliderPointIndex(contextMenu.edgeIndex+ 1);
 		}
 		setContextMenu(null);
 	};
 
 	// Calculate bounding box for collision editor
-	const calculateEntityBoundingBox = () => {
+	const _calculateEntityBoundingBox = () => {
 		if (localSprites.length === 0) {
 			return { x: 0, y: 0, width: 100, height: 100 }; // Default size
 		}
@@ -1743,7 +1749,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 						{/* Entity Name */}
 						<div className="mb-3">
-							<label className="text-xs text-gray-500 mb-1 block">Name</label>
+							<div className="text-xs text-gray-500 mb-1 block">Name</div>
 							{isEditingName ? (
 								<input
 									type="text"
@@ -1759,19 +1765,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									}}
 									className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
 									style={{ background: "#3e3e42", border: "1px solid #007acc" }}
-									autoFocus
 								/>
 							) : (
 								<div
 									onClick={() => setIsEditingName(true)}
 									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.borderColor = "#555555")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.borderColor = "#3e3e42")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.borderColor = "#555555";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.borderColor = "#3e3e42";
+									}}
 								>
 									{entityData.name || "(unnamed)"}
 								</div>
@@ -1780,7 +1785,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 						{/* Entity Type */}
 						<div>
-							<label className="text-xs text-gray-500 mb-1 block">Type</label>
+							<div className="text-xs text-gray-500 mb-1 block">Type</div>
 							{isEditingType ? (
 								<input
 									type="text"
@@ -1796,19 +1801,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									}}
 									className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
 									style={{ background: "#3e3e42", border: "1px solid #007acc" }}
-									autoFocus
 								/>
 							) : (
 								<div
 									onClick={() => setIsEditingType(true)}
 									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
-									onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) =>
-										(e.currentTarget.style.borderColor = "#555555")
-									}
-									onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) =>
-										(e.currentTarget.style.borderColor = "#3e3e42")
-									}
+									onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+										e.currentTarget.style.borderColor = "#555555";
+									}}
+									onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+										e.currentTarget.style.borderColor = "#3e3e42";
+									}}
 								>
 									{entityData.type || "(none)"}
 								</div>
@@ -1821,6 +1825,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						<div className="text-sm font-semibold text-gray-400 mb-3 flex items-center justify-between">
 							<span>CUSTOM PROPERTIES</span>
 							<button
+								type="button"
 								onClick={handleAddProperty}
 								className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors"
 							>
@@ -1845,7 +1850,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 															onChange={(e) => {
 																const newKey = e.target.value;
 																handleUpdatePropertyKey(key, newKey);
-																if (newKey && newKey.trim()) {
+																if (newKey?.trim()) {
 																	setEditingPropertyKey(newKey);
 																}
 															}}
@@ -1872,7 +1877,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																border: "1px solid #007acc",
 																boxSizing: "border-box",
 															}}
-															autoFocus
 														/>
 													) : (
 														<div
@@ -1883,12 +1887,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																border: "1px solid transparent",
 																boxSizing: "border-box",
 															}}
-															onMouseEnter={(e) =>
-																(e.currentTarget.style.background = "#4a4a4e")
-															}
-															onMouseLeave={(e) =>
-																(e.currentTarget.style.background = "#3e3e42")
-															}
+															onMouseEnter={(e) => {
+																e.currentTarget.style.background = "#4a4a4e";
+															}}
+															onMouseLeave={(e) => {
+																e.currentTarget.style.background = "#3e3e42";
+															}}
 														>
 															{displayKey || (
 																<span style={{ opacity: 0.5 }}>Key</span>
@@ -1917,7 +1921,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																border: "1px solid #007acc",
 																boxSizing: "border-box",
 															}}
-															autoFocus
 														/>
 													) : (
 														<div
@@ -1928,12 +1931,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																border: "1px solid transparent",
 																boxSizing: "border-box",
 															}}
-															onMouseEnter={(e) =>
-																(e.currentTarget.style.background = "#4a4a4e")
-															}
-															onMouseLeave={(e) =>
-																(e.currentTarget.style.background = "#3e3e42")
-															}
+															onMouseEnter={(e) => {
+																e.currentTarget.style.background = "#4a4a4e";
+															}}
+															onMouseLeave={(e) => {
+																e.currentTarget.style.background = "#3e3e42";
+															}}
 														>
 															{value || (
 																<span style={{ opacity: 0.5 }}>Value</span>
@@ -1942,6 +1945,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													)}
 												</div>
 												<button
+													type="button"
 													onClick={() => handleDeleteProperty(key)}
 													className="text-red-400 hover:text-red-300 text-sm flex-shrink-0"
 													style={{ width: "20px" }}
@@ -2075,6 +2079,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										COLLIDER
 									</div>
 									<button
+										type="button"
 										onClick={() => setSelectedColliderId(null)}
 										className="text-gray-400 hover:text-gray-200 transition-colors"
 										title="Close"
@@ -2087,17 +2092,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 								<div className="p-4 space-y-4">
 									{/* Name */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Name
-										</label>
+										</div>
 										<input
 											type="text"
 											value={selectedCollider.name || ""}
 											onChange={(e) => {
-												handleUpdateCollider(selectedCollider.id!, {
+												handleUpdateCollider(selectedCollider.id, {
 													name: e.target.value,
 												});
 											}}
@@ -2107,29 +2112,29 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												color: "#cccccc",
 												border: "1px solid #555",
 											}}
-											onFocus={(e) =>
-												(e.currentTarget.style.borderColor = "#007acc")
-											}
-											onBlur={(e) =>
-												(e.currentTarget.style.borderColor = "#555")
-											}
+											onFocus={(e) => {
+												e.currentTarget.style.borderColor = "#007acc";
+											}}
+											onBlur={(e) => {
+												e.currentTarget.style.borderColor = "#555";
+											}}
 											placeholder="Collider name"
 										/>
 									</div>
 
 									{/* Type */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Type
-										</label>
+										</div>
 										<input
 											type="text"
 											value={selectedCollider.type || ""}
 											onChange={(e) => {
-												handleUpdateCollider(selectedCollider.id!, {
+												handleUpdateCollider(selectedCollider.id, {
 													type: e.target.value,
 												});
 											}}
@@ -2139,24 +2144,24 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												color: "#cccccc",
 												border: "1px solid #555",
 											}}
-											onFocus={(e) =>
-												(e.currentTarget.style.borderColor = "#007acc")
-											}
-											onBlur={(e) =>
-												(e.currentTarget.style.borderColor = "#555")
-											}
+											onFocus={(e) => {
+												e.currentTarget.style.borderColor = "#007acc";
+											}}
+											onBlur={(e) => {
+												e.currentTarget.style.borderColor = "#555";
+											}}
 											placeholder="Collider type"
 										/>
 									</div>
 
 									{/* Position (center of all points) */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Collider Position
-										</label>
+										</div>
 										<div className="grid grid-cols-2 gap-2">
 											<div className="flex">
 												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -2192,7 +2197,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																}),
 															);
 
-															handleUpdateCollider(selectedCollider.id!, {
+															handleUpdateCollider(selectedCollider.id, {
 																points: newPoints,
 															});
 														}}
@@ -2216,7 +2221,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																}),
 															);
 
-															handleUpdateCollider(selectedCollider.id!, {
+															handleUpdateCollider(selectedCollider.id, {
 																points: newPoints,
 															});
 														}}
@@ -2262,7 +2267,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																}),
 															);
 
-															handleUpdateCollider(selectedCollider.id!, {
+															handleUpdateCollider(selectedCollider.id, {
 																points: newPoints,
 															});
 														}}
@@ -2286,7 +2291,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																}),
 															);
 
-															handleUpdateCollider(selectedCollider.id!, {
+															handleUpdateCollider(selectedCollider.id, {
 																points: newPoints,
 															});
 														}}
@@ -2303,12 +2308,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 									{/* Point Count (read-only) */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Points
-										</label>
+										</div>
 										<div
 											className="px-2.5 py-1.5 text-xs rounded"
 											style={{
@@ -2325,12 +2330,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									{selectedColliderPointIndex !== null &&
 										selectedCollider.points[selectedColliderPointIndex] && (
 											<div>
-												<label
+												<div
 													className="text-xs font-medium block mb-1.5"
 													style={{ color: "#858585" }}
 												>
 													Point {selectedColliderPointIndex} Position
-												</label>
+												</div>
 												<div className="grid grid-cols-2 gap-2">
 													<div className="flex">
 														<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -2351,7 +2356,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																		...newPoints[selectedColliderPointIndex],
 																		x: Math.round(x),
 																	};
-																	handleUpdateCollider(selectedCollider.id!, {
+																	handleUpdateCollider(selectedCollider.id, {
 																		points: newPoints,
 																	});
 																}}
@@ -2363,7 +2368,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																		...newPoints[selectedColliderPointIndex],
 																		x: Math.round(x),
 																	};
-																	handleUpdateCollider(selectedCollider.id!, {
+																	handleUpdateCollider(selectedCollider.id, {
 																		points: newPoints,
 																	});
 																}}
@@ -2394,7 +2399,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																		...newPoints[selectedColliderPointIndex],
 																		y: Math.round(y),
 																	};
-																	handleUpdateCollider(selectedCollider.id!, {
+																	handleUpdateCollider(selectedCollider.id, {
 																		points: newPoints,
 																	});
 																}}
@@ -2406,7 +2411,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																		...newPoints[selectedColliderPointIndex],
 																		y: Math.round(y),
 																	};
-																	handleUpdateCollider(selectedCollider.id!, {
+																	handleUpdateCollider(selectedCollider.id, {
 																		points: newPoints,
 																	});
 																}}
@@ -2453,6 +2458,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										SPRITE
 									</div>
 									<button
+										type="button"
 										onClick={() => setSelectedSpriteLayerId(null)}
 										className="text-gray-400 hover:text-gray-200 transition-colors"
 										title="Close"
@@ -2465,12 +2471,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 								<div className="p-4 space-y-4">
 									{/* Name */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Name
-										</label>
+										</div>
 										<input
 											type="text"
 											value={selectedLayer.name || ""}
@@ -2485,24 +2491,24 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												color: "#cccccc",
 												border: "1px solid #555",
 											}}
-											onFocus={(e) =>
-												(e.currentTarget.style.borderColor = "#007acc")
-											}
-											onBlur={(e) =>
-												(e.currentTarget.style.borderColor = "#555")
-											}
+											onFocus={(e) => {
+												e.currentTarget.style.borderColor = "#007acc";
+											}}
+											onBlur={(e) => {
+												e.currentTarget.style.borderColor = "#555";
+											}}
 											placeholder="Layer name"
 										/>
 									</div>
 
 									{/* Type */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Type
-										</label>
+										</div>
 										<input
 											type="text"
 											value={selectedLayer.type || ""}
@@ -2517,24 +2523,24 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												color: "#cccccc",
 												border: "1px solid #555",
 											}}
-											onFocus={(e) =>
-												(e.currentTarget.style.borderColor = "#007acc")
-											}
-											onBlur={(e) =>
-												(e.currentTarget.style.borderColor = "#555")
-											}
+											onFocus={(e) => {
+												e.currentTarget.style.borderColor = "#007acc";
+											}}
+											onBlur={(e) => {
+												e.currentTarget.style.borderColor = "#555";
+											}}
 											placeholder="Layer type"
 										/>
 									</div>
 
 									{/* Position (Offset) */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Position
-										</label>
+										</div>
 										<div className="grid grid-cols-2 gap-2">
 											<div className="flex">
 												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -2603,12 +2609,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 									{/* Origin */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Origin (Pivot/Anchor)
-										</label>
+										</div>
 										<div className="grid grid-cols-2 gap-2">
 											<div className="flex">
 												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
@@ -2689,12 +2695,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 									{/* YSort Offset */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											YSort Offset
-										</label>
+										</div>
 										<DragNumberInput
 											value={selectedLayer.ysortOffset || 0}
 											onChange={(value) => {
@@ -2716,12 +2722,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 									{/* Rotation */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Rotation (degrees)
-										</label>
+										</div>
 										<DragNumberInput
 											value={selectedLayer.rotation || 0}
 											onChange={(value) => {
@@ -2743,12 +2749,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 									{/* Z-Index */}
 									<div>
-										<label
+										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Z-Index (Layer Order)
-										</label>
+										</div>
 										<DragNumberInput
 											value={selectedLayer.zIndex}
 											onChange={(value) => {
@@ -2799,12 +2805,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										<div
 											className="px-4 py-2 text-sm cursor-pointer transition-colors"
 											style={{ color: "#f48771" }}
-											onMouseEnter={(e) =>
-												(e.currentTarget.style.background = "#3e3e42")
-											}
-											onMouseLeave={(e) =>
-												(e.currentTarget.style.background = "transparent")
-											}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "transparent";
+											}}
 											onClick={handleDeleteColliderPoint}
 										>
 											Delete Point
@@ -2815,12 +2821,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											<div
 												className="px-4 py-2 text-sm cursor-pointer transition-colors"
 												style={{ color: "#4ade80" }}
-												onMouseEnter={(e) =>
-													(e.currentTarget.style.background = "#3e3e42")
-												}
-												onMouseLeave={(e) =>
-													(e.currentTarget.style.background = "transparent")
-												}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
 												onClick={handleInsertColliderPoint}
 											>
 												Add Point
@@ -2828,12 +2834,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											<div
 												className="px-4 py-2 text-sm cursor-pointer transition-colors"
 												style={{ color: "#f48771" }}
-												onMouseEnter={(e) =>
-													(e.currentTarget.style.background = "#3e3e42")
-												}
-												onMouseLeave={(e) =>
-													(e.currentTarget.style.background = "transparent")
-												}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
 												onClick={() => {
 													if (contextMenu.colliderId) {
 														handleDeleteCollider(contextMenu.colliderId);
@@ -2849,12 +2855,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											<div
 												className="px-4 py-2 text-sm cursor-pointer transition-colors"
 												style={{ color: "#f48771" }}
-												onMouseEnter={(e) =>
-													(e.currentTarget.style.background = "#3e3e42")
-												}
-												onMouseLeave={(e) =>
-													(e.currentTarget.style.background = "transparent")
-												}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
 												onClick={() => {
 													if (contextMenu.colliderId) {
 														handleDeleteCollider(contextMenu.colliderId);
@@ -2870,12 +2876,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 								<div
 									className="px-4 py-2 text-sm cursor-pointer transition-colors"
 									style={{ color: "#f48771" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 									onClick={() => {
 										if (contextMenu.spriteLayerId) {
 											handleDeleteSpriteLayer(contextMenu.spriteLayerId);
@@ -2891,12 +2897,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									<div
 										className="px-4 py-2 text-sm cursor-pointer transition-colors"
 										style={{ color: "#cccccc" }}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
 										onClick={handleOpenSpritePicker}
 									>
 										Add Sprite
@@ -2904,12 +2910,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									<div
 										className="px-4 py-2 text-sm cursor-pointer transition-colors"
 										style={{ color: "#cccccc" }}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
 										onClick={handleStartDrawing}
 									>
 										Add Collider
@@ -3052,6 +3058,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									</h2>
 									<div className="flex gap-2">
 										<button
+											type="button"
 											onClick={() => {
 												setIsSpritePicking(false);
 												setSelectedRegion(null);
@@ -3062,16 +3069,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												border: "1px solid #555",
 												color: "#cccccc",
 											}}
-											onMouseEnter={(e) =>
-												(e.currentTarget.style.background = "#505050")
-											}
-											onMouseLeave={(e) =>
-												(e.currentTarget.style.background = "#3e3e42")
-											}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#505050";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
 										>
 											Cancel
 										</button>
 										<button
+											type="button"
 											onClick={handleAddSpriteLayer}
 											disabled={!selectedRegion}
 											className="px-4 py-2 rounded transition-colors"
@@ -3099,12 +3107,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 								{/* Tileset Selection */}
 								<div className="mb-4">
-									<label
+									<div
 										className="text-sm mb-2 block"
 										style={{ color: "#858585" }}
 									>
 										Select Tileset
-									</label>
+									</div>
 									<Dropdown
 										items={tilesets}
 										value={
@@ -3131,7 +3139,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									className="flex-1 overflow-auto rounded p-4"
 									style={{ background: "#1e1e1e" }}
 								>
-									{selectedTileset && selectedTileset.imageData ? (
+									{selectedTileset?.imageData ? (
 										<canvas
 											ref={pickerCanvasRef}
 											onMouseDown={handlePickerMouseDown}

@@ -16,7 +16,6 @@ import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { fileManager } from "../managers/FileManager";
 import { referenceManager } from "../managers/ReferenceManager";
-import { TilesetTab } from "../types";
 import { isEditableElementFocused } from "../utils/keyboardUtils";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 
@@ -119,7 +118,7 @@ export const ResourceBrowser = ({
 	useEffect(() => {
 		setSelectedItems(new Set());
 		setLastSelectedIndex(null);
-	}, [currentPath]);
+	}, []);
 
 	// Keyboard shortcuts - stable handler using ref
 	useEffect(() => {
@@ -338,7 +337,7 @@ export const ResourceBrowser = ({
 			setCurrentPath("");
 			setFiles([]);
 		}
-	}, [projectDirectory]);
+	}, [projectDirectory, loadDirectory]);
 
 	const handleItemClick = (
 		item: FileItem,
@@ -427,7 +426,7 @@ export const ResourceBrowser = ({
 
 	// Helper: Check if path is a subdirectory of parent
 	const isSubdirectory = (parent: string, child: string): boolean => {
-		const normalizedParent = parent.endsWith("/") ? parent : parent + "/";
+		const normalizedParent = parent.endsWith("/") ? parent : `${parent}/`;
 		return child.startsWith(normalizedParent);
 	};
 
@@ -489,7 +488,7 @@ export const ResourceBrowser = ({
 							);
 							if (!confirmed) continue;
 						}
-					} catch (err) {
+					} catch (_err) {
 						// File doesn't exist, continue
 					}
 
@@ -583,7 +582,7 @@ export const ResourceBrowser = ({
 						);
 						if (!confirmed) continue;
 					}
-				} catch (err) {
+				} catch (_err) {
 					// File doesn't exist, continue
 				}
 
@@ -640,7 +639,13 @@ export const ResourceBrowser = ({
 	const getIcon = (item: FileItem) => {
 		if (item.isDirectory) {
 			return (
-				<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+				<svg
+					aria-hidden="true"
+					width="48"
+					height="48"
+					viewBox="0 0 24 24"
+					fill="none"
+				>
 					<path
 						d="M10 4H4C2.89 4 2.01 4.89 2.01 6L2 18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V8C22 6.89 21.11 6 20 6H12L10 4Z"
 						fill="#dcb67a"
@@ -653,7 +658,13 @@ export const ResourceBrowser = ({
 		switch (ext) {
 			case ".lostmap":
 				return (
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M20.5 3L20.34 3.03L15 5.1L9 3L3.36 4.9C3.15 4.97 3 5.15 3 5.38V20.5C3 20.78 3.22 21 3.5 21L3.66 20.97L9 18.9L15 21L20.64 19.1C20.85 19.03 21 18.85 21 18.62V3.5C21 3.22 20.78 3 20.5 3ZM15 19L9 16.89V5L15 7.11V19Z"
 							fill="#6bb6ff"
@@ -662,7 +673,13 @@ export const ResourceBrowser = ({
 				);
 			case ".lostset":
 				return (
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M12 3C10.34 3 9 4.34 9 6C9 7.66 10.34 9 12 9C13.66 9 15 7.66 15 6C15 4.34 13.66 3 12 3ZM6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C7.66 15 9 13.66 9 12C9 10.34 7.66 9 6 9ZM18 9C16.34 9 15 10.34 15 12C15 13.66 16.34 15 18 15C19.66 15 21 13.66 21 12C21 10.34 19.66 9 18 9ZM12 15C10.34 15 9 16.34 9 18C9 19.66 10.34 21 12 21C13.66 21 15 19.66 15 18C15 16.34 13.66 15 12 15Z"
 							fill="#c586c0"
@@ -671,7 +688,13 @@ export const ResourceBrowser = ({
 				);
 			case ".lostentity":
 				return (
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z"
 							fill="#4ec9b0"
@@ -689,7 +712,13 @@ export const ResourceBrowser = ({
 			case ".jpeg":
 			case ".gif":
 				return (
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M21 19V5C21 3.89 20.11 3 19 3H5C3.89 3 3 3.89 3 5V19C3 20.11 3.89 21 5 21H19C20.11 21 21 20.11 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z"
 							fill="#a0d468"
@@ -698,7 +727,13 @@ export const ResourceBrowser = ({
 				);
 			default:
 				return (
-					<svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="48"
+						height="48"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2ZM16 18H8V16H16V18ZM16 14H8V12H16V14ZM13 9V3.5L18.5 9H13Z"
 							fill="#858585"
@@ -740,6 +775,7 @@ export const ResourceBrowser = ({
 				style={style}
 			>
 				<svg
+					aria-hidden="true"
 					width="48"
 					height="48"
 					viewBox="0 0 24 24"
@@ -887,14 +923,19 @@ export const ResourceBrowser = ({
 					<span style={{ color: "#555" }}>|</span>
 					<div className="flex items-center gap-2 text-sm flex-1">
 						<button
+							type="button"
 							onClick={() => {
 								setCurrentPath(projectDirectory);
 								loadDirectory(projectDirectory);
 							}}
 							className="transition-colors"
 							style={{ color: "#1177bb" }}
-							onMouseEnter={(e) => (e.currentTarget.style.color = "#1a8fd9")}
-							onMouseLeave={(e) => (e.currentTarget.style.color = "#1177bb")}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.color = "#1a8fd9";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.color = "#1177bb";
+							}}
 						>
 							Project
 						</button>
@@ -907,6 +948,7 @@ export const ResourceBrowser = ({
 					</div>
 					{canGoUp && (
 						<button
+							type="button"
 							onClick={navigateUp}
 							className="px-3 py-1 text-xs rounded transition-colors"
 							style={{
@@ -914,22 +956,27 @@ export const ResourceBrowser = ({
 								border: "1px solid #555",
 								color: "#cccccc",
 							}}
-							onMouseEnter={(e) =>
-								(e.currentTarget.style.background = "#505050")
-							}
-							onMouseLeave={(e) =>
-								(e.currentTarget.style.background = "#3e3e42")
-							}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = "#505050";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = "#3e3e42";
+							}}
 						>
 							↑ Up
 						</button>
 					)}
 					<button
+						type="button"
 						onClick={onClose}
 						className="text-xl leading-none transition-colors"
 						style={{ color: "#858585" }}
-						onMouseEnter={(e) => (e.currentTarget.style.color = "#cccccc")}
-						onMouseLeave={(e) => (e.currentTarget.style.color = "#858585")}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.color = "#cccccc";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.color = "#858585";
+						}}
 						title="Close Assets Panel"
 					>
 						×
@@ -1004,12 +1051,12 @@ export const ResourceBrowser = ({
 								<div
 									className="px-4 py-2 text-sm cursor-pointer transition-colors"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 									onClick={() => {
 										setFolderNameModal({
 											visible: true,
@@ -1025,12 +1072,12 @@ export const ResourceBrowser = ({
 								<div
 									className="px-4 py-2 text-sm cursor-pointer transition-colors"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 									onClick={() => {
 										newMap(currentPath, "New Map");
 										setContextMenu(null);
@@ -1043,12 +1090,12 @@ export const ResourceBrowser = ({
 								<div
 									className="px-4 py-2 text-sm cursor-pointer transition-colors"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 									onClick={() => {
 										newEntity();
 										setContextMenu(null);
@@ -1061,12 +1108,12 @@ export const ResourceBrowser = ({
 								<div
 									className="px-4 py-2 text-sm cursor-pointer transition-colors"
 									style={{ color: "#cccccc" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
 									onClick={async () => {
 										await newTileset(currentPath);
 										setContextMenu(null);
@@ -1085,14 +1132,14 @@ export const ResourceBrowser = ({
 										<div
 											className="px-4 py-2 text-sm cursor-pointer transition-colors"
 											style={{ color: "#cccccc" }}
-											onMouseEnter={(e) =>
-												(e.currentTarget.style.background = "#3e3e42")
-											}
-											onMouseLeave={(e) =>
-												(e.currentTarget.style.background = "transparent")
-											}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "transparent";
+											}}
 											onClick={() =>
-												handleOpenContainingFolder(contextMenu.item!)
+												handleOpenContainingFolder(contextMenu.item)
 											}
 										>
 											Open Containing Folder
@@ -1102,21 +1149,19 @@ export const ResourceBrowser = ({
 
 								{/* Rename (only for files/folders) */}
 								{contextMenu.item && (
-									<>
-										<div
-											className="px-4 py-2 text-sm cursor-pointer transition-colors"
-											style={{ color: "#cccccc" }}
-											onMouseEnter={(e) =>
-												(e.currentTarget.style.background = "#3e3e42")
-											}
-											onMouseLeave={(e) =>
-												(e.currentTarget.style.background = "transparent")
-											}
-											onClick={() => handleRenameItem(contextMenu.item!)}
-										>
-											Rename
-										</div>
-									</>
+									<div
+										className="px-4 py-2 text-sm cursor-pointer transition-colors"
+										style={{ color: "#cccccc" }}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
+										onClick={() => handleRenameItem(contextMenu.item)}
+									>
+										Rename
+									</div>
 								)}
 
 								{/* Delete (only for files/folders) */}
@@ -1129,12 +1174,12 @@ export const ResourceBrowser = ({
 										<div
 											className="px-4 py-2 text-sm cursor-pointer transition-colors"
 											style={{ color: "#f48771" }}
-											onMouseEnter={(e) =>
-												(e.currentTarget.style.background = "#3e3e42")
-											}
-											onMouseLeave={(e) =>
-												(e.currentTarget.style.background = "transparent")
-											}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "transparent";
+											}}
 											onClick={() => {
 												setDeleteConfirmModal({
 													visible: true,
@@ -1185,7 +1230,6 @@ export const ResourceBrowser = ({
 										outline: "none",
 									}}
 									defaultValue={folderNameModal.defaultName}
-									autoFocus
 									onKeyDown={(e) => {
 										if (e.key === "Enter") {
 											handleCreateFolder(e.currentTarget.value);
@@ -1196,18 +1240,19 @@ export const ResourceBrowser = ({
 								/>
 								<div className="flex gap-2 justify-end">
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #555",
 											color: "#cccccc",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#505050")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#505050";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
 										onClick={() =>
 											setFolderNameModal({ visible: false, defaultName: "" })
 										}
@@ -1215,18 +1260,19 @@ export const ResourceBrowser = ({
 										Cancel
 									</button>
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#0e639c",
 											border: "1px solid #1177bb",
 											color: "#ffffff",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#1177bb")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#0e639c")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#1177bb";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#0e639c";
+										}}
 										onClick={(e) => {
 											const input =
 												e.currentTarget.parentElement?.parentElement?.querySelector(
@@ -1283,18 +1329,19 @@ export const ResourceBrowser = ({
 								</p>
 								<div className="flex gap-2 justify-end">
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #555",
 											color: "#cccccc",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#505050")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#505050";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
 										onClick={() =>
 											setDeleteConfirmModal({ visible: false, item: null })
 										}
@@ -1302,19 +1349,20 @@ export const ResourceBrowser = ({
 										Cancel
 									</button>
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#c72e0f",
 											border: "1px solid #f48771",
 											color: "#ffffff",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#f48771")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#c72e0f")
-										}
-										onClick={() => handleDeleteItem(deleteConfirmModal.item!)}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#f48771";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#c72e0f";
+										}}
+										onClick={() => handleDeleteItem(deleteConfirmModal.item)}
 									>
 										Delete
 									</button>
@@ -1361,7 +1409,6 @@ export const ResourceBrowser = ({
 									onChange={(e) =>
 										setRenameModal({ ...renameModal, newName: e.target.value })
 									}
-									autoFocus
 									onKeyDown={(e) => {
 										if (e.key === "Enter") {
 											confirmRename();
@@ -1376,18 +1423,19 @@ export const ResourceBrowser = ({
 								/>
 								<div className="flex gap-2 justify-end">
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #555",
 											color: "#cccccc",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#505050")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#505050";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
 										onClick={() =>
 											setRenameModal({
 												visible: false,
@@ -1399,18 +1447,19 @@ export const ResourceBrowser = ({
 										Cancel
 									</button>
 									<button
+										type="button"
 										className="px-4 py-2 rounded transition-colors"
 										style={{
 											background: "#0e639c",
 											border: "1px solid #1177bb",
 											color: "#ffffff",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#1177bb")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#0e639c")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#1177bb";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#0e639c";
+										}}
 										onClick={confirmRename}
 									>
 										Rename

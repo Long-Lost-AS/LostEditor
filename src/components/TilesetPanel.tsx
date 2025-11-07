@@ -70,7 +70,8 @@ export const TilesetPanel = () => {
 			ctx.lineWidth = 1 / scale;
 
 			const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-			const tileHeight = currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+			const tileHeight =
+				currentTileset?.tileHeight || activeMap?.tileHeight || 16;
 
 			// Draw vertical lines
 			for (let x = 0; x <= displayImage.width; x += tileWidth) {
@@ -325,7 +326,8 @@ export const TilesetPanel = () => {
 		}
 
 		const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-		const tileHeight = currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+		const tileHeight =
+			currentTileset?.tileHeight || activeMap?.tileHeight || 16;
 
 		// If using new tileset system
 		if (currentTileset) {
@@ -474,8 +476,7 @@ export const TilesetPanel = () => {
 			)}
 
 			{/* Terrain Layers Section */}
-			{currentTileset &&
-				currentTileset.terrainLayers &&
+			{currentTileset?.terrainLayers &&
 				currentTileset.terrainLayers.length > 0 && (
 					<div className="mt-3">
 						<div

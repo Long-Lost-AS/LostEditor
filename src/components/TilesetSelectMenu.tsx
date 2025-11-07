@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { tilesetManager } from "../managers/TilesetManager";
-import { TilesetData } from "../types";
 import { packTileId } from "../utils/tileId";
 
 interface TilesetSelectMenuProps {
@@ -70,7 +69,7 @@ export const TilesetSelectMenu = ({
 	// Reset selected index when search query changes
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [searchQuery]);
+	}, []);
 
 	// Scroll selected item into view
 	useEffect(() => {
@@ -256,7 +255,13 @@ export const TilesetSelectMenu = ({
 
 	const getTilesetIcon = () => {
 		return (
-			<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+			<svg
+				aria-hidden="true"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+			>
 				<rect x="3" y="3" width="7" height="7" fill="#ce9178" />
 				<rect x="11" y="3" width="7" height="7" fill="#ce9178" />
 				<rect x="3" y="11" width="7" height="7" fill="#ce9178" />
@@ -291,7 +296,13 @@ export const TilesetSelectMenu = ({
 					className="flex items-center gap-3 px-4 py-3"
 					style={{ borderBottom: "1px solid #3e3e42" }}
 				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
 							fill="#858585"
@@ -426,18 +437,18 @@ export const TilesetSelectMenu = ({
 											<>
 												<div>
 													Image:{" "}
-													{filteredTilesets[selectedIndex].imageData!.width}×
-													{filteredTilesets[selectedIndex].imageData!.height}px
+													{filteredTilesets[selectedIndex].imageData?.width}×
+													{filteredTilesets[selectedIndex].imageData?.height}px
 												</div>
 												<div>
 													Grid:{" "}
 													{Math.floor(
-														filteredTilesets[selectedIndex].imageData!.width /
+														filteredTilesets[selectedIndex].imageData?.width /
 															filteredTilesets[selectedIndex].tileWidth,
 													)}
 													×
 													{Math.floor(
-														filteredTilesets[selectedIndex].imageData!.height /
+														filteredTilesets[selectedIndex].imageData?.height /
 															filteredTilesets[selectedIndex].tileHeight,
 													)}{" "}
 													tiles
@@ -445,25 +456,25 @@ export const TilesetSelectMenu = ({
 												<div>
 													Total Tiles:{" "}
 													{Math.floor(
-														filteredTilesets[selectedIndex].imageData!.width /
+														filteredTilesets[selectedIndex].imageData?.width /
 															filteredTilesets[selectedIndex].tileWidth,
 													) *
 														Math.floor(
-															filteredTilesets[selectedIndex].imageData!
-																.height /
+															filteredTilesets[selectedIndex].imageData
+																?.height /
 																filteredTilesets[selectedIndex].tileHeight,
 														)}
 												</div>
 											</>
 										)}
 										{filteredTilesets[selectedIndex].terrainLayers &&
-											filteredTilesets[selectedIndex].terrainLayers!.length >
+											filteredTilesets[selectedIndex].terrainLayers?.length >
 												0 && (
 												<div className="text-green-400">
 													Terrain Layers:{" "}
 													{
-														filteredTilesets[selectedIndex].terrainLayers!
-															.length
+														filteredTilesets[selectedIndex].terrainLayers
+															?.length
 													}
 												</div>
 											)}

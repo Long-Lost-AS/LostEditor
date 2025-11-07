@@ -1,4 +1,4 @@
-import type { Layer, MapData, TerrainLayer, TilesetData } from "../types";
+import type { Layer, TerrainLayer, TilesetData } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,

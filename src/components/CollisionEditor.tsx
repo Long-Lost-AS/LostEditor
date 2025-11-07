@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { PolygonCollider } from "../types";
@@ -96,7 +96,7 @@ export const CollisionEditor = ({
 	// Sync local colliders with parent's onUpdate callback
 	useEffect(() => {
 		onUpdate(localColliders);
-	}, [localColliders]);
+	}, [localColliders, onUpdate]);
 
 	// Ensure all colliders have IDs and remove invalid colliders
 	useEffect(() => {
@@ -485,7 +485,7 @@ export const CollisionEditor = ({
 						setLocalColliders([...localColliders, newCollider]);
 						setDrawingPoints([]);
 						setIsDrawing(false);
-						setSelectedColliderId(newCollider.id!);
+						setSelectedColliderId(newCollider.id);
 						return;
 					}
 				}
@@ -718,7 +718,7 @@ export const CollisionEditor = ({
 			const newColliders = localColliders.map((c) => {
 				if (c.id === contextMenu.colliderId) {
 					const newPoints = [...c.points];
-					newPoints.splice(contextMenu.edgeIndex! + 1, 0, {
+					newPoints.splice(contextMenu.edgeIndex + 1, 0, {
 						x: snappedX,
 						y: snappedY,
 					});
@@ -728,7 +728,7 @@ export const CollisionEditor = ({
 			});
 			setLocalColliders(newColliders);
 			setSelectedColliderId(contextMenu.colliderId);
-			setSelectedPointIndex(contextMenu.edgeIndex! + 1);
+			setSelectedPointIndex(contextMenu.edgeIndex + 1);
 		}
 		setContextMenu(null);
 	};
@@ -814,11 +814,7 @@ export const CollisionEditor = ({
 
 		if (oldKey === newKey) return;
 
-		if (
-			selectedCollider.properties &&
-			selectedCollider.properties[newKey] &&
-			newKey !== oldKey
-		) {
+		if (selectedCollider.properties?.[newKey] && newKey !== oldKey) {
 			return; // Don't allow duplicate keys
 		}
 
@@ -875,7 +871,7 @@ export const CollisionEditor = ({
 								COLLIDER PROPERTIES
 							</div>
 							<div className="mb-3">
-								<label className="text-xs text-gray-500 mb-1 block">Name</label>
+								<div className="text-xs text-gray-500 mb-1 block">Name</div>
 								{editingColliderName ? (
 									<input
 										type="text"
@@ -897,7 +893,6 @@ export const CollisionEditor = ({
 											background: "#3e3e42",
 											border: "1px solid #007acc",
 										}}
-										autoFocus
 									/>
 								) : (
 									<div
@@ -907,19 +902,19 @@ export const CollisionEditor = ({
 											background: "#3e3e42",
 											border: "1px solid #3e3e42",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#4a4a4e")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#4a4a4e";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
 									>
 										{selectedCollider.name || "(none)"}
 									</div>
 								)}
 							</div>
 							<div className="mb-3">
-								<label className="text-xs text-gray-500 mb-1 block">Type</label>
+								<div className="text-xs text-gray-500 mb-1 block">Type</div>
 								{editingColliderType ? (
 									<input
 										type="text"
@@ -941,7 +936,6 @@ export const CollisionEditor = ({
 											background: "#3e3e42",
 											border: "1px solid #007acc",
 										}}
-										autoFocus
 									/>
 								) : (
 									<div
@@ -951,12 +945,12 @@ export const CollisionEditor = ({
 											background: "#3e3e42",
 											border: "1px solid #3e3e42",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#4a4a4e")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#4a4a4e";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
 									>
 										{selectedCollider.type || "(none)"}
 									</div>
@@ -1236,15 +1230,16 @@ export const CollisionEditor = ({
 							<div className="text-sm font-semibold text-gray-400 mb-3 flex items-center justify-between">
 								<span>CUSTOM PROPERTIES</span>
 								<button
+									type="button"
 									onClick={handleAddProperty}
 									className="text-xs px-2 py-1 text-gray-200 rounded transition-colors"
 									style={{ background: "#3e3e42" }}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "#4a4a4e")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "#3e3e42")
-									}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#4a4a4e";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
 								>
 									+ Add
 								</button>
@@ -1268,7 +1263,7 @@ export const CollisionEditor = ({
 																	onChange={(e) => {
 																		const newKey = e.target.value;
 																		handleUpdatePropertyKey(key, newKey);
-																		if (newKey && newKey.trim()) {
+																		if (newKey?.trim()) {
 																			setEditingPropertyKey(newKey);
 																		}
 																	}}
@@ -1295,7 +1290,6 @@ export const CollisionEditor = ({
 																		background: "#3e3e42",
 																		border: "1px solid #007acc",
 																	}}
-																	autoFocus
 																/>
 															) : (
 																<div
@@ -1305,14 +1299,14 @@ export const CollisionEditor = ({
 																		background: "#3e3e42",
 																		border: "1px solid transparent",
 																	}}
-																	onMouseEnter={(e) =>
-																		(e.currentTarget.style.background =
-																			"#4a4a4e")
-																	}
-																	onMouseLeave={(e) =>
-																		(e.currentTarget.style.background =
-																			"#3e3e42")
-																	}
+																	onMouseEnter={(e) => {
+																		e.currentTarget.style.background =
+																			"#4a4a4e";
+																	}}
+																	onMouseLeave={(e) => {
+																		e.currentTarget.style.background =
+																			"#3e3e42";
+																	}}
 																>
 																	{displayKey || (
 																		<span style={{ opacity: 0.5 }}>Key</span>
@@ -1346,7 +1340,6 @@ export const CollisionEditor = ({
 																		background: "#3e3e42",
 																		border: "1px solid #007acc",
 																	}}
-																	autoFocus
 																/>
 															) : (
 																<div
@@ -1356,14 +1349,14 @@ export const CollisionEditor = ({
 																		background: "#3e3e42",
 																		border: "1px solid transparent",
 																	}}
-																	onMouseEnter={(e) =>
-																		(e.currentTarget.style.background =
-																			"#4a4a4e")
-																	}
-																	onMouseLeave={(e) =>
-																		(e.currentTarget.style.background =
-																			"#3e3e42")
-																	}
+																	onMouseEnter={(e) => {
+																		e.currentTarget.style.background =
+																			"#4a4a4e";
+																	}}
+																	onMouseLeave={(e) => {
+																		e.currentTarget.style.background =
+																			"#3e3e42";
+																	}}
 																>
 																	{value || (
 																		<span style={{ opacity: 0.5 }}>Value</span>
@@ -1372,6 +1365,7 @@ export const CollisionEditor = ({
 															)}
 														</div>
 														<button
+															type="button"
 															onClick={() => handleDeleteProperty(key)}
 															className="text-red-400 hover:text-red-300 text-sm flex-shrink-0"
 															style={{ width: "20px" }}
@@ -1397,7 +1391,6 @@ export const CollisionEditor = ({
 				ref={containerRef}
 				className="flex-1 overflow-hidden relative"
 				onKeyDown={handleLocalKeyDown}
-				tabIndex={0}
 			>
 				<canvas
 					ref={canvasRef}
@@ -1491,12 +1484,12 @@ export const CollisionEditor = ({
 								onClick={handleNewCollider}
 								className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 								style={{ color: "#4ade80" }}
-								onMouseEnter={(e) =>
-									(e.currentTarget.style.background = "#3e3e42")
-								}
-								onMouseLeave={(e) =>
-									(e.currentTarget.style.background = "transparent")
-								}
+								onMouseEnter={(e) => {
+									e.currentTarget.style.background = "#3e3e42";
+								}}
+								onMouseLeave={(e) => {
+									e.currentTarget.style.background = "transparent";
+								}}
 							>
 								<span>➕</span>
 								<span>New Collider</span>
@@ -1509,12 +1502,12 @@ export const CollisionEditor = ({
 										onClick={handleDeletePoint}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#f48771" }}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
 									>
 										<TrashIcon size={16} />
 										<span>Delete Point</span>
@@ -1525,12 +1518,12 @@ export const CollisionEditor = ({
 										onClick={handleInsertPoint}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#4ade80" }}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
 									>
 										<PlusIcon size={16} />
 										<span>Add Point</span>
@@ -1541,12 +1534,12 @@ export const CollisionEditor = ({
 										onClick={handleDeleteCollider}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#f48771" }}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#3e3e42")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "transparent")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
 									>
 										<TrashIcon size={16} />
 										<span>Delete Collider</span>

@@ -19,7 +19,13 @@ export const PropertiesPanel = () => {
 			setTileWidth(activeMap.tileWidth);
 			setTileHeight(activeMap.tileHeight);
 		}
-	}, [activeMap?.id]);
+	}, [
+		activeMap?.id,
+		activeMap.height,
+		activeMap.tileHeight,
+		activeMap.tileWidth,
+		activeMap,
+	]);
 
 	const handleApply = () => {
 		if (!activeMap || !activeMapTab) return;
@@ -75,7 +81,7 @@ export const PropertiesPanel = () => {
 					/>
 				</div>
 			</div>
-			<button onClick={handleApply} className="apply-btn">
+			<button type="button" onClick={handleApply} className="apply-btn">
 				Apply
 			</button>
 		</div>

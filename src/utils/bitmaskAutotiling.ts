@@ -98,7 +98,7 @@ export function calculateBitmaskFromNeighbors(
  * @returns The matching terrain tile (with tileId), or null if none found
  */
 export function findTileByBitmask(
-	tileset: TilesetData,
+	_tileset: TilesetData,
 	terrainLayer: TerrainLayer,
 	targetBitmask: number,
 ): { tileId: number } | null {

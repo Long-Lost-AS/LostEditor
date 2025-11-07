@@ -45,10 +45,17 @@ export function Dropdown<T>({
 		? fuse.search(searchQuery).map((result) => result.item)
 		: items;
 
+	const handleSelect = (item: T) => {
+		onChange(item);
+		setIsOpen(false);
+		setSearchQuery("");
+		setSelectedIndex(0);
+	};
+
 	// Reset selection when filtered items change
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [searchQuery]);
+	}, []);
 
 	// Focus search input when dropdown opens
 	useEffect(() => {
@@ -104,7 +111,7 @@ export function Dropdown<T>({
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [isOpen, selectedIndex, filteredItems]);
+	}, [isOpen, selectedIndex, filteredItems, handleSelect]);
 
 	// Click outside to close
 	useEffect(() => {
@@ -124,13 +131,6 @@ export function Dropdown<T>({
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen]);
 
-	const handleSelect = (item: T) => {
-		onChange(item);
-		setIsOpen(false);
-		setSearchQuery("");
-		setSelectedIndex(0);
-	};
-
 	const handleToggle = () => {
 		if (!disabled) {
 			setIsOpen(!isOpen);
@@ -141,7 +141,7 @@ export function Dropdown<T>({
 		}
 	};
 
-	const defaultRenderItem = (item: T, isSelected: boolean) => (
+	const defaultRenderItem = (item: T, _isSelected: boolean) => (
 		<div className="flex items-center gap-2">
 			<span>{getItemLabel(item)}</span>
 		</div>
@@ -169,6 +169,7 @@ export function Dropdown<T>({
 			>
 				<span>{value ? getItemLabel(value) : placeholder}</span>
 				<svg
+					aria-hidden="true"
 					width="12"
 					height="12"
 					viewBox="0 0 12 12"

@@ -135,7 +135,7 @@ const AppContent = () => {
 							},
 						});
 
-						if (result.filePaths && result.filePaths[0]) {
+						if (result.filePaths?.[0]) {
 							await loadProjectRef.current(result.filePaths[0]);
 						}
 					} finally {
@@ -253,7 +253,7 @@ const AppContent = () => {
 	) as CollisionEditorTab | undefined;
 
 	// Handle right panel resize drag
-	const handleResizeStart = (e: React.MouseEvent) => {
+	const _handleResizeStart = (e: React.MouseEvent) => {
 		setIsResizing(true);
 		setDragStartX(e.clientX);
 		setDragStartWidth(rightPanelWidth);
@@ -459,6 +459,7 @@ const AppContent = () => {
 						<div
 							className={`h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize ${isResizingBottom ? "bg-blue-500" : ""}`}
 							onMouseDown={handleBottomResizeStart}
+							role="separator"
 						/>
 						<div
 							className="bottom-panel"
@@ -471,6 +472,7 @@ const AppContent = () => {
 				{!isAssetBrowserOpen && tabs.length > 0 && (
 					<div className="bottom-panel-collapsed">
 						<button
+							type="button"
 							onClick={() => setIsAssetBrowserOpen(true)}
 							className="panel-expand-btn"
 							title="Open Assets Panel (Shift+Space)"

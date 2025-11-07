@@ -15,21 +15,13 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { entityManager } from "../managers/EntityManager";
-import { createDefaultMapData } from "../schemas";
-import {
-	type EntityInstance,
-	type Layer,
-	type MapData,
-	type MapTab,
-	Tile,
-	type Tool,
-} from "../types";
+import type { EntityInstance, Layer, MapData, MapTab, Tool } from "../types";
 import {
 	getAllAutotileGroups,
 	updateTileAndNeighbors,
@@ -38,7 +30,6 @@ import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
 	getTerrainLayerForTile,
 	placeTerrainTile,
-	removeTerrainTile,
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
 import { packTileId, unpackTileId } from "../utils/tileId";
@@ -130,6 +121,7 @@ const SortableLayerItem = ({
 			/>
 			{layer.type === "tile" && (
 				<button
+					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
 						onAutotilingChange(!(layer.autotilingEnabled !== false));
@@ -159,7 +151,6 @@ const SortableLayerItem = ({
 					onBlur={onNameSubmit}
 					onKeyDown={onKeyDown}
 					onClick={(e) => e.stopPropagation()}
-					autoFocus
 					className="flex-1 px-1 py-0.5 text-xs rounded"
 					style={{
 						background: "#3e3e42",
@@ -193,23 +184,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Fetch map data by ID (following TilesetEditorView pattern)
 	const mapData = getMapById(tab.mapId);
 
-	// Guard against undefined - map should always exist in global state
-	if (!mapData) {
-		return (
-			<div
-				className="flex items-center justify-center h-full"
-				style={{ background: "#1e1e1e", color: "#cccccc" }}
-			>
-				<div className="text-center">
-					<div className="text-xl mb-2">Map not found</div>
-					<div className="text-sm opacity-70">Map ID: {tab.mapId}</div>
-					<div className="text-sm opacity-70">Tab: {tab.title}</div>
-				</div>
-			</div>
-		);
-	}
-
-	// Local state with undo/redo support
+	// Local state with undo/redo support (must be called unconditionally)
 	const [
 		localMapData,
 		setLocalMapData,
@@ -222,7 +197,18 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			endBatch,
 			reset: resetMapHistory,
 		},
-	] = useUndoableReducer<MapData>(mapData);
+	] = useUndoableReducer<MapData>(
+		mapData || {
+			id: "",
+			name: "",
+			width: 0,
+			height: 0,
+			tileWidth: 16,
+			tileHeight: 16,
+			layers: [],
+			entities: [],
+		},
+	);
 
 	// Register undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
@@ -607,7 +593,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			selectedTerrainLayerId,
 			selectedTilesetId,
 			tilesets,
-			setProjectModified,
+			setProjectModified, // Update the map with terrain tile placement
+			setLocalMapData,
 		],
 	);
 
@@ -676,14 +663,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 							if (autotileGroups.length > 0) {
 								const positionsToUpdate: Array<{ x: number; y: number }> = [];
 
-								if (selectedTileDef && selectedTileDef.isCompound) {
+								if (selectedTileDef?.isCompound) {
 									const tileWidth = selectedTileset?.tileWidth || 16;
 									const tileHeight = selectedTileset?.tileHeight || 16;
 									const widthInTiles = Math.ceil(
-										selectedTileDef.width! / tileWidth,
+										selectedTileDef.width/ tileWidth,
 									);
 									const heightInTiles = Math.ceil(
-										selectedTileDef.height! / tileHeight,
+										selectedTileDef.height/ tileHeight,
 									);
 
 									for (let dy = 0; dy < heightInTiles; dy++) {
@@ -726,6 +713,9 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			tilesets,
 			autotilingOverride,
 			setProjectModified,
+			handlePlaceTerrain,
+			selectedTerrainLayerId, // Update localMapData immutably
+			setLocalMapData,
 		],
 	);
 
@@ -808,7 +798,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			}));
 			setProjectModified(true);
 		},
-		[currentLayer, tilesets, autotilingOverride, setProjectModified],
+		[
+			currentLayer,
+			tilesets,
+			autotilingOverride,
+			setProjectModified,
+			setLocalMapData,
+		],
 	);
 
 	const handlePlaceEntity = useCallback(
@@ -834,7 +830,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			});
 			setProjectModified(true);
 		},
-		[selectedTilesetId, selectedEntityDefId, setProjectModified],
+		[
+			selectedTilesetId,
+			selectedEntityDefId,
+			setProjectModified, // Place entity at map level (not per-layer)
+			setLocalMapData,
+		],
 	);
 
 	// Handle moving an entity
@@ -854,7 +855,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			});
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified],
+		[localMapData, setProjectModified, setLocalMapData],
 	);
 
 	// Handle updating entity properties
@@ -872,7 +873,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			});
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified],
+		[localMapData, setProjectModified, setLocalMapData],
 	);
 
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
@@ -1006,14 +1007,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 								// Collect all positions that need autotiling
 								tiles.forEach(({ x, y }) => {
-									if (selectedTileDef && selectedTileDef.isCompound) {
+									if (selectedTileDef?.isCompound) {
 										const tileWidth = selectedTileset?.tileWidth || 16;
 										const tileHeight = selectedTileset?.tileHeight || 16;
 										const widthInTiles = Math.ceil(
-											selectedTileDef.width! / tileWidth,
+											selectedTileDef.width/ tileWidth,
 										);
 										const heightInTiles = Math.ceil(
-											selectedTileDef.height! / tileHeight,
+											selectedTileDef.height/ tileHeight,
 										);
 
 										for (let dy = 0; dy < heightInTiles; dy++) {
@@ -1061,6 +1062,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			tilesets,
 			autotilingOverride,
 			setProjectModified,
+			setLocalMapData,
 		],
 	);
 
@@ -1110,6 +1112,22 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		};
 	}, [contextMenu]);
 
+	// Guard against undefined - map should always exist in global state
+	if (!mapData) {
+		return (
+			<div
+				className="flex items-center justify-center h-full"
+				style={{ background: "#1e1e1e", color: "#cccccc" }}
+			>
+				<div className="text-center">
+					<div className="text-xl mb-2">Map not found</div>
+					<div className="text-sm opacity-70">Map ID: {tab.mapId}</div>
+					<div className="text-sm opacity-70">Tab: {tab.title}</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex h-full w-full">
 			{/* Left Sidebar */}
@@ -1132,7 +1150,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								color: "#cccccc",
 								border: "1px solid #1177bb",
 							}}
-							autoFocus
 						/>
 					) : (
 						<div
@@ -1168,12 +1185,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 							<div className="space-y-2">
 								{/* Map Size */}
 								<div>
-									<label
+									<div
 										className="text-xs block mb-1"
 										style={{ color: "#858585" }}
 									>
 										Map Size
-									</label>
+									</div>
 									<div className="flex items-center gap-2">
 										<DragNumberInput
 											value={localMapData?.width ?? 10}
@@ -1199,12 +1216,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 
 								{/* Tile Size */}
 								<div>
-									<label
+									<div
 										className="text-xs block mb-1"
 										style={{ color: "#858585" }}
 									>
 										Tile Size
-									</label>
+									</div>
 									<div className="flex items-center gap-2">
 										<DragNumberInput
 											value={localMapData?.tileWidth ?? 16}
@@ -1312,6 +1329,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 															/>
 															{activeLayer.type === "tile" && (
 																<button
+																	type="button"
 																	title={
 																		activeLayer.autotilingEnabled !== false
 																			? "Autotiling ON"
@@ -1344,6 +1362,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								</DndContext>
 								<div className="mt-2">
 									<button
+										type="button"
 										onClick={handleAddLayer}
 										className="w-full px-2 py-1.5 text-xs rounded transition-colors"
 										style={{
@@ -1351,12 +1370,12 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 											color: "#ffffff",
 											border: "none",
 										}}
-										onMouseEnter={(e) =>
-											(e.currentTarget.style.background = "#1177bb")
-										}
-										onMouseLeave={(e) =>
-											(e.currentTarget.style.background = "#0e639c")
-										}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#1177bb";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "#0e639c";
+										}}
 									>
 										+ Add Layer
 									</button>

@@ -407,6 +407,7 @@ export const TilesetCreator = ({
 				<div className="p-4 border-b border-gray-700 flex items-center justify-between">
 					<h2 className="text-xl font-bold text-white">New Tileset</h2>
 					<button
+						type="button"
 						onClick={onClose}
 						className="text-gray-400 hover:text-white text-2xl leading-none"
 					>
@@ -420,9 +421,9 @@ export const TilesetCreator = ({
 					<div className="w-64 border-r border-gray-700 p-4 overflow-y-auto">
 						<div className="space-y-4">
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-1">
+								<div className="block text-sm font-medium text-gray-300 mb-1">
 									Tileset Name
-								</label>
+								</div>
 								<input
 									type="text"
 									value={tilesetName}
@@ -433,9 +434,9 @@ export const TilesetCreator = ({
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-1">
+								<div className="block text-sm font-medium text-gray-300 mb-1">
 									Tileset ID
-								</label>
+								</div>
 								<input
 									type="text"
 									value={tilesetId}
@@ -446,10 +447,11 @@ export const TilesetCreator = ({
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-1">
+								<div className="block text-sm font-medium text-gray-300 mb-1">
 									Source Image
-								</label>
+								</div>
 								<button
+									type="button"
 									onClick={handleSelectImage}
 									className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
 								>
@@ -464,28 +466,28 @@ export const TilesetCreator = ({
 
 							<div className="grid grid-cols-2 gap-2">
 								<div>
-									<label className="block text-sm font-medium text-gray-300 mb-1">
+									<div className="block text-sm font-medium text-gray-300 mb-1">
 										Tile Width
-									</label>
+									</div>
 									<input
 										type="number"
 										value={tileWidth}
 										onChange={(e) =>
-											setTileWidth(parseInt(e.target.value) || 16)
+											setTileWidth(parseInt(e.target.value, 10) || 16)
 										}
 										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
 										style={{ fontSize: "13px" }}
 									/>
 								</div>
 								<div>
-									<label className="block text-sm font-medium text-gray-300 mb-1">
+									<div className="block text-sm font-medium text-gray-300 mb-1">
 										Tile Height
-									</label>
+									</div>
 									<input
 										type="number"
 										value={tileHeight}
 										onChange={(e) =>
-											setTileHeight(parseInt(e.target.value) || 16)
+											setTileHeight(parseInt(e.target.value, 10) || 16)
 										}
 										className="w-full px-2 py-1.5 bg-gray-700 text-white border border-gray-600 rounded"
 										style={{ fontSize: "13px" }}
@@ -494,11 +496,12 @@ export const TilesetCreator = ({
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-2">
+								<div className="block text-sm font-medium text-gray-300 mb-2">
 									Mode
-								</label>
+								</div>
 								<div className="flex gap-2">
 									<button
+										type="button"
 										onClick={() => setMode("tiles")}
 										className={`flex-1 px-3 py-2 rounded text-sm ${
 											mode === "tiles"
@@ -509,6 +512,7 @@ export const TilesetCreator = ({
 										Tiles ({tiles.length})
 									</button>
 									<button
+										type="button"
 										onClick={() => setMode("entities")}
 										className={`flex-1 px-3 py-2 rounded text-sm ${
 											mode === "entities"
@@ -522,15 +526,15 @@ export const TilesetCreator = ({
 							</div>
 
 							<div>
-								<label className="block text-sm font-medium text-gray-300 mb-1">
+								<div className="block text-sm font-medium text-gray-300 mb-1">
 									Zoom
-								</label>
+								</div>
 								<input
 									type="range"
 									min="1"
 									max="4"
 									value={scale}
-									onChange={(e) => setScale(parseInt(e.target.value))}
+									onChange={(e) => setScale(parseInt(e.target.value, 10))}
 									className="w-full"
 								/>
 								<div className="text-xs text-gray-400 text-center">
@@ -540,12 +544,14 @@ export const TilesetCreator = ({
 
 							<div className="pt-4 border-t border-gray-700">
 								<button
+									type="button"
 									onClick={handleSave}
 									className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium"
 								>
 									Save Tileset
 								</button>
 								<button
+									type="button"
 									onClick={onClose}
 									className="w-full mt-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
 								>
@@ -634,12 +640,14 @@ export const TilesetCreator = ({
 						{selectedItem && (
 							<div className="mt-4 pt-4 border-t border-gray-700 space-y-2">
 								<button
+									type="button"
 									onClick={() => setIsEditingCollision(true)}
 									className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm"
 								>
 									{selectedItem.collision ? "Edit Collision" : "Add Collision"}
 								</button>
 								<button
+									type="button"
 									onClick={handleDelete}
 									className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
 								>
@@ -689,6 +697,7 @@ export const TilesetCreator = ({
 							}}
 						/>
 						<button
+							type="button"
 							onClick={() => setIsEditingCollision(false)}
 							className="mt-4 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
 						>

@@ -13,7 +13,7 @@ export class FileOperationError extends Error {
 		this.name = "FileOperationError";
 
 		// Maintain proper stack trace
-		if (cause && cause.stack) {
+		if (cause?.stack) {
 			this.stack = `${this.stack}\nCaused by: ${cause.stack}`;
 		}
 	}

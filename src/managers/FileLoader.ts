@@ -97,7 +97,7 @@ export abstract class FileLoader<TData, TJson> {
 	 * @param normalizedPath Normalized path for caching
 	 */
 	private async _loadInternal(
-		relativePath: string,
+		_relativePath: string,
 		fullPath: string,
 		normalizedPath: string,
 	): Promise<TData> {

@@ -83,6 +83,7 @@ const SortableLayerItem = ({
 			/>
 			{layer.type === "tile" && (
 				<button
+					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
 						onAutotilingChange(layer.id, !(layer.autotilingEnabled !== false));
@@ -112,7 +113,6 @@ const SortableLayerItem = ({
 					onBlur={() => onNameSubmit(layer.id)}
 					onKeyDown={(e) => onKeyDown(e, layer.id)}
 					onClick={(e) => e.stopPropagation()}
-					autoFocus
 					className="layer-name-input"
 				/>
 			) : (
@@ -260,6 +260,7 @@ export const LayersPanel = () => {
 							/>
 							{activeLayer.type === "tile" && (
 								<button
+									type="button"
 									title={
 										activeLayer.autotilingEnabled !== false
 											? "Autotiling ON"
@@ -283,8 +284,11 @@ export const LayersPanel = () => {
 				</DragOverlay>
 			</DndContext>
 			<div className="layer-controls">
-				<button onClick={() => addLayer()}>+ Add Layer</button>
+				<button type="button" onClick={() => addLayer()}>
+					+ Add Layer
+				</button>
 				<button
+					type="button"
 					onClick={() => currentLayer && removeLayer(currentLayer.id)}
 					disabled={!currentLayer}
 				>

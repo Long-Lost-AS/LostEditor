@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
-import { fileManager } from "../managers/FileManager";
 import { type EntityDefinition, hasImageData } from "../types";
 
 interface EntitySelectMenuProps {
@@ -69,7 +68,7 @@ export const EntitySelectMenu = ({
 	// Reset selected index when search query changes
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [searchQuery]);
+	}, []);
 
 	// Scroll selected item into view
 	useEffect(() => {
@@ -287,7 +286,13 @@ export const EntitySelectMenu = ({
 
 	const getEntityIcon = () => {
 		return (
-			<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+			<svg
+				aria-hidden="true"
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+			>
 				<path
 					d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z"
 					fill="#4ec9b0"
@@ -327,7 +332,13 @@ export const EntitySelectMenu = ({
 					className="flex items-center gap-3 px-4 py-3"
 					style={{ borderBottom: "1px solid #3e3e42" }}
 				>
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+					<svg
+						aria-hidden="true"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+					>
 						<path
 							d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z"
 							fill="#858585"
@@ -453,27 +464,27 @@ export const EntitySelectMenu = ({
 										style={{ color: "#858585" }}
 									>
 										{filteredEntities[selectedIndex].sprites &&
-											filteredEntities[selectedIndex].sprites!.length > 0 && (
+											filteredEntities[selectedIndex].sprites?.length > 0 && (
 												<div>
 													Sprites:{" "}
-													{filteredEntities[selectedIndex].sprites!.length}
+													{filteredEntities[selectedIndex].sprites?.length}
 												</div>
 											)}
 										{filteredEntities[selectedIndex].colliders &&
-											filteredEntities[selectedIndex].colliders!.length > 0 && (
+											filteredEntities[selectedIndex].colliders?.length > 0 && (
 												<div className="text-green-400">
 													Colliders:{" "}
-													{filteredEntities[selectedIndex].colliders!.length}
+													{filteredEntities[selectedIndex].colliders?.length}
 												</div>
 											)}
 										{filteredEntities[selectedIndex].properties &&
-											Object.keys(filteredEntities[selectedIndex].properties!)
+											Object.keys(filteredEntities[selectedIndex].properties)
 												.length > 0 && (
 												<div>
 													Properties:{" "}
 													{
 														Object.keys(
-															filteredEntities[selectedIndex].properties!,
+															filteredEntities[selectedIndex].properties,
 														).length
 													}
 												</div>

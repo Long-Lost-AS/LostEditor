@@ -24,7 +24,7 @@ export const EmptyState = () => {
 			},
 		);
 
-		if (result.filePaths && result.filePaths[0]) {
+		if (result.filePaths?.[0]) {
 			await loadProject(result.filePaths[0]);
 		}
 	};
@@ -41,7 +41,7 @@ export const EmptyState = () => {
 			},
 		);
 
-		if (result.filePaths && result.filePaths[0]) {
+		if (result.filePaths?.[0]) {
 			await openMapFromFile(result.filePaths[0]);
 		}
 	};
@@ -58,7 +58,7 @@ export const EmptyState = () => {
 			},
 		);
 
-		if (result.filePaths && result.filePaths[0]) {
+		if (result.filePaths?.[0]) {
 			await openTilesetFromFile(result.filePaths[0]);
 		}
 	};
@@ -72,10 +72,18 @@ export const EmptyState = () => {
 					<div className="empty-state-section">
 						<p>Get started by creating or loading a project</p>
 						<div className="empty-state-buttons">
-							<button onClick={newProject} className="empty-state-btn primary">
+							<button
+								type="button"
+								onClick={newProject}
+								className="empty-state-btn primary"
+							>
 								New Project
 							</button>
-							<button onClick={handleLoadProject} className="empty-state-btn">
+							<button
+								type="button"
+								onClick={handleLoadProject}
+								className="empty-state-btn"
+							>
 								Load Project
 							</button>
 						</div>
@@ -84,16 +92,32 @@ export const EmptyState = () => {
 					<div className="empty-state-section">
 						<p>Create or open resources to get started</p>
 						<div className="empty-state-buttons">
-							<button onClick={() => newMap()} className="empty-state-btn">
+							<button
+								type="button"
+								onClick={() => newMap()}
+								className="empty-state-btn"
+							>
 								New Map
 							</button>
-							<button onClick={handleLoadMap} className="empty-state-btn">
+							<button
+								type="button"
+								onClick={handleLoadMap}
+								className="empty-state-btn"
+							>
 								Load Map
 							</button>
-							<button onClick={() => newTileset()} className="empty-state-btn">
+							<button
+								type="button"
+								onClick={() => newTileset()}
+								className="empty-state-btn"
+							>
 								New Tileset
 							</button>
-							<button onClick={handleLoadTileset} className="empty-state-btn">
+							<button
+								type="button"
+								onClick={handleLoadTileset}
+								className="empty-state-btn"
+							>
 								Load Tileset
 							</button>
 						</div>

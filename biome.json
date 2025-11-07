@@ -16,10 +16,24 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"a11y": {
+				"useButtonType": "warn",
+				"noSvgWithoutTitle": "warn",
+				"noStaticElementInteractions": "warn",
+				"useKeyWithClickEvents": "warn",
+				"useSemanticElements": "warn",
+				"noLabelWithoutControl": "warn",
+				"useFocusableInteractive": "warn",
+				"useAriaPropsForRole": "warn"
+			},
 			"suspicious": {
 				"noExplicitAny": "warn",
 				"noDoubleEquals": "error",
-				"noDebugger": "warn"
+				"noDebugger": "warn",
+				"noAssignInExpressions": "warn",
+				"noUnknownAtRules": "warn",
+				"noDuplicateProperties": "warn",
+				"noArrayIndexKey": "warn"
 			},
 			"style": {
 				"noNonNullAssertion": "warn",
@@ -27,7 +41,10 @@
 			},
 			"correctness": {
 				"noUnusedVariables": "warn",
-				"useExhaustiveDependencies": "warn"
+				"useExhaustiveDependencies": "warn",
+				"noUnusedFunctionParameters": "warn",
+				"noInvalidUseBeforeDeclaration": "warn",
+				"useHookAtTopLevel": "warn"
 			}
 		}
 	},

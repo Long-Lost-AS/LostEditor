@@ -41,6 +41,7 @@ export const TabBar = ({
 						{tab.isDirty && <span className="tab-dirty">●</span>}
 					</span>
 					<button
+						type="button"
 						className="tab-close"
 						onClick={(e) => {
 							e.stopPropagation();

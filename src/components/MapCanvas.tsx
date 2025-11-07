@@ -136,7 +136,7 @@ export const MapCanvas = ({
 		const visited = new Set<number>();
 
 		while (queue.length > 0) {
-			const { x, y } = queue.shift()!;
+			const { x, y } = queue.shift();
 			const index = y * mapData.width + x;
 
 			// Skip if out of bounds
@@ -229,13 +229,13 @@ export const MapCanvas = ({
 					// Render tile layer - iterate dense array
 					// Collect compound tile positions to draw indicators after all tiles
 					const compoundTilePositions: Array<{ x: number; y: number }> = [];
-					let tileCount = 0;
+					let _tileCount = 0;
 
 					for (let index = 0; index < layer.tiles.length; index++) {
 						const tileId = layer.tiles[index];
 						if (tileId === 0) continue; // Skip empty tiles
 
-						tileCount++;
+						_tileCount++;
 						// Calculate x, y position from array index
 						const x = index % mapData.width;
 						const y = Math.floor(index / mapData.width);
@@ -736,44 +736,26 @@ export const MapCanvas = ({
 		};
 	}, [
 		mapData,
-		tilesetImage,
 		tilesets,
 		zoom,
 		panX,
 		panY,
 		gridVisible,
 		getTilesetById,
-		mouseScreenPos,
-		currentTool,
 		selectedTilesetId,
-		selectedTileId,
 		isDrawingRect,
 		rectStartTile,
+		isDraggingEntity, // Render entity with hierarchy
+		renderEntity,
+		selectedEntityDefId,
+		selectedEntityId,
+		tempEntityPosition,
 	]);
 
 	// Trigger render when dependencies change
 	useEffect(() => {
 		renderMap.current();
-	}, [
-		mapData,
-		tilesetImage,
-		tilesets,
-		zoom,
-		panX,
-		panY,
-		gridVisible,
-		getTilesetById,
-		mouseScreenPos,
-		currentTool,
-		selectedTilesetId,
-		selectedTileId,
-		selectedEntityDefId,
-		isDrawingRect,
-		rectStartTile,
-		selectedEntityId,
-		isDraggingEntity,
-		tempEntityPosition,
-	]);
+	}, []);
 
 	// Render an entity with its hierarchy
 	const renderEntity = (
@@ -897,11 +879,7 @@ export const MapCanvas = ({
 							entity.entityDefId,
 						);
 
-						if (
-							entityDef &&
-							entityDef.sprites &&
-							entityDef.sprites.length > 0
-						) {
+						if (entityDef?.sprites && entityDef.sprites.length > 0) {
 							const firstSprite = entityDef.sprites[0];
 							if (firstSprite.sprite) {
 								const sprite = firstSprite.sprite;
@@ -1001,7 +979,7 @@ export const MapCanvas = ({
 					selectedEntity.entityDefId,
 				);
 
-				if (entityDef && entityDef.sprites && entityDef.sprites.length > 0) {
+				if (entityDef?.sprites && entityDef.sprites.length > 0) {
 					const firstSprite = entityDef.sprites[0];
 					if (firstSprite.sprite) {
 						const sprite = firstSprite.sprite;
@@ -1190,7 +1168,11 @@ export const MapCanvas = ({
 			resizeObserver.disconnect();
 			canvas.removeEventListener("wheel", handleWheel);
 		};
-	}, []);
+	}, [
+		// Pan
+		setPan,
+		setZoom,
+	]);
 
 	// Handle keyboard arrow keys to move selected entity
 	useEffect(() => {
