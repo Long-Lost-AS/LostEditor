@@ -59,9 +59,6 @@ interface EditorContextType {
 	updateMap: (id: string, updates: Partial<MapData>) => void;
 	getActiveMap: () => MapData | undefined;
 
-	mapData: MapData; // [DEPRECATED] Legacy global mapData - use maps array instead
-	setMapData: (data: MapData | ((prev: MapData) => MapData)) => void;
-
 	// Layer state
 	currentLayer: Layer | null;
 	setCurrentLayer: (layer: Layer | null) => void;
@@ -107,13 +104,6 @@ interface EditorContextType {
 	openTilesetFromFile: (filePath: string) => Promise<void>;
 	openEntityFromFile: (filePath: string) => Promise<void>;
 
-	// Legacy tileset state (for backward compatibility)
-	tilesetImage: HTMLImageElement | null;
-	setTilesetImage: (img: HTMLImageElement | null) => void;
-	tilesetCols: number;
-	setTilesetCols: (cols: number) => void;
-	tilesetRows: number;
-	setTilesetRows: (rows: number) => void;
 
 	// View state
 	zoom: number;
@@ -153,10 +143,6 @@ interface EditorContextType {
 	// Entity Actions
 	placeEntity: (x: number, y: number) => void;
 	removeEntity: (entityId: string) => void;
-
-	// Legacy tileset loading
-	loadTilesetFromFile: (file: File) => Promise<void>;
-	loadTilesetFromDataURL: (dataURL: string) => Promise<void>;
 
 	// Project Actions
 	saveProject: () => Promise<void>;
@@ -265,20 +251,22 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	// Map state (global source of truth)
 	const [maps, setMaps] = useState<MapData[]>([]);
 
-	// Legacy map state (for backward compatibility)
-	const [mapData, setMapData] = useState<MapData>({
-		width: 32,
-		height: 32,
-		tileWidth: 16,
-		tileHeight: 16,
-		layers: [],
-	});
-
 	const [currentLayer, setCurrentLayer] = useState<Layer | null>(null);
 	const [currentTool, setCurrentTool] = useState<Tool>("pencil");
 
 	// Selection state as discriminated union
 	const [selection, setSelection] = useState<SelectionState>({ type: "none" });
+
+	// Helper getters for backward compatibility (derived from selection)
+	const selectedTilesetId =
+		selection.type !== "none" ? selection.tilesetId : null;
+	const selectedTileId = selection.type === "tile" ? selection.tileId : null;
+	const selectedEntityDefId =
+		selection.type === "entity" ? selection.entityDefId : null;
+	const selectedTerrainLayerId =
+		selection.type === "terrain" ? selection.terrainLayerId : null;
+	const selectedTileX = selection.type === "tile" ? selection.tileX : 0;
+	const selectedTileY = selection.type === "tile" ? selection.tileY : 0;
 
 	// Autotiling state (always false, no shift override)
 	const autotilingOverride = false;
@@ -291,13 +279,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 	// Project directory for file browser
 	const [projectDirectory, setProjectDirectory] = useState<string | null>(null);
-
-	// Legacy tileset state (backward compatibility)
-	const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(
-		null,
-	);
-	const [tilesetCols, setTilesetCols] = useState(0);
-	const [tilesetRows, setTilesetRows] = useState(0);
 
 	const [zoom, setZoom] = useState(2);
 	const [panX, setPanX] = useState(0);
@@ -345,7 +326,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				});
 			});
 		},
-		[activeTabId],
+		[activeTabId, setPanX, setPanY, setTabs],
 	);
 
 	const setZoomAndUpdateTab = useCallback(
@@ -373,84 +354,162 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[activeTabId],
 	);
 
+	// Map helper functions - must be defined before functions that use them
+	const getActiveMapTab = useCallback((): MapTab | null => {
+		if (!activeTabId) return null;
+		const tab = tabs.find((t) => t.id === activeTabId);
+		if (tab && tab.type === "map") {
+			return tab as MapTab;
+		}
+		return null;
+	}, [activeTabId, tabs]);
+
+	const getMapById = useCallback(
+		(id: string) => {
+			return maps.find((m) => m.id === id);
+		},
+		[maps],
+	);
+
+	const updateMap = useCallback((id: string, updates: Partial<MapData>) => {
+		setMaps((currentMaps) =>
+			currentMaps.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+		);
+	}, []);
+
+	const getActiveMap = useCallback(() => {
+		const activeTab = tabs.find((t) => t.id === activeTabId);
+		if (activeTab?.type === "map") {
+			return maps.find((m) => m.id === (activeTab as MapTab).mapId);
+		}
+		return undefined;
+	}, [activeTabId, tabs, maps]);
+
 	const addLayer = useCallback(
 		(layerType: LayerType = "tile") => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
 			const newLayer: Layer = {
 				id: `layer-${Date.now()}`,
-				name: `Layer ${mapData.layers.length + 1}`,
+				name: `Layer ${currentMap.layers.length + 1}`,
 				visible: true,
 				type: layerType,
 				tiles: new Map(),
 				entities: [],
 			};
-			setMapData((prev) => ({
-				...prev,
-				layers: [...prev.layers, newLayer],
-			}));
+
+			updateMap(mapTab.mapId, {
+				layers: [...currentMap.layers, newLayer],
+			});
+
 			setCurrentLayer(newLayer);
 			setProjectModified(true);
 		},
-		[mapData.layers.length],
+		[getActiveMapTab, getMapById, updateMap],
 	);
 
 	const removeLayer = useCallback(
 		(layerId: string) => {
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.filter((l) => l.id !== layerId),
-			}));
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			const newLayers = currentMap.layers.filter((l) => l.id !== layerId);
+
+			updateMap(mapTab.mapId, {
+				layers: newLayers,
+			});
+
 			if (currentLayer?.id === layerId) {
-				setCurrentLayer(mapData.layers[0] || null);
+				setCurrentLayer(newLayers[0] || null);
 			}
 			setProjectModified(true);
 		},
-		[currentLayer, mapData.layers],
+		[currentLayer, getActiveMapTab, getMapById, updateMap],
 	);
 
 	const updateLayerVisibility = useCallback(
 		(layerId: string, visible: boolean) => {
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((l) =>
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				layers: currentMap.layers.map((l) =>
 					l.id === layerId ? { ...l, visible } : l,
 				),
-			}));
+			});
+			setProjectModified(true);
 		},
-		[],
+		[getActiveMapTab, getMapById, updateMap],
 	);
 
-	const updateLayerName = useCallback((layerId: string, name: string) => {
-		setMapData((prev) => ({
-			...prev,
-			layers: prev.layers.map((l) => (l.id === layerId ? { ...l, name } : l)),
-		}));
-		setProjectModified(true);
-	}, []);
+	const updateLayerName = useCallback(
+		(layerId: string, name: string) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				layers: currentMap.layers.map((l) =>
+					l.id === layerId ? { ...l, name } : l,
+				),
+			});
+			setProjectModified(true);
+		},
+		[getActiveMapTab, getMapById, updateMap],
+	);
 
 	const updateLayerAutotiling = useCallback(
 		(layerId: string, enabled: boolean) => {
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((l) =>
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				layers: currentMap.layers.map((l) =>
 					l.id === layerId ? { ...l, autotilingEnabled: enabled } : l,
 				),
-			}));
+			});
 			setProjectModified(true);
 		},
-		[],
+		[getActiveMapTab, getMapById, updateMap],
 	);
 
-	const reorderLayers = useCallback((newLayersOrder: Layer[]) => {
-		setMapData((prev) => ({
-			...prev,
-			layers: newLayersOrder,
-		}));
-		setProjectModified(true);
-	}, []);
+	const reorderLayers = useCallback(
+		(newLayersOrder: Layer[]) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			updateMap(mapTab.mapId, {
+				layers: newLayersOrder,
+			});
+			setProjectModified(true);
+		},
+		[getActiveMapTab, updateMap],
+	);
 
 	const placeTile = useCallback(
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "tile") return;
+
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
 
 			// Check if selected tile is a compound tile (using tilesets state directly)
 			const selectedTileset = selectedTilesetId
@@ -478,14 +537,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				geometry.flipY,
 			);
 
-			// Update state immutably
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const newTiles = [...layer.tiles]; // Copy the dense array
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
+			// Update layers immutably
+			const mapWidth = currentMap.width;
+			const mapHeight = currentMap.height;
+
+			const updatedLayers = currentMap.layers.map((layer) => {
+				if (layer.id === currentLayer.id) {
+					const newTiles = [...layer.tiles]; // Copy the dense array
 
 						// Handle compound tiles
 						if (selectedTileDef && selectedTileDef.isCompound) {
@@ -586,15 +644,21 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							}
 						}
 
-						setCurrentLayer(updatedLayer);
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
+					setCurrentLayer(updatedLayer);
+					return updatedLayer;
+				}
+				return layer;
+			});
+
+			updateMap(mapTab.mapId, {
+				layers: updatedLayers,
+			});
 			setProjectModified(true);
 		},
 		[
+			getActiveMapTab,
+			getMapById,
+			updateMap,
 			currentLayer,
 			selectedTileX,
 			selectedTileY,
@@ -609,14 +673,19 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "tile") return;
 
-			// Update state immutably
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const newTiles = [...layer.tiles]; // Copy the dense array
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			// Update layers immutably
+			const mapWidth = currentMap.width;
+			const mapHeight = currentMap.height;
+
+			const updatedLayers = currentMap.layers.map((layer) => {
+				if (layer.id === currentLayer.id) {
+					const newTiles = [...layer.tiles]; // Copy the dense array
 
 						// Erase the tile by setting it to 0
 						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
@@ -651,15 +720,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							}
 						}
 
-						setCurrentLayer(updatedLayer);
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
+					setCurrentLayer(updatedLayer);
+					return updatedLayer;
+				}
+				return layer;
+			});
+
+			updateMap(mapTab.mapId, {
+				layers: updatedLayers,
+			});
 			setProjectModified(true);
 		},
-		[currentLayer, tilesets, autotilingOverride],
+		[getActiveMapTab, getMapById, updateMap, currentLayer, tilesets, autotilingOverride],
 	);
 
 	// Entity management functions
@@ -667,6 +739,12 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "entity") return;
 			if (!selectedTilesetId || !selectedEntityDefId) return;
+
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
 
 			const entityInstance = entityManager.createInstance(
 				selectedTilesetId,
@@ -677,46 +755,54 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			if (!entityInstance) return;
 
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const updatedLayer = {
-							...layer,
-							entities: [...layer.entities, entityInstance],
-						};
-						setCurrentLayer(updatedLayer);
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
+			const updatedLayers = currentMap.layers.map((layer) => {
+				if (layer.id === currentLayer.id) {
+					const updatedLayer = {
+						...layer,
+						entities: [...layer.entities, entityInstance],
+					};
+					setCurrentLayer(updatedLayer);
+					return updatedLayer;
+				}
+				return layer;
+			});
+
+			updateMap(mapTab.mapId, {
+				layers: updatedLayers,
+			});
 			setProjectModified(true);
 		},
-		[currentLayer, selectedTilesetId, selectedEntityDefId],
+		[getActiveMapTab, getMapById, updateMap, currentLayer, selectedTilesetId, selectedEntityDefId],
 	);
 
 	const removeEntity = useCallback(
 		(entityId: string) => {
 			if (!currentLayer || currentLayer.type !== "entity") return;
 
-			setMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const updatedLayer = {
-							...layer,
-							entities: layer.entities.filter((e) => e.id !== entityId),
-						};
-						setCurrentLayer(updatedLayer);
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			const updatedLayers = currentMap.layers.map((layer) => {
+				if (layer.id === currentLayer.id) {
+					const updatedLayer = {
+						...layer,
+						entities: layer.entities.filter((e) => e.id !== entityId),
+					};
+					setCurrentLayer(updatedLayer);
+					return updatedLayer;
+				}
+				return layer;
+			});
+
+			updateMap(mapTab.mapId, {
+				layers: updatedLayers,
+			});
 			setProjectModified(true);
 		},
-		[currentLayer],
+		[getActiveMapTab, getMapById, updateMap, currentLayer],
 	);
 
 	// Tab management functions
@@ -772,15 +858,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		},
 		[],
 	);
-
-	const getActiveMapTab = useCallback((): MapTab | null => {
-		if (!activeTabId) return null;
-		const tab = tabs.find((t) => t.id === activeTabId);
-		if (tab && tab.type === "map") {
-			return tab as MapTab;
-		}
-		return null;
-	}, [activeTabId, tabs]);
 
 	const getActiveTilesetTab = useCallback((): TilesetTab | null => {
 		if (!activeTabId) return null;
@@ -860,68 +937,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			return tilesets.find((t) => t.id === id);
 		},
 		[tilesets],
-	);
-
-	// Map helper functions
-	const getMapById = useCallback(
-		(id: string) => {
-			return maps.find((m) => m.id === id);
-		},
-		[maps],
-	);
-
-	const updateMap = useCallback((id: string, updates: Partial<MapData>) => {
-		setMaps((currentMaps) =>
-			currentMaps.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-		);
-	}, []);
-
-	const getActiveMap = useCallback(() => {
-		const activeTab = tabs.find((t) => t.id === activeTabId);
-		if (activeTab?.type === "map") {
-			return getMapById((activeTab as MapTab).mapId);
-		}
-		return undefined;
-	}, [activeTabId, tabs, getMapById]);
-
-	const loadTilesetFromFile = useCallback(
-		async (file: File) => {
-			return new Promise<void>((resolve, reject) => {
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					const img = new Image();
-					img.onload = () => {
-						setTilesetImage(img);
-						setTilesetCols(Math.floor(img.width / mapData.tileWidth));
-						setTilesetRows(Math.floor(img.height / mapData.tileHeight));
-						setTilesetPath(file.name);
-						resolve();
-					};
-					img.onerror = () => reject(new Error("Failed to load image"));
-					img.src = e.target?.result as string;
-				};
-				reader.onerror = () => reject(new Error("Failed to read file"));
-				reader.readAsDataURL(file);
-			});
-		},
-		[mapData.tileWidth, mapData.tileHeight],
-	);
-
-	const loadTilesetFromDataURL = useCallback(
-		async (dataURL: string) => {
-			return new Promise<void>((resolve, reject) => {
-				const img = new Image();
-				img.onload = () => {
-					setTilesetImage(img);
-					setTilesetCols(Math.floor(img.width / mapData.tileWidth));
-					setTilesetRows(Math.floor(img.height / mapData.tileHeight));
-					resolve();
-				};
-				img.onerror = () => reject(new Error("Failed to load tileset"));
-				img.src = dataURL;
-			});
-		},
-		[mapData.tileWidth, mapData.tileHeight],
 	);
 
 	const saveProjectAs = useCallback(
@@ -1118,6 +1133,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		try {
 			const entries = await readDir(dir);
 			for (const entry of entries) {
+				// Skip hidden files and folders (starting with .)
+				if (entry.name.startsWith(".")) {
+					continue;
+				}
+
 				const fullPath = fileManager.join(dir, entry.name);
 				if (entry.isDirectory) {
 					// Recursively search subdirectory
@@ -1253,9 +1273,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				const loadedMaps: MapData[] = [];
 				for (const mapPath of mapFiles) {
 					try {
-						const mapData = await mapManager.loadMap(mapPath);
-						// Create unique map ID based on file path
-						const mapId = `map-${mapPath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+						// Convert relative path to absolute path
+						const absolutePath = fileManager.join(projectDir, mapPath);
+						const mapData = await mapManager.loadMap(absolutePath);
+						// Create unique map ID based on absolute file path
+						const mapId = `map-${absolutePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
 						const mapWithId = { ...mapData, id: mapId };
 						loadedMaps.push(mapWithId);
 					} catch (error) {
@@ -2053,28 +2075,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const loadSettings = async () => {
 			await settingsManager.load();
 			const settings = settingsManager.getSettings();
-			setMapData((prev) => ({
-				...prev,
-				width: settings.defaultMapWidth,
-				height: settings.defaultMapHeight,
-				tileWidth: settings.defaultTileWidth,
-				tileHeight: settings.defaultTileHeight,
-			}));
 			setGridVisible(settings.gridVisible);
 		};
 		loadSettings();
 	}, [settingsManager]);
-
-	// Helper getters for backward compatibility
-	const selectedTilesetId =
-		selection.type !== "none" ? selection.tilesetId : null;
-	const selectedTileId = selection.type === "tile" ? selection.tileId : null;
-	const selectedEntityDefId =
-		selection.type === "entity" ? selection.entityDefId : null;
-	const selectedTerrainLayerId =
-		selection.type === "terrain" ? selection.terrainLayerId : null;
-	const selectedTileX = selection.type === "tile" ? selection.tileX : 0;
-	const selectedTileY = selection.type === "tile" ? selection.tileY : 0;
 
 	// Helper setters that update the discriminated union
 	const setSelectedTile = useCallback(
@@ -2138,8 +2142,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		getMapById,
 		updateMap,
 		getActiveMap,
-		mapData,
-		setMapData, // [DEPRECATED] Use updateMap() instead
 		currentLayer,
 		setCurrentLayer,
 		currentTool,
@@ -2167,12 +2169,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		updateTileset,
 		unloadTileset,
 		getTilesetById,
-		tilesetImage,
-		setTilesetImage,
-		tilesetCols,
-		setTilesetCols,
-		tilesetRows,
-		setTilesetRows,
 		zoom,
 		setZoom: setZoomAndUpdateTab,
 		panX,
@@ -2200,8 +2196,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		autotilingOverride,
 		placeEntity,
 		removeEntity,
-		loadTilesetFromFile,
-		loadTilesetFromDataURL,
 		saveProject,
 		saveProjectAs,
 		loadProject,

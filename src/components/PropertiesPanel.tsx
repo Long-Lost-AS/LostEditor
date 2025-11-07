@@ -1,16 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 
 export const PropertiesPanel = () => {
-	const { mapData, setMapData } = useEditor();
-	const [width, setWidth] = useState(mapData.width);
-	const [height, setHeight] = useState(mapData.height);
-	const [tileWidth, setTileWidth] = useState(mapData.tileWidth);
-	const [tileHeight, setTileHeight] = useState(mapData.tileHeight);
+	const { getActiveMap, updateMap, getActiveMapTab } = useEditor();
+	const activeMap = getActiveMap();
+	const activeMapTab = getActiveMapTab();
+
+	const [width, setWidth] = useState(activeMap?.width ?? 32);
+	const [height, setHeight] = useState(activeMap?.height ?? 32);
+	const [tileWidth, setTileWidth] = useState(activeMap?.tileWidth ?? 16);
+	const [tileHeight, setTileHeight] = useState(activeMap?.tileHeight ?? 16);
+
+	// Update local state when active map changes
+	useEffect(() => {
+		if (activeMap) {
+			setWidth(activeMap.width);
+			setHeight(activeMap.height);
+			setTileWidth(activeMap.tileWidth);
+			setTileHeight(activeMap.tileHeight);
+		}
+	}, [activeMap?.id]);
 
 	const handleApply = () => {
-		setMapData({
-			...mapData,
+		if (!activeMap || !activeMapTab) return;
+
+		updateMap(activeMapTab.mapId, {
 			width,
 			height,
 			tileWidth,

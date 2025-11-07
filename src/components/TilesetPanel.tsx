@@ -10,8 +10,7 @@ export const TilesetPanel = () => {
 		tilesets,
 		currentTileset,
 		setCurrentTileset,
-		tilesetImage,
-		mapData,
+		getActiveMap,
 		selectedTileX,
 		selectedTileY,
 		setSelectedTile,
@@ -21,6 +20,8 @@ export const TilesetPanel = () => {
 		selectedTerrainLayerId,
 		setSelectedTerrainLayerId,
 	} = useEditor();
+
+	const activeMap = getActiveMap();
 
 	const [scale, setScale] = useState(1.0);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -36,8 +37,8 @@ export const TilesetPanel = () => {
 		scaleRef.current = scale;
 	}, [pan, scale]);
 
-	// Use current tileset or fallback to legacy tileset image
-	const displayImage = currentTileset?.imageData || tilesetImage;
+	// Use current tileset's image
+	const displayImage = currentTileset?.imageData;
 
 	// Draw function (called on mount and when dependencies change)
 	useEffect(() => {
@@ -68,8 +69,8 @@ export const TilesetPanel = () => {
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
 			ctx.lineWidth = 1 / scale;
 
-			const tileWidth = currentTileset?.tileWidth || mapData.tileWidth;
-			const tileHeight = currentTileset?.tileHeight || mapData.tileHeight;
+			const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
+			const tileHeight = currentTileset?.tileHeight || activeMap?.tileHeight || 16;
 
 			// Draw vertical lines
 			for (let x = 0; x <= displayImage.width; x += tileWidth) {
@@ -288,7 +289,7 @@ export const TilesetPanel = () => {
 	}, [
 		displayImage,
 		currentTileset,
-		mapData,
+		activeMap,
 		selectedTileX,
 		selectedTileY,
 		pan,
@@ -323,8 +324,8 @@ export const TilesetPanel = () => {
 			return;
 		}
 
-		const tileWidth = currentTileset?.tileWidth || mapData.tileWidth;
-		const tileHeight = currentTileset?.tileHeight || mapData.tileHeight;
+		const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
+		const tileHeight = currentTileset?.tileHeight || activeMap?.tileHeight || 16;
 
 		// If using new tileset system
 		if (currentTileset) {
