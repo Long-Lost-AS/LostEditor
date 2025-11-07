@@ -547,9 +547,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Calculate cells from width/height
 						const tileWidth = selectedTileset?.tileWidth || 16;
 						const tileHeight = selectedTileset?.tileHeight || 16;
-						const widthInTiles = Math.ceil(selectedTileDef.width/ tileWidth);
+						const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
 						const heightInTiles = Math.ceil(
-							selectedTileDef.height/ tileHeight,
+							selectedTileDef.height / tileHeight,
 						);
 
 						// Place all cells of the compound tile
@@ -605,10 +605,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								const tileWidth = selectedTileset?.tileWidth || 16;
 								const tileHeight = selectedTileset?.tileHeight || 16;
 								const widthInTiles = Math.ceil(
-									selectedTileDef.width/ tileWidth,
+									selectedTileDef.width / tileWidth,
 								);
 								const heightInTiles = Math.ceil(
-									selectedTileDef.height/ tileHeight,
+									selectedTileDef.height / tileHeight,
 								);
 
 								for (let dy = 0; dy < heightInTiles; dy++) {
@@ -1123,37 +1123,40 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	 * @param basePath - Base path for calculating relative paths (defaults to dir)
 	 * @returns Array of relative file paths matching the extension
 	 */
-	const discoverFiles = useCallback(async (
-		dir: string,
-		extension: string,
-		basePath: string = dir,
-	): Promise<string[]> => {
-		const files: string[] = [];
-		try {
-			const entries = await readDir(dir);
-			for (const entry of entries) {
-				// Skip hidden files and folders (starting with .)
-				if (entry.name.startsWith(".")) {
-					continue;
-				}
+	const discoverFiles = useCallback(
+		async (
+			dir: string,
+			extension: string,
+			basePath: string = dir,
+		): Promise<string[]> => {
+			const files: string[] = [];
+			try {
+				const entries = await readDir(dir);
+				for (const entry of entries) {
+					// Skip hidden files and folders (starting with .)
+					if (entry.name.startsWith(".")) {
+						continue;
+					}
 
-				const fullPath = fileManager.join(dir, entry.name);
-				if (entry.isDirectory) {
-					// Recursively search subdirectory
-					const subFiles = await discoverFiles(fullPath, extension, basePath);
-					files.push(...subFiles);
-				} else if (entry.name.endsWith(extension)) {
-					// Calculate relative path from base directory
-					const relativePath = fileManager.makeRelativeTo(basePath, fullPath);
-					files.push(relativePath);
+					const fullPath = fileManager.join(dir, entry.name);
+					if (entry.isDirectory) {
+						// Recursively search subdirectory
+						const subFiles = await discoverFiles(fullPath, extension, basePath);
+						files.push(...subFiles);
+					} else if (entry.name.endsWith(extension)) {
+						// Calculate relative path from base directory
+						const relativePath = fileManager.makeRelativeTo(basePath, fullPath);
+						files.push(relativePath);
+					}
 				}
+			} catch (error) {
+				// Silently skip directories that can't be read (permissions, etc.)
+				console.warn(`Failed to read directory ${dir}:`, error);
 			}
-		} catch (error) {
-			// Silently skip directories that can't be read (permissions, etc.)
-			console.warn(`Failed to read directory ${dir}:`, error);
-		}
-		return files;
-	}, []);
+			return files;
+		},
+		[],
+	);
 
 	const loadProject = useCallback(
 		async (filePath: string) => {

@@ -34,6 +34,14 @@ export const TabBar = ({
 					key={tab.id}
 					className={`tab ${tab.id === activeTabId ? "active" : ""}`}
 					onClick={() => onTabClick(tab.id)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							onTabClick(tab.id);
+						}
+					}}
+					role="button"
+					tabIndex={0}
 				>
 					<span className="tab-icon">{getTabIcon(tab.type)}</span>
 					<span className="tab-title">

@@ -68,6 +68,14 @@ const SortableLayerItem = ({
 			className={`layer-item ${isActive ? "active" : ""} ${isDragging ? "dragging" : ""}`}
 			onClick={() => onLayerClick(layer)}
 			onDoubleClick={() => onDoubleClick(layer)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onLayerClick(layer);
+				}
+			}}
+			role="button"
+			tabIndex={0}
 			{...attributes}
 			{...listeners}
 		>

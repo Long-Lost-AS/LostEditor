@@ -316,6 +316,13 @@ export const EntitySelectMenu = ({
 				className="absolute inset-0"
 				style={{ background: "rgba(0, 0, 0, 0.6)" }}
 				onClick={onClose}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						onClose();
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			/>
 
 			{/* Entity Select Menu */}
@@ -401,7 +408,15 @@ export const EntitySelectMenu = ({
 												: "3px solid transparent",
 									}}
 									onClick={() => handleSelectEntity(entity)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleSelectEntity(entity);
+										}
+									}}
 									onMouseEnter={() => setSelectedIndex(index)}
+									role="button"
+									tabIndex={0}
 								>
 									{getEntityIcon()}
 									<div className="flex-1 min-w-0">

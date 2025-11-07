@@ -44,9 +44,12 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 		}
 	}, [value, precision, isEditing]);
 
-	const clampValue = useCallback((val: number) => {
-		return Math.max(min, Math.min(max, val));
-	}, [min, max]);
+	const clampValue = useCallback(
+		(val: number) => {
+			return Math.max(min, Math.min(max, val));
+		},
+		[min, max],
+	);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
 		if (isEditing) return;

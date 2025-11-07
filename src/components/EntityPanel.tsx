@@ -30,6 +30,14 @@ const EntityListItem = ({
 				isSelected ? "bg-blue-600" : ""
 			}`}
 			onClick={() => onSelect(entity.id, tilesetId)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onSelect(entity.id, tilesetId);
+				}
+			}}
+			role="button"
+			tabIndex={0}
 		>
 			<span className="text-sm text-white flex-1 truncate">
 				{entity.name || entity.id}

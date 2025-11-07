@@ -1682,7 +1682,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const updatedColliders = localColliders.map((c) => {
 				if (c.id === contextMenu.colliderId) {
 					const newPoints = [...c.points];
-					newPoints.splice(contextMenu.edgeIndex+ 1, 0, {
+					newPoints.splice(contextMenu.edgeIndex + 1, 0, {
 						x: snappedX,
 						y: snappedY,
 					});
@@ -1696,7 +1696,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				colliders: updatedColliders,
 				properties: localProperties,
 			});
-			setSelectedColliderPointIndex(contextMenu.edgeIndex+ 1);
+			setSelectedColliderPointIndex(contextMenu.edgeIndex + 1);
 		}
 		setContextMenu(null);
 	};

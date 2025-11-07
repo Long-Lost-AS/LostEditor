@@ -280,6 +280,13 @@ export const TilesetSelectMenu = ({
 				className="absolute inset-0"
 				style={{ background: "rgba(0, 0, 0, 0.6)" }}
 				onClick={onClose}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						onClose();
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			/>
 
 			{/* Tileset Select Menu */}
@@ -365,7 +372,15 @@ export const TilesetSelectMenu = ({
 												: "3px solid transparent",
 									}}
 									onClick={() => handleSelectTileset(tileset)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleSelectTileset(tileset);
+										}
+									}}
 									onMouseEnter={() => setSelectedIndex(index)}
+									role="button"
+									tabIndex={0}
 								>
 									{getTilesetIcon()}
 									<div className="flex-1 min-w-0">

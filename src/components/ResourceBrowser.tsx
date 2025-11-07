@@ -33,9 +33,7 @@ interface ResourceBrowserProps {
 	isModal?: boolean;
 }
 
-export const ResourceBrowser = ({
-	onClose,
-}: ResourceBrowserProps) => {
+export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 	const {
 		projectDirectory,
 		openMapFromFile,
@@ -853,6 +851,12 @@ export const ResourceBrowser = ({
 				className="flex flex-col items-center gap-2 p-3 rounded cursor-pointer transition-all group relative"
 				style={{ ...style, userSelect: "none", WebkitUserSelect: "none" }}
 				onClick={(e) => handleItemClick(item, index, e)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						handleItemClick(item, index, e as unknown as React.MouseEvent);
+					}
+				}}
 				onContextMenu={(e) => handleContextMenu(e, item)}
 				onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
 					if (!isSelected && !isActive) {
@@ -864,6 +868,8 @@ export const ResourceBrowser = ({
 						e.currentTarget.style.background = "transparent";
 					}
 				}}
+				role="button"
+				tabIndex={0}
 			>
 				<div style={{ userSelect: "none" }}>{getIcon(item)}</div>
 				<div
@@ -1028,10 +1034,17 @@ export const ResourceBrowser = ({
 							<div
 								className="fixed inset-0 z-40"
 								onClick={() => setContextMenu(null)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										setContextMenu(null);
+									}
+								}}
 								onContextMenu={(e) => {
 									e.preventDefault();
 									setContextMenu(null);
 								}}
+								role="button"
+								tabIndex={0}
 							/>
 							{/* Menu */}
 							<div
@@ -1061,6 +1074,18 @@ export const ResourceBrowser = ({
 										});
 										setContextMenu(null);
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setFolderNameModal({
+												visible: true,
+												defaultName: "New Folder",
+											});
+											setContextMenu(null);
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
 								>
 									Create Folder
 								</div>
@@ -1079,6 +1104,15 @@ export const ResourceBrowser = ({
 										newMap(currentPath, "New Map");
 										setContextMenu(null);
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											newMap(currentPath, "New Map");
+											setContextMenu(null);
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
 								>
 									Create Map
 								</div>
@@ -1097,6 +1131,15 @@ export const ResourceBrowser = ({
 										newEntity();
 										setContextMenu(null);
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											newEntity();
+											setContextMenu(null);
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
 								>
 									Create Entity
 								</div>
@@ -1115,6 +1158,15 @@ export const ResourceBrowser = ({
 										await newTileset(currentPath);
 										setContextMenu(null);
 									}}
+									onKeyDown={async (e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											await newTileset(currentPath);
+											setContextMenu(null);
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
 								>
 									Create Tileset
 								</div>
@@ -1138,6 +1190,14 @@ export const ResourceBrowser = ({
 											onClick={() =>
 												handleOpenContainingFolder(contextMenu.item)
 											}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleOpenContainingFolder(contextMenu.item);
+												}
+											}}
+											role="menuitem"
+											tabIndex={0}
 										>
 											Open Containing Folder
 										</div>
@@ -1156,6 +1216,14 @@ export const ResourceBrowser = ({
 											e.currentTarget.style.background = "transparent";
 										}}
 										onClick={() => handleRenameItem(contextMenu.item)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleRenameItem(contextMenu.item);
+											}
+										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										Rename
 									</div>
@@ -1184,6 +1252,18 @@ export const ResourceBrowser = ({
 												});
 												setContextMenu(null);
 											}}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													setDeleteConfirmModal({
+														visible: true,
+														item: contextMenu.item,
+													});
+													setContextMenu(null);
+												}
+											}}
+											role="menuitem"
+											tabIndex={0}
 										>
 											Delete {contextMenu.item.isDirectory ? "Folder" : "File"}
 										</div>
@@ -1205,6 +1285,13 @@ export const ResourceBrowser = ({
 								onClick={() =>
 									setFolderNameModal({ visible: false, defaultName: "" })
 								}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										setFolderNameModal({ visible: false, defaultName: "" });
+									}
+								}}
+								role="button"
+								tabIndex={0}
 							/>
 							{/* Modal */}
 							<div
@@ -1300,6 +1387,13 @@ export const ResourceBrowser = ({
 								onClick={() =>
 									setDeleteConfirmModal({ visible: false, item: null })
 								}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										setDeleteConfirmModal({ visible: false, item: null });
+									}
+								}}
+								role="button"
+								tabIndex={0}
 							/>
 							{/* Modal */}
 							<div
@@ -1381,6 +1475,13 @@ export const ResourceBrowser = ({
 								onClick={() =>
 									setRenameModal({ visible: false, item: null, newName: "" })
 								}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										setRenameModal({ visible: false, item: null, newName: "" });
+									}
+								}}
+								role="button"
+								tabIndex={0}
 							/>
 							{/* Modal */}
 							<div

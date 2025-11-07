@@ -45,12 +45,15 @@ export function Dropdown<T>({
 		? fuse.search(searchQuery).map((result) => result.item)
 		: items;
 
-	const handleSelect = useCallback((item: T) => {
-		onChange(item);
-		setIsOpen(false);
-		setSearchQuery("");
-		setSelectedIndex(0);
-	}, [onChange]);
+	const handleSelect = useCallback(
+		(item: T) => {
+			onChange(item);
+			setIsOpen(false);
+			setSearchQuery("");
+			setSelectedIndex(0);
+		},
+		[onChange],
+	);
 
 	// Reset selection when filtered items change
 	useEffect(() => {
@@ -233,6 +236,12 @@ export function Dropdown<T>({
 									<div
 										key={getItemKey(item)}
 										onClick={() => handleSelect(item)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleSelect(item);
+											}
+										}}
 										className="p-2 cursor-pointer transition-colors text-sm"
 										style={{
 											backgroundColor: isSelected
@@ -243,6 +252,8 @@ export function Dropdown<T>({
 											color: "#cccccc",
 										}}
 										onMouseEnter={() => setSelectedIndex(index)}
+										role="button"
+										tabIndex={0}
 									>
 										{renderItemContent(item, isSelected)}
 									</div>

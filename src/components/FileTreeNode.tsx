@@ -79,6 +79,14 @@ export const FileTreeNode = ({
 				style={{ paddingLeft: `${level * 16 + 8}px` }}
 				onClick={handleClick}
 				onDoubleClick={handleDoubleClick}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						handleClick();
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			>
 				<span className="mr-2 text-base">{getIcon()}</span>
 				<span className="text-gray-200 truncate">{node.name}</span>

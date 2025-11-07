@@ -32,68 +32,68 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 	const resultsRef = useRef<HTMLDivElement>(null);
 
 	// Scan project directory recursively for assets
-	const scanDirectory = useCallback(async (
-		dirPath: string,
-		baseDir: string,
-	): Promise<AssetFile[]> => {
-		const foundAssets: AssetFile[] = [];
+	const scanDirectory = useCallback(
+		async (dirPath: string, baseDir: string): Promise<AssetFile[]> => {
+			const foundAssets: AssetFile[] = [];
 
-		try {
-			const entries = await readDir(dirPath);
+			try {
+				const entries = await readDir(dirPath);
 
-			for (const entry of entries) {
-				const fullPath = fileManager.join(dirPath, entry.name);
+				for (const entry of entries) {
+					const fullPath = fileManager.join(dirPath, entry.name);
 
-				if (entry.isDirectory) {
-					// Skip hidden directories and temp directories
-					if (entry.name.startsWith(".")) {
-						continue;
-					}
+					if (entry.isDirectory) {
+						// Skip hidden directories and temp directories
+						if (entry.name.startsWith(".")) {
+							continue;
+						}
 
-					// Recursively scan subdirectories (with error handling for permission issues)
-					try {
-						const subAssets = await scanDirectory(fullPath, baseDir);
-						foundAssets.push(...subAssets);
-					} catch (err) {
-						// Skip directories we can't access (e.g., permission denied)
-						console.warn(`Skipping directory ${fullPath}:`, err);
-					}
-				} else {
-					// Check if it's an asset file
-					const ext = entry.name
-						.substring(entry.name.lastIndexOf("."))
-						.toLowerCase();
-					let type: "map" | "tileset" | "entity" | null = null;
+						// Recursively scan subdirectories (with error handling for permission issues)
+						try {
+							const subAssets = await scanDirectory(fullPath, baseDir);
+							foundAssets.push(...subAssets);
+						} catch (err) {
+							// Skip directories we can't access (e.g., permission denied)
+							console.warn(`Skipping directory ${fullPath}:`, err);
+						}
+					} else {
+						// Check if it's an asset file
+						const ext = entry.name
+							.substring(entry.name.lastIndexOf("."))
+							.toLowerCase();
+						let type: "map" | "tileset" | "entity" | null = null;
 
-					switch (ext) {
-						case ".lostmap":
-							type = "map";
-							break;
-						case ".lostset":
-							type = "tileset";
-							break;
-						case ".lostentity":
-							type = "entity";
-							break;
-					}
+						switch (ext) {
+							case ".lostmap":
+								type = "map";
+								break;
+							case ".lostset":
+								type = "tileset";
+								break;
+							case ".lostentity":
+								type = "entity";
+								break;
+						}
 
-					if (type) {
-						const relativePath = fullPath.substring(baseDir.length + 1);
-						foundAssets.push({
-							name: entry.name,
-							path: fullPath,
-							relativePath,
-							type,
-						});
+						if (type) {
+							const relativePath = fullPath.substring(baseDir.length + 1);
+							foundAssets.push({
+								name: entry.name,
+								path: fullPath,
+								relativePath,
+								type,
+							});
+						}
 					}
 				}
+			} catch (err) {
+				console.error("Failed to scan directory:", err);
 			}
-		} catch (err) {
-			console.error("Failed to scan directory:", err);
-		}
 
-		return foundAssets;
-	}, []); // No dependencies - uses only imported functions
+			return foundAssets;
+		},
+		[],
+	); // No dependencies - uses only imported functions
 
 	// Load assets when palette opens
 	useEffect(() => {

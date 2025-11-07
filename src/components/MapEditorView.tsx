@@ -667,10 +667,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									const tileWidth = selectedTileset?.tileWidth || 16;
 									const tileHeight = selectedTileset?.tileHeight || 16;
 									const widthInTiles = Math.ceil(
-										selectedTileDef.width/ tileWidth,
+										selectedTileDef.width / tileWidth,
 									);
 									const heightInTiles = Math.ceil(
-										selectedTileDef.height/ tileHeight,
+										selectedTileDef.height / tileHeight,
 									);
 
 									for (let dy = 0; dy < heightInTiles; dy++) {
@@ -1011,10 +1011,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										const tileWidth = selectedTileset?.tileWidth || 16;
 										const tileHeight = selectedTileset?.tileHeight || 16;
 										const widthInTiles = Math.ceil(
-											selectedTileDef.width/ tileWidth,
+											selectedTileDef.width / tileWidth,
 										);
 										const heightInTiles = Math.ceil(
-											selectedTileDef.height/ tileHeight,
+											selectedTileDef.height / tileHeight,
 										);
 
 										for (let dy = 0; dy < heightInTiles; dy++) {
