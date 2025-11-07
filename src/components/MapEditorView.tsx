@@ -1173,6 +1173,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								e.currentTarget.style.color = "#cccccc";
 							}}
 							onClick={handleNameClick}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									handleNameClick();
+								}
+							}}
+							role="button"
+							tabIndex={0}
 							title="Click to edit map name"
 						>
 							{localMapData?.name || "Untitled Map"}
@@ -1423,6 +1431,11 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			<div
 				className={`resize-handle ${isResizing ? "active" : ""}`}
 				onMouseDown={handleResizeStart}
+				role="separator"
+				aria-label="Resize panel"
+				aria-orientation="vertical"
+				aria-valuenow={rightPanelWidth}
+				tabIndex={0}
 				style={{
 					width: "4px",
 					background: isResizing ? "#007acc" : "#3e3e42",
@@ -1468,6 +1481,14 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 								zIndex: 40,
 							}}
 							onClick={() => setContextMenu(null)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") {
+									setContextMenu(null);
+								}
+							}}
+							role="button"
+							tabIndex={-1}
+							aria-label="Close context menu"
 						/>
 						{/* Menu */}
 						<div
@@ -1488,6 +1509,15 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									handleRemoveLayer(contextMenu.layerId);
 									setContextMenu(null);
 								}}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										handleRemoveLayer(contextMenu.layerId);
+										setContextMenu(null);
+									}
+								}}
+								role="menuitem"
+								tabIndex={0}
 								style={{
 									padding: "8px 12px",
 									fontSize: "13px",

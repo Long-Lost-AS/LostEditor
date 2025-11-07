@@ -518,6 +518,26 @@ export const TilesetPanel = () => {
 											setSelectedTilesetId(null);
 										}
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											const newTerrainLayerId =
+												selectedTerrainLayerId === layer.id ? null : layer.id;
+											setSelectedTerrainLayerId(newTerrainLayerId);
+
+											if (newTerrainLayerId && currentTileset) {
+												setSelectedTilesetId(currentTileset.id);
+												setSelectedTileId(null);
+												setSelectedEntityDefId(null);
+											} else if (!newTerrainLayerId) {
+												setSelectedTilesetId(null);
+											}
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label={`Select terrain layer ${layer.name}`}
+									aria-pressed={selectedTerrainLayerId === layer.id}
 								>
 									<div className="flex items-center gap-2">
 										{selectedTerrainLayerId === layer.id && (

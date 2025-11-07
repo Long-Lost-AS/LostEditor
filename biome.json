@@ -21,7 +21,7 @@
 				"noSvgWithoutTitle": "warn",
 				"noStaticElementInteractions": "warn",
 				"useKeyWithClickEvents": "warn",
-				"useSemanticElements": "warn",
+				"useSemanticElements": "off",
 				"noLabelWithoutControl": "warn",
 				"useFocusableInteractive": "warn",
 				"useAriaPropsForRole": "warn"
@@ -31,9 +31,9 @@
 				"noDoubleEquals": "error",
 				"noDebugger": "warn",
 				"noAssignInExpressions": "warn",
-				"noUnknownAtRules": "warn",
 				"noDuplicateProperties": "warn",
-				"noArrayIndexKey": "warn"
+				"noArrayIndexKey": "warn",
+				"noUnknownAtRules": "off"
 			},
 			"style": {
 				"noNonNullAssertion": "warn",

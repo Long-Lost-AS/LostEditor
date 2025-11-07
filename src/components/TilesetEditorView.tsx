@@ -173,6 +173,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		return map;
 	}, [localTiles]);
 
+	// Helper to get terrainLayers (returns local reducer state)
+	const getTerrainLayers = useCallback(() => {
+		return localTerrainLayers || [];
+	}, [localTerrainLayers]);
+
 	// Draw tileset image on canvas
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -1235,11 +1240,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		updateTerrainLayers(updatedLayers);
 	};
 
-	// Helper to get terrainLayers (returns local reducer state)
-	const getTerrainLayers = useCallback(() => {
-		return localTerrainLayers || [];
-	}, [localTerrainLayers]);
-
 	// Helper to update terrainLayers with undo/redo support
 	// This is used for PAINTING operations
 	const updateTerrainLayers = (layers: TerrainLayer[]) => {
@@ -1349,6 +1349,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								e.currentTarget.style.color = "#cccccc";
 							}}
 							onClick={handleNameClick}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									handleNameClick();
+								}
+							}}
+							role="button"
+							tabIndex={0}
 							title="Click to edit name"
 						>
 							{tilesetData.name}
@@ -1487,11 +1495,24 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												);
 											}
 										}}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												if (editingTerrainLayerId !== layer.id) {
+													setSelectedTerrainLayer(
+														selectedTerrainLayer === layer.id ? null : layer.id,
+													);
+												}
+											}
+										}}
 										onDoubleClick={(e) => {
 											e.preventDefault();
 											setEditingTerrainLayerId(layer.id);
 											setEditingTerrainLayerName(layer.name);
 										}}
+										role="button"
+										tabIndex={0}
+										aria-label={`Terrain layer: ${layer.name}`}
 									>
 										<div className="flex items-center justify-between px-2.5 py-2">
 											{editingTerrainLayerId === layer.id ? (
@@ -1741,6 +1762,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										) : (
 											<div
 												onClick={() => setIsEditingTileName(true)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														setIsEditingTileName(true);
+													}
+												}}
+												role="button"
+												tabIndex={0}
+												aria-label="Edit tile name"
 												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
 												style={{
 													background: "#3e3e42",
@@ -1791,6 +1821,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										) : (
 											<div
 												onClick={() => setIsEditingTileType(true)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														setIsEditingTileType(true);
+													}
+												}}
+												role="button"
+												tabIndex={0}
+												aria-label="Edit tile type"
 												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
 												style={{
 													background: "#3e3e42",
@@ -1824,6 +1863,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseUp}
 				onContextMenu={handleContextMenu}
+				role="region"
+				aria-label="Tileset canvas"
 				style={{
 					cursor: isDragging ? "grabbing" : "crosshair",
 				}}
@@ -1952,6 +1993,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								) : (
 									<div
 										onClick={() => setIsEditingTileName(true)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setIsEditingTileName(true);
+											}
+										}}
+										role="button"
+										tabIndex={0}
+										aria-label="Edit tile name"
 										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
 										style={{
 											background: "#3e3e42",
@@ -2002,6 +2052,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								) : (
 									<div
 										onClick={() => setIsEditingTileType(true)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setIsEditingTileType(true);
+											}
+										}}
+										role="button"
+										tabIndex={0}
+										aria-label="Edit tile type"
 										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
 										style={{
 											background: "#3e3e42",
@@ -2154,6 +2213,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																) : (
 																	<div
 																		onClick={() => setEditingPropertyKey(key)}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter" || e.key === " ") {
+																				e.preventDefault();
+																				setEditingPropertyKey(key);
+																			}
+																		}}
+																		role="button"
+																		tabIndex={0}
+																		aria-label="Edit property key"
 																		className="text-xs cursor-text px-2.5 py-1.5 rounded"
 																		style={{
 																			background: "#3e3e42",
@@ -2203,6 +2271,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																) : (
 																	<div
 																		onClick={() => setEditingPropertyValue(key)}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter" || e.key === " ") {
+																				e.preventDefault();
+																				setEditingPropertyValue(key);
+																			}
+																		}}
+																		role="button"
+																		tabIndex={0}
+																		aria-label="Edit property value"
 																		className="text-xs cursor-text px-2.5 py-1.5 rounded"
 																		style={{
 																			background: "#3e3e42",
@@ -2246,6 +2323,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					<div
 						className="fixed inset-0 z-40"
 						onClick={() => setContextMenu(null)}
+						onKeyDown={(e) => {
+							if (e.key === "Escape") {
+								e.preventDefault();
+								setContextMenu(null);
+							}
+						}}
+						role="button"
+						tabIndex={0}
+						aria-label="Close context menu"
 					/>
 					{/* Menu */}
 					<div
@@ -2262,6 +2348,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							<>
 								<div
 									onClick={handleAddCollider}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleAddCollider();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Add or edit collider"
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
 									onMouseEnter={(e) => {
@@ -2276,6 +2371,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								</div>
 								<div
 									onClick={handleDeleteCompoundTile}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleDeleteCompoundTile();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Delete compound tile"
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#f48771" }}
 									onMouseEnter={(e) => {
@@ -2294,6 +2398,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							<>
 								<div
 									onClick={handleMarkAsCompoundTile}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleMarkAsCompoundTile();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Mark as compound tile"
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
 									onMouseEnter={(e) => {
@@ -2308,6 +2421,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								</div>
 								<div
 									onClick={handleClearSelection}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleClearSelection();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Clear selection"
 									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 									style={{ color: "#cccccc" }}
 									onMouseEnter={(e) => {

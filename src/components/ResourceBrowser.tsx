@@ -943,7 +943,10 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 							Project
 						</button>
 						{breadcrumbs.map((part, index) => (
-							<div key={index} className="flex items-center gap-2">
+							<div
+								key={`${breadcrumbs.slice(0, index + 1).join("/")}`}
+								className="flex items-center gap-2"
+							>
 								<span style={{ color: "#858585" }}>/</span>
 								<span style={{ color: "#cccccc" }}>{part}</span>
 							</div>
@@ -990,6 +993,8 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 				<div
 					className="flex-1 overflow-auto p-4"
 					onContextMenu={(e) => handleContextMenu(e, null)}
+					role="region"
+					aria-label="File browser"
 				>
 					{loading ? (
 						<div
@@ -1056,6 +1061,13 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 									border: "1px solid #3e3e42",
 								}}
 								onClick={(e) => e.stopPropagation()}
+								onKeyDown={(e) => {
+									if (e.key === "Escape") {
+										setContextMenu(null);
+									}
+								}}
+								role="menu"
+								aria-label="Context menu"
 							>
 								{/* Create Folder */}
 								<div

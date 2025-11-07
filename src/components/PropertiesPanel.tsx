@@ -42,7 +42,7 @@ export const PropertiesPanel = () => {
 		<div className="panel">
 			<h3>Properties</h3>
 			<div className="property-group">
-				<label>Map Size</label>
+				<div className="text-sm font-medium mb-2">Map Size</div>
 				<div className="input-row">
 					<input
 						type="number"
@@ -50,6 +50,7 @@ export const PropertiesPanel = () => {
 						onChange={(e) => setWidth(Number(e.target.value))}
 						min="1"
 						max="200"
+						aria-label="Map width"
 					/>
 					<span>×</span>
 					<input
@@ -58,17 +59,19 @@ export const PropertiesPanel = () => {
 						onChange={(e) => setHeight(Number(e.target.value))}
 						min="1"
 						max="200"
+						aria-label="Map height"
 					/>
 				</div>
 			</div>
 			<div className="property-group">
-				<label>Tile Size</label>
+				<div className="text-sm font-medium mb-2">Tile Size</div>
 				<div className="input-row">
 					<input
 						type="number"
 						value={tileWidth}
 						onChange={(e) => setTileWidth(Number(e.target.value))}
 						min="1"
+						aria-label="Tile width"
 						max="256"
 					/>
 					<span>×</span>
@@ -78,6 +81,7 @@ export const PropertiesPanel = () => {
 						onChange={(e) => setTileHeight(Number(e.target.value))}
 						min="1"
 						max="256"
+						aria-label="Tile height"
 					/>
 				</div>
 			</div>

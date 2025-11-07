@@ -256,157 +256,147 @@ export const BrokenReferencesModal = ({
 
 				{/* Reference List */}
 				<div className="flex-1 overflow-y-auto space-y-3 mb-4">
-					{refs.map((ref, index) => (
-						<div
-							key={`${ref.referencingFile}-${ref.expectedPath}`}
-							className="p-3 rounded transition-colors"
-							style={{
-								background: "#252526",
-								border: "1px solid #3e3e42",
-								cursor:
-									ref.status === "pending" || ref.status === "error"
-										? "pointer"
-										: "default",
-							}}
-							onClick={() => {
-								if (ref.status === "pending" || ref.status === "error") {
-									handleFix(ref, index);
-								}
-							}}
-							onKeyDown={(e) => {
-								if (
-									(e.key === "Enter" || e.key === " ") &&
-									(ref.status === "pending" || ref.status === "error")
-								) {
-									e.preventDefault();
-									handleFix(ref, index);
-								}
-							}}
-							role={
-								ref.status === "pending" || ref.status === "error"
-									? "button"
-									: "status"
-							}
-							tabIndex={
-								ref.status === "pending" || ref.status === "error" ? 0 : -1
-							}
-							{...(ref.status === "pending" || ref.status === "error"
-								? { "aria-label": `Fix broken reference: ${ref.expectedPath}` }
-								: {})}
-							onMouseEnter={(e) => {
-								if (ref.status === "pending" || ref.status === "error") {
-									e.currentTarget.style.background = "#2a2a2b";
-									e.currentTarget.style.borderColor = "#1177bb";
-								}
-							}}
-							onMouseLeave={(e) => {
-								e.currentTarget.style.background = "#252526";
-								e.currentTarget.style.borderColor = "#3e3e42";
-							}}
-						>
-							{/* Type Badge and Status */}
-							<div className="flex items-center justify-between mb-2">
-								<div className="flex items-center gap-2">
-									<span
-										className="px-2 py-1 rounded text-xs font-medium text-white"
-										style={{ background: getBadgeColor(ref.referenceType) }}
-									>
-										{getFileTypeLabel(ref.referenceType)}
-									</span>
-									<span className="text-gray-400 text-sm">
-										{fileManager.basename(ref.expectedPath)}
-									</span>
-								</div>
-
-								{/* Status Indicator */}
-								{ref.status === "pending" && (
-									<div className="text-sm text-gray-400">Click to fix →</div>
-								)}
-								{ref.status === "fixing" && (
-									<div className="flex items-center gap-2 text-sm text-gray-400">
-										<div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
-										<span>Fixing...</span>
-									</div>
-								)}
-								{ref.status === "fixed" && (
-									<div
-										className="flex items-center gap-2 text-sm"
-										style={{ color: "#16a34a" }}
-									>
-										<svg
-											role="img"
-											className="w-5 h-5"
-											fill="currentColor"
-											viewBox="0 0 20 20"
-											aria-label="Fixed"
+					{refs.map((ref, index) => {
+						const isInteractive =
+							ref.status === "pending" || ref.status === "error";
+						return (
+							<div
+								key={`${ref.referencingFile}-${ref.expectedPath}`}
+								className="p-3 rounded transition-colors"
+								style={{
+									background: "#252526",
+									border: "1px solid #3e3e42",
+									cursor: isInteractive ? "pointer" : "default",
+								}}
+								{...(isInteractive
+									? {
+											role: "button",
+											tabIndex: 0,
+											"aria-label": `Fix broken reference: ${ref.expectedPath}`,
+											onClick: () => handleFix(ref, index),
+											onKeyDown: (e: React.KeyboardEvent) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleFix(ref, index);
+												}
+											},
+											onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => {
+												e.currentTarget.style.background = "#2a2a2b";
+												e.currentTarget.style.borderColor = "#1177bb";
+											},
+											onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => {
+												e.currentTarget.style.background = "#252526";
+												e.currentTarget.style.borderColor = "#3e3e42";
+											},
+										}
+									: {
+											role: "status",
+										})}
+							>
+								{/* Type Badge and Status */}
+								<div className="flex items-center justify-between mb-2">
+									<div className="flex items-center gap-2">
+										<span
+											className="px-2 py-1 rounded text-xs font-medium text-white"
+											style={{ background: getBadgeColor(ref.referenceType) }}
 										>
-											<path
-												fillRule="evenodd"
-												d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-												clipRule="evenodd"
-											/>
-										</svg>
-										<span>Fixed</span>
+											{getFileTypeLabel(ref.referenceType)}
+										</span>
+										<span className="text-gray-400 text-sm">
+											{fileManager.basename(ref.expectedPath)}
+										</span>
 									</div>
-								)}
-								{ref.status === "error" && (
-									<div className="text-sm" style={{ color: "#f48771" }}>
-										Click to retry →
-									</div>
-								)}
-							</div>
 
-							{/* Expected Path (crossed out if fixed) */}
-							<div className="text-sm mb-1">
-								<span className="text-gray-500">Expected: </span>
-								<span
-									className={
-										ref.status === "fixed"
-											? "line-through text-gray-600"
-											: "text-gray-300"
-									}
-									title={ref.expectedPath}
-								>
-									{ref.expectedPath}
-								</span>
-							</div>
+									{/* Status Indicator */}
+									{ref.status === "pending" && (
+										<div className="text-sm text-gray-400">Click to fix →</div>
+									)}
+									{ref.status === "fixing" && (
+										<div className="flex items-center gap-2 text-sm text-gray-400">
+											<div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
+											<span>Fixing...</span>
+										</div>
+									)}
+									{ref.status === "fixed" && (
+										<div
+											className="flex items-center gap-2 text-sm"
+											style={{ color: "#16a34a" }}
+										>
+											<svg
+												role="img"
+												className="w-5 h-5"
+												fill="currentColor"
+												viewBox="0 0 20 20"
+												aria-label="Fixed"
+											>
+												<path
+													fillRule="evenodd"
+													d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+													clipRule="evenodd"
+												/>
+											</svg>
+											<span>Fixed</span>
+										</div>
+									)}
+									{ref.status === "error" && (
+										<div className="text-sm" style={{ color: "#f48771" }}>
+											Click to retry →
+										</div>
+									)}
+								</div>
 
-							{/* New Path (if fixed) */}
-							{ref.status === "fixed" && ref.newPath && (
+								{/* Expected Path (crossed out if fixed) */}
 								<div className="text-sm mb-1">
-									<span className="text-gray-500">New location: </span>
-									<span className="text-green-400" title={ref.newPath}>
-										{ref.newPath}
+									<span className="text-gray-500">Expected: </span>
+									<span
+										className={
+											ref.status === "fixed"
+												? "line-through text-gray-600"
+												: "text-gray-300"
+										}
+										title={ref.expectedPath}
+									>
+										{ref.expectedPath}
 									</span>
 								</div>
-							)}
 
-							{/* Referencing File */}
-							<div className="text-xs text-gray-500 mb-1">
-								Referenced in: {ref.referencingFile}
+								{/* New Path (if fixed) */}
+								{ref.status === "fixed" && ref.newPath && (
+									<div className="text-sm mb-1">
+										<span className="text-gray-500">New location: </span>
+										<span className="text-green-400" title={ref.newPath}>
+											{ref.newPath}
+										</span>
+									</div>
+								)}
+
+								{/* Referencing File */}
+								<div className="text-xs text-gray-500 mb-1">
+									Referenced in: {ref.referencingFile}
+								</div>
+
+								{/* Affected Files Preview */}
+								{ref.affectedFiles && ref.affectedFiles.length > 0 && (
+									<div className="text-xs text-gray-500 mt-2">
+										Will update:{" "}
+										{ref.affectedFiles
+											.map((f) => fileManager.basename(f))
+											.join(", ")}
+									</div>
+								)}
+
+								{/* Error Message */}
+								{ref.status === "error" && ref.errorMessage && (
+									<div
+										className="text-xs mt-2 p-2 rounded"
+										style={{ background: "#5a1e1e", color: "#f48771" }}
+									>
+										{ref.errorMessage}
+									</div>
+								)}
 							</div>
-
-							{/* Affected Files Preview */}
-							{ref.affectedFiles && ref.affectedFiles.length > 0 && (
-								<div className="text-xs text-gray-500 mt-2">
-									Will update:{" "}
-									{ref.affectedFiles
-										.map((f) => fileManager.basename(f))
-										.join(", ")}
-								</div>
-							)}
-
-							{/* Error Message */}
-							{ref.status === "error" && ref.errorMessage && (
-								<div
-									className="text-xs mt-2 p-2 rounded"
-									style={{ background: "#5a1e1e", color: "#f48771" }}
-								>
-									{ref.errorMessage}
-								</div>
-							)}
-						</div>
-					))}
+						);
+					})}
 				</div>
 
 				{/* Footer */}

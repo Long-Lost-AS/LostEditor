@@ -195,6 +195,87 @@ export const MapCanvas = ({
 		currentTool,
 	]);
 
+	// Render an entity with its hierarchy
+	const renderEntity = useCallback(
+		(
+			ctx: CanvasRenderingContext2D,
+			entityDef: EntityDefinition,
+			instance: EntityInstance,
+			tilesetImage: HTMLImageElement,
+			parentX: number = instance.x,
+			parentY: number = instance.y,
+			parentRotation: number = 0,
+		) => {
+			// Render all sprite layers in the entity
+			if (entityDef.sprites && entityDef.sprites.length > 0) {
+				entityDef.sprites.forEach((spriteLayer: SpriteLayer) => {
+					// Skip if sprite is missing
+					if (!spriteLayer.sprite) return;
+
+					ctx.save();
+
+					const sprite = spriteLayer.sprite;
+					const offset = spriteLayer.offset || { x: 0, y: 0 };
+					const origin = spriteLayer.origin || { x: 0.5, y: 1 };
+					const rotation =
+						parentRotation +
+						(spriteLayer.rotation || 0) +
+						(instance.rotation || 0);
+					const scale = instance.scale || { x: 1, y: 1 };
+
+					// Calculate scaled dimensions
+					const scaledWidth = sprite.width * scale.x;
+					const scaledHeight = sprite.height * scale.y;
+
+					// Calculate position based on origin point (using scaled dimensions)
+					const originOffsetX = origin.x * scaledWidth;
+					const originOffsetY = origin.y * scaledHeight;
+
+					const x = parentX - originOffsetX + offset.x;
+					const y = parentY - originOffsetY + offset.y;
+
+					// Apply rotation if needed
+					if (rotation !== 0) {
+						ctx.translate(parentX, parentY);
+						ctx.rotate((rotation * Math.PI) / 180);
+						ctx.translate(-parentX, -parentY);
+					}
+
+					// Draw sprite with scale applied
+					ctx.drawImage(
+						tilesetImage,
+						sprite.x,
+						sprite.y,
+						sprite.width,
+						sprite.height,
+						x,
+						y,
+						scaledWidth,
+						scaledHeight,
+					);
+
+					ctx.restore();
+				});
+			}
+
+			// Render children (if entity definitions support hierarchical children)
+			if (entityDef.children) {
+				entityDef.children.forEach((child: EntityDefinition) => {
+					renderEntity(
+						ctx,
+						child,
+						instance,
+						tilesetImage,
+						parentX,
+						parentY,
+						parentRotation,
+					);
+				});
+			}
+		},
+		[],
+	);
+
 	// Extract render logic to a function so we can call it synchronously after resize
 	const renderMap = useRef<() => void>(() => {});
 
@@ -755,87 +836,6 @@ export const MapCanvas = ({
 	useEffect(() => {
 		renderMap.current();
 	}, []);
-
-	// Render an entity with its hierarchy
-	const renderEntity = useCallback(
-		(
-			ctx: CanvasRenderingContext2D,
-			entityDef: EntityDefinition,
-			instance: EntityInstance,
-			tilesetImage: HTMLImageElement,
-			parentX: number = instance.x,
-			parentY: number = instance.y,
-			parentRotation: number = 0,
-		) => {
-			// Render all sprite layers in the entity
-			if (entityDef.sprites && entityDef.sprites.length > 0) {
-				entityDef.sprites.forEach((spriteLayer: SpriteLayer) => {
-					// Skip if sprite is missing
-					if (!spriteLayer.sprite) return;
-
-					ctx.save();
-
-					const sprite = spriteLayer.sprite;
-					const offset = spriteLayer.offset || { x: 0, y: 0 };
-					const origin = spriteLayer.origin || { x: 0.5, y: 1 };
-					const rotation =
-						parentRotation +
-						(spriteLayer.rotation || 0) +
-						(instance.rotation || 0);
-					const scale = instance.scale || { x: 1, y: 1 };
-
-					// Calculate scaled dimensions
-					const scaledWidth = sprite.width * scale.x;
-					const scaledHeight = sprite.height * scale.y;
-
-					// Calculate position based on origin point (using scaled dimensions)
-					const originOffsetX = origin.x * scaledWidth;
-					const originOffsetY = origin.y * scaledHeight;
-
-					const x = parentX - originOffsetX + offset.x;
-					const y = parentY - originOffsetY + offset.y;
-
-					// Apply rotation if needed
-					if (rotation !== 0) {
-						ctx.translate(parentX, parentY);
-						ctx.rotate((rotation * Math.PI) / 180);
-						ctx.translate(-parentX, -parentY);
-					}
-
-					// Draw sprite with scale applied
-					ctx.drawImage(
-						tilesetImage,
-						sprite.x,
-						sprite.y,
-						sprite.width,
-						sprite.height,
-						x,
-						y,
-						scaledWidth,
-						scaledHeight,
-					);
-
-					ctx.restore();
-				});
-			}
-
-			// Render children (if entity definitions support hierarchical children)
-			if (entityDef.children) {
-				entityDef.children.forEach((child: EntityDefinition) => {
-					renderEntity(
-						ctx,
-						child,
-						instance,
-						tilesetImage,
-						parentX,
-						parentY,
-						parentRotation,
-					);
-				});
-			}
-		},
-		[],
-	);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
 		const canvas = canvasRef.current;

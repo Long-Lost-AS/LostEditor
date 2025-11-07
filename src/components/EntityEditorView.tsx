@@ -369,6 +369,34 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		});
 	}, [pan, tab.id, updateTabData, viewState]);
 
+	// Cancel drawing
+	const handleCancelDrawing = useCallback(() => {
+		setIsDrawing(false);
+		setDrawingPoints([]);
+	}, []);
+
+	// Finish drawing and create collider
+	const handleFinishDrawing = useCallback(() => {
+		if (drawingPoints.length < 3) {
+			// Need at least 3 points for a polygon
+			return;
+		}
+
+		const newCollider: PolygonCollider = {
+			id: `collider-${Date.now()}`,
+			points: drawingPoints,
+		};
+
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: [...localColliders, newCollider],
+			properties: localProperties,
+		});
+
+		setIsDrawing(false);
+		setDrawingPoints([]);
+	}, [drawingPoints, localSprites, localColliders, localProperties]);
+
 	// Handle keyboard shortcuts for drawing mode
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -1575,34 +1603,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		setContextMenu(null);
 	};
 
-	// Cancel drawing
-	const handleCancelDrawing = useCallback(() => {
-		setIsDrawing(false);
-		setDrawingPoints([]);
-	}, []);
-
-	// Finish drawing and create collider
-	const handleFinishDrawing = useCallback(() => {
-		if (drawingPoints.length < 3) {
-			// Need at least 3 points for a polygon
-			return;
-		}
-
-		const newCollider: PolygonCollider = {
-			id: `collider-${Date.now()}`,
-			points: drawingPoints,
-		};
-
-		setLocalEntityState({
-			sprites: localSprites,
-			colliders: [...localColliders, newCollider],
-			properties: localProperties,
-		});
-
-		setIsDrawing(false);
-		setDrawingPoints([]);
-	}, [drawingPoints, localSprites, localColliders, localProperties]);
-
 	// Helper: Check if point is inside a polygon
 	const isPointInPolygon = (
 		x: number,
@@ -1769,6 +1769,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							) : (
 								<div
 									onClick={() => setIsEditingName(true)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setIsEditingName(true);
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Edit entity name"
 									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
 									onMouseEnter={(e) => {
@@ -1805,6 +1814,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							) : (
 								<div
 									onClick={() => setIsEditingType(true)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setIsEditingType(true);
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Edit entity type"
 									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
 									onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
@@ -1881,6 +1899,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													) : (
 														<div
 															onClick={() => setEditingPropertyKey(key)}
+															onKeyDown={(e) => {
+																if (e.key === "Enter" || e.key === " ") {
+																	e.preventDefault();
+																	setEditingPropertyKey(key);
+																}
+															}}
+															role="button"
+															tabIndex={0}
+															aria-label="Edit property key"
 															className="text-gray-400 font-mono text-xs cursor-text px-2 py-1 rounded"
 															style={{
 																background: "#3e3e42",
@@ -1925,6 +1952,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													) : (
 														<div
 															onClick={() => setEditingPropertyValue(key)}
+															onKeyDown={(e) => {
+																if (e.key === "Enter" || e.key === " ") {
+																	e.preventDefault();
+																	setEditingPropertyValue(key);
+																}
+															}}
+															role="button"
+															tabIndex={0}
+															aria-label="Edit property value"
 															className="text-gray-300 text-xs cursor-text px-2 py-1 rounded"
 															style={{
 																background: "#3e3e42",
@@ -1973,6 +2009,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseUp}
 				onContextMenu={handleCanvasContextMenu}
+				role="region"
+				aria-label="Entity editor canvas"
 				style={{
 					cursor: isDragging
 						? "grabbing"
@@ -2787,6 +2825,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						<div
 							className="fixed inset-0 z-40"
 							onClick={() => setContextMenu(null)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") {
+									setContextMenu(null);
+								}
+							}}
+							role="button"
+							tabIndex={-1}
+							aria-label="Close context menu"
 						/>
 						{/* Menu */}
 						<div
@@ -2812,6 +2858,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												e.currentTarget.style.background = "transparent";
 											}}
 											onClick={handleDeleteColliderPoint}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleDeleteColliderPoint();
+												}
+											}}
+											role="menuitem"
+											tabIndex={0}
 										>
 											Delete Point
 										</div>
@@ -2828,6 +2882,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													e.currentTarget.style.background = "transparent";
 												}}
 												onClick={handleInsertColliderPoint}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														handleInsertColliderPoint();
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
 											>
 												Add Point
 											</div>
@@ -2845,6 +2907,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														handleDeleteCollider(contextMenu.colliderId);
 													}
 												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														if (contextMenu.colliderId) {
+															handleDeleteCollider(contextMenu.colliderId);
+														}
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
 											>
 												Delete Collider
 											</div>
@@ -2866,6 +2938,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														handleDeleteCollider(contextMenu.colliderId);
 													}
 												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														if (contextMenu.colliderId) {
+															handleDeleteCollider(contextMenu.colliderId);
+														}
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
 											>
 												Delete Collider
 											</div>
@@ -2888,6 +2970,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											setContextMenu(null);
 										}
 									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											if (contextMenu.spriteLayerId) {
+												handleDeleteSpriteLayer(contextMenu.spriteLayerId);
+												setContextMenu(null);
+											}
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
 								>
 									Delete Sprite
 								</div>
@@ -2904,6 +2997,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											e.currentTarget.style.background = "transparent";
 										}}
 										onClick={handleOpenSpritePicker}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleOpenSpritePicker();
+											}
+										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										Add Sprite
 									</div>
@@ -2917,6 +3018,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											e.currentTarget.style.background = "transparent";
 										}}
 										onClick={handleStartDrawing}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleStartDrawing();
+											}
+										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										Add Collider
 									</div>

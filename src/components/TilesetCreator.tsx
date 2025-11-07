@@ -592,6 +592,15 @@ export const TilesetCreator = ({
 									<div
 										key={tile.tempId}
 										onClick={() => setSelectedItemId(tile.tempId)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setSelectedItemId(tile.tempId);
+											}
+										}}
+										role="button"
+										tabIndex={0}
+										aria-label={`Select tile ${tile.id}`}
 										className={`p-2 rounded cursor-pointer text-sm ${
 											selectedItemId === tile.tempId
 												? "bg-blue-600 text-white"
@@ -617,6 +626,15 @@ export const TilesetCreator = ({
 									<div
 										key={entity.tempId}
 										onClick={() => setSelectedItemId(entity.tempId)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setSelectedItemId(entity.tempId);
+											}
+										}}
+										role="button"
+										tabIndex={0}
+										aria-label={`Select entity ${entity.name}`}
 										className={`p-2 rounded cursor-pointer text-sm ${
 											selectedItemId === entity.tempId
 												? "bg-blue-600 text-white"
