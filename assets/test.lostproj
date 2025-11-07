@@ -1,14 +1,14 @@
 {
   "name": "test",
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "lastModified": "2025-11-07T17:52:52.990Z",
+  "lastModified": "2025-11-07T23:43:47.623Z",
   "openTabs": {
     "tabs": [
       {
         "id": "entity-1762199312640",
         "type": "entity-editor",
         "title": "Entity",
-        "isDirty": false,
+        "isDirty": true,
         "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity",
         "entityId": "entity-1762199312635-4jh1rhu1g",
         "entityData": {
@@ -44,8 +44,8 @@
         },
         "viewState": {
           "scale": 1.4520721435546875,
-          "panX": 388.9312593234027,
-          "panY": 635.823951058268,
+          "panX": 294.9312593234027,
+          "panY": 459.823951058268,
           "selectedSpriteLayerId": null,
           "selectedChildId": null
         }
@@ -56,11 +56,11 @@
         "title": "New Map",
         "isDirty": false,
         "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/maps/New Map.lostmap",
-        "mapId": "map-1762537852211",
+        "mapId": "map--Users-richardegeli1-Programming-LostEditor-assets-maps-New-Map-lostmap",
         "viewState": {
-          "zoom": 0.7011260986328125,
-          "panX": -44.03474653416049,
-          "panY": -115.62134394121983,
+          "zoom": 1.5095672607421875,
+          "panX": -18.75584248651441,
+          "panY": 60.90441836006269,
           "currentLayerId": "layer-1762349004256",
           "gridVisible": true,
           "selectedTilesetId": null,
@@ -70,6 +70,6 @@
         }
       }
     ],
-    "activeTabId": "map-1762537852211"
+    "activeTabId": "entity-1762199312640"
   }
 }

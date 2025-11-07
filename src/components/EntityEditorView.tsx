@@ -359,14 +359,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [isSpritePicking, selectedTilesetId, selectedRegion, getTilesetById]);
 
 	// Update view state when pan changes
-	const prevPanRef = useRef(pan);
 	useEffect(() => {
-		// Only update if pan actually changed
-		if (prevPanRef.current.x === pan.x && prevPanRef.current.y === pan.y) {
-			return;
-		}
-		prevPanRef.current = pan;
-
 		updateTabData(tab.id, {
 			viewState: {
 				...viewState,
@@ -374,7 +367,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				panY: pan.y,
 			},
 		});
-	}, [pan, tab.id, updateTabData, viewState]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pan.x, pan.y, tab.id, updateTabData]);
 
 	// Cancel drawing
 	const handleCancelDrawing = useCallback(() => {
