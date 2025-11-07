@@ -359,7 +359,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [isSpritePicking, selectedTilesetId, selectedRegion, getTilesetById]);
 
 	// Update view state when pan changes
+	const prevPanRef = useRef(pan);
 	useEffect(() => {
+		// Only update if pan actually changed
+		if (prevPanRef.current.x === pan.x && prevPanRef.current.y === pan.y) {
+			return;
+		}
+		prevPanRef.current = pan;
+
 		updateTabData(tab.id, {
 			viewState: {
 				...viewState,
@@ -367,8 +374,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				panY: pan.y,
 			},
 		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [pan, tab.id, updateTabData]);
+	}, [pan, tab.id, updateTabData, viewState]);
 
 	// Cancel drawing
 	const handleCancelDrawing = useCallback(() => {
@@ -378,33 +384,31 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Finish drawing and create collider
 	const handleFinishDrawing = useCallback(() => {
-		setDrawingPoints((currentPoints) => {
-			if (currentPoints.length < 3) {
-				// Need at least 3 points for a polygon
-				return currentPoints;
-			}
+		if (drawingPoints.length < 3) {
+			// Need at least 3 points for a polygon
+			return;
+		}
 
-			const newCollider: PolygonCollider = {
-				id: `collider-${Date.now()}`,
-				points: currentPoints,
-			};
+		const newCollider: PolygonCollider = {
+			id: `collider-${Date.now()}`,
+			points: drawingPoints,
+		};
 
-			setLocalEntityState((prev) => ({
-				sprites: prev.sprites,
-				colliders: [...prev.colliders, newCollider],
-				properties: prev.properties,
-			}));
-
-			setIsDrawing(false);
-			return [];
+		setLocalEntityState({
+			sprites: localSprites,
+			colliders: [...localColliders, newCollider],
+			properties: localProperties,
 		});
-	}, []);
+
+		setIsDrawing(false);
+		setDrawingPoints([]);
+	}, [drawingPoints, localSprites, localColliders, localProperties]);
 
 	// Handle keyboard shortcuts for drawing mode
 	useEffect(() => {
-		if (!isDrawing) return;
-
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!isDrawing) return;
+
 			if (e.key === "Escape") {
 				// Cancel drawing
 				handleCancelDrawing();
@@ -416,7 +420,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [isDrawing, handleCancelDrawing, handleFinishDrawing]);
+	}, [
+		isDrawing, // Cancel drawing
+		handleCancelDrawing, // Finish drawing (if we have at least 3 points)
+		handleFinishDrawing,
+	]);
 
 	// Handle wheel zoom and pan
 	useEffect(() => {
