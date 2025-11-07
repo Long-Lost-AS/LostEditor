@@ -98,6 +98,7 @@ export const EntityDefinitionSchema: z.ZodType<any> = z.lazy(() =>
 export const TilesetDataSchema = z.object({
   name: z.string(),
   id: z.string().optional(),
+  order: z.number().int().nonnegative(), // Numeric order for deterministic ordering
   imagePath: z.string(),
   tileWidth: z.number(),
   tileHeight: z.number(),
@@ -263,8 +264,6 @@ export const MapFileSchema = z.union([
 
 export const ProjectDataSchema = z.object({
   name: z.string(),
-  tilesets: z.array(z.string()).default([]),
-  maps: z.array(z.string()).default([]),
   projectDir: z.string().optional(),
   lastModified: z.string(),
   openTabs: z.object({

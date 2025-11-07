@@ -79,6 +79,7 @@ export interface TilesetData {
   version: string
   name: string
   id: string
+  order: number  // Numeric order for deterministic tileset ordering
   imagePath: string
   imageData?: HTMLImageElement
   filePath?: string  // Path to the .lostset file (undefined for unsaved tilesets)
