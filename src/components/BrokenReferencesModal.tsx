@@ -221,11 +221,13 @@ export const BrokenReferencesModal = ({
 				onClick={onClose}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
 						onClose();
 					}
 				}}
 				role="button"
 				tabIndex={0}
+				aria-label="Close modal"
 			/>
 
 			{/* Modal Content */}
@@ -234,11 +236,16 @@ export const BrokenReferencesModal = ({
 				style={{ background: "#2d2d30", border: "1px solid #3e3e42" }}
 				onClick={(e) => e.stopPropagation()}
 				onKeyDown={(e) => e.stopPropagation()}
-				role="presentation"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="broken-refs-title"
 			>
 				{/* Header */}
 				<div className="mb-4">
-					<h2 className="text-xl font-semibold text-white mb-2">
+					<h2
+						id="broken-refs-title"
+						className="text-xl font-semibold text-white mb-2"
+					>
 						Broken File References Detected
 					</h2>
 					<p className="text-gray-400 text-sm">
@@ -271,9 +278,21 @@ export const BrokenReferencesModal = ({
 									(e.key === "Enter" || e.key === " ") &&
 									(ref.status === "pending" || ref.status === "error")
 								) {
+									e.preventDefault();
 									handleFix(ref, index);
 								}
 							}}
+							role={
+								ref.status === "pending" || ref.status === "error"
+									? "button"
+									: "status"
+							}
+							tabIndex={
+								ref.status === "pending" || ref.status === "error" ? 0 : -1
+							}
+							{...(ref.status === "pending" || ref.status === "error"
+								? { "aria-label": `Fix broken reference: ${ref.expectedPath}` }
+								: {})}
 							onMouseEnter={(e) => {
 								if (ref.status === "pending" || ref.status === "error") {
 									e.currentTarget.style.background = "#2a2a2b";
@@ -284,14 +303,6 @@ export const BrokenReferencesModal = ({
 								e.currentTarget.style.background = "#252526";
 								e.currentTarget.style.borderColor = "#3e3e42";
 							}}
-							role={
-								ref.status === "pending" || ref.status === "error"
-									? "button"
-									: "presentation"
-							}
-							tabIndex={
-								ref.status === "pending" || ref.status === "error" ? 0 : -1
-							}
 						>
 							{/* Type Badge and Status */}
 							<div className="flex items-center justify-between mb-2">

@@ -460,6 +460,16 @@ const AppContent = () => {
 							className={`h-1 bg-gray-700 hover:bg-blue-500 cursor-row-resize ${isResizingBottom ? "bg-blue-500" : ""}`}
 							onMouseDown={handleBottomResizeStart}
 							role="separator"
+							aria-orientation="horizontal"
+							aria-valuenow={bottomPanelHeight}
+							aria-valuemin={100}
+							aria-valuemax={window.innerHeight - 100}
+							tabIndex={0}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+								}
+							}}
 						/>
 						<div
 							className="bottom-panel"

@@ -897,6 +897,12 @@ export const CollisionEditor = ({
 								) : (
 									<div
 										onClick={() => setEditingColliderName(true)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setEditingColliderName(true);
+											}
+										}}
 										className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
 										style={{
 											background: "#3e3e42",
@@ -908,6 +914,9 @@ export const CollisionEditor = ({
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "#3e3e42";
 										}}
+										role="button"
+										tabIndex={0}
+										aria-label="Edit collider name"
 									>
 										{selectedCollider.name || "(none)"}
 									</div>
@@ -940,6 +949,12 @@ export const CollisionEditor = ({
 								) : (
 									<div
 										onClick={() => setEditingColliderType(true)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												setEditingColliderType(true);
+											}
+										}}
 										className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
 										style={{
 											background: "#3e3e42",
@@ -951,6 +966,9 @@ export const CollisionEditor = ({
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "#3e3e42";
 										}}
+										role="button"
+										tabIndex={0}
+										aria-label="Edit collider type"
 									>
 										{selectedCollider.type || "(none)"}
 									</div>
@@ -1294,6 +1312,12 @@ export const CollisionEditor = ({
 															) : (
 																<div
 																	onClick={() => setEditingPropertyKey(key)}
+																	onKeyDown={(e) => {
+																		if (e.key === "Enter" || e.key === " ") {
+																			e.preventDefault();
+																			setEditingPropertyKey(key);
+																		}
+																	}}
 																	className="text-gray-400 font-mono text-xs cursor-text px-2 py-1 rounded"
 																	style={{
 																		background: "#3e3e42",
@@ -1307,6 +1331,9 @@ export const CollisionEditor = ({
 																		e.currentTarget.style.background =
 																			"#3e3e42";
 																	}}
+																	role="button"
+																	tabIndex={0}
+																	aria-label="Edit property key"
 																>
 																	{displayKey || (
 																		<span style={{ opacity: 0.5 }}>Key</span>
@@ -1344,6 +1371,12 @@ export const CollisionEditor = ({
 															) : (
 																<div
 																	onClick={() => setEditingPropertyValue(key)}
+																	onKeyDown={(e) => {
+																		if (e.key === "Enter" || e.key === " ") {
+																			e.preventDefault();
+																			setEditingPropertyValue(key);
+																		}
+																	}}
 																	className="text-gray-300 text-xs cursor-text px-2 py-1 rounded"
 																	style={{
 																		background: "#3e3e42",
@@ -1357,6 +1390,9 @@ export const CollisionEditor = ({
 																		e.currentTarget.style.background =
 																			"#3e3e42";
 																	}}
+																	role="button"
+																	tabIndex={0}
+																	aria-label="Edit property value"
 																>
 																	{value || (
 																		<span style={{ opacity: 0.5 }}>Value</span>
@@ -1391,6 +1427,8 @@ export const CollisionEditor = ({
 				ref={containerRef}
 				className="flex-1 overflow-hidden relative"
 				onKeyDown={handleLocalKeyDown}
+				role="region"
+				aria-label="Collision editor canvas"
 			>
 				<canvas
 					ref={canvasRef}
@@ -1468,6 +1506,15 @@ export const CollisionEditor = ({
 					<div
 						className="fixed inset-0 z-40"
 						onClick={() => setContextMenu(null)}
+						onKeyDown={(e) => {
+							if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								setContextMenu(null);
+							}
+						}}
+						role="button"
+						tabIndex={0}
+						aria-label="Close context menu"
 					/>
 					<div
 						className="fixed z-50 min-w-[160px] py-1 rounded shadow-lg"
@@ -1482,6 +1529,12 @@ export const CollisionEditor = ({
 							// Empty space - New Collider only
 							<div
 								onClick={handleNewCollider}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										handleNewCollider();
+									}
+								}}
 								className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 								style={{ color: "#4ade80" }}
 								onMouseEnter={(e) => {
@@ -1490,6 +1543,8 @@ export const CollisionEditor = ({
 								onMouseLeave={(e) => {
 									e.currentTarget.style.background = "transparent";
 								}}
+								role="menuitem"
+								tabIndex={0}
 							>
 								<span>➕</span>
 								<span>New Collider</span>
@@ -1500,6 +1555,12 @@ export const CollisionEditor = ({
 								{contextMenu.pointIndex !== undefined && (
 									<div
 										onClick={handleDeletePoint}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleDeletePoint();
+											}
+										}}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#f48771" }}
 										onMouseEnter={(e) => {
@@ -1508,6 +1569,8 @@ export const CollisionEditor = ({
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "transparent";
 										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										<TrashIcon size={16} />
 										<span>Delete Point</span>
@@ -1516,6 +1579,12 @@ export const CollisionEditor = ({
 								{contextMenu.edgeIndex !== undefined && (
 									<div
 										onClick={handleInsertPoint}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleInsertPoint();
+											}
+										}}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#4ade80" }}
 										onMouseEnter={(e) => {
@@ -1524,6 +1593,8 @@ export const CollisionEditor = ({
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "transparent";
 										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										<PlusIcon size={16} />
 										<span>Add Point</span>
@@ -1532,6 +1603,12 @@ export const CollisionEditor = ({
 								{contextMenu.colliderId && (
 									<div
 										onClick={handleDeleteCollider}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleDeleteCollider();
+											}
+										}}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
 										style={{ color: "#f48771" }}
 										onMouseEnter={(e) => {
@@ -1540,6 +1617,8 @@ export const CollisionEditor = ({
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "transparent";
 										}}
+										role="menuitem"
+										tabIndex={0}
 									>
 										<TrashIcon size={16} />
 										<span>Delete Collider</span>

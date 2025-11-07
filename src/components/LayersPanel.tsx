@@ -74,7 +74,9 @@ const SortableLayerItem = ({
 					onLayerClick(layer);
 				}
 			}}
-			role="button"
+			role="option"
+			aria-selected={isActive}
+			aria-label={`Layer: ${layer.name}`}
 			tabIndex={0}
 			{...attributes}
 			{...listeners}

@@ -28,7 +28,7 @@ export const TabBar = ({
 	};
 
 	return (
-		<div className="tab-bar">
+		<div className="tab-bar" role="tablist">
 			{tabs.map((tab) => (
 				<div
 					key={tab.id}
@@ -40,7 +40,9 @@ export const TabBar = ({
 							onTabClick(tab.id);
 						}
 					}}
-					role="button"
+					role="tab"
+					aria-selected={tab.id === activeTabId}
+					aria-label={`${tab.title}${tab.isDirty ? " (modified)" : ""}`}
 					tabIndex={0}
 				>
 					<span className="tab-icon">{getTabIcon(tab.type)}</span>

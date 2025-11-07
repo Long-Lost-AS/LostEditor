@@ -100,6 +100,15 @@ const SortableLayerItem = ({
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
 			onContextMenu={onContextMenu}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onClick();
+				}
+			}}
+			role="option"
+			aria-selected={isActive}
+			tabIndex={0}
 			onMouseDown={(e) => {
 				if (e.detail > 1) {
 					e.preventDefault();

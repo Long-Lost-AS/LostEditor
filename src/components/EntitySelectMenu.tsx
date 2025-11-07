@@ -318,11 +318,13 @@ export const EntitySelectMenu = ({
 				onClick={onClose}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
 						onClose();
 					}
 				}}
 				role="button"
 				tabIndex={0}
+				aria-label="Close entity select menu"
 			/>
 
 			{/* Entity Select Menu */}
@@ -415,7 +417,8 @@ export const EntitySelectMenu = ({
 										}
 									}}
 									onMouseEnter={() => setSelectedIndex(index)}
-									role="button"
+									role="option"
+									aria-selected={index === selectedIndex}
 									tabIndex={0}
 								>
 									{getEntityIcon()}

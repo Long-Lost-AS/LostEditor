@@ -252,7 +252,8 @@ export function Dropdown<T>({
 											color: "#cccccc",
 										}}
 										onMouseEnter={() => setSelectedIndex(index)}
-										role="button"
+										role="option"
+										aria-selected={isSelected || isCurrentValue}
 										tabIndex={0}
 									>
 										{renderItemContent(item, isSelected)}

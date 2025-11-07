@@ -85,7 +85,9 @@ export const FileTreeNode = ({
 						handleClick();
 					}
 				}}
-				role="button"
+				role="treeitem"
+				aria-expanded={node.isDirectory ? isExpanded : undefined}
+				aria-label={node.isDirectory ? `${node.name} folder` : node.name}
 				tabIndex={0}
 			>
 				<span className="mr-2 text-base">{getIcon()}</span>

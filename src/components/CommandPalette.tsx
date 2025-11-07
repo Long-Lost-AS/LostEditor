@@ -272,11 +272,13 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 				onClick={onClose}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
 						onClose();
 					}
 				}}
 				role="button"
 				tabIndex={0}
+				aria-label="Close command palette"
 			/>
 
 			{/* Command Palette */}
@@ -357,11 +359,13 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 								onClick={() => handleOpenAsset(asset)}
 								onKeyDown={(e) => {
 									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
 										handleOpenAsset(asset);
 									}
 								}}
 								onMouseEnter={() => setSelectedIndex(index)}
-								role="button"
+								role="option"
+								aria-selected={index === selectedIndex}
 								tabIndex={0}
 							>
 								{getIcon(asset.type)}

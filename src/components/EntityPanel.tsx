@@ -36,7 +36,8 @@ const EntityListItem = ({
 					onSelect(entity.id, tilesetId);
 				}
 			}}
-			role="button"
+			role="option"
+			aria-selected={isSelected}
 			tabIndex={0}
 		>
 			<span className="text-sm text-white flex-1 truncate">
