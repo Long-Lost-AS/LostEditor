@@ -28,6 +28,7 @@ import { tilesetManager } from "../managers/TilesetManager";
 import { mapManager } from "../managers/MapManager";
 import { entityManager } from "../managers/EntityManager";
 import { fileManager } from "../managers/FileManager";
+import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 import {
 	referenceManager,
 	type BrokenReference,
@@ -453,10 +454,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
-			// Find tileset index for creating global tile IDs
-			const tilesetIndex = selectedTilesetId
-				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
-				: -1;
+			// Get tileset order from the tileset itself (not from array position)
+			const tilesetIndex = selectedTileset?.order ?? -1;
 
 			if (tilesetIndex === -1 || !selectedTileId) return;
 
@@ -808,7 +807,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			if (prev.find((t) => t.id === tileset.id)) {
 				return prev;
 			}
-			return [...prev, tileset];
+			const newTilesets = [...prev, tileset];
+			// Sort by order for deterministic ordering
+			return newTilesets.sort((a, b) => a.order - b.order);
 		});
 		setCurrentTileset(tileset);
 		setProjectModified(true);
@@ -977,18 +978,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 			}
 
-			// Collect tileset paths (all tilesets should now be saved)
-			const tilesetPaths: string[] = [];
-			for (const tileset of tilesets) {
-				if (tileset.filePath) {
-					tilesetPaths.push(tileset.filePath);
-				} else {
-					console.warn(`Skipping unsaved tileset: ${tileset.name}`);
-				}
-			}
-
 			// Save all map tabs to separate .lostmap files
-			const mapPaths: string[] = [];
 			for (const tab of tabs) {
 				if (tab.type === "map") {
 					const mapTab = tab as MapTab;
@@ -1015,7 +1005,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Update the tab with the file path
 						mapTab.filePath = mapFilePath;
 						mapTab.mapFilePath = mapFilePath;
-						mapPaths.push(mapFilePath);
 					} catch (error) {
 						alert(`Failed to save map ${mapTab.title}: ${error}`);
 						return;
@@ -1023,18 +1012,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 			}
 
-			// Make all paths relative to project directory
-			const relativeTilesetPaths = tilesetPaths.map((path) =>
-				fileManager.makeRelative(path),
-			);
-			const relativeMapPaths = mapPaths.map((path) =>
-				fileManager.makeRelative(path),
-			);
-
 			const projectData: ProjectData = {
 				name: projectName,
-				tilesets: relativeTilesetPaths,
-				maps: relativeMapPaths,
 				projectDir,
 				lastModified: new Date().toISOString(),
 				openTabs: {
@@ -1102,6 +1081,40 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			await saveProjectAs(currentProjectPath);
 		}
 	}, [currentProjectPath, saveProjectAs]);
+
+	/**
+	 * Recursively discover files with a specific extension in a directory tree
+	 * @param dir - Directory to search (absolute path)
+	 * @param extension - File extension to match (e.g., '.lostset')
+	 * @param basePath - Base path for calculating relative paths (defaults to dir)
+	 * @returns Array of relative file paths matching the extension
+	 */
+	const discoverFiles = async (
+		dir: string,
+		extension: string,
+		basePath: string = dir
+	): Promise<string[]> => {
+		const files: string[] = [];
+		try {
+			const entries = await readDir(dir);
+			for (const entry of entries) {
+				const fullPath = fileManager.join(dir, entry.name);
+				if (entry.isDirectory) {
+					// Recursively search subdirectory
+					const subFiles = await discoverFiles(fullPath, extension, basePath);
+					files.push(...subFiles);
+				} else if (entry.name.endsWith(extension)) {
+					// Calculate relative path from base directory
+					const relativePath = fileManager.makeRelativeTo(basePath, fullPath);
+					files.push(relativePath);
+				}
+			}
+		} catch (error) {
+			// Silently skip directories that can't be read (permissions, etc.)
+			console.warn(`Failed to read directory ${dir}:`, error);
+		}
+		return files;
+	};
 
 	const loadProject = useCallback(
 		async (filePath: string) => {
@@ -1171,24 +1184,61 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					// Continue loading even if validation fails
 				}
 
-				// Load tilesets first
-				if (projectData.tilesets && projectData.tilesets.length > 0) {
-					for (const tilesetPath of projectData.tilesets) {
-						try {
-							// Load tileset using FileManager's global projectDir
-							const tileset = await tilesetManager.load(tilesetPath);
-							setTilesets((prev) => {
-								// Check if already loaded
-								if (prev.find((t) => t.id === tileset.id)) {
-									return prev;
-								}
-								return [...prev, tileset];
-							});
-						} catch (error) {
-							console.error(`Failed to load tileset ${tilesetPath}:`, error);
-						}
+				// Phase 1: Discover and load ALL tilesets
+				console.log('[loadProject] Phase 1: Discovering tilesets...');
+				const tilesetFiles = await discoverFiles(projectDir, '.lostset');
+				console.log(`[loadProject] Found ${tilesetFiles.length} tileset(s):`, tilesetFiles);
+
+				for (const tilesetPath of tilesetFiles) {
+					try {
+						const tileset = await tilesetManager.load(tilesetPath);
+						setTilesets((prev) => {
+							// Check if already loaded
+							if (prev.find((t) => t.id === tileset.id)) {
+								return prev;
+							}
+							const newTilesets = [...prev, tileset];
+							// Sort by order for deterministic ordering
+							return newTilesets.sort((a, b) => a.order - b.order);
+						});
+					} catch (error) {
+						console.error(`Failed to load tileset ${tilesetPath}:`, error);
 					}
 				}
+
+				// Phase 2: Discover and load ALL entity definitions
+				console.log('[loadProject] Phase 2: Discovering entities...');
+				const entityFiles = await discoverFiles(projectDir, '.lostentity');
+				console.log(`[loadProject] Found ${entityFiles.length} entity definition(s):`, entityFiles);
+
+				for (const entityPath of entityFiles) {
+					try {
+						await entityManager.load(entityPath);
+					} catch (error) {
+						console.error(`Failed to load entity ${entityPath}:`, error);
+					}
+				}
+
+				// Phase 3: Discover and load ALL maps
+				console.log('[loadProject] Phase 3: Discovering maps...');
+				const mapFiles = await discoverFiles(projectDir, '.lostmap');
+				console.log(`[loadProject] Found ${mapFiles.length} map(s):`, mapFiles);
+
+				const loadedMaps: MapData[] = [];
+				for (const mapPath of mapFiles) {
+					try {
+						const mapData = await mapManager.loadMap(mapPath);
+						// Create unique map ID based on file path
+						const mapId = `map-${mapPath.replace(/[^a-zA-Z0-9]/g, '-')}`;
+						const mapWithId = { ...mapData, id: mapId };
+						loadedMaps.push(mapWithId);
+					} catch (error) {
+						console.error(`Failed to load map ${mapPath}:`, error);
+					}
+				}
+
+				// Set all loaded maps in state
+				setMaps(loadedMaps);
 
 				setCurrentProjectPath(filePath);
 				setProjectName(
@@ -1203,35 +1253,29 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				settingsManager.setLastOpenedProject(filePath);
 				await settingsManager.save();
 
-				// Load maps and restore tabs
+				// Restore tabs (all resources already loaded, just match them up)
 				if (projectData.openTabs) {
 					const restoredTabs: AnyTab[] = [];
-					const loadedMaps: MapData[] = [];
 
 					for (const tab of projectData.openTabs.tabs || []) {
 						if (tab.type === "map") {
-							const mapTab = tab as any; // Saved tab may not have full mapData
+							const mapTab = tab as any;
 
-							// Load the map from file
+							// Find the already-loaded map by file path
 							if (mapTab.filePath) {
-								try {
-									const mapData = await mapManager.loadMap(mapTab.filePath);
+								const mapId = `map-${mapTab.filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
+								const existingMap = loadedMaps.find(m => m.id === mapId);
 
-									// Add to global maps array
-									const mapId = mapTab.mapId || mapTab.id;
-									const mapWithId = { ...mapData, id: mapId };
-									loadedMaps.push(mapWithId);
-
-									// Create MapTab with reference (not full data)
+								if (existingMap) {
+									// Create MapTab with reference to loaded map
 									const fullMapTab: MapTab = {
 										id: mapTab.id,
 										type: "map",
 										title: mapTab.title,
-										isDirty: false, // Mark as clean since we're loading from disk
+										isDirty: false,
 										filePath: mapTab.filePath,
-										mapId: mapId,  // Reference by ID
+										mapId: mapId,
 										mapFilePath: mapTab.filePath,
-										// mapData is optional now - view will fetch from maps array
 										viewState: mapTab.viewState || {
 											zoom: 2,
 											panX: 0,
@@ -1246,11 +1290,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 									};
 
 									restoredTabs.push(fullMapTab);
-								} catch (error) {
-									console.error(
-										`Failed to load map ${mapTab.filePath}:`,
-										error,
-									);
+								} else {
+									console.warn(`Map ${mapTab.filePath} not found in loaded maps, skipping tab`);
 								}
 							}
 						} else if (tab.type === "tileset") {
@@ -1270,14 +1311,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							const entityTab = tab as any;
 
 							if (entityTab.filePath) {
-								try {
-									const entityData = await entityManager.loadEntity(entityTab.filePath);
+								// Entity should already be loaded, just retrieve it
+								const entityData = entityManager.getEntity(entityTab.filePath);
 
+								if (entityData) {
 									const fullEntityTab: EntityEditorTab = {
 										id: entityTab.id,
 										type: "entity-editor",
 										title: entityTab.title,
-										isDirty: false, // Mark as clean since we're loading from disk
+										isDirty: false,
 										filePath: entityTab.filePath,
 										entityId: entityTab.entityId || entityTab.id,
 										entityData: entityData,
@@ -1291,18 +1333,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 									};
 
 									restoredTabs.push(fullEntityTab);
-								} catch (error) {
-									console.error(
-										`Failed to load entity ${entityTab.filePath}:`,
-										error,
-									);
+								} else {
+									console.warn(`Entity ${entityTab.filePath} not found in loaded entities, skipping tab`);
 								}
 							}
 						}
 					}
 
-					// Set global maps array (source of truth)
-					setMaps(loadedMaps);
 					setTabs(restoredTabs);
 
 					// Make sure the active tab is still in the restored tabs
@@ -1475,53 +1512,12 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Load the map using mapManager
 				const mapData = await mapManager.loadMap(filePath);
 
-				// Load all entity definitions that are referenced in the map
-				if (mapData.entities && mapData.entities.length > 0) {
-					const entityDefIds = new Set(mapData.entities.map(e => e.entityDefId));
-					console.log('[openMapFromFile] Found entity definition IDs:', Array.from(entityDefIds));
-
-					// Get the project root (parent directory of the map file)
-					const mapDir = fileManager.dirname(filePath);
-					const projectRoot = fileManager.dirname(mapDir); // Go up from maps/ to project root
-					const entitiesDir = fileManager.join(projectRoot, 'entities');
-
-					console.log('[openMapFromFile] Looking for entities in:', entitiesDir);
-
-					// Try to load all .lostentity files from the entities directory
-					try {
-						const entityFiles = await fileManager.readDir(entitiesDir);
-						console.log('[openMapFromFile] Found entity files:', entityFiles);
-
-						for (const file of entityFiles) {
-							if (file.endsWith('.lostentity')) {
-								const entityPath = fileManager.join(entitiesDir, file);
-								try {
-									await entityManager.load(entityPath);
-									console.log('[openMapFromFile] Loaded entity:', entityPath);
-								} catch (error) {
-									console.warn(`Failed to load entity ${entityPath}:`, error);
-								}
-							}
-						}
-					} catch (error) {
-						console.warn(`Failed to read entities directory ${entitiesDir}:`, error);
-					}
-				}
-
 				// Extract map name from file path
 				const mapName = fileManager.basename(filePath, ".lostmap");
-
-				// DEBUG: Log loaded map data
-				console.log('[openMapFromFile] Loaded mapData:', mapData);
-				console.log('[openMapFromFile] Entities count:', mapData.entities?.length || 0);
 
 				// Create a new MapTab
 				const mapId = `map-${Date.now()}`;
 				const mapWithId = { ...mapData, id: mapId };
-
-				// DEBUG: Log mapWithId
-				console.log('[openMapFromFile] mapWithId:', mapWithId);
-				console.log('[openMapFromFile] mapWithId.entities:', mapWithId.entities);
 
 				// Add to global maps array
 				setMaps((prevMaps) => [...prevMaps, mapWithId]);
@@ -1760,17 +1756,20 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const tilesetName = fileName.replace(/\.[^/.]+$/, "");
 		const tilesetId = `tileset-${Date.now()}`;
 
+		// Assign the next available order
+		const tilesetOrder = tilesetIndexManager.getNextAvailableIndex();
+
 		// Create new tileset data
 		const newTilesetData: TilesetData = {
 			version: "1.0",
 			name: tilesetName,
 			id: tilesetId,
+			order: tilesetOrder,
 			imagePath: imagePath,
 			imageData: img,
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [],
-			entities: [],
 		};
 
 		// Add tileset to global tilesets array
