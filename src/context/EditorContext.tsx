@@ -1123,7 +1123,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	 * @param basePath - Base path for calculating relative paths (defaults to dir)
 	 * @returns Array of relative file paths matching the extension
 	 */
-	const discoverFiles = async (
+	const discoverFiles = useCallback(async (
 		dir: string,
 		extension: string,
 		basePath: string = dir,
@@ -1153,7 +1153,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			console.warn(`Failed to read directory ${dir}:`, error);
 		}
 		return files;
-	};
+	}, []);
 
 	const loadProject = useCallback(
 		async (filePath: string) => {

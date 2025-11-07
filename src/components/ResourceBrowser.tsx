@@ -11,7 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { exists, mkdir, readDir, remove, rename } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { fileManager } from "../managers/FileManager";
@@ -263,7 +263,7 @@ export const ResourceBrowser = ({
 	};
 
 	// Load files in current directory
-	const loadDirectory = async (dirPath: string) => {
+	const loadDirectory = useCallback(async (dirPath: string) => {
 		setLoading(true);
 		setError(null);
 
@@ -326,7 +326,7 @@ export const ResourceBrowser = ({
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
 	// Initialize current path when project directory changes
 	useEffect(() => {

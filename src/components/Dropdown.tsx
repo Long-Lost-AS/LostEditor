@@ -1,6 +1,6 @@
 import Fuse from "fuse.js";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface DropdownProps<T> {
 	items: T[];
@@ -45,12 +45,12 @@ export function Dropdown<T>({
 		? fuse.search(searchQuery).map((result) => result.item)
 		: items;
 
-	const handleSelect = (item: T) => {
+	const handleSelect = useCallback((item: T) => {
 		onChange(item);
 		setIsOpen(false);
 		setSearchQuery("");
 		setSelectedIndex(0);
-	};
+	}, [onChange]);
 
 	// Reset selection when filtered items change
 	useEffect(() => {

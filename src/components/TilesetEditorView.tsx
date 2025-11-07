@@ -1236,9 +1236,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	// Helper to get terrainLayers (returns local reducer state)
-	const getTerrainLayers = () => {
+	const getTerrainLayers = useCallback(() => {
 		return localTerrainLayers || [];
-	};
+	}, [localTerrainLayers]);
 
 	// Helper to update terrainLayers with undo/redo support
 	// This is used for PAINTING operations

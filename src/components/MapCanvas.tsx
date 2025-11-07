@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import {
@@ -758,7 +758,7 @@ export const MapCanvas = ({
 	}, []);
 
 	// Render an entity with its hierarchy
-	const renderEntity = (
+	const renderEntity = useCallback((
 		ctx: CanvasRenderingContext2D,
 		entityDef: EntityDefinition,
 		instance: EntityInstance,
@@ -833,7 +833,7 @@ export const MapCanvas = ({
 				);
 			});
 		}
-	};
+	}, []);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
 		const canvas = canvasRef.current;

@@ -32,7 +32,7 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 	const resultsRef = useRef<HTMLDivElement>(null);
 
 	// Scan project directory recursively for assets
-	const scanDirectory = async (
+	const scanDirectory = useCallback(async (
 		dirPath: string,
 		baseDir: string,
 	): Promise<AssetFile[]> => {
@@ -93,7 +93,7 @@ export const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 		}
 
 		return foundAssets;
-	};
+	}, []); // No dependencies - uses only imported functions
 
 	// Load assets when palette opens
 	useEffect(() => {

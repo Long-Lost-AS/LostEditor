@@ -1576,13 +1576,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	};
 
 	// Cancel drawing
-	const handleCancelDrawing = () => {
+	const handleCancelDrawing = useCallback(() => {
 		setIsDrawing(false);
 		setDrawingPoints([]);
-	};
+	}, []);
 
 	// Finish drawing and create collider
-	const handleFinishDrawing = () => {
+	const handleFinishDrawing = useCallback(() => {
 		if (drawingPoints.length < 3) {
 			// Need at least 3 points for a polygon
 			return;
@@ -1601,7 +1601,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		setIsDrawing(false);
 		setDrawingPoints([]);
-	};
+	}, [drawingPoints, localSprites, localColliders, localProperties]);
 
 	// Helper: Check if point is inside a polygon
 	const isPointInPolygon = (
