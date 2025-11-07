@@ -367,7 +367,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				panY: pan.y,
 			},
 		});
-	}, [pan, tab.id, updateTabData, viewState]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pan, tab.id, updateTabData]);
 
 	// Cancel drawing
 	const handleCancelDrawing = useCallback(() => {
