@@ -5,6 +5,7 @@ import { fileManager } from './FileManager'
 import { FileLoader } from './FileLoader'
 import { FileNotFoundError } from '../errors/FileErrors'
 import { unpackTileId } from '../utils/tileId'
+import { tilesetIndexManager } from '../utils/tilesetIndexManager'
 
 /**
  * TilesetManager handles loading, parsing, and managing tileset files
@@ -31,6 +32,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
     return {
       name: data.name,
       id: data.id,
+      order: data.order, // Save the order to file
       imagePath: relativeImagePath,
       tileWidth: data.tileWidth,
       tileHeight: data.tileHeight,
@@ -107,10 +109,25 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       }
     })
 
+    // Handle tileset order assignment
+    let tilesetOrder: number;
+    // Check for order conflicts with already-loaded tilesets
+    const existingTileset = Array.from(this.cache.values())
+      .find(ts => ts.order === validated.order && ts.id !== (validated.id || this.generateId(filePath)));
+
+    if (existingTileset) {
+      throw new Error(`Order conflict: Tileset ${validated.name} has order ${validated.order}, but it's already used by ${existingTileset.name}`);
+    }
+
+    // Use order from file
+    tilesetOrder = validated.order;
+    tilesetIndexManager.registerIndex(tilesetOrder);
+
     // Create the TilesetData object with runtime fields
     return {
       ...validated,
       id: validated.id || this.generateId(filePath),
+      order: tilesetOrder, // Store the order in runtime data
       imagePath: imagePath, // Use resolved absolute path
       imageData: imageElement,
       filePath: filePath, // Set the filePath so we know where this tileset was loaded from
@@ -218,10 +235,14 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
     const fullPath = fileManager.resolvePath(tilesetPath)
     const normalizedPath = fileManager.normalize(fullPath)
 
-    // Get the tileset before deleting to clear image
+    // Get the tileset before deleting to clear image and release index
     const tileset = this.cache.get(normalizedPath)
-    if (tileset?.imageData) {
-      tileset.imageData.src = ''
+    if (tileset) {
+      if (tileset.imageData) {
+        tileset.imageData.src = ''
+      }
+      // Release the tileset's order
+      tilesetIndexManager.releaseIndex(tileset.order);
     }
 
     this.cache.delete(normalizedPath)
@@ -239,6 +260,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
       }
     }
     this.clearCache()
+    // Clear all tileset indices
+    tilesetIndexManager.clear();
   }
 
   /**
