@@ -529,8 +529,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				return;
 			}
 
-			const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
-			if (tilesetIndex === -1) {
+			const tilesetIndex = tileset.order;
+			if (tilesetIndex === undefined) {
 				return;
 			}
 
@@ -608,10 +608,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
-			// Find tileset index for creating global tile IDs
-			const tilesetIndex = selectedTilesetId
-				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
-				: -1;
+			// Get tileset order from the tileset itself (not from array position)
+			const tilesetIndex = selectedTileset?.order ?? -1;
 
 			if (tilesetIndex === -1 || !selectedTileId) {
 				return;
@@ -880,8 +878,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				);
 				if (!terrainLayer) return;
 
-				const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
-				if (tilesetIndex === -1) return;
+				const tilesetIndex = selectedTileset.order;
+				if (tilesetIndex === undefined) return;
 
 				setLocalMapData((prev) => ({
 					...prev,
@@ -938,9 +936,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
-			const tilesetIndex = selectedTilesetId
-				? tilesets.findIndex((ts) => ts.id === selectedTilesetId)
-				: -1;
+			const tilesetIndex = selectedTileset?.index ?? -1;
 
 			if (tilesetIndex === -1 || !selectedTileId) {
 				return;

@@ -88,7 +88,8 @@ export const MapCanvas = ({
 			return;
 		}
 
-		const tilesetIndex = tilesets.findIndex((ts) => ts.id === selectedTilesetId);
+		const selectedTileset = tilesets.find((ts) => ts.id === selectedTilesetId);
+		const tilesetIndex = selectedTileset?.order ?? -1;
 		if (tilesetIndex === -1) {
 			return;
 		}
