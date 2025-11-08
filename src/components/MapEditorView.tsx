@@ -271,6 +271,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Reset undo history when switching to a different map tab OR when mapData.id changes (map reloaded)
 	const prevMapIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
+		if (!mapData) return;
+
 		const mapId = mapData.id;
 		const tabChanged =
 			prevTabIdRef.current !== null && prevTabIdRef.current !== tab.id;
