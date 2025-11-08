@@ -331,7 +331,6 @@ export const TilesetPanel = () => {
 
 		// If using new tileset system
 		if (currentTileset) {
-			setSelectedTilesetId(currentTileset.id);
 			// Clear terrain layer selection when selecting a tile
 			setSelectedTerrainLayerId(null);
 
@@ -344,26 +343,23 @@ export const TilesetPanel = () => {
 
 			if (clickedTile) {
 				// Select the compound tile
-				setSelectedTileId(clickedTile.id);
-				setSelectedEntityDefId("", null);
-
-				// Update legacy tile selection to cover the compound tile region
 				if (clickedTile.width && clickedTile.height) {
 					// For compound tiles, select the top-left corner
 					const tileX = Math.floor(clickedTile.x / tileWidth);
 					const tileY = Math.floor(clickedTile.y / tileHeight);
-					setSelectedTile(tileX, tileY);
+					setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
 				} else {
 					// For single tiles
 					const tileX = Math.floor(x / tileWidth);
 					const tileY = Math.floor(y / tileHeight);
-					setSelectedTile(tileX, tileY);
+					setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
 				}
+
+				setSelectedEntityDefId("", null);
 			} else {
 				// No compound tile found, create a tile ID for the regular tile at this position
 				const tileX = Math.floor(x / tileWidth);
 				const tileY = Math.floor(y / tileHeight);
-				setSelectedTile(tileX, tileY);
 
 				// Create a tile ID for this regular tile (with tileset index 0 for local ID)
 				const regularTileId = packTileId(
@@ -373,7 +369,8 @@ export const TilesetPanel = () => {
 					false,
 					false,
 				);
-				setSelectedTileId(regularTileId);
+
+				setSelectedTile(tileX, tileY, currentTileset.id, regularTileId);
 			}
 		} else {
 			// Legacy: no current tileset, just select grid position

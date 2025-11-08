@@ -2119,9 +2119,12 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		(id: string | null) => {
 			if (id === null) {
 				setSelection({ type: "none" });
-			} else if (selection.type !== "none" && selection.tilesetId !== id) {
-				// If switching to a different tileset, update the tileset ID but keep selection type
-				setSelection({ ...selection, tilesetId: id });
+			} else {
+				// Update tileset ID in current selection, or do nothing if already set
+				if (selection.type !== "none" && selection.tilesetId !== id) {
+					setSelection({ ...selection, tilesetId: id });
+				}
+				// Note: This doesn't create a new selection - that's done by setSelectedTileId or other setters
 			}
 		},
 		[selection],
@@ -2134,17 +2137,23 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				if (selection.type === "tile") {
 					setSelection({ type: "none" });
 				}
-			} else if (selection.type === "tile") {
-				setSelection({ ...selection, tileId: id });
-			} else if (selection.type !== "none") {
-				// If we have a tileset selected but not in tile mode, create tile selection
-				setSelection({
-					type: "tile",
-					tilesetId: selection.tilesetId,
-					tileId: id,
-					tileX: 0,
-					tileY: 0,
-				});
+			} else {
+				// Always update or create tile selection
+				if (selection.type === "tile") {
+					setSelection({ ...selection, tileId: id });
+				} else if (selection.type !== "none") {
+					// If we have a tileset selected but not in tile mode, create tile selection
+					setSelection({
+						type: "tile",
+						tilesetId: selection.tilesetId,
+						tileId: id,
+						tileX: 0,
+						tileY: 0,
+					});
+				} else {
+					// No selection yet - this shouldn't happen but handle it gracefully
+					console.warn("setSelectedTileId called with no tileset selected");
+				}
 			}
 		},
 		[selection],
