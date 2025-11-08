@@ -91,7 +91,8 @@ export const CollisionEditor = ({
 	// Sync local colliders with parent's onUpdate callback
 	useEffect(() => {
 		onUpdate(localColliders);
-	}, [localColliders, onUpdate]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [localColliders]);
 
 	// Ensure all colliders have IDs and remove invalid colliders
 	useEffect(() => {
@@ -797,11 +798,19 @@ export const CollisionEditor = ({
 					{/* Properties panel for selected collider */}
 					{selectedCollider && !isDrawing && (
 						<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
-							<div className="text-sm font-semibold text-gray-400 mb-3">
-								COLLIDER PROPERTIES
+							<div
+								className="text-xs font-semibold uppercase tracking-wide mb-3"
+								style={{ color: "#858585" }}
+							>
+								Collider Properties
 							</div>
 							<div className="mb-3">
-								<div className="text-xs text-gray-500 mb-1 block">Name</div>
+								<div
+									className="text-xs font-medium mb-1 block"
+									style={{ color: "#858585" }}
+								>
+									Name
+								</div>
 								{editingColliderName ? (
 									<input
 										type="text"
@@ -818,7 +827,7 @@ export const CollisionEditor = ({
 												setEditingColliderName(false);
 											}
 										}}
-										className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
+										className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #007acc",
@@ -833,7 +842,7 @@ export const CollisionEditor = ({
 												setEditingColliderName(true);
 											}
 										}}
-										className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
+										className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #3e3e42",
@@ -853,7 +862,12 @@ export const CollisionEditor = ({
 								)}
 							</div>
 							<div className="mb-3">
-								<div className="text-xs text-gray-500 mb-1 block">Type</div>
+								<div
+									className="text-xs font-medium mb-1 block"
+									style={{ color: "#858585" }}
+								>
+									Type
+								</div>
 								{editingColliderType ? (
 									<input
 										type="text"
@@ -870,7 +884,7 @@ export const CollisionEditor = ({
 												setEditingColliderType(false);
 											}
 										}}
-										className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
+										className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #007acc",
@@ -885,7 +899,7 @@ export const CollisionEditor = ({
 												setEditingColliderType(true);
 											}
 										}}
-										className="px-2 py-1 text-xs rounded text-gray-200 cursor-text"
+										className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
 										style={{
 											background: "#3e3e42",
 											border: "1px solid #3e3e42",
@@ -911,8 +925,11 @@ export const CollisionEditor = ({
 									className="mt-4 pt-4"
 									style={{ borderTop: "1px solid #3e3e42" }}
 								>
-									<div className="text-sm font-semibold text-gray-400 mb-3">
-										POSITION
+									<div
+										className="text-xs font-semibold uppercase tracking-wide mb-3"
+										style={{ color: "#858585" }}
+									>
+										Position
 									</div>
 									<div className="grid grid-cols-2 gap-2">
 										<div className="flex">
@@ -1070,8 +1087,11 @@ export const CollisionEditor = ({
 										className="mt-4 pt-4"
 										style={{ borderTop: "1px solid #3e3e42" }}
 									>
-										<div className="text-sm font-semibold text-gray-400 mb-3">
-											SELECTED POINT
+										<div
+											className="text-xs font-semibold uppercase tracking-wide mb-3"
+											style={{ color: "#858585" }}
+										>
+											Selected Point
 										</div>
 										<div className="grid grid-cols-2 gap-2">
 											<div className="flex">
