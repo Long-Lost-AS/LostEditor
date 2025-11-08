@@ -2041,65 +2041,70 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		}
 	}, [getActiveTilesetTab, tilesets, updateTabData]);
 
-	const saveTilesetByTabId = useCallback(async (tilesetTabId: string) => {
-		// Find the tileset tab
-		const foundTab = tabs.find((t) => t.id === tilesetTabId);
-		if (!foundTab || foundTab.type !== "tileset") {
-			console.warn(`Tileset tab ${tilesetTabId} not found`);
-			return;
-		}
-
-		const tilesetTab = foundTab as TilesetTab;
-
-		// Get the tileset data from the tilesets array
-		const tileset = tilesets.find((t) => t.id === tilesetTab.tilesetId);
-		if (!tileset) {
-			console.error(`Tileset ${tilesetTab.tilesetId} not found`);
-			alert(`Cannot save: tileset not found`);
-			return;
-		}
-
-		// If no file path, show save dialog
-		let targetPath = tileset.filePath;
-		if (!targetPath) {
-			const result = await invoke<{ canceled: boolean; filePath?: string }>(
-				"show_save_dialog",
-				{
-					options: {
-						title: "Save Tileset",
-						defaultPath: `${tileset.name}.lostset`,
-						filters: [{ name: "Lost Editor Tileset", extensions: ["lostset"] }],
-					},
-				},
-			);
-
-			if (!result.filePath) {
-				return; // User cancelled
+	const saveTilesetByTabId = useCallback(
+		async (tilesetTabId: string) => {
+			// Find the tileset tab
+			const foundTab = tabs.find((t) => t.id === tilesetTabId);
+			if (!foundTab || foundTab.type !== "tileset") {
+				console.warn(`Tileset tab ${tilesetTabId} not found`);
+				return;
 			}
 
-			targetPath = result.filePath;
-		}
+			const tilesetTab = foundTab as TilesetTab;
 
-		try {
-			await tilesetManager.saveTileset(tileset, targetPath);
+			// Get the tileset data from the tilesets array
+			const tileset = tilesets.find((t) => t.id === tilesetTab.tilesetId);
+			if (!tileset) {
+				console.error(`Tileset ${tilesetTab.tilesetId} not found`);
+				alert(`Cannot save: tileset not found`);
+				return;
+			}
 
-			// Update the tileset in the tilesets array with the new file path
-			setTilesets((prev) =>
-				prev.map((t) =>
-					t.id === tileset.id ? { ...t, filePath: targetPath } : t,
-				),
-			);
+			// If no file path, show save dialog
+			let targetPath = tileset.filePath;
+			if (!targetPath) {
+				const result = await invoke<{ canceled: boolean; filePath?: string }>(
+					"show_save_dialog",
+					{
+						options: {
+							title: "Save Tileset",
+							defaultPath: `${tileset.name}.lostset`,
+							filters: [
+								{ name: "Lost Editor Tileset", extensions: ["lostset"] },
+							],
+						},
+					},
+				);
 
-			// Mark the tab as not dirty and update title
-			updateTabData(tilesetTab.id, {
-				isDirty: false,
-				title: fileManager.basename(targetPath, ".lostset"),
-			});
-		} catch (error) {
-			console.error("Failed to save tileset:", error);
-			alert(`Failed to save tileset: ${error}`);
-		}
-	}, [tabs, tilesets, updateTabData]);
+				if (!result.filePath) {
+					return; // User cancelled
+				}
+
+				targetPath = result.filePath;
+			}
+
+			try {
+				await tilesetManager.saveTileset(tileset, targetPath);
+
+				// Update the tileset in the tilesets array with the new file path
+				setTilesets((prev) =>
+					prev.map((t) =>
+						t.id === tileset.id ? { ...t, filePath: targetPath } : t,
+					),
+				);
+
+				// Mark the tab as not dirty and update title
+				updateTabData(tilesetTab.id, {
+					isDirty: false,
+					title: fileManager.basename(targetPath, ".lostset"),
+				});
+			} catch (error) {
+				console.error("Failed to save tileset:", error);
+				alert(`Failed to save tileset: ${error}`);
+			}
+		},
+		[tabs, tilesets, updateTabData],
+	);
 
 	const saveAll = useCallback(async () => {
 		// Save all dirty tileset tabs

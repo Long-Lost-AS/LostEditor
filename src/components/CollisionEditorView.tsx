@@ -87,40 +87,32 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 		tabs,
 	]);
 
-	// Show error if source not found
-	if (!sourceData) {
-		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<div className="text-red-400">
-					{tab.sourceType === "tile" ? "Tile not found" : "Entity not found"}
-				</div>
-			</div>
-		);
-	}
-
 	// Handle collision updates
-	const handleCollisionUpdate = useCallback((colliders: PolygonCollider[]) => {
-		if (sourceData?.type === "tile") {
-			const { tileset, tile } = sourceData;
-			const updatedTiles = tileset.tiles.map((t) =>
-				t.id === tile.id ? { ...t, colliders } : t,
-			);
-			updateTileset(tileset.id, { tiles: updatedTiles });
+	const handleCollisionUpdate = useCallback(
+		(colliders: PolygonCollider[]) => {
+			if (sourceData?.type === "tile") {
+				const { tileset, tile } = sourceData;
+				const updatedTiles = tileset.tiles.map((t) =>
+					t.id === tile.id ? { ...t, colliders } : t,
+				);
+				updateTileset(tileset.id, { tiles: updatedTiles });
 
-			// Mark the source tileset tab as dirty if it exists
-			if (tab.sourceTabId) {
-				updateTabData(tab.sourceTabId, { isDirty: true });
+				// Mark the source tileset tab as dirty if it exists
+				if (tab.sourceTabId) {
+					updateTabData(tab.sourceTabId, { isDirty: true });
+				}
+			} else if (sourceData?.type === "entity") {
+				const { entityTab, entity } = sourceData;
+				updateTabData(entityTab.id, {
+					entityData: {
+						...entity,
+						colliders,
+					},
+				});
 			}
-		} else if (sourceData?.type === "entity") {
-			const { entityTab, entity } = sourceData;
-			updateTabData(entityTab.id, {
-				entityData: {
-					...entity,
-					colliders,
-				},
-			});
-		}
-	}, [sourceData, tab.sourceTabId, updateTileset, updateTabData]);
+		},
+		[sourceData, tab.sourceTabId, updateTileset, updateTabData],
+	);
 
 	// Handle Cmd+S to save the source tileset
 	useEffect(() => {
@@ -152,6 +144,17 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [sourceData, tab.sourceTabId, tabs, saveTilesetByTabId]);
+
+	// Show error if source not found
+	if (!sourceData) {
+		return (
+			<div className="flex h-full w-full items-center justify-center">
+				<div className="text-red-400">
+					{tab.sourceType === "tile" ? "Tile not found" : "Entity not found"}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex h-full w-full flex-col bg-gray-900">

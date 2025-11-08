@@ -1688,13 +1688,21 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				<div className="flex-1 overflow-y-auto">
 					{/* Entity Info Section */}
 					<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
-						<div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "#858585" }}>
+						<div
+							className="text-xs font-semibold uppercase tracking-wide mb-3"
+							style={{ color: "#858585" }}
+						>
 							Entity Info
 						</div>
 
 						{/* Entity Name */}
 						<div className="mb-3">
-							<div className="text-xs font-medium mb-1 block" style={{ color: "#858585" }}>Name</div>
+							<div
+								className="text-xs font-medium mb-1 block"
+								style={{ color: "#858585" }}
+							>
+								Name
+							</div>
 							{isEditingName ? (
 								<input
 									type="text"
@@ -1739,7 +1747,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 						{/* Entity Type */}
 						<div>
-							<div className="text-xs font-medium mb-1 block" style={{ color: "#858585" }}>Type</div>
+							<div
+								className="text-xs font-medium mb-1 block"
+								style={{ color: "#858585" }}
+							>
+								Type
+							</div>
 							{isEditingType ? (
 								<input
 									type="text"

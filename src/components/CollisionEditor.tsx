@@ -89,9 +89,9 @@ export const CollisionEditor = ({
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
 
 	// Sync local colliders with parent's onUpdate callback
+	// biome-ignore lint/correctness/useExhaustiveDependencies: onUpdate changes on every render, would cause infinite loop
 	useEffect(() => {
 		onUpdate(localColliders);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [localColliders]);
 
 	// Ensure all colliders have IDs and remove invalid colliders
