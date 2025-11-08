@@ -8,6 +8,7 @@
     "dev": "vite",
     "tauri:dev": "tauri dev",
     "build": "vite build",
+    "tauri": "tauri build",
     "tauri:build": "tauri build",
     "preview": "vite preview",
     "lint": "biome check ./src",
