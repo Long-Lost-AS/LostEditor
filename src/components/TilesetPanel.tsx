@@ -332,7 +332,7 @@ export const TilesetPanel = () => {
 		// If using new tileset system
 		if (currentTileset) {
 			// Clear terrain layer selection when selecting a tile
-			setSelectedTerrainLayerId(null);
+			setSelectedTerrainLayerId(currentTileset.id, null);
 
 			// First check if we clicked on a compound tile
 			const clickedTile = currentTileset.tiles.find((tile) => {
@@ -498,18 +498,22 @@ export const TilesetPanel = () => {
 										border: `1px solid ${selectedTerrainLayerId === layer.id ? "#1177bb" : "#3e3e42"}`,
 										padding: "8px 10px",
 									}}
-									onClick={() => {
+									onClick={(e) => {
+										e.stopPropagation(); // Prevent click from bubbling to canvas
 										// Toggle selection: click again to deselect
 										const newTerrainLayerId =
 											selectedTerrainLayerId === layer.id ? null : layer.id;
-										setSelectedTerrainLayerId(newTerrainLayerId);
+										if (currentTileset) {
+											setSelectedTerrainLayerId(
+												currentTileset.id,
+												newTerrainLayerId,
+											);
+										}
 
 										// When selecting a terrain layer, set the tileset ID
 										if (newTerrainLayerId && currentTileset) {
 											setSelectedTilesetId(currentTileset.id);
-											// Clear tile/entity selection when selecting terrain
-											setSelectedTileId(null);
-											setSelectedEntityDefId("", null);
+											// Note: No need to clear tile/entity selection - setSelectedTerrainLayerId already sets selection to terrain type
 										} else if (!newTerrainLayerId) {
 											// When deselecting terrain, clear the tileset ID too
 											setSelectedTilesetId(null);
@@ -520,7 +524,12 @@ export const TilesetPanel = () => {
 											e.preventDefault();
 											const newTerrainLayerId =
 												selectedTerrainLayerId === layer.id ? null : layer.id;
-											setSelectedTerrainLayerId(newTerrainLayerId);
+											if (currentTileset) {
+												setSelectedTerrainLayerId(
+													currentTileset.id,
+													newTerrainLayerId,
+												);
+											}
 
 											if (newTerrainLayerId && currentTileset) {
 												setSelectedTilesetId(currentTileset.id);
