@@ -5,6 +5,7 @@ import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { Dropdown } from "./Dropdown";
 
@@ -110,12 +111,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [isEditingType, setIsEditingType] = useState(false);
 	const [editedName, setEditedName] = useState(entityData.name || "");
 	const [editedType, setEditedType] = useState(entityData.type || "");
-	const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(
-		null,
-	);
-	const [editingPropertyValue, setEditingPropertyValue] = useState<
-		string | null
-	>(null);
 	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
 		string | null
 	>(null);
@@ -1415,77 +1410,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		setIsEditingType(false);
 	};
 
-	// Add new property
-	const handleAddProperty = () => {
-		// Generate a unique temporary key for the new property
-		const newKey = `__temp_${Date.now()}`;
-
-		const updatedProperties = {
-			...localProperties,
-			[newKey]: "",
-		};
-
+	// Handle property changes
+	const handlePropertiesChange = (properties: Record<string, string>) => {
 		setLocalEntityState({
 			sprites: localSprites,
 			colliders: localColliders,
-			properties: updatedProperties,
-		});
-
-		// Auto-focus the new property key for editing
-		setEditingPropertyKey(newKey);
-	};
-
-	// Delete property
-	const handleDeleteProperty = (key: string) => {
-		const updatedProperties = { ...localProperties };
-		delete updatedProperties[key];
-
-		setLocalEntityState({
-			sprites: localSprites,
-			colliders: localColliders,
-			properties: updatedProperties,
-		});
-	};
-
-	// Update property key (rename)
-	const handleUpdatePropertyKey = (oldKey: string, newKey: string) => {
-		// If empty key, delete the property
-		if (!newKey.trim()) {
-			handleDeleteProperty(oldKey);
-			setEditingPropertyKey(null);
-			return;
-		}
-
-		if (oldKey === newKey) return;
-
-		// Check if new key already exists
-		if (localProperties?.[newKey] && newKey !== oldKey) {
-			return; // Don't allow duplicate keys
-		}
-
-		const updatedProperties = { ...localProperties };
-		const value = updatedProperties[oldKey];
-		delete updatedProperties[oldKey];
-		updatedProperties[newKey] = value;
-
-		setLocalEntityState({
-			sprites: localSprites,
-			colliders: localColliders,
-			properties: updatedProperties,
-		});
-	};
-
-	// Update property value
-	const handleUpdatePropertyValue = (key: string, value: string) => {
-		const updatedProperties = {
-			...localProperties,
-			[key]: value,
-		};
-
-		setLocalEntityState({
-			sprites: localSprites,
-			colliders: localColliders,
-			properties: updatedProperties,
+			properties,
 		});
 	};
 
@@ -1855,162 +1785,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					{/* Custom Properties Section */}
 					<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
-						<div className="text-sm font-semibold text-gray-400 mb-3 flex items-center justify-between">
-							<span>CUSTOM PROPERTIES</span>
-							<button
-								type="button"
-								onClick={handleAddProperty}
-								className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition-colors"
-							>
-								+ Add
-							</button>
-						</div>
-						<div className="text-xs text-gray-500">
-							{/* Property List */}
-							{localProperties && Object.keys(localProperties).length > 0 ? (
-								<div className="space-y-2">
-									{Object.entries(localProperties).map(([key, value]) => {
-										const isTemp = key.startsWith("__temp_");
-										const displayKey = isTemp ? "" : key;
-
-										return (
-											<div key={key} className="flex items-center gap-2">
-												<div className="flex-1" style={{ minWidth: 0 }}>
-													{editingPropertyKey === key ? (
-														<input
-															type="text"
-															value={displayKey}
-															onChange={(e) => {
-																const newKey = e.target.value;
-																handleUpdatePropertyKey(key, newKey);
-																if (newKey?.trim()) {
-																	setEditingPropertyKey(newKey);
-																}
-															}}
-															onBlur={() => {
-																setEditingPropertyKey(null);
-																// If still empty after blur, delete it
-																if (isTemp) {
-																	handleDeleteProperty(key);
-																}
-															}}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === "Escape") {
-																	setEditingPropertyKey(null);
-																	// If still empty after Enter/Escape, delete it
-																	if (isTemp || !displayKey.trim()) {
-																		handleDeleteProperty(key);
-																	}
-																}
-															}}
-															placeholder="Key"
-															className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none font-mono"
-															style={{
-																background: "#3e3e42",
-																border: "1px solid #007acc",
-																boxSizing: "border-box",
-															}}
-														/>
-													) : (
-														<div
-															onClick={() => setEditingPropertyKey(key)}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === " ") {
-																	e.preventDefault();
-																	setEditingPropertyKey(key);
-																}
-															}}
-															role="button"
-															tabIndex={0}
-															aria-label="Edit property key"
-															className="text-gray-400 font-mono text-xs cursor-text px-2 py-1 rounded"
-															style={{
-																background: "#3e3e42",
-																border: "1px solid transparent",
-																boxSizing: "border-box",
-															}}
-															onMouseEnter={(e) => {
-																e.currentTarget.style.background = "#4a4a4e";
-															}}
-															onMouseLeave={(e) => {
-																e.currentTarget.style.background = "#3e3e42";
-															}}
-														>
-															{displayKey || (
-																<span style={{ opacity: 0.5 }}>Key</span>
-															)}
-														</div>
-													)}
-												</div>
-												<div className="flex-1" style={{ minWidth: 0 }}>
-													{editingPropertyValue === key ? (
-														<input
-															type="text"
-															value={value}
-															onChange={(e) =>
-																handleUpdatePropertyValue(key, e.target.value)
-															}
-															onBlur={() => setEditingPropertyValue(null)}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === "Escape") {
-																	setEditingPropertyValue(null);
-																}
-															}}
-															placeholder="Value"
-															className="w-full px-2 py-1 text-xs rounded text-gray-200 focus:outline-none"
-															style={{
-																background: "#3e3e42",
-																border: "1px solid #007acc",
-																boxSizing: "border-box",
-															}}
-														/>
-													) : (
-														<div
-															onClick={() => setEditingPropertyValue(key)}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === " ") {
-																	e.preventDefault();
-																	setEditingPropertyValue(key);
-																}
-															}}
-															role="button"
-															tabIndex={0}
-															aria-label="Edit property value"
-															className="text-gray-300 text-xs cursor-text px-2 py-1 rounded"
-															style={{
-																background: "#3e3e42",
-																border: "1px solid transparent",
-																boxSizing: "border-box",
-															}}
-															onMouseEnter={(e) => {
-																e.currentTarget.style.background = "#4a4a4e";
-															}}
-															onMouseLeave={(e) => {
-																e.currentTarget.style.background = "#3e3e42";
-															}}
-														>
-															{value || (
-																<span style={{ opacity: 0.5 }}>Value</span>
-															)}
-														</div>
-													)}
-												</div>
-												<button
-													type="button"
-													onClick={() => handleDeleteProperty(key)}
-													className="text-red-400 hover:text-red-300 text-sm flex-shrink-0"
-													style={{ width: "20px" }}
-												>
-													✕
-												</button>
-											</div>
-										);
-									})}
-								</div>
-							) : (
-								<div className="text-center py-4">No custom properties</div>
-							)}
-						</div>
+						<CustomPropertiesEditor
+							properties={localProperties || {}}
+							onChange={handlePropertiesChange}
+						/>
 					</div>
 				</div>
 			</div>

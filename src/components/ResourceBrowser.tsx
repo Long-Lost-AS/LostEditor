@@ -624,13 +624,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		}
 	};
 
-	const navigateUp = () => {
-		if (!projectDirectory || currentPath === projectDirectory) return;
-		const parentPath = fileManager.dirname(currentPath);
-		setCurrentPath(parentPath);
-		loadDirectory(parentPath);
-	};
-
 	const getIcon = (item: FileItem) => {
 		if (item.isDirectory) {
 			return (
@@ -952,26 +945,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 							</div>
 						))}
 					</div>
-					{canGoUp && (
-						<button
-							type="button"
-							onClick={navigateUp}
-							className="px-3 py-1 text-xs rounded transition-colors"
-							style={{
-								background: "#3e3e42",
-								border: "1px solid #555",
-								color: "#cccccc",
-							}}
-							onMouseEnter={(e) => {
-								e.currentTarget.style.background = "#505050";
-							}}
-							onMouseLeave={(e) => {
-								e.currentTarget.style.background = "#3e3e42";
-							}}
-						>
-							↑ Up
-						</button>
-					)}
 					<button
 						type="button"
 						onClick={onClose}
