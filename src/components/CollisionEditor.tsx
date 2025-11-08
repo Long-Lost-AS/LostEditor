@@ -1264,11 +1264,11 @@ export const CollisionEditor = ({
 			</div>
 
 			{/* Right Side - Canvas Area */}
-			{/* biome-ignore lint/a11y/noNoninteractiveTabindex: Canvas container needs keyboard events for arrow key navigation */}
 			<div
 				ref={containerRef}
 				className="flex-1 overflow-hidden relative"
 				onKeyDown={handleLocalKeyDown}
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: Canvas container needs keyboard events for arrow key navigation
 				tabIndex={0}
 				role="region"
 				aria-label="Collision editor canvas"
