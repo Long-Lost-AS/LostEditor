@@ -349,7 +349,17 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 				"tauri://drag-drop",
 				async (event) => {
 					setIsDragOver(false);
-					const paths = event.payload as string[];
+
+					// Log payload for debugging
+					console.log("Drop event payload:", event.payload);
+
+					// The payload might be an object with a paths property, or directly an array
+					let paths: string[] = [];
+					if (Array.isArray(event.payload)) {
+						paths = event.payload;
+					} else if (event.payload && typeof event.payload === 'object' && 'paths' in event.payload) {
+						paths = (event.payload as { paths: string[] }).paths;
+					}
 
 					if (!paths || paths.length === 0) return;
 
