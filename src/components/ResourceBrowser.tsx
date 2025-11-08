@@ -336,12 +336,20 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 			);
 			const webviewWindow = getCurrentWebviewWindow();
 
-			unlisten = await webviewWindow.onFileDropEvent(async (event) => {
-				if (event.payload.type === "hover") {
+			// Listen for file drop hover
+			const unlistenHover = await webviewWindow.listen(
+				"tauri://drag-over",
+				() => {
 					setIsDragOver(true);
-				} else if (event.payload.type === "drop") {
+				},
+			);
+
+			// Listen for file drop
+			const unlistenDrop = await webviewWindow.listen(
+				"tauri://drag-drop",
+				async (event) => {
 					setIsDragOver(false);
-					const paths = event.payload.paths;
+					const paths = event.payload as string[];
 
 					if (!paths || paths.length === 0) return;
 
@@ -372,10 +380,22 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 						setError("Failed to copy files");
 						setTimeout(() => setError(null), 3000);
 					}
-				} else if (event.payload.type === "cancel") {
+				},
+			);
+
+			// Listen for file drop cancel
+			const unlistenCancel = await webviewWindow.listen(
+				"tauri://drag-cancel",
+				() => {
 					setIsDragOver(false);
-				}
-			});
+				},
+			);
+
+			unlisten = () => {
+				unlistenHover();
+				unlistenDrop();
+				unlistenCancel();
+			};
 		};
 
 		setupFileDropListener();
