@@ -905,6 +905,25 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		[localMapData, setProjectModified, setLocalMapData],
 	);
 
+	// Handle deleting an entity
+	const handleDeleteEntity = useCallback(
+		(entityId: string) => {
+			if (!localMapData) return;
+
+			const newEntities = (localMapData.entities || []).filter(
+				(entity) => entity.id !== entityId,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				entities: newEntities,
+			});
+			setProjectModified(true);
+			setSelectedEntityId(null); // Clear selection after delete
+		},
+		[localMapData, setProjectModified, setLocalMapData],
+	);
+
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
@@ -1140,6 +1159,27 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [contextMenu]);
+
+	// Delete entity on Backspace or Delete key
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Only delete if an entity is selected and we're not typing in an input field
+			if (
+				(e.key === "Backspace" || e.key === "Delete") &&
+				selectedEntityId &&
+				!(e.target instanceof HTMLInputElement) &&
+				!(e.target instanceof HTMLTextAreaElement)
+			) {
+				e.preventDefault();
+				handleDeleteEntity(selectedEntityId);
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [selectedEntityId, handleDeleteEntity]);
 
 	// Guard against undefined - map should always exist in global state
 	if (!mapData) {
@@ -1444,6 +1484,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onMoveEntity={handleMoveEntity}
 						onEntitySelected={setSelectedEntityId}
 						onEntityDragging={handleEntityDragging}
+						onDeleteEntity={handleDeleteEntity}
 					/>
 				</div>
 			</div>

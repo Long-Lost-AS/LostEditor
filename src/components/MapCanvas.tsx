@@ -22,6 +22,7 @@ interface MapCanvasProps {
 	onMoveEntity: (entityId: string, newX: number, newY: number) => void;
 	onEntitySelected?: (entityId: string | null) => void;
 	onEntityDragging?: (entityId: string, newX: number, newY: number) => void;
+	onDeleteEntity?: (entityId: string) => void;
 }
 
 export const MapCanvas = ({
@@ -35,6 +36,7 @@ export const MapCanvas = ({
 	onMoveEntity,
 	onEntitySelected,
 	onEntityDragging,
+	onDeleteEntity,
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
@@ -88,6 +90,14 @@ export const MapCanvas = ({
 	const [isHoveringSelectedEntity, setIsHoveringSelectedEntity] =
 		useState(false);
 	const DRAG_THRESHOLD = 5; // pixels before starting drag
+
+	// Context menu state
+	const [contextMenu, setContextMenu] = useState<{
+		visible: boolean;
+		x: number;
+		y: number;
+		entityId: string | null;
+	}>({ visible: false, x: 0, y: 0, entityId: null });
 
 	// Fill tool - flood fill helper function
 	const floodFill = (startX: number, startY: number) => {
@@ -1131,6 +1141,76 @@ export const MapCanvas = ({
 		setIsDrawing(false);
 	};
 
+	const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+		e.preventDefault();
+
+		// Only show context menu for entities
+		if (currentTool !== "pointer" || !mapData.entities) {
+			return;
+		}
+
+		const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+
+		// Check if right-clicking on an entity (in reverse order - top to bottom)
+		let foundEntity = null;
+		for (let i = mapData.entities.length - 1; i >= 0; i--) {
+			const entity = mapData.entities[i];
+			const entityDef = entityManager.getEntityDefinition(
+				entity.tilesetId,
+				entity.entityDefId,
+			);
+
+			if (entityDef?.sprites && entityDef.sprites.length > 0) {
+				const firstSprite = entityDef.sprites[0];
+				if (firstSprite.sprite) {
+					const sprite = firstSprite.sprite;
+					const origin = firstSprite.origin || { x: 0.5, y: 1 };
+					const offset = firstSprite.offset || { x: 0, y: 0 };
+					const scale = entity.scale || { x: 1, y: 1 };
+
+					// Calculate scaled dimensions
+					const scaledWidth = sprite.width * scale.x;
+					const scaledHeight = sprite.height * scale.y;
+
+					// Calculate entity bounds (using scaled dimensions)
+					const originOffsetX = origin.x * scaledWidth;
+					const originOffsetY = origin.y * scaledHeight;
+					const entityX = entity.x - originOffsetX + offset.x;
+					const entityY = entity.y - originOffsetY + offset.y;
+
+					// Check if click is within entity bounds
+					if (
+						worldX >= entityX &&
+						worldX <= entityX + scaledWidth &&
+						worldY >= entityY &&
+						worldY <= entityY + scaledHeight
+					) {
+						foundEntity = entity;
+						break;
+					}
+				}
+			}
+		}
+
+		if (foundEntity) {
+			// Show context menu at cursor position
+			setContextMenu({
+				visible: true,
+				x: e.clientX,
+				y: e.clientY,
+				entityId: foundEntity.id,
+			});
+
+			// Select the entity if not already selected
+			if (selectedEntityId !== foundEntity.id) {
+				setSelectedEntityId(foundEntity.id);
+				selectedEntityIdRef.current = foundEntity.id;
+				renderMap.current();
+				onEntitySelected?.(foundEntity.id);
+			}
+		}
+	};
+
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
@@ -1250,6 +1330,40 @@ export const MapCanvas = ({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [currentTool, selectedEntityId, mapData.entities, onMoveEntity]);
 
+	// Handle closing context menu with Escape or clicks outside
+	useEffect(() => {
+		if (!contextMenu.visible) {
+			return;
+		}
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+			}
+		};
+
+		const handleMouseDown = (e: MouseEvent) => {
+			// Check if click is outside the context menu
+			const target = e.target as HTMLElement;
+			if (!target.closest('[role="menu"]')) {
+				setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+			}
+		};
+
+		// Use setTimeout to avoid closing immediately after opening
+		const timeoutId = setTimeout(() => {
+			window.addEventListener("mousedown", handleMouseDown);
+		}, 100);
+
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			clearTimeout(timeoutId);
+			window.removeEventListener("keydown", handleKeyDown);
+			window.removeEventListener("mousedown", handleMouseDown);
+		};
+	}, [contextMenu.visible]);
+
 	return (
 		<div className="canvas-container">
 			<canvas
@@ -1259,6 +1373,7 @@ export const MapCanvas = ({
 				onMouseMove={handleMouseMove}
 				onMouseUp={handleMouseUp}
 				onMouseLeave={handleMouseLeave}
+				onContextMenu={handleContextMenu}
 				style={{
 					cursor: isDraggingEntity
 						? "grabbing"
@@ -1288,6 +1403,68 @@ export const MapCanvas = ({
 					}}
 				>
 					AUTOTILING DISABLED (Shift)
+				</div>
+			)}
+			{contextMenu.visible && contextMenu.entityId && (
+				<div
+					role="menu"
+					style={{
+						position: "fixed",
+						left: `${contextMenu.x}px`,
+						top: `${contextMenu.y}px`,
+						background: "#1e1e1e",
+						border: "1px solid #454545",
+						borderRadius: "4px",
+						boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+						zIndex: 10000,
+						minWidth: "150px",
+					}}
+				>
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							if (contextMenu.entityId && onDeleteEntity) {
+								onDeleteEntity(contextMenu.entityId);
+							}
+							setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+						}}
+						style={{
+							width: "100%",
+							padding: "8px 12px",
+							background: "transparent",
+							border: "none",
+							color: "#ff6b6b",
+							textAlign: "left",
+							cursor: "pointer",
+							fontSize: "13px",
+							display: "flex",
+							alignItems: "center",
+							gap: "8px",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "#2a2a2a";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+						}}
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<title>Delete</title>
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							<line x1="10" y1="11" x2="10" y2="17" />
+							<line x1="14" y1="11" x2="14" y2="17" />
+						</svg>
+						Delete Entity
+					</button>
 				</div>
 			)}
 		</div>
