@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useEditor } from "../context/EditorContext";
 import type {
 	CollisionEditorTab,
 	EntityEditorTab,
 	PolygonCollider,
 } from "../types";
+import { isEditableElementFocused } from "../utils/keyboardUtils";
 import { CollisionEditor } from "./CollisionEditor";
 
 interface CollisionEditorViewProps {
@@ -12,7 +13,13 @@ interface CollisionEditorViewProps {
 }
 
 export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
-	const { getTilesetById, updateTileset, updateTabData, tabs } = useEditor();
+	const {
+		getTilesetById,
+		updateTileset,
+		updateTabData,
+		tabs,
+		saveTilesetByTabId,
+	} = useEditor();
 
 	// Fetch the source data based on sourceType
 	const sourceData = useMemo(() => {
@@ -92,14 +99,19 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 	}
 
 	// Handle collision updates
-	const handleCollisionUpdate = (colliders: PolygonCollider[]) => {
-		if (sourceData.type === "tile") {
+	const handleCollisionUpdate = useCallback((colliders: PolygonCollider[]) => {
+		if (sourceData?.type === "tile") {
 			const { tileset, tile } = sourceData;
 			const updatedTiles = tileset.tiles.map((t) =>
 				t.id === tile.id ? { ...t, colliders } : t,
 			);
 			updateTileset(tileset.id, { tiles: updatedTiles });
-		} else {
+
+			// Mark the source tileset tab as dirty if it exists
+			if (tab.sourceTabId) {
+				updateTabData(tab.sourceTabId, { isDirty: true });
+			}
+		} else if (sourceData?.type === "entity") {
 			const { entityTab, entity } = sourceData;
 			updateTabData(entityTab.id, {
 				entityData: {
@@ -108,7 +120,38 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				},
 			});
 		}
-	};
+	}, [sourceData, tab.sourceTabId, updateTileset, updateTabData]);
+
+	// Handle Cmd+S to save the source tileset
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Don't intercept shortcuts when user is typing in an input field
+			if (isEditableElementFocused(e)) {
+				return;
+			}
+
+			// Cmd/Ctrl+S - Save tileset
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "s" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				// For tile colliders, save the tileset
+				if (sourceData?.type === "tile" && tab.sourceTabId) {
+					// Save the tileset directly by tab ID without switching tabs
+					const sourceTab = tabs.find((t) => t.id === tab.sourceTabId);
+					if (sourceTab?.type === "tileset") {
+						saveTilesetByTabId(tab.sourceTabId);
+					}
+				}
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [sourceData, tab.sourceTabId, tabs, saveTilesetByTabId]);
 
 	return (
 		<div className="flex h-full w-full flex-col bg-gray-900">

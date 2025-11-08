@@ -156,6 +156,7 @@ interface EditorContextType {
 		sourceTabId?: string,
 	) => void;
 	saveTileset: () => Promise<void>;
+	saveTilesetByTabId: (tilesetTabId: string) => Promise<void>;
 	saveAll: () => Promise<void>;
 
 	// Broken References Modal
@@ -1013,16 +1014,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					if (!mapFilePath) {
 						// No file path yet, prompt user to save
 						const sanitizedTitle = mapTab.title.replace(/[^a-zA-Z0-9_-]/g, "_");
-						const result = await invoke<{ canceled: boolean; filePath?: string }>(
-							"show_save_dialog",
-							{
-								options: {
-									title: `Save Map: ${mapTab.title}`,
-									defaultPath: `${sanitizedTitle}.lostmap`,
-									filters: [{ name: "Lost Editor Map", extensions: ["lostmap"] }],
-								},
+						const result = await invoke<{
+							canceled: boolean;
+							filePath?: string;
+						}>("show_save_dialog", {
+							options: {
+								title: `Save Map: ${mapTab.title}`,
+								defaultPath: `${sanitizedTitle}.lostmap`,
+								filters: [{ name: "Lost Editor Map", extensions: ["lostmap"] }],
 							},
-						);
+						});
 
 						if (result.canceled || !result.filePath) {
 							alert(
@@ -1498,64 +1499,67 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		}
 	}, [settingsManager]);
 
-	const newMap = useCallback((directory?: string, fileName?: string) => {
-		// Generate a unique ID for the new map
-		const mapId = `map-${Date.now()}`;
+	const newMap = useCallback(
+		(directory?: string, fileName?: string) => {
+			// Generate a unique ID for the new map
+			const mapId = `map-${Date.now()}`;
 
-		// Find the highest existing map number to avoid duplicates
-		const existingMapNumbers = tabs
-			.filter((t) => t.type === "map")
-			.map((t) => {
-				const match = t.title.match(/^Map (\d+)$/);
-				return match ? parseInt(match[1], 10) : 0;
-			});
-		const maxMapNumber = Math.max(0, ...existingMapNumbers);
-		const mapNumber = maxMapNumber + 1;
-		const title = fileName || `Map ${mapNumber}`;
-		const filePath =
-			directory && fileName
-				? fileManager.join(
-						directory,
-						fileName.endsWith(".lostmap") ? fileName : `${fileName}.lostmap`,
-					)
-				: undefined;
+			// Find the highest existing map number to avoid duplicates
+			const existingMapNumbers = tabs
+				.filter((t) => t.type === "map")
+				.map((t) => {
+					const match = t.title.match(/^Map (\d+)$/);
+					return match ? parseInt(match[1], 10) : 0;
+				});
+			const maxMapNumber = Math.max(0, ...existingMapNumbers);
+			const mapNumber = maxMapNumber + 1;
+			const title = fileName || `Map ${mapNumber}`;
+			const filePath =
+				directory && fileName
+					? fileManager.join(
+							directory,
+							fileName.endsWith(".lostmap") ? fileName : `${fileName}.lostmap`,
+						)
+					: undefined;
 
-		// Create validated map data with default layer
-		const mapData = createDefaultMapData(title);
-		const mapWithId = { ...mapData, id: mapId };
+			// Create validated map data with default layer
+			const mapData = createDefaultMapData(title);
+			const mapWithId = { ...mapData, id: mapId };
 
-		// Add to global maps array FIRST
-		// This ensures the map exists when the view tries to fetch it
-		setMaps((prevMaps) => [...prevMaps, mapWithId]);
+			// Add to global maps array FIRST
+			// This ensures the map exists when the view tries to fetch it
+			setMaps((prevMaps) => [...prevMaps, mapWithId]);
 
-		// Then create the tab
-		const newMapTab: MapTab = {
-			id: mapId,
-			type: "map",
-			title: title,
-			isDirty: true, // Mark as dirty since it's unsaved
-			mapId: mapId,
-			mapFilePath: filePath || "",
-			filePath: filePath,
-			// mapData is optional - view will fetch from maps array
-			viewState: {
-				zoom: 2,
-				panX: 0,
-				panY: 0,
-				currentLayerId: mapData.layers[0]?.id || null,
-				gridVisible: true,
-				selectedTilesetId: null,
-				selectedTileId: null,
-				selectedEntityDefId: null,
-				currentTool: "pencil",
-			},
-		};
+			// Then create the tab
+			const newMapTab: MapTab = {
+				id: mapId,
+				type: "map",
+				title: title,
+				isDirty: true, // Mark as dirty since it's unsaved
+				mapId: mapId,
+				mapFilePath: filePath || "",
+				filePath: filePath,
+				// mapData is optional - view will fetch from maps array
+				viewState: {
+					zoom: 2,
+					panX: 0,
+					panY: 0,
+					currentLayerId: mapData.layers[0]?.id || null,
+					gridVisible: true,
+					selectedTilesetId: null,
+					selectedTileId: null,
+					selectedEntityDefId: null,
+					currentTool: "pencil",
+				},
+			};
 
-		setTabs((prevTabs) => [...prevTabs, newMapTab]);
+			setTabs((prevTabs) => [...prevTabs, newMapTab]);
 
-		// Make the new map tab active
-		setActiveTabId(mapId);
-	}, [tabs]);
+			// Make the new map tab active
+			setActiveTabId(mapId);
+		},
+		[tabs],
+	);
 
 	const openMapFromFile = useCallback(
 		async (filePath: string) => {
@@ -2037,6 +2041,66 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		}
 	}, [getActiveTilesetTab, tilesets, updateTabData]);
 
+	const saveTilesetByTabId = useCallback(async (tilesetTabId: string) => {
+		// Find the tileset tab
+		const foundTab = tabs.find((t) => t.id === tilesetTabId);
+		if (!foundTab || foundTab.type !== "tileset") {
+			console.warn(`Tileset tab ${tilesetTabId} not found`);
+			return;
+		}
+
+		const tilesetTab = foundTab as TilesetTab;
+
+		// Get the tileset data from the tilesets array
+		const tileset = tilesets.find((t) => t.id === tilesetTab.tilesetId);
+		if (!tileset) {
+			console.error(`Tileset ${tilesetTab.tilesetId} not found`);
+			alert(`Cannot save: tileset not found`);
+			return;
+		}
+
+		// If no file path, show save dialog
+		let targetPath = tileset.filePath;
+		if (!targetPath) {
+			const result = await invoke<{ canceled: boolean; filePath?: string }>(
+				"show_save_dialog",
+				{
+					options: {
+						title: "Save Tileset",
+						defaultPath: `${tileset.name}.lostset`,
+						filters: [{ name: "Lost Editor Tileset", extensions: ["lostset"] }],
+					},
+				},
+			);
+
+			if (!result.filePath) {
+				return; // User cancelled
+			}
+
+			targetPath = result.filePath;
+		}
+
+		try {
+			await tilesetManager.saveTileset(tileset, targetPath);
+
+			// Update the tileset in the tilesets array with the new file path
+			setTilesets((prev) =>
+				prev.map((t) =>
+					t.id === tileset.id ? { ...t, filePath: targetPath } : t,
+				),
+			);
+
+			// Mark the tab as not dirty and update title
+			updateTabData(tilesetTab.id, {
+				isDirty: false,
+				title: fileManager.basename(targetPath, ".lostset"),
+			});
+		} catch (error) {
+			console.error("Failed to save tileset:", error);
+			alert(`Failed to save tileset: ${error}`);
+		}
+	}, [tabs, tilesets, updateTabData]);
+
 	const saveAll = useCallback(async () => {
 		// Save all dirty tileset tabs
 		const tilesetTabs = tabs.filter(
@@ -2258,6 +2322,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		newEntity,
 		openCollisionEditor,
 		saveTileset,
+		saveTilesetByTabId,
 		saveAll,
 		projectDirectory,
 		openMapFromFile,

@@ -992,7 +992,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (!contextMenu?.compoundTileId) return;
 
 		// Open collision editor tab for this compound tile
-		openCollisionEditor("tile", tilesetData.id, contextMenu.compoundTileId);
+		openCollisionEditor("tile", tilesetData.id, contextMenu.compoundTileId, tab.id);
 	};
 
 	const handleUpdateTileName = (name: string) => {
