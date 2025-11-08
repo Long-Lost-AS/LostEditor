@@ -2115,12 +2115,17 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[],
 	);
 
-	const setSelectedTilesetId = useCallback((id: string | null) => {
-		if (id === null) {
-			setSelection({ type: "none" });
-		}
-		// Keep current selection if already has this tileset
-	}, []);
+	const setSelectedTilesetId = useCallback(
+		(id: string | null) => {
+			if (id === null) {
+				setSelection({ type: "none" });
+			} else if (selection.type !== "none" && selection.tilesetId !== id) {
+				// If switching to a different tileset, update the tileset ID but keep selection type
+				setSelection({ ...selection, tilesetId: id });
+			}
+		},
+		[selection],
+	);
 
 	const setSelectedTileId = useCallback(
 		(id: number | null) => {
@@ -2131,6 +2136,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 			} else if (selection.type === "tile") {
 				setSelection({ ...selection, tileId: id });
+			} else if (selection.type !== "none") {
+				// If we have a tileset selected but not in tile mode, create tile selection
+				setSelection({
+					type: "tile",
+					tilesetId: selection.tilesetId,
+					tileId: id,
+					tileX: 0,
+					tileY: 0,
+				});
 			}
 		},
 		[selection],
