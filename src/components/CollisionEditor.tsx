@@ -608,6 +608,65 @@ export const CollisionEditor = ({
 					setSelectedPointIndex(null);
 				}
 			}
+		} else if (
+			e.key === "ArrowUp" ||
+			e.key === "ArrowDown" ||
+			e.key === "ArrowLeft" ||
+			e.key === "ArrowRight"
+		) {
+			if (!selectedColliderId) return;
+
+			e.preventDefault();
+
+			const collider = getSelectedCollider();
+			if (!collider) return;
+
+			let deltaX = 0;
+			let deltaY = 0;
+
+			switch (e.key) {
+				case "ArrowUp":
+					deltaY = -1;
+					break;
+				case "ArrowDown":
+					deltaY = 1;
+					break;
+				case "ArrowLeft":
+					deltaX = -1;
+					break;
+				case "ArrowRight":
+					deltaX = 1;
+					break;
+			}
+
+			// If a specific point is selected, move only that point
+			if (selectedPointIndex !== null) {
+				const newPoints = [...collider.points];
+				newPoints[selectedPointIndex] = {
+					x: Math.max(
+						0,
+						Math.min(width, newPoints[selectedPointIndex].x + deltaX),
+					),
+					y: Math.max(
+						0,
+						Math.min(height, newPoints[selectedPointIndex].y + deltaY),
+					),
+				};
+				const newColliders = localColliders.map((c) =>
+					c.id === selectedColliderId ? { ...c, points: newPoints } : c,
+				);
+				setLocalColliders(newColliders);
+			} else {
+				// Move entire collider
+				const newPoints = collider.points.map((p) => ({
+					x: Math.max(0, Math.min(width, p.x + deltaX)),
+					y: Math.max(0, Math.min(height, p.y + deltaY)),
+				}));
+				const newColliders = localColliders.map((c) =>
+					c.id === selectedColliderId ? { ...c, points: newPoints } : c,
+				);
+				setLocalColliders(newColliders);
+			}
 		}
 	};
 
@@ -1205,10 +1264,12 @@ export const CollisionEditor = ({
 			</div>
 
 			{/* Right Side - Canvas Area */}
+			{/* biome-ignore lint/a11y/noNoninteractiveTabindex: Canvas container needs keyboard events for arrow key navigation */}
 			<div
 				ref={containerRef}
 				className="flex-1 overflow-hidden relative"
 				onKeyDown={handleLocalKeyDown}
+				tabIndex={0}
 				role="region"
 				aria-label="Collision editor canvas"
 			>
