@@ -7,6 +7,7 @@ export interface PolygonCollider {
 	name?: string;
 	type?: string;
 	points: Array<{ x: number; y: number }>;
+	properties?: Record<string, string>;
 }
 
 // ===========================
