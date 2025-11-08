@@ -17,34 +17,34 @@
 		"rules": {
 			"recommended": true,
 			"a11y": {
-				"useButtonType": "warn",
-				"noSvgWithoutTitle": "warn",
-				"noStaticElementInteractions": "warn",
-				"useKeyWithClickEvents": "warn",
+				"useButtonType": "error",
+				"noSvgWithoutTitle": "error",
+				"noStaticElementInteractions": "error",
+				"useKeyWithClickEvents": "error",
 				"useSemanticElements": "off",
-				"noLabelWithoutControl": "warn",
-				"useFocusableInteractive": "warn",
-				"useAriaPropsForRole": "warn"
+				"noLabelWithoutControl": "error",
+				"useFocusableInteractive": "error",
+				"useAriaPropsForRole": "error"
 			},
 			"suspicious": {
-				"noExplicitAny": "warn",
+				"noExplicitAny": "error",
 				"noDoubleEquals": "error",
-				"noDebugger": "warn",
-				"noAssignInExpressions": "warn",
-				"noDuplicateProperties": "warn",
-				"noArrayIndexKey": "warn",
+				"noDebugger": "error",
+				"noAssignInExpressions": "error",
+				"noDuplicateProperties": "error",
+				"noArrayIndexKey": "error",
 				"noUnknownAtRules": "off"
 			},
 			"style": {
-				"noNonNullAssertion": "warn",
-				"useConst": "warn"
+				"noNonNullAssertion": "error",
+				"useConst": "error"
 			},
 			"correctness": {
-				"noUnusedVariables": "warn",
-				"useExhaustiveDependencies": "warn",
-				"noUnusedFunctionParameters": "warn",
-				"noInvalidUseBeforeDeclaration": "warn",
-				"useHookAtTopLevel": "warn"
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "error",
+				"noUnusedFunctionParameters": "error",
+				"noInvalidUseBeforeDeclaration": "error",
+				"useHookAtTopLevel": "error"
 			}
 		}
 	},
