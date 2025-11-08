@@ -89,7 +89,6 @@ export const EntityPanel = () => {
 		projectDirectory,
 		selectedEntityDefId,
 		setSelectedEntityDefId,
-		setSelectedTilesetId,
 		setSelectedTileId,
 	} = useEditor();
 
@@ -147,8 +146,7 @@ export const EntityPanel = () => {
 	}, [projectDirectory]);
 
 	const handleSelect = (entityDefId: string, tilesetId: string) => {
-		setSelectedEntityDefId(entityDefId);
-		setSelectedTilesetId(tilesetId);
+		setSelectedEntityDefId(tilesetId, entityDefId);
 		setSelectedTileId(null); // Clear tile selection
 	};
 

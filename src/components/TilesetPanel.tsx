@@ -345,7 +345,7 @@ export const TilesetPanel = () => {
 			if (clickedTile) {
 				// Select the compound tile
 				setSelectedTileId(clickedTile.id);
-				setSelectedEntityDefId(null);
+				setSelectedEntityDefId("", null);
 
 				// Update legacy tile selection to cover the compound tile region
 				if (clickedTile.width && clickedTile.height) {
@@ -512,7 +512,7 @@ export const TilesetPanel = () => {
 											setSelectedTilesetId(currentTileset.id);
 											// Clear tile/entity selection when selecting terrain
 											setSelectedTileId(null);
-											setSelectedEntityDefId(null);
+											setSelectedEntityDefId("", null);
 										} else if (!newTerrainLayerId) {
 											// When deselecting terrain, clear the tileset ID too
 											setSelectedTilesetId(null);
@@ -528,7 +528,7 @@ export const TilesetPanel = () => {
 											if (newTerrainLayerId && currentTileset) {
 												setSelectedTilesetId(currentTileset.id);
 												setSelectedTileId(null);
-												setSelectedEntityDefId(null);
+												setSelectedEntityDefId("", null);
 											} else if (!newTerrainLayerId) {
 												setSelectedTilesetId(null);
 											}

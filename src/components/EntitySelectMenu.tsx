@@ -16,7 +16,6 @@ export const EntitySelectMenu = ({
 }: EntitySelectMenuProps) => {
 	const {
 		setSelectedEntityDefId,
-		setSelectedTilesetId,
 		getTilesetById,
 		getActiveMapTab,
 		updateTabData,
@@ -220,12 +219,12 @@ export const EntitySelectMenu = ({
 			onClose();
 
 			// Set the selected entity globally (after close, so modal dismisses quickly)
-			setSelectedEntityDefId(entity.id);
-
-			// Set the tileset from the first sprite (needed for entity preview)
-			if (entity.sprites && entity.sprites.length > 0) {
-				setSelectedTilesetId(entity.sprites[0].tilesetId);
-			}
+			// Get the tileset from the first sprite (needed for entity preview)
+			const tilesetId =
+				entity.sprites && entity.sprites.length > 0
+					? entity.sprites[0].tilesetId
+					: "";
+			setSelectedEntityDefId(tilesetId, entity.id);
 
 			// Switch to entity tool in the active map tab (if one exists)
 			const activeMapTab = getActiveMapTab();
@@ -239,13 +238,7 @@ export const EntitySelectMenu = ({
 				});
 			}
 		},
-		[
-			setSelectedEntityDefId,
-			setSelectedTilesetId,
-			getActiveMapTab,
-			updateTabData,
-			onClose,
-		],
+		[setSelectedEntityDefId, getActiveMapTab, updateTabData, onClose],
 	);
 
 	// Keyboard navigation

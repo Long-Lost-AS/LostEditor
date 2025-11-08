@@ -2100,7 +2100,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const setSelectedTileId = useCallback(
 		(id: number | null) => {
 			if (id === null) {
-				setSelection({ type: "none" });
+				// Only clear selection if we're currently in tile mode
+				if (selection.type === "tile") {
+					setSelection({ type: "none" });
+				}
 			} else if (selection.type === "tile") {
 				setSelection({ ...selection, tileId: id });
 			}

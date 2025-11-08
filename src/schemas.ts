@@ -17,6 +17,7 @@ export const PolygonColliderSchema = z.object({
 	name: z.string().optional(),
 	type: z.string().optional(),
 	points: z.array(PointSchema),
+	properties: z.record(z.string(), z.string()).optional(),
 });
 
 // ===========================
@@ -69,7 +70,7 @@ export const TileDefinitionSchema = z.object({
 	colliders: z.array(PolygonColliderSchema).optional(),
 	name: z.string().optional(),
 	type: z.string().optional(),
-	properties: z.record(z.string()).optional(),
+	properties: z.record(z.string(), z.string()).optional(),
 });
 
 export const TerrainTileSchema = z.object({
@@ -99,7 +100,7 @@ export const EntityDefinitionSchema: z.ZodType<EntityDefinition> = z.lazy(() =>
 		rotation: z.number().optional(),
 		colliders: z.array(PolygonColliderSchema).optional(),
 		children: z.array(EntityDefinitionSchema).optional(),
-		properties: z.record(z.string()).optional(),
+		properties: z.record(z.string(), z.string()).optional(),
 		filePath: z.string().optional(),
 	}),
 );
@@ -137,7 +138,7 @@ export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 				y: z.number(),
 			})
 			.optional(),
-		properties: z.record(z.string()).optional(),
+		properties: z.record(z.string(), z.string()).optional(),
 		children: z.array(EntityInstanceSchema).optional(),
 	}),
 );
