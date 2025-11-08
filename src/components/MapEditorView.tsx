@@ -222,6 +222,13 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 	// Register undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
 
+	// Sync localMapData when mapData becomes available (e.g., after newMap creates it)
+	useEffect(() => {
+		if (mapData && !localMapData.id) {
+			setLocalMapData(mapData);
+		}
+	}, [mapData, localMapData.id, setLocalMapData]);
+
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(
 		localMapData?.name || "Untitled Map",

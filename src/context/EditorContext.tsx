@@ -1027,9 +1027,27 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					// Determine map file path
 					let mapFilePath = mapTab.filePath;
 					if (!mapFilePath) {
-						// No file path yet, create one
-						const mapFileName = `${mapTab.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.lostmap`;
-						mapFilePath = fileManager.join(mapsDir, mapFileName);
+						// No file path yet, prompt user to save
+						const sanitizedTitle = mapTab.title.replace(/[^a-zA-Z0-9_-]/g, "_");
+						const result = await invoke<{ canceled: boolean; filePath?: string }>(
+							"show_save_dialog",
+							{
+								options: {
+									title: `Save Map: ${mapTab.title}`,
+									defaultPath: `${sanitizedTitle}.lostmap`,
+									filters: [{ name: "Lost Editor Map", extensions: ["lostmap"] }],
+								},
+							},
+						);
+
+						if (result.canceled || !result.filePath) {
+							alert(
+								`Project save cancelled: Please save map "${mapTab.title}" first.`,
+							);
+							return;
+						}
+
+						mapFilePath = result.filePath;
 					}
 
 					// Save the map using mapManager
@@ -1500,55 +1518,60 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		// Generate a unique ID for the new map
 		const mapId = `map-${Date.now()}`;
 
-		// Use functional setState to get current tabs and avoid stale closures
-		setTabs((prevTabs) => {
-			const mapNumber = prevTabs.filter((t) => t.type === "map").length + 1;
+		// Find the highest existing map number to avoid duplicates
+		const existingMapNumbers = tabs
+			.filter((t) => t.type === "map")
+			.map((t) => {
+				const match = t.title.match(/^Map (\d+)$/);
+				return match ? parseInt(match[1], 10) : 0;
+			});
+		const maxMapNumber = Math.max(0, ...existingMapNumbers);
+		const mapNumber = maxMapNumber + 1;
+		const title = fileName || `Map ${mapNumber}`;
+		const filePath =
+			directory && fileName
+				? fileManager.join(
+						directory,
+						fileName.endsWith(".lostmap") ? fileName : `${fileName}.lostmap`,
+					)
+				: undefined;
 
-			// Determine title and file path
-			const title = fileName || `Map ${mapNumber}`;
-			const filePath =
-				directory && fileName
-					? fileManager.join(
-							directory,
-							fileName.endsWith(".lostmap") ? fileName : `${fileName}.lostmap`,
-						)
-					: undefined;
+		// Create validated map data with default layer
+		const mapData = createDefaultMapData(title);
+		const mapWithId = { ...mapData, id: mapId };
 
-			// Create validated map data with default layer
-			const mapData = createDefaultMapData(title);
-			const mapWithId = { ...mapData, id: mapId };
+		// Add to global maps array FIRST
+		// This ensures the map exists when the view tries to fetch it
+		setMaps((prevMaps) => [...prevMaps, mapWithId]);
 
-			// Add to global maps array
-			setMaps((prevMaps) => [...prevMaps, mapWithId]);
+		// Then create the tab
+		const newMapTab: MapTab = {
+			id: mapId,
+			type: "map",
+			title: title,
+			isDirty: true, // Mark as dirty since it's unsaved
+			mapId: mapId,
+			mapFilePath: filePath || "",
+			filePath: filePath,
+			// mapData is optional - view will fetch from maps array
+			viewState: {
+				zoom: 2,
+				panX: 0,
+				panY: 0,
+				currentLayerId: mapData.layers[0]?.id || null,
+				gridVisible: true,
+				selectedTilesetId: null,
+				selectedTileId: null,
+				selectedEntityDefId: null,
+				currentTool: "pencil",
+			},
+		};
 
-			const newMapTab: MapTab = {
-				id: mapId,
-				type: "map",
-				title: title,
-				isDirty: true, // Mark as dirty since it's unsaved
-				mapId: mapId,
-				mapFilePath: filePath || "",
-				filePath: filePath,
-				// mapData is optional - view will fetch from maps array
-				viewState: {
-					zoom: 2,
-					panX: 0,
-					panY: 0,
-					currentLayerId: mapData.layers[0]?.id || null,
-					gridVisible: true,
-					selectedTilesetId: null,
-					selectedTileId: null,
-					selectedEntityDefId: null,
-					currentTool: "pencil",
-				},
-			};
-
-			return [...prevTabs, newMapTab];
-		});
+		setTabs((prevTabs) => [...prevTabs, newMapTab]);
 
 		// Make the new map tab active
 		setActiveTabId(mapId);
-	}, []);
+	}, [tabs]);
 
 	const openMapFromFile = useCallback(
 		async (filePath: string) => {
