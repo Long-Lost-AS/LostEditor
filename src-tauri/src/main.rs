@@ -329,6 +329,7 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                 ])
                 .build()?,
             // View menu
+            #[cfg(debug_assertions)]
             &SubmenuBuilder::new(app, "View")
                 .items(&[
                     &MenuItemBuilder::with_id("reload", "Reload")
