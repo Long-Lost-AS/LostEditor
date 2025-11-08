@@ -833,6 +833,7 @@ export const MapCanvas = ({
 	]);
 
 	// Trigger render when dependencies change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to redraw when these values change
 	useEffect(() => {
 		renderMap.current();
 	}, [

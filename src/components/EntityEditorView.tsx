@@ -99,13 +99,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				isFirstRun.current = false;
 			}, 0);
 		}
-	}, [
-		tab.id,
-		updateTabData,
-		localColliders,
-		localProperties,
-		localSprites,
-	]);
+	}, [tab.id, updateTabData, localColliders, localProperties, localSprites]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -401,7 +395,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		setIsDrawing(false);
 		setDrawingPoints([]);
-	}, [drawingPoints, localSprites, localColliders, localProperties]);
+	}, [
+		drawingPoints,
+		localSprites,
+		localColliders,
+		localProperties,
+		setLocalEntityState,
+	]);
 
 	// Handle keyboard shortcuts for drawing mode
 	useEffect(() => {
@@ -891,6 +891,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	]);
 
 	// Trigger render when dependencies change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to redraw when these values change
 	useEffect(() => {
 		drawRef.current();
 	}, [
