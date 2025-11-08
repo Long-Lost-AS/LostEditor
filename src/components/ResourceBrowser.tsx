@@ -357,7 +357,11 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 					let paths: string[] = [];
 					if (Array.isArray(event.payload)) {
 						paths = event.payload;
-					} else if (event.payload && typeof event.payload === 'object' && 'paths' in event.payload) {
+					} else if (
+						event.payload &&
+						typeof event.payload === "object" &&
+						"paths" in event.payload
+					) {
 						paths = (event.payload as { paths: string[] }).paths;
 					}
 

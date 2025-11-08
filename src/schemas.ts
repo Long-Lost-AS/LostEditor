@@ -211,7 +211,15 @@ const MapViewStateSchema = z.object({
 	selectedTilesetId: z.string().nullable(),
 	selectedTileId: z.number().nullable(),
 	selectedEntityDefId: z.string().nullable(),
-	currentTool: z.enum(["pointer", "pencil", "eraser", "fill", "rect", "entity", "collision"]),
+	currentTool: z.enum([
+		"pointer",
+		"pencil",
+		"eraser",
+		"fill",
+		"rect",
+		"entity",
+		"collision",
+	]),
 });
 
 const MapTabSchema = BaseTabSchema.extend({
@@ -223,12 +231,14 @@ const MapTabSchema = BaseTabSchema.extend({
 
 const TilesetViewStateSchema = z.object({
 	scale: z.number(),
-	selectedTileRegion: z.object({
-		x: z.number(),
-		y: z.number(),
-		width: z.number(),
-		height: z.number(),
-	}).nullable(),
+	selectedTileRegion: z
+		.object({
+			x: z.number(),
+			y: z.number(),
+			width: z.number(),
+			height: z.number(),
+		})
+		.nullable(),
 });
 
 const TilesetTabSchema = BaseTabSchema.extend({
