@@ -75,11 +75,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
 
+	// Use ref to avoid infinite loop with entityData
+	const entityDataRef = useRef(entityData);
+	entityDataRef.current = entityData;
+
 	// One-way sync: local entity state → global context
 	useEffect(() => {
 		updateTabData(tab.id, {
 			entityData: {
-				...entityData,
+				...entityDataRef.current,
 				sprites: localSprites,
 				colliders: localColliders,
 				properties: localProperties,
@@ -98,7 +102,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [
 		tab.id,
 		updateTabData,
-		entityData,
 		localColliders,
 		localProperties,
 		localSprites,
@@ -358,16 +361,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		}
 	}, [isSpritePicking, selectedTilesetId, selectedRegion, getTilesetById]);
 
-	// Update view state when pan changes
+	// Update view state when pan changes - use ref to avoid infinite loop
+	const viewStateRef = useRef(viewState);
+	viewStateRef.current = viewState;
+
 	useEffect(() => {
 		updateTabData(tab.id, {
 			viewState: {
-				...viewState,
+				...viewStateRef.current,
 				panX: pan.x,
 				panY: pan.y,
 			},
 		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pan.x, pan.y, tab.id, updateTabData]);
 
 	// Cancel drawing
@@ -888,7 +893,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	// Trigger render when dependencies change
 	useEffect(() => {
 		drawRef.current();
-	}, []);
+	}, [
+		pan,
+		viewState.scale,
+		localSprites,
+		localColliders,
+		selectedSpriteLayerId,
+		selectedColliderId,
+		drawingPoints,
+	]);
 
 	// Setup canvas resizing with ResizeObserver
 	useEffect(() => {

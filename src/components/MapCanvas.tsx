@@ -835,7 +835,21 @@ export const MapCanvas = ({
 	// Trigger render when dependencies change
 	useEffect(() => {
 		renderMap.current();
-	}, []);
+	}, [
+		mapData,
+		tilesets,
+		zoom,
+		panX,
+		panY,
+		gridVisible,
+		selectedTilesetId,
+		isDrawingRect,
+		rectStartTile,
+		isDraggingEntity,
+		selectedEntityDefId,
+		selectedEntityId,
+		tempEntityPosition,
+	]);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
 		const canvas = canvasRef.current;
