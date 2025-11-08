@@ -326,92 +326,66 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		}
 	}, []);
 
-	// Native drag-and-drop handlers (for external files from Finder/Explorer)
-	const handleNativeDragEnter = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setIsDragOver(true);
-	}, []);
+	// Set up Tauri file drop listener
+	useEffect(() => {
+		let unlisten: (() => void) | undefined;
 
-	const handleNativeDragOver = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-	}, []);
+		const setupFileDropListener = async () => {
+			const { getCurrentWebviewWindow } = await import(
+				"@tauri-apps/api/webviewWindow"
+			);
+			const webviewWindow = getCurrentWebviewWindow();
 
-	const handleNativeDragLeave = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		// Only set to false if leaving the main container
-		if (e.currentTarget === e.target) {
-			setIsDragOver(false);
-		}
-	}, []);
+			unlisten = await webviewWindow.onFileDropEvent(async (event) => {
+				if (event.payload.type === "hover") {
+					setIsDragOver(true);
+				} else if (event.payload.type === "drop") {
+					setIsDragOver(false);
+					const paths = event.payload.paths;
 
-	const handleNativeDrop = useCallback(
-		async (e: React.DragEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			setIsDragOver(false);
+					if (!paths || paths.length === 0) return;
 
-			const items = e.dataTransfer.items;
-			if (!items || items.length === 0) return;
+					try {
+						const { invoke } = await import("@tauri-apps/api/core");
+						for (const sourcePath of paths) {
+							const fileName = fileManager.basename(sourcePath);
+							const destPath = fileManager.join(currentPath, fileName);
 
-			try {
-				// Use invoke to get file paths from DataTransfer
-				const filesToCopy: string[] = [];
-
-				// Collect file paths
-				for (let i = 0; i < items.length; i++) {
-					const item = items[i];
-					if (item.kind === "file") {
-						const file = item.getAsFile();
-						if (file) {
-							// In Tauri, we need to use the file's path property
-							// @ts-ignore - Tauri adds path property to File objects
-							const filePath = file.path;
-							if (filePath) {
-								filesToCopy.push(filePath);
+							// Check if file already exists
+							const fileExists = await exists(destPath);
+							if (fileExists) {
+								setError(`File "${fileName}" already exists`);
+								setTimeout(() => setError(null), 3000);
+								continue;
 							}
+
+							await invoke("copy_file", {
+								source: sourcePath,
+								destination: destPath,
+							});
 						}
-					}
-				}
 
-				if (filesToCopy.length === 0) {
-					setError("No valid files to copy");
-					setTimeout(() => setError(null), 3000);
-					return;
-				}
-
-				// Copy each file to the current directory
-				const { invoke } = await import("@tauri-apps/api/core");
-				for (const sourcePath of filesToCopy) {
-					const fileName = fileManager.basename(sourcePath);
-					const destPath = fileManager.join(currentPath, fileName);
-
-					// Check if file already exists
-					const fileExists = await exists(destPath);
-					if (fileExists) {
-						setError(`File "${fileName}" already exists`);
+						// Reload directory to show new files
+						await loadDirectory(currentPath);
+					} catch (err) {
+						console.error("Failed to copy files:", err);
+						setError("Failed to copy files");
 						setTimeout(() => setError(null), 3000);
-						continue;
 					}
-
-					await invoke("copy_file", {
-						source: sourcePath,
-						destination: destPath,
-					});
+				} else if (event.payload.type === "cancel") {
+					setIsDragOver(false);
 				}
+			});
+		};
 
-				// Reload directory to show new files
-				await loadDirectory(currentPath);
-			} catch (err) {
-				console.error("Failed to copy files:", err);
-				setError("Failed to copy files");
-				setTimeout(() => setError(null), 3000);
+		setupFileDropListener();
+
+		return () => {
+			if (unlisten) {
+				unlisten();
 			}
-		},
-		[currentPath, loadDirectory],
-	);
+		};
+	}, [currentPath, loadDirectory]);
 
 	// Initialize current path when project directory changes
 	useEffect(() => {
@@ -1056,10 +1030,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 				<div
 					className="flex-1 overflow-auto p-4"
 					onContextMenu={(e) => handleContextMenu(e, null)}
-					onDragEnter={handleNativeDragEnter}
-					onDragOver={handleNativeDragOver}
-					onDragLeave={handleNativeDragLeave}
-					onDrop={handleNativeDrop}
 					style={{
 						outline: isDragOver ? "2px dashed #1177bb" : "none",
 						outlineOffset: "-4px",
