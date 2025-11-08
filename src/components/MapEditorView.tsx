@@ -867,6 +867,26 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		[localMapData, setProjectModified, setLocalMapData],
 	);
 
+	// Handle entity dragging (live update without marking modified)
+	const handleEntityDragging = useCallback(
+		(entityId: string, newX: number, newY: number) => {
+			if (!localMapData) return;
+
+			const newEntities = (localMapData.entities || []).map((entity) => {
+				return entity.id === entityId
+					? { ...entity, x: newX, y: newY }
+					: entity;
+			});
+
+			setLocalMapData({
+				...localMapData,
+				entities: newEntities,
+			});
+			// Don't mark as modified during drag - only on release
+		},
+		[localMapData, setLocalMapData],
+	);
+
 	// Handle updating entity properties
 	const handleUpdateEntity = useCallback(
 		(entityId: string, updates: Partial<EntityInstance>) => {
@@ -1423,6 +1443,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onPlaceEntity={handlePlaceEntity}
 						onMoveEntity={handleMoveEntity}
 						onEntitySelected={setSelectedEntityId}
+						onEntityDragging={handleEntityDragging}
 					/>
 				</div>
 			</div>

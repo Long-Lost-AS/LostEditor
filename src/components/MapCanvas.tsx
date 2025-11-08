@@ -21,6 +21,7 @@ interface MapCanvasProps {
 	onPlaceEntity: (x: number, y: number) => void;
 	onMoveEntity: (entityId: string, newX: number, newY: number) => void;
 	onEntitySelected?: (entityId: string | null) => void;
+	onEntityDragging?: (entityId: string, newX: number, newY: number) => void;
 }
 
 export const MapCanvas = ({
@@ -33,6 +34,7 @@ export const MapCanvas = ({
 	onPlaceEntity,
 	onMoveEntity,
 	onEntitySelected,
+	onEntityDragging,
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
@@ -1062,6 +1064,8 @@ export const MapCanvas = ({
 				const newPos = { x: newX, y: newY };
 				setTempEntityPosition(newPos);
 				tempEntityPositionRef.current = newPos;
+				// Call live update callback for sidebar
+				onEntityDragging?.(selectedEntityId, newX, newY);
 			}
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
