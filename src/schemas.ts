@@ -191,6 +191,83 @@ export const SerializedMapDataSchema = z.object({
 export const MapFileSchema = SerializedMapDataSchema;
 
 // ===========================
+// Tab Schemas
+// ===========================
+
+const BaseTabSchema = z.object({
+	id: z.string(),
+	type: z.enum(["map", "tileset", "entity-editor", "collision-editor"]),
+	title: z.string(),
+	isDirty: z.boolean(),
+	filePath: z.string().optional(),
+});
+
+const MapViewStateSchema = z.object({
+	zoom: z.number(),
+	panX: z.number(),
+	panY: z.number(),
+	currentLayerId: z.string().nullable(),
+	gridVisible: z.boolean(),
+	selectedTilesetId: z.string().nullable(),
+	selectedTileId: z.number().nullable(),
+	selectedEntityDefId: z.string().nullable(),
+	currentTool: z.enum(["pointer", "pencil", "eraser", "fill", "rect", "entity", "collision"]),
+});
+
+const MapTabSchema = BaseTabSchema.extend({
+	type: z.literal("map"),
+	mapId: z.string(),
+	mapFilePath: z.string().optional(),
+	viewState: MapViewStateSchema,
+});
+
+const TilesetViewStateSchema = z.object({
+	scale: z.number(),
+	selectedTileRegion: z.object({
+		x: z.number(),
+		y: z.number(),
+		width: z.number(),
+		height: z.number(),
+	}).nullable(),
+});
+
+const TilesetTabSchema = BaseTabSchema.extend({
+	type: z.literal("tileset"),
+	tilesetId: z.string(),
+	viewState: TilesetViewStateSchema,
+});
+
+const EntityEditorViewStateSchema = z.object({
+	scale: z.number(),
+	panX: z.number(),
+	panY: z.number(),
+	selectedSpriteLayerId: z.string().nullable(),
+	selectedChildId: z.string().nullable(),
+});
+
+const EntityEditorTabSchema = BaseTabSchema.extend({
+	type: z.literal("entity-editor"),
+	entityId: z.string(),
+	entityData: z.any(), // EntityDefinition is complex, use z.any() for now
+	viewState: EntityEditorViewStateSchema,
+});
+
+const CollisionEditorTabSchema = BaseTabSchema.extend({
+	type: z.literal("collision-editor"),
+	sourceType: z.enum(["tile", "entity"]),
+	sourceId: z.string(),
+	sourceTabId: z.string().optional(),
+	tileId: z.number().optional(),
+});
+
+const AnyTabSchema = z.discriminatedUnion("type", [
+	MapTabSchema,
+	TilesetTabSchema,
+	EntityEditorTabSchema,
+	CollisionEditorTabSchema,
+]);
+
+// ===========================
 // Project Schemas
 // ===========================
 
@@ -200,8 +277,8 @@ export const ProjectDataSchema = z.object({
 	lastModified: z.string(),
 	openTabs: z
 		.object({
-			tabs: z.array(z.any()),
-			activeTabId: z.string().optional(),
+			tabs: z.array(AnyTabSchema),
+			activeTabId: z.string().nullable(),
 		})
 		.optional(),
 });

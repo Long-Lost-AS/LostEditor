@@ -944,22 +944,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			const projectDir = fileManager.dirname(filePath);
 			fileManager.setProjectDir(projectDir);
 
-			// Create maps directory if it doesn't exist
-			const mapsDir = fileManager.join(projectDir, "maps");
-			try {
-				await invoke("create_dir", { path: mapsDir });
-			} catch (_error) {
-				// Directory might already exist, that's okay
-			}
-
-			// Create tilesets directory if it doesn't exist
-			const tilesetsDir = fileManager.join(projectDir, "tilesets");
-			try {
-				await invoke("create_dir", { path: tilesetsDir });
-			} catch (_error) {
-				// Directory might already exist, that's okay
-			}
-
 			// Save any unsaved tilesets
 			const unsavedTilesets = tilesets.filter((t) => !t.filePath);
 			if (unsavedTilesets.length > 0) {
@@ -1809,12 +1793,19 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	);
 
 	const newTileset = useCallback(async () => {
+		// Check if project is open
+		if (!projectDirectory) {
+			alert("Please open or create a project first.");
+			return;
+		}
+
 		// Show dialog to select image
 		const result = await invoke<{ canceled: boolean; filePaths?: string[] }>(
 			"show_open_dialog",
 			{
 				options: {
 					title: "Select Tileset Image",
+					defaultPath: projectDirectory,
 					filters: [
 						{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] },
 						{ name: "All Files", extensions: ["*"] },
@@ -1827,6 +1818,17 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		if (!result.filePaths || result.filePaths.length === 0) return;
 
 		const imagePath = result.filePaths[0];
+
+		// Validate that the image is within the project directory
+		const normalizedImagePath = fileManager.normalize(imagePath);
+		const normalizedProjectDir = fileManager.normalize(projectDirectory);
+
+		if (!normalizedImagePath.startsWith(normalizedProjectDir)) {
+			alert(
+				"The selected image must be located within the project directory or its subdirectories.",
+			);
+			return;
+		}
 
 		// Load the image to get dimensions
 		const img = new Image();
@@ -1879,7 +1881,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		};
 
 		openTab(tilesetTab);
-	}, [addTileset, openTab]);
+	}, [addTileset, openTab, projectDirectory]);
 
 	const newEntity = useCallback(async () => {
 		// Prompt for save location first
