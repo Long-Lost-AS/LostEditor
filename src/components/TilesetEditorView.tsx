@@ -65,6 +65,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [editingPropertyKey, setEditingPropertyKey] = useState<string | null>(
 		null,
 	);
+	const [tempPropertyKey, setTempPropertyKey] = useState<string>("");
 	const [editingPropertyValue, setEditingPropertyValue] = useState<
 		string | null
 	>(null);
@@ -2168,29 +2169,37 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																{editingPropertyKey === key ? (
 																	<input
 																		type="text"
-																		value={displayKey}
+																		value={tempPropertyKey}
 																		onChange={(e) => {
-																			const newKey = e.target.value;
-																			handleUpdatePropertyKey(key, newKey);
-																			if (newKey?.trim()) {
-																				setEditingPropertyKey(newKey);
-																			}
+																			setTempPropertyKey(e.target.value);
 																		}}
 																		onBlur={() => {
-																			setEditingPropertyKey(null);
-																			// If still empty after blur, delete it
-																			if (isTemp) {
+																			// Commit the change
+																			if (tempPropertyKey.trim()) {
+																				handleUpdatePropertyKey(key, tempPropertyKey);
+																			} else if (isTemp) {
 																				handleDeleteProperty(key);
 																			}
+																			setEditingPropertyKey(null);
+																			setTempPropertyKey("");
 																		}}
 																		onKeyDown={(e) => {
-																			if (
-																				e.key === "Enter" ||
-																				e.key === "Escape"
-																			) {
+																			if (e.key === "Enter") {
+																				// Commit the change
+																				if (tempPropertyKey.trim()) {
+																					handleUpdatePropertyKey(key, tempPropertyKey);
+																					setEditingPropertyKey(null);
+																					setTempPropertyKey("");
+																				} else if (isTemp) {
+																					handleDeleteProperty(key);
+																					setEditingPropertyKey(null);
+																					setTempPropertyKey("");
+																				}
+																			} else if (e.key === "Escape") {
+																				// Cancel editing
 																				setEditingPropertyKey(null);
-																				// If still empty after Enter/Escape, delete it
-																				if (isTemp || !displayKey.trim()) {
+																				setTempPropertyKey("");
+																				if (isTemp) {
 																					handleDeleteProperty(key);
 																				}
 																			} else if (
@@ -2198,8 +2207,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																				!e.shiftKey
 																			) {
 																				e.preventDefault();
-																				setEditingPropertyKey(null);
-																				setEditingPropertyValue(key);
+																				// Commit and move to value field
+																				if (tempPropertyKey.trim()) {
+																					handleUpdatePropertyKey(key, tempPropertyKey);
+																					setEditingPropertyKey(null);
+																					setTempPropertyKey("");
+																					setEditingPropertyValue(tempPropertyKey.trim());
+																				}
 																			}
 																		}}
 																		placeholder="Key"
@@ -2212,11 +2226,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 																	/>
 																) : (
 																	<div
-																		onClick={() => setEditingPropertyKey(key)}
+																		onClick={() => {
+																			setEditingPropertyKey(key);
+																			setTempPropertyKey(displayKey);
+																		}}
 																		onKeyDown={(e) => {
 																			if (e.key === "Enter" || e.key === " ") {
 																				e.preventDefault();
 																				setEditingPropertyKey(key);
+																				setTempPropertyKey(displayKey);
 																			}
 																		}}
 																		role="button"
