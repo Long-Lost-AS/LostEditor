@@ -388,10 +388,13 @@ fn main() {
                             let _ = window.eval("location.reload()");
                         }
                         "toggle-devtools" => {
-                            if window.is_devtools_open() {
-                                let _ = window.close_devtools();
-                            } else {
-                                let _ = window.open_devtools();
+                            #[cfg(debug_assertions)]
+                            {
+                                if window.is_devtools_open() {
+                                    let _ = window.close_devtools();
+                                } else {
+                                    let _ = window.open_devtools();
+                                }
                             }
                         }
                         _ => {}
