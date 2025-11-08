@@ -533,210 +533,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		reorderLayers(newLayersOrder);
 	};
 
-	// Terrain painting function
-	const handlePlaceTerrain = useCallback(
-		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "tile") {
-				return;
-			}
-			if (!selectedTerrainLayerId || !selectedTilesetId) {
-				return;
-			}
-
-			// Find the selected tileset and terrain layer
-			const tileset = tilesets.find((ts) => ts.id === selectedTilesetId);
-			if (!tileset || !tileset.terrainLayers) {
-				return;
-			}
-
-			const terrainLayer = tileset.terrainLayers.find(
-				(l) => l.id === selectedTerrainLayerId,
-			);
-			if (!terrainLayer) {
-				return;
-			}
-
-			const tilesetIndex = tileset.order;
-			if (tilesetIndex === undefined) {
-				return;
-			}
-
-			// Update the map with terrain tile placement
-			setLocalMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const newTiles = [...layer.tiles]; // Copy the dense array
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
-
-						// Create a mutable layer object for the terrain utilities
-						const mutableLayer = { ...layer, tiles: newTiles };
-
-						// Place the terrain tile with smart bitmask calculation
-						placeTerrainTile(
-							mutableLayer,
-							x,
-							y,
-							mapWidth,
-							mapHeight,
-							terrainLayer,
-							tileset,
-							tilesetIndex,
-							tilesets,
-						);
-
-						// Update all 8 neighbors to adjust their bitmasks
-						updateNeighborsAround(
-							mutableLayer,
-							x,
-							y,
-							mapWidth,
-							mapHeight,
-							terrainLayer.id,
-							tileset,
-							tilesetIndex,
-							tilesets,
-						);
-
-						return { ...layer, tiles: mutableLayer.tiles };
-					}
-					return layer;
-				}),
-			}));
-			setProjectModified(true);
-		},
-		[
-			currentLayer,
-			selectedTerrainLayerId,
-			selectedTilesetId,
-			tilesets,
-			setProjectModified, // Update the map with terrain tile placement
-			setLocalMapData,
-		],
-	);
-
 	// Paint functions (tile placement, erasing, entity placement)
-	const handlePlaceTile = useCallback(
-		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "tile") return;
-
-			// Check if we're in terrain painting mode
-			if (selectedTerrainLayerId) {
-				handlePlaceTerrain(x, y);
-				return;
-			}
-
-			// Check if selected tile is a compound tile
-			const selectedTileset = selectedTilesetId
-				? tilesets.find((ts) => ts.id === selectedTilesetId)
-				: null;
-			const selectedTileDef =
-				selectedTileset && selectedTileId
-					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
-					: null;
-
-			// Get tileset order from the tileset itself (not from array position)
-			const tilesetIndex = selectedTileset?.order ?? -1;
-
-			if (tilesetIndex === -1 || !selectedTileId) {
-				return;
-			}
-
-			// Unpack the selected tile ID
-			const geometry = unpackTileId(selectedTileId);
-
-			// Repack with the correct tileset index to create a global tile ID
-			const globalTileId = packTileId(
-				geometry.x,
-				geometry.y,
-				tilesetIndex,
-				geometry.flipX,
-				geometry.flipY,
-			);
-
-			// Update localMapData immutably
-			setLocalMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const newTiles = [...layer.tiles]; // Copy the dense array
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
-
-						// Place tile in a single cell - both regular and compound tiles
-						// Compound tiles will render larger, but only occupy one cell in the map
-						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-							const index = y * mapWidth + x;
-							newTiles[index] = globalTileId;
-						}
-
-						let updatedLayer = { ...layer, tiles: newTiles };
-
-						// Apply autotiling if enabled
-						const autotilingEnabled = layer.autotilingEnabled !== false;
-						if (autotilingEnabled && !autotilingOverride) {
-							const autotileGroups = getAllAutotileGroups(tilesets);
-
-							if (autotileGroups.length > 0) {
-								const positionsToUpdate: Array<{ x: number; y: number }> = [];
-
-								if (selectedTileDef?.isCompound) {
-									const tileWidth = selectedTileset?.tileWidth || 16;
-									const tileHeight = selectedTileset?.tileHeight || 16;
-									const widthInTiles = Math.ceil(
-										selectedTileDef.width / tileWidth,
-									);
-									const heightInTiles = Math.ceil(
-										selectedTileDef.height / tileHeight,
-									);
-
-									for (let dy = 0; dy < heightInTiles; dy++) {
-										for (let dx = 0; dx < widthInTiles; dx++) {
-											positionsToUpdate.push({ x: x + dx, y: y + dy });
-										}
-									}
-								} else {
-									positionsToUpdate.push({ x, y });
-								}
-
-								const autotiledTiles = updateTileAndNeighbors(
-									updatedLayer,
-									positionsToUpdate,
-									mapWidth,
-									mapHeight,
-									tilesets,
-								);
-
-								for (const update of autotiledTiles) {
-									newTiles[update.index] = update.tileId;
-								}
-
-								updatedLayer = { ...layer, tiles: newTiles };
-							}
-						}
-
-						// No need to setCurrentLayer - it's component-local only
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
-			setProjectModified(true);
-		},
-		[
-			currentLayer,
-			selectedTilesetId,
-			selectedTileId,
-			tilesets,
-			autotilingOverride,
-			setProjectModified,
-			handlePlaceTerrain,
-			selectedTerrainLayerId, // Update localMapData immutably
-			setLocalMapData,
-		],
-	);
-
 	const handleEraseTile = useCallback(
 		(x: number, y: number) => {
 			if (!currentLayer || currentLayer.type !== "tile") return;
@@ -1015,7 +812,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
 					: null;
 
-			const tilesetIndex = selectedTileset?.index ?? -1;
+			const tilesetIndex = selectedTileset?.order ?? -1;
 
 			if (tilesetIndex === -1 || !selectedTileId) {
 				return;
@@ -1486,7 +1283,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						mapData={localMapData}
 						currentTool={tab.viewState.currentTool || "pencil"}
 						currentLayerId={currentLayerId}
-						onPlaceTile={handlePlaceTile}
 						onPlaceTilesBatch={handlePlaceTilesBatch}
 						onEraseTile={handleEraseTile}
 						onPlaceEntity={handlePlaceEntity}
@@ -1494,6 +1290,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onEntitySelected={setSelectedEntityId}
 						onEntityDragging={handleEntityDragging}
 						onDeleteEntity={handleDeleteEntity}
+						onStartBatch={startBatch}
+						onEndBatch={endBatch}
 					/>
 				</div>
 			</div>

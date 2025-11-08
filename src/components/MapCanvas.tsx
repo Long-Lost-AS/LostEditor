@@ -11,11 +11,11 @@ import {
 } from "../types";
 import { packTileId, unpackTileId } from "../utils/tileId";
 
+// Map canvas props interface
 interface MapCanvasProps {
 	mapData: MapData;
 	currentTool: Tool;
 	currentLayerId: string | null;
-	onPlaceTile: (x: number, y: number) => void;
 	onPlaceTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
 	onEraseTile: (x: number, y: number) => void;
 	onPlaceEntity: (x: number, y: number) => void;
@@ -23,13 +23,14 @@ interface MapCanvasProps {
 	onEntitySelected?: (entityId: string | null) => void;
 	onEntityDragging?: (entityId: string, newX: number, newY: number) => void;
 	onDeleteEntity?: (entityId: string) => void;
+	onStartBatch?: () => void;
+	onEndBatch?: () => void;
 }
 
 export const MapCanvas = ({
 	mapData,
 	currentTool,
 	currentLayerId,
-	onPlaceTile,
 	onPlaceTilesBatch,
 	onEraseTile,
 	onPlaceEntity,
@@ -37,6 +38,8 @@ export const MapCanvas = ({
 	onEntitySelected,
 	onEntityDragging,
 	onDeleteEntity,
+	onStartBatch,
+	onEndBatch,
 }: MapCanvasProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const {
@@ -62,6 +65,11 @@ export const MapCanvas = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	// Pencil stroke batching - collect all tiles drawn in one stroke
+	const [pencilStrokeTiles, setPencilStrokeTiles] = useState<
+		Array<{ x: number; y: number }>
+	>([]);
 
 	// Rectangle tool state
 	const [isDrawingRect, setIsDrawingRect] = useState(false);
@@ -970,7 +978,10 @@ export const MapCanvas = ({
 			} else {
 				setIsDrawing(true);
 				if (currentTool === "pencil") {
-					onPlaceTile(tileX, tileY);
+					// Start a new pencil stroke batch
+					onStartBatch?.();
+					setPencilStrokeTiles([{ x: tileX, y: tileY }]);
+					onPlaceTilesBatch([{ x: tileX, y: tileY }]);
 				} else if (currentTool === "eraser") {
 					onEraseTile(tileX, tileY);
 				} else if (currentTool === "entity") {
@@ -1080,7 +1091,16 @@ export const MapCanvas = ({
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			if (currentTool === "pencil") {
-				onPlaceTile(tileX, tileY);
+				// Add to pencil stroke batch (avoid duplicates)
+				setPencilStrokeTiles((prev) => {
+					const isDuplicate = prev.some((t) => t.x === tileX && t.y === tileY);
+					if (!isDuplicate) {
+						// Place this tile immediately
+						onPlaceTilesBatch([{ x: tileX, y: tileY }]);
+						return [...prev, { x: tileX, y: tileY }];
+					}
+					return prev;
+				});
 			} else if (currentTool === "eraser") {
 				onEraseTile(tileX, tileY);
 			}
@@ -1090,6 +1110,13 @@ export const MapCanvas = ({
 
 	const handleMouseLeave = () => {
 		setMouseScreenPos(null);
+
+		// Finish pencil stroke if mouse leaves while drawing
+		if (currentTool === "pencil" && isDrawing && pencilStrokeTiles.length > 0) {
+			onEndBatch?.();
+			setPencilStrokeTiles([]);
+			setIsDrawing(false);
+		}
 	};
 
 	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1135,6 +1162,12 @@ export const MapCanvas = ({
 
 			setIsDrawingRect(false);
 			setRectStartTile(null);
+		}
+
+		// Finish pencil stroke - end batching to commit undo/redo entry
+		if (currentTool === "pencil" && pencilStrokeTiles.length > 0) {
+			onEndBatch?.();
+			setPencilStrokeTiles([]);
 		}
 
 		setIsDragging(false);
