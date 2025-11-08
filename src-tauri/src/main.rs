@@ -260,6 +260,22 @@ async fn create_dir(path: String) -> FileResult {
     }
 }
 
+#[tauri::command]
+async fn copy_file(source: String, destination: String) -> FileResult {
+    match fs::copy(&source, &destination) {
+        Ok(_) => FileResult {
+            success: true,
+            data: None,
+            error: None,
+        },
+        Err(e) => FileResult {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
 fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
@@ -419,7 +435,8 @@ fn main() {
             show_open_dialog,
             show_save_dialog,
             rebuild_menu,
-            create_dir
+            create_dir,
+            copy_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

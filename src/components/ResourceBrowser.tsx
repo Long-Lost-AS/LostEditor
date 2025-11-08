@@ -235,6 +235,89 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		}
 	};
 
+	// Native drag-and-drop handlers (for external files from Finder/Explorer)
+	const [isDragOver, setIsDragOver] = useState(false);
+
+	const handleNativeDragEnter = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDragOver(true);
+	}, []);
+
+	const handleNativeDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	}, []);
+
+	const handleNativeDragLeave = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		// Only set to false if leaving the main container
+		if (e.currentTarget === e.target) {
+			setIsDragOver(false);
+		}
+	}, []);
+
+	const handleNativeDrop = useCallback(async (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDragOver(false);
+
+		const items = e.dataTransfer.items;
+		if (!items || items.length === 0) return;
+
+		try {
+			// Use invoke to get file paths from DataTransfer
+			const filesToCopy: string[] = [];
+
+			// Collect file paths
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				if (item.kind === "file") {
+					const file = item.getAsFile();
+					if (file) {
+						// In Tauri, we need to use the file's path property
+						// @ts-ignore - Tauri adds path property to File objects
+						const filePath = file.path;
+						if (filePath) {
+							filesToCopy.push(filePath);
+						}
+					}
+				}
+			}
+
+			if (filesToCopy.length === 0) {
+				setError("No valid files to copy");
+				setTimeout(() => setError(null), 3000);
+				return;
+			}
+
+			// Copy each file to the current directory
+			const { invoke } = await import("@tauri-apps/api/core");
+			for (const sourcePath of filesToCopy) {
+				const fileName = fileManager.basename(sourcePath);
+				const destPath = fileManager.join(currentPath, fileName);
+
+				// Check if file already exists
+				const fileExists = await exists(destPath);
+				if (fileExists) {
+					setError(`File "${fileName}" already exists`);
+					setTimeout(() => setError(null), 3000);
+					continue;
+				}
+
+				await invoke("copy_file", { source: sourcePath, destination: destPath });
+			}
+
+			// Reload directory to show new files
+			await loadDirectory(currentPath);
+		} catch (err) {
+			console.error("Failed to copy files:", err);
+			setError("Failed to copy files");
+			setTimeout(() => setError(null), 3000);
+		}
+	}, [currentPath, loadDirectory]);
+
 	const handleContextMenu = (e: React.MouseEvent, item: FileItem | null) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -966,6 +1049,14 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 				<div
 					className="flex-1 overflow-auto p-4"
 					onContextMenu={(e) => handleContextMenu(e, null)}
+					onDragEnter={handleNativeDragEnter}
+					onDragOver={handleNativeDragOver}
+					onDragLeave={handleNativeDragLeave}
+					onDrop={handleNativeDrop}
+					style={{
+						outline: isDragOver ? "2px dashed #1177bb" : "none",
+						outlineOffset: "-4px",
+					}}
 					role="region"
 					aria-label="File browser"
 				>
