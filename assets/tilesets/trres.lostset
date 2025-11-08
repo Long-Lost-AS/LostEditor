@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "name": "TX Village Plant",
+  "id": "tileset-1762612586151",
+  "order": 3,
+  "imagePath": "tilesets/TX Village Plant.png",
+  "tileWidth": 16,
+  "tileHeight": 16,
+  "tiles": [],
+  "terrainLayers": []
+}

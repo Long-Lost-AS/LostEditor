@@ -1,55 +1,9 @@
 {
   "name": "test",
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "lastModified": "2025-11-07T23:43:47.623Z",
+  "lastModified": "2025-11-08T21:15:31.580Z",
   "openTabs": {
     "tabs": [
-      {
-        "id": "entity-1762199312640",
-        "type": "entity-editor",
-        "title": "Entity",
-        "isDirty": true,
-        "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity",
-        "entityId": "entity-1762199312635-4jh1rhu1g",
-        "entityData": {
-          "id": "entity-1762199312635-4jh1rhu1g",
-          "name": "Entity",
-          "sprites": [
-            {
-              "id": "sprite_1762199794576",
-              "name": "Layer 1",
-              "tilesetId": "tileset-1762119192460",
-              "sprite": {
-                "x": 64,
-                "y": 16,
-                "width": 208,
-                "height": 304
-              },
-              "offset": {
-                "x": 0,
-                "y": 0
-              },
-              "origin": {
-                "x": 0.5,
-                "y": 1
-              },
-              "rotation": 0,
-              "zIndex": 0,
-              "ysortOffset": -70
-            }
-          ],
-          "colliders": [],
-          "properties": {},
-          "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity"
-        },
-        "viewState": {
-          "scale": 1.4520721435546875,
-          "panX": 294.9312593234027,
-          "panY": 459.823951058268,
-          "selectedSpriteLayerId": null,
-          "selectedChildId": null
-        }
-      },
       {
         "id": "map-1762537852211",
         "type": "map",
@@ -58,18 +12,45 @@
         "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/maps/New Map.lostmap",
         "mapId": "map--Users-richardegeli1-Programming-LostEditor-assets-maps-New-Map-lostmap",
         "viewState": {
-          "zoom": 1.5095672607421875,
-          "panX": -18.75584248651441,
-          "panY": 60.90441836006269,
+          "zoom": 0.7073516845703125,
+          "panX": -64.07414062478051,
+          "panY": -61.044394460045396,
           "currentLayerId": "layer-1762349004256",
           "gridVisible": true,
           "selectedTilesetId": null,
           "selectedTileId": null,
-          "selectedEntityDefId": null,
-          "currentTool": "entity"
+          "selectedEntityDefId": "entity-1762199312635-4jh1rhu1g",
+          "currentTool": "rect"
+        }
+      },
+      {
+        "id": "tileset-tileset-1762119192460",
+        "type": "tileset",
+        "title": "village_building",
+        "isDirty": false,
+        "tilesetId": "tileset-1762119192460",
+        "viewState": {
+          "scale": 1.080413818359375,
+          "selectedTileRegion": {
+            "x": 23,
+            "y": 0,
+            "width": 12,
+            "height": 22
+          }
+        }
+      },
+      {
+        "id": "tileset-tileset-1762344704024",
+        "type": "tileset",
+        "title": "TX Tileset Grass",
+        "isDirty": false,
+        "tilesetId": "tileset-1762344704024",
+        "viewState": {
+          "scale": 3.03839111328125,
+          "selectedTileRegion": null
         }
       }
     ],
-    "activeTabId": "entity-1762199312640"
+    "activeTabId": "map-1762537852211"
   }
 }
