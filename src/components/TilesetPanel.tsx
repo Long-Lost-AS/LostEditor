@@ -343,7 +343,7 @@ export const TilesetPanel = () => {
 
 			if (clickedTile) {
 				// Select the compound tile
-				if (clickedTile.width && clickedTile.height) {
+				if (clickedTile.isCompound || (clickedTile.width && clickedTile.height)) {
 					// For compound tiles, select the top-left corner
 					const tileX = Math.floor(clickedTile.x / tileWidth);
 					const tileY = Math.floor(clickedTile.y / tileHeight);
