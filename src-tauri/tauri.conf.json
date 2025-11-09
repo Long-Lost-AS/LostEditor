@@ -67,7 +67,9 @@
               "allow": [
                 { "path": "$HOME/Programming/LostEditor/**" }
               ]
-            }
+            },
+            "updater:default",
+            "process:default"
           ]
         }
       ]
