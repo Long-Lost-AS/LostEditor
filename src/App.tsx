@@ -15,6 +15,7 @@ import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
+import { checkForUpdates } from "./utils/updater";
 import "./style.css";
 
 const AppContent = () => {
@@ -225,6 +226,20 @@ const AppContent = () => {
 					// No-op: Tilesets are automatically loaded from project
 				});
 				if (mounted) unlisteners.push(unlisten10);
+
+				// Check for Updates
+				const unlisten11 = await listen("menu:check-for-updates", async () => {
+					if (!mounted) return;
+					await checkForUpdates();
+				});
+				if (mounted) unlisteners.push(unlisten11);
+
+				// Check for updates on startup (silently, no dialog if no update)
+				setTimeout(() => {
+					if (mounted) {
+						checkForUpdates(false).catch(console.error);
+					}
+				}, 5000); // Wait 5 seconds after startup
 			} catch (error) {
 				console.error("Error setting up listeners:", error);
 			}

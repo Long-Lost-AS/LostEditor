@@ -11,6 +11,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -72,5 +73,12 @@
       ]
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyM0E2MDhDRTAwNEFDOEIKUldTTHJBVGdqR0E2RWd2Q3FGS0NuM1J3ZTU2bXVMR053Z25leFF0dU1QNW1SRk5YQkVudS9pSzQK",
+      "endpoints": [
+        "https://github.com/{{owner}}/{{repo}}/releases/latest/download/latest.json"
+      ]
+    }
+  }
 }

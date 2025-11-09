@@ -340,6 +340,13 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                         .build(app)?,
                 ])
                 .build()?,
+            // Help menu
+            &SubmenuBuilder::new(app, "Help")
+                .items(&[
+                    &MenuItemBuilder::with_id("check-for-updates", "Check for Updates...")
+                        .build(app)?,
+                ])
+                .build()?,
         ])
         .build()?;
 
@@ -350,6 +357,7 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -397,6 +405,9 @@ fn main() {
                                     let _ = window.open_devtools();
                                 }
                             }
+                        }
+                        "check-for-updates" => {
+                            let _ = window.emit("menu:check-for-updates", ());
                         }
                         _ => {}
                     }
