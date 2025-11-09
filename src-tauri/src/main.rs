@@ -395,7 +395,10 @@ fn main() {
                             let _ = window.emit("menu:save-project-as", ());
                         }
                         "reload" => {
-                            let _ = window.eval("location.reload()");
+                            #[cfg(debug_assertions)]
+                            {
+                                let _ = window.eval("location.reload()");
+                            }
                         }
                         "toggle-devtools" => {
                             #[cfg(debug_assertions)]
