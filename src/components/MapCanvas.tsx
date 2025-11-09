@@ -1077,6 +1077,8 @@ export const MapCanvas = ({
 				// Start dragging
 				if (!isDraggingEntity) {
 					setIsDraggingEntity(true);
+					// Start batching to group all position updates into one undo/redo entry
+					onStartBatch?.();
 				}
 				// Update temp position
 				const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
@@ -1132,6 +1134,8 @@ export const MapCanvas = ({
 				tempEntityPosition.x,
 				tempEntityPosition.y,
 			);
+			// End batching to commit the entire drag as one undo/redo entry
+			onEndBatch?.();
 			setIsDraggingEntity(false);
 			setTempEntityPosition(null);
 			tempEntityPositionRef.current = null;
