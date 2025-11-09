@@ -13,6 +13,7 @@ export const TilesetPanel = () => {
 		getActiveMap,
 		selectedTileX,
 		selectedTileY,
+		selectedTileId,
 		setSelectedTile,
 		setSelectedTileId,
 		setSelectedEntityDefId,
@@ -196,17 +197,10 @@ export const TilesetPanel = () => {
 			ctx.strokeStyle = "#0ff";
 			ctx.lineWidth = 3 / scale;
 
-			// Check if we have a selected compound tile
-			if (currentTileset && currentTileset.tiles.length > 0) {
+			// Check if we have a selected compound tile by matching the selectedTileId
+			if (currentTileset && currentTileset.tiles.length > 0 && selectedTileId) {
 				const selectedCompoundTile = currentTileset.tiles.find((tile) => {
-					const tileGridX = Math.floor(tile.x / tileWidth);
-					const tileGridY = Math.floor(tile.y / tileHeight);
-					return (
-						tileGridX === selectedTileX &&
-						tileGridY === selectedTileY &&
-						tile.width &&
-						tile.height
-					);
+					return tile.id === selectedTileId && tile.width && tile.height;
 				});
 
 				if (selectedCompoundTile) {
@@ -227,7 +221,7 @@ export const TilesetPanel = () => {
 					);
 				}
 			} else {
-				// No tileset, just highlight the grid position
+				// No tileset or no selected tile ID, just highlight the grid position
 				ctx.strokeRect(
 					selectedTileX * tileWidth,
 					selectedTileY * tileHeight,
@@ -293,6 +287,7 @@ export const TilesetPanel = () => {
 		activeMap,
 		selectedTileX,
 		selectedTileY,
+		selectedTileId,
 		pan,
 		scale,
 	]);
@@ -342,20 +337,11 @@ export const TilesetPanel = () => {
 			});
 
 			if (clickedTile) {
-				// Select the compound tile
-				if (clickedTile.isCompound || (clickedTile.width && clickedTile.height)) {
-					// For compound tiles, select the top-left corner
-					const tileX = Math.floor(clickedTile.x / tileWidth);
-					const tileY = Math.floor(clickedTile.y / tileHeight);
-					setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
-				} else {
-					// For single tiles
-					const tileX = Math.floor(x / tileWidth);
-					const tileY = Math.floor(y / tileHeight);
-					setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
-				}
-
-				setSelectedEntityDefId("", null);
+				// For any tile in the tiles array, convert pixel coordinates to tile grid coordinates
+				const tileX = Math.floor(clickedTile.x / tileWidth);
+				const tileY = Math.floor(clickedTile.y / tileHeight);
+				// Use setSelectedTile to set everything atomically
+				setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
 			} else {
 				// No compound tile found, create a tile ID for the regular tile at this position
 				const tileX = Math.floor(x / tileWidth);
