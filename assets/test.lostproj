@@ -1,7 +1,7 @@
 {
   "name": "test",
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "lastModified": "2025-11-08T21:15:31.580Z",
+  "lastModified": "2025-11-09T13:32:22.177Z",
   "openTabs": {
     "tabs": [
       {
@@ -12,15 +12,182 @@
         "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/maps/New Map.lostmap",
         "mapId": "map--Users-richardegeli1-Programming-LostEditor-assets-maps-New-Map-lostmap",
         "viewState": {
-          "zoom": 0.7073516845703125,
-          "panX": -64.07414062478051,
-          "panY": -61.044394460045396,
+          "zoom": 1.4641571044921875,
+          "panX": 186.1391522884369,
+          "panY": 60.712440490722656,
           "currentLayerId": "layer-1762349004256",
           "gridVisible": true,
-          "selectedTilesetId": null,
+          "selectedTilesetId": "tileset-1762119192460",
           "selectedTileId": null,
           "selectedEntityDefId": "entity-1762199312635-4jh1rhu1g",
-          "currentTool": "rect"
+          "currentTool": "pencil",
+          "currentTileset": {
+            "version": "1.0",
+            "name": "village_building",
+            "id": "tileset-1762119192460",
+            "order": 0,
+            "imagePath": "/Users/richardegeli1/Programming/LostEditor/assets/tilesets/village_building.png",
+            "tileWidth": 16,
+            "tileHeight": 16,
+            "tiles": [
+              {
+                "id": 1048640,
+                "isCompound": true,
+                "width": 208,
+                "height": 304,
+                "origin": {
+                  "x": 0.5,
+                  "y": 1
+                },
+                "colliders": [
+                  {
+                    "id": "collider-1762009253493",
+                    "points": [
+                      {
+                        "x": 188,
+                        "y": 302
+                      },
+                      {
+                        "x": 187,
+                        "y": 112
+                      },
+                      {
+                        "x": 11,
+                        "y": 112
+                      },
+                      {
+                        "x": 11,
+                        "y": 236
+                      },
+                      {
+                        "x": 65,
+                        "y": 236
+                      },
+                      {
+                        "x": 65,
+                        "y": 302
+                      },
+                      {
+                        "x": 141,
+                        "y": 302
+                      },
+                      {
+                        "x": 141,
+                        "y": 292
+                      },
+                      {
+                        "x": 168,
+                        "y": 292
+                      },
+                      {
+                        "x": 168,
+                        "y": 302
+                      }
+                    ]
+                  },
+                  {
+                    "id": "collider-1762030601846",
+                    "type": "transparent",
+                    "points": [
+                      {
+                        "x": 11,
+                        "y": 112
+                      },
+                      {
+                        "x": 126,
+                        "y": 23
+                      },
+                      {
+                        "x": 187,
+                        "y": 69
+                      },
+                      {
+                        "x": 187,
+                        "y": 112
+                      }
+                    ]
+                  }
+                ],
+                "name": "House01",
+                "properties": {
+                  "asd": "1331"
+                },
+                "x": 64,
+                "y": 16
+              },
+              {
+                "id": 368,
+                "isCompound": true,
+                "width": 192,
+                "height": 352,
+                "colliders": [
+                  {
+                    "id": "collider-1762629477442",
+                    "points": [
+                      {
+                        "x": 142,
+                        "y": 349
+                      },
+                      {
+                        "x": 142,
+                        "y": 300
+                      },
+                      {
+                        "x": 63,
+                        "y": 300
+                      },
+                      {
+                        "x": 63,
+                        "y": 349
+                      }
+                    ]
+                  }
+                ],
+                "properties": {
+                  "Hey": ""
+                },
+                "x": 368,
+                "y": 0
+              },
+              {
+                "id": 6292080,
+                "isCompound": true,
+                "width": 272,
+                "height": 224,
+                "colliders": [
+                  {
+                    "id": "collider-1762629706525",
+                    "points": [
+                      {
+                        "x": 18,
+                        "y": 221
+                      },
+                      {
+                        "x": 16,
+                        "y": 183
+                      },
+                      {
+                        "x": 61,
+                        "y": 189
+                      },
+                      {
+                        "x": 33,
+                        "y": 196
+                      }
+                    ]
+                  }
+                ],
+                "properties": {
+                  "Test": ""
+                },
+                "x": 624,
+                "y": 96
+              }
+            ],
+            "terrainLayers": [],
+            "imageData": {},
+            "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/tilesets/village_building.lostset"
+          }
         }
       },
       {

@@ -16,6 +16,7 @@ import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
 import { checkForUpdates } from "./utils/updater";
+import { testUpdaterConfiguration } from "./utils/testUpdater";
 import "./style.css";
 
 const AppContent = () => {
@@ -412,6 +413,17 @@ const AppContent = () => {
 			) {
 				e.preventDefault();
 				setIsTilesetSelectMenuOpen((prev) => !prev);
+			}
+
+			// Cmd/Ctrl+Shift+U - Test Updater Configuration (debug only)
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.shiftKey &&
+				e.key === "U" &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				testUpdaterConfiguration();
 			}
 		};
 
