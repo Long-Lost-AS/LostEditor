@@ -31,8 +31,8 @@ export const SpriteRectSchema = z.object({
 
 export const SpriteLayerSchema = z.object({
 	id: z.string(),
-	name: z.string().optional(),
-	type: z.string().optional(),
+	name: z.string().default(""),
+	type: z.string().default(""),
 	tilesetId: z.string(),
 	sprite: SpriteRectSchema,
 	offset: z
@@ -40,16 +40,16 @@ export const SpriteLayerSchema = z.object({
 			x: z.number(),
 			y: z.number(),
 		})
-		.optional(),
+		.default({ x: 0, y: 0 }),
 	origin: z
 		.object({
 			x: z.number(),
 			y: z.number(),
 		})
-		.optional(),
-	rotation: z.number().optional(),
+		.default({ x: 0, y: 0 }),
+	rotation: z.number().default(0),
 	zIndex: z.number(),
-	ysortOffset: z.number().optional(),
+	ysortOffset: z.number().default(0),
 });
 
 export const TileDefinitionSchema = z.object({

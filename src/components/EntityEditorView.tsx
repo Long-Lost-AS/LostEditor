@@ -1363,6 +1363,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		const newLayer: SpriteLayer = {
 			id: `sprite_${Date.now()}`,
 			name: `Layer ${localSprites.length + 1}`,
+			type: "",
 			tilesetId: selectedTilesetId,
 			sprite: {
 				x: selectedRegion.x * tileset.tileWidth,
@@ -2442,7 +2443,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														value={selectedLayer.origin?.x || 0}
 														onChange={(x) => {
 															const newOrigin = {
-																y: 0,
 																...selectedLayer.origin,
 																x,
 															};
@@ -2452,7 +2452,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														}}
 														onInput={(x) => {
 															const newOrigin = {
-																y: 0,
 																...selectedLayer.origin,
 																x,
 															};
@@ -2479,7 +2478,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														value={selectedLayer.origin?.y || 0}
 														onChange={(y) => {
 															const newOrigin = {
-																x: 0,
 																...selectedLayer.origin,
 																y,
 															};
@@ -2489,7 +2487,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														}}
 														onInput={(y) => {
 															const newOrigin = {
-																x: 0,
 																...selectedLayer.origin,
 																y,
 															};
