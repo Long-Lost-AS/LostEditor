@@ -37,7 +37,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		);
 
 		return {
-			version: data.version || "1.0",
+			version: data.version,
 			name: data.name,
 			id: data.id,
 			order: data.order, // Save the order to file
@@ -59,7 +59,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 				})
 				.map((tile) => {
 					// Save id and properties (sprite position is in the packed ID)
-					const saved: Partial<TileDefinitionJson> & { id: number } = {
+					const saved: Record<string, unknown> = {
 						id: tile.id,
 					};
 
@@ -78,7 +78,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 						saved.origin = tile.origin;
 					if (Object.keys(tile.properties).length > 0)
 						saved.properties = tile.properties;
-					return saved;
+					return saved as TileDefinitionJson;
 				}),
 			terrainLayers: data.terrainLayers?.map((layer) => ({
 				...layer,
@@ -129,7 +129,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		const existingTileset = Array.from(this.cache.values()).find(
 			(ts) =>
 				ts.order === validated.order &&
-				ts.id !== (validated.id || this.generateId(filePath)),
+				ts.id !==
+					(validated.id !== "" ? validated.id : this.generateId(filePath)),
 		);
 
 		if (existingTileset) {
@@ -145,7 +146,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		// Create the TilesetData object with runtime fields
 		return {
 			...validated,
-			id: validated.id || this.generateId(filePath),
+			id: validated.id !== "" ? validated.id : this.generateId(filePath),
 			order: tilesetOrder, // Store the order in runtime data
 			imagePath: imagePath, // Use resolved absolute path
 			imageData: imageElement,
