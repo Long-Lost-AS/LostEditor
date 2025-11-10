@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { PolygonCollider } from "../types";
+import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
@@ -109,9 +110,9 @@ export const CollisionEditor = ({
 		// Ensure all colliders have IDs
 		const needsIds = updated.some((c) => !c.id);
 		if (needsIds) {
-			updated = updated.map((c, index) => ({
+			updated = updated.map((c) => ({
 				...c,
-				id: c.id || `collider-${Date.now()}-${index}`,
+				id: c.id || generateId(),
 			}));
 			needsUpdate = true;
 		}
@@ -475,7 +476,7 @@ export const CollisionEditor = ({
 					if (distance <= 8 / scale) {
 						// Close the polygon
 						const newCollider: PolygonCollider = {
-							id: `collider-${Date.now()}`,
+							id: generateId(),
 							name: "",
 							type: "",
 							points: drawingPoints,

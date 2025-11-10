@@ -3,6 +3,7 @@ import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { TerrainLayer, TileDefinition, TilesetTab } from "../types";
+import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
@@ -1202,7 +1203,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleAddTerrainLayer = () => {
 		const terrainLayers = getTerrainLayers();
 		const newLayer: TerrainLayer = {
-			id: `terrain-${Date.now()}`,
+			id: generateId(),
 			name: `Terrain ${terrainLayers.length + 1}`,
 			tiles: [],
 		};

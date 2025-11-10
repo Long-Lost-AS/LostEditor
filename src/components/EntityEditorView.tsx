@@ -4,6 +4,7 @@ import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
+import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
@@ -390,7 +391,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		}
 
 		const newCollider: PolygonCollider = {
-			id: `collider-${Date.now()}`,
+			id: generateId(),
 			name: "",
 			type: "",
 			points: drawingPoints,
@@ -1374,7 +1375,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		if (!tileset) return;
 
 		const newLayer: SpriteLayer = {
-			id: `sprite_${Date.now()}`,
+			id: generateId(),
 			name: `Layer ${localSprites.length + 1}`,
 			type: "",
 			tilesetId: selectedTilesetId,

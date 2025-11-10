@@ -5,6 +5,7 @@ import type {
 	EntityInstance,
 	Transform,
 } from "../types";
+import { generateId } from "../utils/id";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";
 
@@ -110,7 +111,7 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 		y: number,
 	): EntityInstance {
 		return {
-			id: `instance-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+			id: generateId(),
 			x,
 			y,
 			entityDefId,

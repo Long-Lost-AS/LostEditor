@@ -21,11 +21,19 @@ import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { entityManager } from "../managers/EntityManager";
-import type { EntityInstance, Layer, MapData, MapTab, Tool } from "../types";
+import type {
+	EntityInstance,
+	Layer,
+	MapData,
+	MapTab,
+	PointInstance,
+	Tool,
+} from "../types";
 import {
 	getAllAutotileGroups,
 	updateTileAndNeighbors,
 } from "../utils/autotiling";
+import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
 	getTerrainLayerForTile,
@@ -36,6 +44,7 @@ import { packTileId, unpackTileId } from "../utils/tileId";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { MapCanvas } from "./MapCanvas";
+import { PointPropertiesPanel } from "./PointPropertiesPanel";
 import { Toolbar } from "./Toolbar";
 
 interface MapEditorViewProps {
@@ -220,6 +229,7 @@ export const MapEditorView = ({
 	const [dragStartX, setDragStartX] = useState(0);
 	const [dragStartWidth, setDragStartWidth] = useState(0);
 	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+	const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
@@ -357,7 +367,7 @@ export const MapEditorView = ({
 
 	const handleAddLayer = () => {
 		const newLayer = {
-			id: `layer-${Date.now()}`,
+			id: generateId(),
 			name: `Layer ${localMapData.layers.length + 1}`,
 			visible: true,
 			type: "tile" as const,
@@ -715,7 +725,7 @@ export const MapEditorView = ({
 			// Offset it slightly so it's visible
 			const newEntity: EntityInstance = {
 				...entityToDuplicate,
-				id: `entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				id: generateId(),
 				x: entityToDuplicate.x + 16, // Offset by 16 pixels
 				y: entityToDuplicate.y + 16,
 			};
@@ -729,6 +739,102 @@ export const MapEditorView = ({
 			setProjectModified(true);
 			// Select the newly duplicated entity
 			setSelectedEntityId(newEntity.id);
+		},
+		[localMapData, setProjectModified, setLocalMapData],
+	);
+
+	// Handle placing a point
+	const handlePlacePoint = useCallback(
+		(x: number, y: number) => {
+			const pointInstance: PointInstance = {
+				id: generateId(),
+				x: Math.floor(x),
+				y: Math.floor(y),
+				name: "",
+				type: "",
+				properties: {},
+			};
+
+			setLocalMapData((prev) => ({
+				...prev,
+				points: [...(prev.points || []), pointInstance],
+			}));
+			setProjectModified(true);
+			// Auto-select the newly placed point
+			setSelectedPointId(pointInstance.id);
+		},
+		[setLocalMapData, setProjectModified],
+	);
+
+	// Handle moving a point
+	const handleMovePoint = useCallback(
+		(pointId: string, newX: number, newY: number) => {
+			if (!localMapData) return;
+
+			const newPoints = (localMapData.points || []).map((point) =>
+				point.id === pointId ? { ...point, x: newX, y: newY } : point,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				points: newPoints,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setProjectModified, setLocalMapData],
+	);
+
+	// Handle point dragging (live update without marking modified)
+	const handlePointDragging = useCallback(
+		(pointId: string, newX: number, newY: number) => {
+			if (!localMapData) return;
+
+			const newPoints = (localMapData.points || []).map((point) =>
+				point.id === pointId ? { ...point, x: newX, y: newY } : point,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				points: newPoints,
+			});
+			// Don't mark as modified during drag - only on release
+		},
+		[localMapData, setLocalMapData],
+	);
+
+	// Handle updating point properties
+	const handleUpdatePoint = useCallback(
+		(pointId: string, updates: Partial<PointInstance>) => {
+			if (!localMapData) return;
+
+			const newPoints = (localMapData.points || []).map((point) =>
+				point.id === pointId ? { ...point, ...updates } : point,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				points: newPoints,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setProjectModified, setLocalMapData],
+	);
+
+	// Handle deleting a point
+	const handleDeletePoint = useCallback(
+		(pointId: string) => {
+			if (!localMapData) return;
+
+			const newPoints = (localMapData.points || []).filter(
+				(point) => point.id !== pointId,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				points: newPoints,
+			});
+			setProjectModified(true);
+			setSelectedPointId(null); // Clear selection after delete
 		},
 		[localMapData, setProjectModified, setLocalMapData],
 	);
@@ -967,18 +1073,22 @@ export const MapEditorView = ({
 		};
 	}, [contextMenu]);
 
-	// Delete entity on Backspace or Delete key
+	// Delete entity or point on Backspace or Delete key
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Only delete if an entity is selected and we're not typing in an input field
+			// Only delete if something is selected and we're not typing in an input field
 			if (
 				(e.key === "Backspace" || e.key === "Delete") &&
-				selectedEntityId &&
 				!(e.target instanceof HTMLInputElement) &&
 				!(e.target instanceof HTMLTextAreaElement)
 			) {
-				e.preventDefault();
-				handleDeleteEntity(selectedEntityId);
+				if (selectedEntityId) {
+					e.preventDefault();
+					handleDeleteEntity(selectedEntityId);
+				} else if (selectedPointId) {
+					e.preventDefault();
+					handleDeletePoint(selectedPointId);
+				}
 			}
 		};
 
@@ -986,7 +1096,12 @@ export const MapEditorView = ({
 		return () => {
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [selectedEntityId, handleDeleteEntity]);
+	}, [
+		selectedEntityId,
+		selectedPointId,
+		handleDeleteEntity,
+		handleDeletePoint,
+	]);
 
 	// Guard against undefined - map should always exist in global state
 	if (!mapData) {
@@ -1270,6 +1385,11 @@ export const MapEditorView = ({
 						onEntityDragging={handleEntityDragging}
 						onDeleteEntity={handleDeleteEntity}
 						onDuplicateEntity={handleDuplicateEntity}
+						onPlacePoint={handlePlacePoint}
+						onMovePoint={handleMovePoint}
+						onPointSelected={setSelectedPointId}
+						onPointDragging={handlePointDragging}
+						onDeletePoint={handleDeletePoint}
 						onStartBatch={startBatch}
 						onEndBatch={endBatch}
 					/>
@@ -1294,9 +1414,9 @@ export const MapEditorView = ({
 			/>
 
 			{/* Right Sidebar - Tileset Panel */}
-			{/* Right Panel - Only show when entity is selected */}
+			{/* Right Panel - Show when entity or point is selected */}
 			{(tab.viewState.currentTool || "pencil") === "pointer" &&
-			selectedEntityId ? (
+			(selectedEntityId || selectedPointId) ? (
 				<div
 					className="flex flex-col"
 					style={{
@@ -1305,13 +1425,23 @@ export const MapEditorView = ({
 						borderLeft: "1px solid #3e3e42",
 					}}
 				>
-					<EntityPropertiesPanel
-						selectedEntityId={selectedEntityId}
-						mapData={localMapData}
-						onUpdateEntity={handleUpdateEntity}
-						onDragStart={startBatch}
-						onDragEnd={endBatch}
-					/>
+					{selectedEntityId ? (
+						<EntityPropertiesPanel
+							selectedEntityId={selectedEntityId}
+							mapData={localMapData}
+							onUpdateEntity={handleUpdateEntity}
+							onDragStart={startBatch}
+							onDragEnd={endBatch}
+						/>
+					) : selectedPointId ? (
+						<PointPropertiesPanel
+							selectedPointId={selectedPointId}
+							mapData={localMapData}
+							onUpdatePoint={handleUpdatePoint}
+							onDragStart={startBatch}
+							onDragEnd={endBatch}
+						/>
+					) : null}
 				</div>
 			) : null}
 

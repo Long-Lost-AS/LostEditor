@@ -37,6 +37,7 @@ import {
 	getAllAutotileGroups,
 	updateTileAndNeighbors,
 } from "../utils/autotiling";
+import { generateId } from "../utils/id";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 
@@ -414,7 +415,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			if (!currentMap) return;
 
 			const newLayer: Layer = {
-				id: `layer-${Date.now()}`,
+				id: generateId(),
 				name: `Layer ${currentMap.layers.length + 1}`,
 				visible: true,
 				type: layerType,
@@ -1481,7 +1482,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const newMap = useCallback(
 		(directory?: string, fileName?: string) => {
 			// Generate a unique ID for the new map
-			const mapId = `map-${Date.now()}`;
+			const mapId = generateId();
 
 			// Find the highest existing map number to avoid duplicates
 			const existingMapNumbers = tabs
@@ -1561,7 +1562,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				const mapName = fileManager.basename(filePath, ".lostmap");
 
 				// Create a new MapTab
-				const mapId = `map-${Date.now()}`;
+				const mapId = generateId();
 				const mapWithId = { ...mapData, id: mapId };
 
 				// Add to global maps array
@@ -1749,7 +1750,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Create a new entity editor tab
 				const entityTab: EntityEditorTab = {
-					id: `entity-${Date.now()}`,
+					id: generateId(),
 					type: "entity-editor",
 					title: entity.name || "Entity",
 					isDirty: false,
@@ -1828,7 +1829,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		// Extract filename without extension for tileset name
 		const fileName = imagePath.split("/").pop() || "Untitled";
 		const tilesetName = fileName.replace(/\.[^/.]+$/, "");
-		const tilesetId = `tileset-${Date.now()}`;
+		const tilesetId = generateId();
 
 		// Assign the next available order
 		const tilesetOrder = tilesetIndexManager.getNextAvailableIndex();
@@ -1852,7 +1853,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Create tileset tab with just the tileset ID reference
 		const tilesetTab: TilesetTab = {
-			id: `tileset-tab-${tilesetId}`,
+			id: generateId(),
 			type: "tileset-editor" as const,
 			title: tilesetName,
 			isDirty: true, // Mark as dirty since it's not saved yet
@@ -1885,7 +1886,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Create a new entity definition
 		const entity: EntityDefinition = {
-			id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			id: generateId(),
 			name: "New Entity",
 			type: "",
 			sprites: [],
@@ -1908,7 +1909,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Create a new entity editor tab
 		const entityTab: EntityEditorTab = {
-			id: `entity-${Date.now()}`,
+			id: generateId(),
 			type: "entity-editor",
 			title: entity.name || "New Entity",
 			isDirty: false, // Already saved
@@ -1953,7 +1954,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			// Create collision editor tab
 			const collisionTab = {
-				id: `collision-${Date.now()}`,
+				id: generateId(),
 				type: "collision-editor" as const,
 				title,
 				isDirty: false,

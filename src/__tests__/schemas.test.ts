@@ -21,6 +21,7 @@ import {
 	TileDefinitionSchema,
 	TilesetDataSchema,
 } from "../schemas";
+import { generateId } from "../utils/id";
 
 // Test-only helper functions
 function createDefaultLayer(
@@ -28,7 +29,7 @@ function createDefaultLayer(
 	type: "tile" | "entity" = "tile",
 ): z.infer<typeof LayerSchema> {
 	return LayerSchema.parse({
-		id: `layer-${Date.now()}`,
+		id: generateId(),
 		name,
 		visible: true,
 		type,
@@ -960,7 +961,10 @@ describe("schemas", () => {
 				expect(layer.type).toBe("tile");
 				expect(layer.visible).toBe(true);
 				expect(layer.tiles).toEqual([]);
-				expect(layer.id).toMatch(/^layer-\d+$/);
+				// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+				expect(layer.id).toMatch(
+					/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+				);
 			});
 
 			it("should create layer with custom name", () => {
@@ -975,11 +979,10 @@ describe("schemas", () => {
 				expect(layer.name).toBe("Entities");
 			});
 
-			it("should generate unique IDs for sequential calls", async () => {
+			it("should generate unique IDs for sequential calls", () => {
 				const layer1 = createDefaultLayer();
-				// Wait 10ms to ensure different timestamp
-				await new Promise((resolve) => setTimeout(resolve, 10));
 				const layer2 = createDefaultLayer();
+				// UUIDs should always be unique
 				expect(layer1.id).not.toBe(layer2.id);
 			});
 
@@ -1053,6 +1056,7 @@ describe("schemas", () => {
 					tileHeight: 16,
 					layers: [],
 					entities: [],
+					points: [],
 				};
 				const result = ensureValidMapData(validData);
 				expect(result).toEqual(validData);

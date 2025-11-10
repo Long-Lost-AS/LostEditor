@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EntityDefinition, EntityInstance } from "./types";
+import { generateId } from "./utils/id";
 
 // ===========================
 // Collision Schemas
@@ -137,6 +138,15 @@ export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 	}),
 );
 
+export const PointInstanceSchema = z.object({
+	id: z.string(),
+	x: z.number(),
+	y: z.number(),
+	name: z.string().default(""),
+	type: z.string().default(""),
+	properties: z.record(z.string(), z.string()).default({}),
+});
+
 export const LayerTypeSchema = z.enum(["tile", "entity"]);
 
 export const LayerSchema = z.object({
@@ -155,6 +165,7 @@ export const MapDataSchema = z.object({
 	tileHeight: z.number().positive(),
 	layers: z.array(LayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]),
+	points: z.array(PointInstanceSchema).default([]),
 });
 
 // Schemas for serialized format (version 4.0 - dense array with regular numbers)
@@ -175,6 +186,7 @@ export const SerializedMapDataSchema = z.object({
 	tileHeight: z.number().positive(),
 	layers: z.array(SerializedLayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]), // Entities at map level (required, can be empty)
+	points: z.array(PointInstanceSchema).default([]), // Points at map level (required, can be empty)
 });
 
 // Map file schema (for .lostmap files) - version 4.0 only
@@ -192,6 +204,7 @@ export const ToolSchema = z.enum([
 	"rect",
 	"entity",
 	"collision",
+	"point",
 ]);
 
 export const TabTypeSchema = z.enum([
@@ -332,7 +345,7 @@ export function createDefaultMapData(
 		tileHeight: 16,
 		layers: [
 			{
-				id: `layer-${Date.now()}`,
+				id: generateId(),
 				name: "Layer 1",
 				visible: true,
 				type: "tile" as const,
@@ -340,5 +353,6 @@ export function createDefaultMapData(
 			},
 		],
 		entities: [], // Map-level entities
+		points: [], // Map-level points
 	});
 }
