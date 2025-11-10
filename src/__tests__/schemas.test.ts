@@ -747,7 +747,7 @@ describe("schemas", () => {
 					tabs: [
 						{
 							id: "tab-1",
-							type: "map",
+							type: "map-editor",
 							title: "Map",
 							isDirty: false,
 							mapId: "map-1",

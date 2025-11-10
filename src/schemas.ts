@@ -184,15 +184,32 @@ export const MapFileSchema = SerializedMapDataSchema;
 // Tab Schemas
 // ===========================
 
-const BaseTabSchema = z.object({
+export const ToolSchema = z.enum([
+	"pointer",
+	"pencil",
+	"eraser",
+	"fill",
+	"rect",
+	"entity",
+	"collision",
+]);
+
+export const TabTypeSchema = z.enum([
+	"map-editor",
+	"tileset-editor",
+	"entity-editor",
+	"collision-editor",
+]);
+
+export const BaseTabSchema = z.object({
 	id: z.string(),
-	type: z.enum(["map", "tileset", "entity-editor", "collision-editor"]),
+	type: TabTypeSchema,
 	title: z.string(),
 	isDirty: z.boolean(),
 	filePath: z.string().optional(),
 });
 
-const MapViewStateSchema = z.object({
+export const MapViewStateSchema = z.object({
 	zoom: z.number(),
 	panX: z.number(),
 	panY: z.number(),
@@ -201,25 +218,17 @@ const MapViewStateSchema = z.object({
 	selectedTilesetId: z.string().nullable(),
 	selectedTileId: z.number().nullable(),
 	selectedEntityDefId: z.string().nullable(),
-	currentTool: z.enum([
-		"pointer",
-		"pencil",
-		"eraser",
-		"fill",
-		"rect",
-		"entity",
-		"collision",
-	]),
+	currentTool: ToolSchema,
 });
 
-const MapTabSchema = BaseTabSchema.extend({
-	type: z.literal("map"),
+export const MapTabSchema = BaseTabSchema.extend({
+	type: z.literal("map-editor"),
 	mapId: z.string(),
 	mapFilePath: z.string().optional(),
 	viewState: MapViewStateSchema,
 });
 
-const TilesetViewStateSchema = z.object({
+export const TilesetViewStateSchema = z.object({
 	scale: z.number(),
 	selectedTileRegion: z
 		.object({
@@ -231,13 +240,13 @@ const TilesetViewStateSchema = z.object({
 		.nullable(),
 });
 
-const TilesetTabSchema = BaseTabSchema.extend({
-	type: z.literal("tileset"),
+export const TilesetTabSchema = BaseTabSchema.extend({
+	type: z.literal("tileset-editor"),
 	tilesetId: z.string(),
 	viewState: TilesetViewStateSchema,
 });
 
-const EntityEditorViewStateSchema = z.object({
+export const EntityEditorViewStateSchema = z.object({
 	scale: z.number(),
 	panX: z.number(),
 	panY: z.number(),
@@ -245,14 +254,14 @@ const EntityEditorViewStateSchema = z.object({
 	selectedChildId: z.string().nullable(),
 });
 
-const EntityEditorTabSchema = BaseTabSchema.extend({
+export const EntityEditorTabSchema = BaseTabSchema.extend({
 	type: z.literal("entity-editor"),
 	entityId: z.string(),
-	entityData: z.any(), // EntityDefinition is complex, use z.any() for now
+	entityData: EntityDefinitionSchema,
 	viewState: EntityEditorViewStateSchema,
 });
 
-const CollisionEditorTabSchema = BaseTabSchema.extend({
+export const CollisionEditorTabSchema = BaseTabSchema.extend({
 	type: z.literal("collision-editor"),
 	sourceType: z.enum(["tile", "entity"]),
 	sourceId: z.string(),
@@ -260,7 +269,7 @@ const CollisionEditorTabSchema = BaseTabSchema.extend({
 	tileId: z.number().optional(),
 });
 
-const AnyTabSchema = z.discriminatedUnion("type", [
+export const AnyTabSchema = z.discriminatedUnion("type", [
 	MapTabSchema,
 	TilesetTabSchema,
 	EntityEditorTabSchema,

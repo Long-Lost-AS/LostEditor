@@ -135,7 +135,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				if (sourceData?.type === "tile" && tab.sourceTabId) {
 					// Save the tileset directly by tab ID without switching tabs
 					const sourceTab = tabs.find((t) => t.id === tab.sourceTabId);
-					if (sourceTab?.type === "tileset") {
+					if (sourceTab?.type === "tileset-editor") {
 						saveTilesetByTabId(tab.sourceTabId);
 					}
 				}

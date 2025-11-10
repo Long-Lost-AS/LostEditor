@@ -331,7 +331,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			setTabs((prev) => {
 				if (!activeTabId) return prev;
 				return prev.map((tab) => {
-					if (tab.id === activeTabId && tab.type === "map") {
+					if (tab.id === activeTabId && tab.type === "map-editor") {
 						const mapTab = tab as MapTab;
 						return {
 							...tab,
@@ -357,7 +357,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			setTabs((prev) => {
 				if (!activeTabId) return prev;
 				return prev.map((tab) => {
-					if (tab.id === activeTabId && tab.type === "map") {
+					if (tab.id === activeTabId && tab.type === "map-editor") {
 						const mapTab = tab as MapTab;
 						return {
 							...tab,
@@ -378,7 +378,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const getActiveMapTab = useCallback((): MapTab | null => {
 		if (!activeTabId) return null;
 		const tab = tabs.find((t) => t.id === activeTabId);
-		if (tab && tab.type === "map") {
+		if (tab && tab.type === "map-editor") {
 			return tab as MapTab;
 		}
 		return null;
@@ -399,7 +399,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 	const getActiveMap = useCallback(() => {
 		const activeTab = tabs.find((t) => t.id === activeTabId);
-		if (activeTab?.type === "map") {
+		if (activeTab?.type === "map-editor") {
 			return maps.find((m) => m.id === (activeTab as MapTab).mapId);
 		}
 		return undefined;
@@ -843,7 +843,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const getActiveTilesetTab = useCallback((): TilesetTab | null => {
 		if (!activeTabId) return null;
 		const tab = tabs.find((t) => t.id === activeTabId);
-		if (tab && tab.type === "tileset") {
+		if (tab && tab.type === "tileset-editor") {
 			return tab as TilesetTab;
 		}
 		return null;
@@ -963,7 +963,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Mark tileset tab as clean
 						setTabs((prevTabs) =>
 							prevTabs.map((tab) =>
-								tab.type === "tileset" &&
+								tab.type === "tileset-editor" &&
 								(tab as TilesetTab).tilesetId === tileset.id
 									? { ...tab, isDirty: false }
 									: tab,
@@ -978,7 +978,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			// Save all map tabs to separate .lostmap files
 			for (const tab of tabs) {
-				if (tab.type === "map") {
+				if (tab.type === "map-editor") {
 					const mapTab = tab as MapTab;
 
 					// Get map data from global maps array
@@ -1039,7 +1039,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				lastModified: new Date().toISOString(),
 				openTabs: {
 					tabs: tabs.map((tab) => {
-						if (tab.type === "map") {
+						if (tab.type === "map-editor") {
 							// Don't store map data in tabs, just references
 							return {
 								id: tab.id,
@@ -1294,7 +1294,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				const restoredTabs: AnyTab[] = [];
 
 				for (const tab of projectData.openTabs.tabs) {
-					if (tab.type === "map") {
+					if (tab.type === "map-editor") {
 						const mapTab = tab as MapTab;
 
 						// Find the already-loaded map by file path
@@ -1306,7 +1306,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								// Create MapTab with reference to loaded map
 								const fullMapTab: MapTab = {
 									id: mapTab.id,
-									type: "map",
+									type: "map-editor",
 									title: mapTab.title,
 									isDirty: false,
 									filePath: mapTab.filePath,
@@ -1332,7 +1332,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								);
 							}
 						}
-					} else if (tab.type === "tileset") {
+					} else if (tab.type === "tileset-editor") {
 						const tilesetTab = tab as TilesetTab;
 						const tilesetExists = tilesetManager.getTilesetById(
 							tilesetTab.tilesetId,
@@ -1485,7 +1485,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			// Find the highest existing map number to avoid duplicates
 			const existingMapNumbers = tabs
-				.filter((t) => t.type === "map")
+				.filter((t) => t.type === "map-editor")
 				.map((t) => {
 					const match = t.title.match(/^Map (\d+)$/);
 					return match ? parseInt(match[1], 10) : 0;
@@ -1512,7 +1512,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			// Then create the tab
 			const newMapTab: MapTab = {
 				id: mapId,
-				type: "map",
+				type: "map-editor",
 				title: title,
 				isDirty: true, // Mark as dirty since it's unsaved
 				mapId: mapId,
@@ -1545,7 +1545,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			try {
 				// Check if map is already open in a tab
 				const existingTab = tabs.find(
-					(tab) => tab.type === "map" && tab.filePath === filePath,
+					(tab) => tab.type === "map-editor" && tab.filePath === filePath,
 				);
 
 				if (existingTab) {
@@ -1569,7 +1569,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				const newMapTab: MapTab = {
 					id: mapId,
-					type: "map",
+					type: "map-editor",
 					title: mapName,
 					isDirty: false,
 					filePath: filePath,
@@ -1605,7 +1605,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Check if a tab with this tileset is already open
 				const existingTab = tabs.find(
 					(tab) =>
-						tab.type === "tileset" &&
+						tab.type === "tileset-editor" &&
 						tilesets.find((t) => t.id === tab.tilesetId)?.filePath === filePath,
 				);
 
@@ -1635,7 +1635,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				// Create a new TilesetTab
 				const tilesetTab: TilesetTab = {
 					id: `tileset-${tileset.id}`,
-					type: "tileset",
+					type: "tileset-editor",
 					title: tileset.name,
 					isDirty: false,
 					tilesetId: tileset.id,
@@ -1853,7 +1853,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		// Create tileset tab with just the tileset ID reference
 		const tilesetTab: TilesetTab = {
 			id: `tileset-tab-${tilesetId}`,
-			type: "tileset" as const,
+			type: "tileset-editor" as const,
 			title: tilesetName,
 			isDirty: true, // Mark as dirty since it's not saved yet
 			tilesetId: tilesetId,
@@ -2029,7 +2029,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		async (tilesetTabId: string) => {
 			// Find the tileset tab
 			const foundTab = tabs.find((t) => t.id === tilesetTabId);
-			if (!foundTab || foundTab.type !== "tileset") {
+			if (!foundTab || foundTab.type !== "tileset-editor") {
 				console.warn(`Tileset tab ${tilesetTabId} not found`);
 				return;
 			}
@@ -2093,7 +2093,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const saveAll = useCallback(async () => {
 		// Save all dirty tileset tabs
 		const tilesetTabs = tabs.filter(
-			(t) => t.type === "tileset" && t.isDirty,
+			(t) => t.type === "tileset-editor" && t.isDirty,
 		) as TilesetTab[];
 
 		for (const tab of tilesetTabs) {

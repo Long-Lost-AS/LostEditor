@@ -1,12 +1,23 @@
 import type { z } from "zod";
 import type {
+	AnyTabSchema,
+	BaseTabSchema,
+	CollisionEditorTabSchema,
+	EntityEditorTabSchema,
+	EntityEditorViewStateSchema,
 	LayerTypeSchema,
+	MapTabSchema,
+	MapViewStateSchema,
 	PointSchema,
 	PolygonColliderSchema,
 	SpriteLayerSchema,
 	SpriteRectSchema,
+	TabTypeSchema,
 	TerrainLayerSchema,
 	TerrainTileSchema,
+	TilesetTabSchema,
+	TilesetViewStateSchema,
+	ToolSchema,
 } from "./schemas";
 
 // ===========================
@@ -173,14 +184,7 @@ export interface ProjectData {
 // Editor Types
 // ===========================
 
-export type Tool =
-	| "pointer"
-	| "pencil"
-	| "eraser"
-	| "fill"
-	| "rect"
-	| "entity"
-	| "collision";
+export type Tool = z.infer<typeof ToolSchema>;
 
 // Selection state as discriminated union
 export type SelectionState =
@@ -207,76 +211,18 @@ export interface CollisionEditState {
 // Tab Types
 // ===========================
 
-export type TabType = "map" | "tileset" | "entity-editor" | "collision-editor";
+export type TabType = z.infer<typeof TabTypeSchema>;
 
-export interface BaseTab {
-	id: string;
-	type: TabType;
-	title: string;
-	isDirty: boolean;
-	filePath?: string;
-}
-
-export interface MapViewState {
-	zoom: number;
-	panX: number;
-	panY: number;
-	currentLayerId: string | null;
-	gridVisible: boolean;
-	selectedTilesetId: string | null;
-	selectedTileId: number | null;
-	selectedEntityDefId: string | null;
-	currentTool: Tool;
-}
-
-export interface MapTab extends BaseTab {
-	type: "map";
-	mapId: string; // Unique identifier for the map (reference to EditorContext.maps array)
-	mapFilePath: string; // File path for save operations
-	mapData?: MapData; // [DEPRECATED] In-memory map data - use EditorContext.getMapById() instead
-	viewState: MapViewState;
-}
-
-export interface TilesetViewState {
-	scale: number;
-	selectedTileRegion: {
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null;
-}
-
-export interface TilesetTab extends BaseTab {
-	type: "tileset";
-	tilesetId: string; // Reference to tileset by ID, not the full data
-	viewState: TilesetViewState;
-}
-
-export interface EntityEditorViewState {
-	scale: number;
-	panX: number;
-	panY: number;
-	selectedSpriteLayerId: string | null;
-	selectedChildId: string | null;
-}
-
-export interface EntityEditorTab extends BaseTab {
-	type: "entity-editor";
-	entityId: string; // Unique identifier for the entity
-	entityData: EntityDefinition; // In-memory entity data
-	viewState: EntityEditorViewState;
-}
-
-export interface CollisionEditorTab extends BaseTab {
-	type: "collision-editor";
-	sourceType: "tile" | "entity";
-	sourceId: string; // tilesetId or entityId
-	sourceTabId?: string; // Parent tab ID (for entities)
-	tileId?: number; // Only used when sourceType is 'tile'
-}
-
-export type AnyTab = MapTab | TilesetTab | EntityEditorTab | CollisionEditorTab;
+// Inferred from schemas (schemas.ts is the single source of truth)
+export type BaseTab = z.infer<typeof BaseTabSchema>;
+export type MapViewState = z.infer<typeof MapViewStateSchema>;
+export type MapTab = z.infer<typeof MapTabSchema>;
+export type TilesetViewState = z.infer<typeof TilesetViewStateSchema>;
+export type TilesetTab = z.infer<typeof TilesetTabSchema>;
+export type EntityEditorViewState = z.infer<typeof EntityEditorViewStateSchema>;
+export type EntityEditorTab = z.infer<typeof EntityEditorTabSchema>;
+export type CollisionEditorTab = z.infer<typeof CollisionEditorTabSchema>;
+export type AnyTab = z.infer<typeof AnyTabSchema>;
 
 export interface TabState {
 	tabs: AnyTab[];
