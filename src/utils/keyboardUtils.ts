@@ -21,7 +21,13 @@ export function isEditableElementFocused(event?: KeyboardEvent): boolean {
 
 	const tagName = target.tagName;
 
+	// Check for INPUT, TEXTAREA, or content editable elements
+	// Note: contentEditable is a string attribute ("true"/"false"/"inherit")
+	// isContentEditable is a computed boolean property (may not work in all test envs)
 	return (
-		tagName === "INPUT" || tagName === "TEXTAREA" || target.isContentEditable
+		tagName === "INPUT" ||
+		tagName === "TEXTAREA" ||
+		target.isContentEditable === true ||
+		target.contentEditable === "true"
 	);
 }

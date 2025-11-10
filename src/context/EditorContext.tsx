@@ -748,20 +748,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			if (!entityInstance) return;
 
-			const updatedLayers = currentMap.layers.map((layer) => {
-				if (layer.id === currentLayer.id) {
-					const updatedLayer = {
-						...layer,
-						entities: [...layer.entities, entityInstance],
-					};
-					setCurrentLayer(updatedLayer);
-					return updatedLayer;
-				}
-				return layer;
-			});
-
+			// Add entity to map-level entities array
 			updateMap(mapTab.mapId, {
-				layers: updatedLayers,
+				entities: [...(currentMap.entities || []), entityInstance],
 			});
 			setProjectModified(true);
 		},
@@ -785,20 +774,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			const currentMap = getMapById(mapTab.mapId);
 			if (!currentMap) return;
 
-			const updatedLayers = currentMap.layers.map((layer) => {
-				if (layer.id === currentLayer.id) {
-					const updatedLayer = {
-						...layer,
-						entities: layer.entities.filter((e) => e.id !== entityId),
-					};
-					setCurrentLayer(updatedLayer);
-					return updatedLayer;
-				}
-				return layer;
-			});
-
+			// Remove entity from map-level entities array
 			updateMap(mapTab.mapId, {
-				layers: updatedLayers,
+				entities: (currentMap.entities || []).filter((e) => e.id !== entityId),
 			});
 			setProjectModified(true);
 		},

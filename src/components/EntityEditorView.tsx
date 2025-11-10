@@ -297,8 +297,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Check the isCompound flag
 			if (tile.isCompound) {
 				// This is a compound tile
-				const tileWidth = tile.width;
-				const tileHeight = tile.height;
+				const tileWidth = tile.width || selectedTileset.tileWidth;
+				const tileHeight = tile.height || selectedTileset.tileHeight;
 
 				// Draw border around it
 				ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
@@ -1644,38 +1644,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			setSelectedColliderPointIndex(contextMenu.edgeIndex + 1);
 		}
 		setContextMenu(null);
-	};
-
-	// Calculate bounding box for collision editor
-	const _calculateEntityBoundingBox = () => {
-		if (localSprites.length === 0) {
-			return { x: 0, y: 0, width: 100, height: 100 }; // Default size
-		}
-
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
-
-		for (const layer of localSprites) {
-			const offset = layer.offset || { x: 0, y: 0 };
-			const layerMinX = offset.x;
-			const layerMinY = offset.y;
-			const layerMaxX = offset.x + layer.sprite.width;
-			const layerMaxY = offset.y + layer.sprite.height;
-
-			minX = Math.min(minX, layerMinX);
-			minY = Math.min(minY, layerMinY);
-			maxX = Math.max(maxX, layerMaxX);
-			maxY = Math.max(maxY, layerMaxY);
-		}
-
-		return {
-			x: minX,
-			y: minY,
-			width: maxX - minX,
-			height: maxY - minY,
-		};
 	};
 
 	return (
