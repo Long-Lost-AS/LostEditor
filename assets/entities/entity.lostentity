@@ -1,6 +1,7 @@
 {
   "id": "entity-1762199312635-4jh1rhu1g",
   "name": "Entity",
+  "type": "",
   "sprites": [
     {
       "id": "sprite_1762199794576",
@@ -26,6 +27,5 @@
     }
   ],
   "colliders": [],
-  "properties": {},
-  "type": ""
+  "properties": {}
 }

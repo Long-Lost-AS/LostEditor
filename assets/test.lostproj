@@ -4,7 +4,7 @@
   "tilesets": [],
   "maps": [],
   "projectDir": "/Users/richardegeli1/Programming/LostEditor/assets",
-  "lastModified": "2025-11-10T10:44:10.452Z",
+  "lastModified": "2025-11-10T11:38:33.987Z",
   "openTabs": {
     "tabs": [
       {
@@ -42,10 +42,12 @@
         "type": "entity-editor",
         "title": "Entity",
         "isDirty": true,
+        "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity",
         "entityId": "entity-1762199312635-4jh1rhu1g",
         "entityData": {
           "id": "entity-1762199312635-4jh1rhu1g",
           "name": "Entity",
+          "type": "",
           "sprites": [
             {
               "id": "sprite_1762199794576",
@@ -72,14 +74,12 @@
           ],
           "colliders": [],
           "properties": {},
-          "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity",
-          "type": ""
+          "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity"
         },
-        "filePath": "/Users/richardegeli1/Programming/LostEditor/assets/entities/entity.lostentity",
         "viewState": {
           "scale": 0.8,
-          "panX": 373.8,
-          "panY": 425.8,
+          "panX": 559.8,
+          "panY": 464.8,
           "selectedSpriteLayerId": null,
           "selectedChildId": null
         }
