@@ -92,6 +92,10 @@ const SortableLayerItem = ({
 		<div
 			ref={setNodeRef}
 			style={style}
+			{...attributes}
+			{...listeners}
+			role="button"
+			tabIndex={0}
 			className={`px-2 py-1.5 text-xs rounded transition-colors flex items-center gap-2 ${
 				isActive
 					? "bg-[#0e639c] text-white"
@@ -106,16 +110,12 @@ const SortableLayerItem = ({
 					onClick();
 				}
 			}}
-			role="option"
-			aria-selected={isActive}
-			tabIndex={0}
+			aria-pressed={isActive}
 			onMouseDown={(e) => {
 				if (e.detail > 1) {
 					e.preventDefault();
 				}
 			}}
-			{...attributes}
-			{...listeners}
 		>
 			<input
 				type="checkbox"
@@ -865,10 +865,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 										const tileWidth = selectedTileset?.tileWidth || 16;
 										const tileHeight = selectedTileset?.tileHeight || 16;
 										const widthInTiles = Math.ceil(
-											selectedTileDef.width / tileWidth,
+											(selectedTileDef.width ?? tileWidth) / tileWidth,
 										);
 										const heightInTiles = Math.ceil(
-											selectedTileDef.height / tileHeight,
+											(selectedTileDef.height ?? tileHeight) / tileHeight,
 										);
 
 										for (let dy = 0; dy < heightInTiles; dy++) {
@@ -886,7 +886,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 									positionsToUpdate,
 									mapWidth,
 									mapHeight,
-									autotileGroups,
 									tilesets,
 								);
 

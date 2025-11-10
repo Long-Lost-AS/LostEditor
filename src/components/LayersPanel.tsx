@@ -65,6 +65,10 @@ const SortableLayerItem = ({
 		<div
 			ref={setNodeRef}
 			style={style}
+			{...attributes}
+			{...listeners}
+			role="button"
+			tabIndex={0}
 			className={`layer-item ${isActive ? "active" : ""} ${isDragging ? "dragging" : ""}`}
 			onClick={() => onLayerClick(layer)}
 			onDoubleClick={() => onDoubleClick(layer)}
@@ -74,12 +78,8 @@ const SortableLayerItem = ({
 					onLayerClick(layer);
 				}
 			}}
-			role="option"
-			aria-selected={isActive}
+			aria-pressed={isActive}
 			aria-label={`Layer: ${layer.name}`}
-			tabIndex={0}
-			{...attributes}
-			{...listeners}
 		>
 			<input
 				type="checkbox"
@@ -134,7 +134,7 @@ const SortableLayerItem = ({
 
 export const LayersPanel = () => {
 	const {
-		mapData,
+		getActiveMap,
 		currentLayer,
 		setCurrentLayer,
 		addLayer,
@@ -144,6 +144,8 @@ export const LayersPanel = () => {
 		updateLayerAutotiling,
 		reorderLayers,
 	} = useEditor();
+
+	const mapData = getActiveMap();
 
 	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 	const [editingName, setEditingName] = useState("");
@@ -184,7 +186,9 @@ export const LayersPanel = () => {
 		setActiveId(event.active.id as string);
 
 		// Select the layer being dragged
-		const draggedLayer = mapData.layers.find((l) => l.id === event.active.id);
+		const draggedLayer = mapData?.layers.find(
+			(l: Layer) => l.id === event.active.id,
+		);
 		if (draggedLayer) {
 			setCurrentLayer(draggedLayer);
 		}
@@ -194,7 +198,7 @@ export const LayersPanel = () => {
 		const { active, over } = event;
 		setActiveId(null);
 
-		if (!over || active.id === over.id) {
+		if (!over || active.id === over.id || !mapData) {
 			return;
 		}
 
@@ -202,8 +206,8 @@ export const LayersPanel = () => {
 		const reversedLayers = [...mapData.layers].reverse();
 
 		// Find indices in the reversed array
-		const oldIndex = reversedLayers.findIndex((l) => l.id === active.id);
-		const newIndex = reversedLayers.findIndex((l) => l.id === over.id);
+		const oldIndex = reversedLayers.findIndex((l: Layer) => l.id === active.id);
+		const newIndex = reversedLayers.findIndex((l: Layer) => l.id === over.id);
 
 		if (oldIndex === -1 || newIndex === -1) {
 			return;
@@ -220,12 +224,13 @@ export const LayersPanel = () => {
 	};
 
 	// Display layers in reverse order (top layer at top of list)
-	const displayedLayers = [...mapData.layers].reverse();
+	const displayedLayers = mapData ? [...mapData.layers].reverse() : [];
 
 	// Find the active layer for drag overlay
-	const activeLayer = activeId
-		? mapData.layers.find((l) => l.id === activeId)
-		: null;
+	const activeLayer =
+		activeId && mapData
+			? mapData.layers.find((l: Layer) => l.id === activeId)
+			: null;
 
 	return (
 		<div className="panel">
@@ -294,7 +299,7 @@ export const LayersPanel = () => {
 				</DragOverlay>
 			</DndContext>
 			<div className="layer-controls">
-				<button type="button" onClick={() => addLayer()}>
+				<button type="button" onClick={() => addLayer("tile")}>
 					+ Add Layer
 				</button>
 				<button

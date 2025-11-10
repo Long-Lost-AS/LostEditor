@@ -14,6 +14,7 @@ import { TilesetEditorView } from "./components/TilesetEditorView";
 import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
+import type { CollisionEditorTab } from "./types";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
 import { testUpdaterConfiguration } from "./utils/testUpdater";
 import { checkForUpdates } from "./utils/updater";
@@ -46,10 +47,6 @@ const AppContent = () => {
 	const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 	const [isEntitySelectMenuOpen, setIsEntitySelectMenuOpen] = useState(false);
 	const [isTilesetSelectMenuOpen, setIsTilesetSelectMenuOpen] = useState(false);
-	const [rightPanelWidth, setRightPanelWidth] = useState(350);
-	const [isResizing, setIsResizing] = useState(false);
-	const [dragStartX, setDragStartX] = useState(0);
-	const [dragStartWidth, setDragStartWidth] = useState(0);
 
 	// Bottom panel resize state
 	const [bottomPanelHeight, setBottomPanelHeight] = useState(250);
@@ -267,51 +264,6 @@ const AppContent = () => {
 	const activeCollisionTab = tabs.find(
 		(tab) => tab.type === "collision-editor" && tab.id === activeTabId,
 	) as CollisionEditorTab | undefined;
-
-	// Handle right panel resize drag
-	const _handleResizeStart = (e: React.MouseEvent) => {
-		setIsResizing(true);
-		setDragStartX(e.clientX);
-		setDragStartWidth(rightPanelWidth);
-	};
-
-	useEffect(() => {
-		if (!isResizing) return;
-
-		// Disable text selection during resize
-		document.body.style.userSelect = "none";
-		document.body.style.cursor = "col-resize";
-
-		const handleMouseMove = (e: MouseEvent) => {
-			const deltaX = dragStartX - e.clientX; // Negative because we're pulling from the right
-			const newWidth = dragStartWidth + deltaX;
-
-			// Constrain width: min 200px, max 50% of window width
-			const minWidth = 200;
-			const maxWidth = window.innerWidth * 0.5;
-			const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-
-			setRightPanelWidth(constrainedWidth);
-		};
-
-		const handleMouseUp = () => {
-			setIsResizing(false);
-			// Re-enable text selection
-			document.body.style.userSelect = "";
-			document.body.style.cursor = "";
-		};
-
-		document.addEventListener("mousemove", handleMouseMove);
-		document.addEventListener("mouseup", handleMouseUp);
-
-		return () => {
-			document.removeEventListener("mousemove", handleMouseMove);
-			document.removeEventListener("mouseup", handleMouseUp);
-			// Ensure text selection is re-enabled on cleanup
-			document.body.style.userSelect = "";
-			document.body.style.cursor = "";
-		};
-	}, [isResizing, dragStartX, dragStartWidth]);
 
 	// Handle bottom panel resize drag
 	const handleBottomResizeStart = (e: React.MouseEvent) => {

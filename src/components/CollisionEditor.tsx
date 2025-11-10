@@ -476,6 +476,8 @@ export const CollisionEditor = ({
 						// Close the polygon
 						const newCollider: PolygonCollider = {
 							id: `collider-${Date.now()}`,
+							name: "",
+							type: "",
 							points: drawingPoints,
 						};
 						setLocalColliders([...localColliders, newCollider]);
@@ -769,11 +771,12 @@ export const CollisionEditor = ({
 		) {
 			const snappedX = snapCoord(contextMenu.insertPosition.x);
 			const snappedY = snapCoord(contextMenu.insertPosition.y);
+			const edgeIndex = contextMenu.edgeIndex;
 
 			const newColliders = localColliders.map((c) => {
 				if (c.id === contextMenu.colliderId) {
 					const newPoints = [...c.points];
-					newPoints.splice(contextMenu.edgeIndex + 1, 0, {
+					newPoints.splice(edgeIndex + 1, 0, {
 						x: snappedX,
 						y: snappedY,
 					});

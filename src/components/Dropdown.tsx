@@ -253,7 +253,9 @@ export function Dropdown<T>({
 										}}
 										onMouseEnter={() => setSelectedIndex(index)}
 										role="option"
-										aria-selected={isSelected || isCurrentValue}
+										aria-selected={
+											isSelected || isCurrentValue ? true : undefined
+										}
 										tabIndex={0}
 									>
 										{renderItemContent(item, isSelected)}
