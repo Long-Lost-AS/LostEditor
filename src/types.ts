@@ -23,18 +23,19 @@ export type SpriteRect = z.infer<typeof SpriteRectSchema>;
 
 export type SpriteLayer = z.infer<typeof SpriteLayerSchema>;
 
+// Runtime tile definition (after unpacking x/y from ID)
 export interface TileDefinition {
-	id: number; // Packed tile ID (sprite position + tileset index + flips)
-	x: number; // Sprite x position in tileset image
-	y: number; // Sprite y position in tileset image
-	isCompound?: boolean; // True if this is a compound/multi-tile sprite
-	width?: number; // For compound tiles: width in pixels
-	height?: number; // For compound tiles: height in pixels
-	origin?: { x: number; y: number }; // Origin point in normalized coordinates (0-1), defaults to top-left (0,0)
-	colliders?: PolygonCollider[]; // Multiple colliders
-	name?: string; // User-defined name for the tile
-	type?: string; // Type classification for the tile
-	properties?: Record<string, string>; // Custom properties for compound tiles
+	id: number; // Packed tile ID
+	x: number; // Unpacked x position (always present at runtime)
+	y: number; // Unpacked y position (always present at runtime)
+	isCompound: boolean;
+	width: number; // Width in pixels (0 = use tileset's tileWidth)
+	height: number; // Height in pixels (0 = use tileset's tileHeight)
+	origin: { x: number; y: number };
+	colliders: PolygonCollider[];
+	name: string;
+	type: string;
+	properties: Record<string, string>;
 }
 
 export interface EntityDefinition {

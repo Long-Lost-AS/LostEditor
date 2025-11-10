@@ -1939,7 +1939,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			if (sourceType === "tile") {
 				const tileset = tilesets.find((t) => t.id === sourceId);
 				const tile = tileset?.tiles.find((t) => t.id === tileId);
-				if (tile?.name) {
+				if (tile && tile.name !== "") {
 					title = `Collision - ${tile.name}`;
 				} else if (tileset) {
 					title = `Collision - Tile ${tileId}`;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TerrainLayer, TilesetData } from "../../types";
 import {
 	applyAutotiling,
@@ -30,24 +31,9 @@ describe("autotiling", () => {
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [
-				{
-					id: packTileId(0, 0, 0, false, false),
-					x: 0,
-					y: 0,
-					type: "grass",
-				},
-				{
-					id: packTileId(16, 0, 0, false, false),
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-				{
-					id: packTileId(32, 0, 0, false, false),
-					x: 32,
-					y: 0,
-					type: "dirt",
-				},
+				createSimpleTile(packTileId(0, 0, 0, false, false), 0, 0, "grass"),
+				createSimpleTile(packTileId(16, 0, 0, false, false), 16, 0, "grass"),
+				createSimpleTile(packTileId(32, 0, 0, false, false), 32, 0, "dirt"),
 			],
 			terrainLayers: [
 				{

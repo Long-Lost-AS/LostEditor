@@ -544,12 +544,16 @@ export const MapCanvas = ({
 					const tileDef = tileset.tiles.find((t) => t.id === localTileId);
 
 					// Determine dimensions (use tile definition if compound, otherwise use tileset defaults)
-					const sourceWidth = tileDef?.width || tileset.tileWidth;
-					const sourceHeight = tileDef?.height || tileset.tileHeight;
+					const sourceWidth =
+						tileDef && tileDef.width !== 0 ? tileDef.width : tileset.tileWidth;
+					const sourceHeight =
+						tileDef && tileDef.height !== 0
+							? tileDef.height
+							: tileset.tileHeight;
 
-					// Calculate origin offset (default to top-left if not specified)
-					const originX = tileDef?.origin?.x ?? 0;
-					const originY = tileDef?.origin?.y ?? 0;
+					// Calculate origin offset
+					const originX = tileDef?.origin.x ?? 0;
+					const originY = tileDef?.origin.y ?? 0;
 					const offsetX = originX * sourceWidth;
 					const offsetY = originY * sourceHeight;
 

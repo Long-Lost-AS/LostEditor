@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TilesetData } from "../../types";
 import { applyAutotiling, updateTileAndNeighbors } from "../autotiling";
 import { packTileId } from "../tileId";
@@ -196,14 +197,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: tileId,
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(tileId, 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -240,14 +234,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: tileId,
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(tileId, 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -280,14 +267,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: tileId,
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(tileId, 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -328,8 +308,8 @@ describe("autotiling - direct line coverage", () => {
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [
-				{ id: grassId, x: 16, y: 0, type: "grass" },
-				{ id: grass2Id, x: 32, y: 0, type: "grass" },
+				createSimpleTile(grassId, 16, 0, "grass"),
+				createSimpleTile(grass2Id, 32, 0, "grass"),
 			],
 			terrainLayers: [
 				{

@@ -34,15 +34,15 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				type: "tile" as const,
 				tileset,
 				tile,
-				width: tile.width ?? tileset.tileWidth,
-				height: tile.height ?? tileset.tileHeight,
-				colliders: tile.colliders || [],
+				width: tile.width !== 0 ? tile.width : tileset.tileWidth,
+				height: tile.height !== 0 ? tile.height : tileset.tileHeight,
+				colliders: tile.colliders,
 				backgroundImage: tileset.imageData,
 				backgroundRect: {
 					x: tile.x,
 					y: tile.y,
-					width: tile.width ?? tileset.tileWidth,
-					height: tile.height ?? tileset.tileHeight,
+					width: tile.width !== 0 ? tile.width : tileset.tileWidth,
+					height: tile.height !== 0 ? tile.height : tileset.tileHeight,
 				},
 			};
 		} else {

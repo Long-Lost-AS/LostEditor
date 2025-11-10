@@ -53,22 +53,20 @@ export const SpriteLayerSchema = z.object({
 });
 
 export const TileDefinitionSchema = z.object({
-	id: z.number(),
-	x: z.number().optional(), // Optional in saved files (unpacked from ID on load)
-	y: z.number().optional(), // Optional in saved files (unpacked from ID on load)
-	isCompound: z.boolean().optional(), // True if this is a compound/multi-tile sprite
-	width: z.number().optional(),
-	height: z.number().optional(),
+	id: z.number(), // Packed tile ID (contains x, y, tileset index, and flip flags)
+	isCompound: z.boolean().default(false), // True if this is a compound/multi-tile sprite
+	width: z.number().default(0), // Width in pixels (0 = use tileset's tileWidth)
+	height: z.number().default(0), // Height in pixels (0 = use tileset's tileHeight)
 	origin: z
 		.object({
 			x: z.number(),
 			y: z.number(),
 		})
-		.optional(),
-	colliders: z.array(PolygonColliderSchema).optional(),
-	name: z.string().optional(),
-	type: z.string().optional(),
-	properties: z.record(z.string(), z.string()).optional(),
+		.default({ x: 0, y: 0 }),
+	colliders: z.array(PolygonColliderSchema).default([]),
+	name: z.string().default(""),
+	type: z.string().default(""),
+	properties: z.record(z.string(), z.string()).default({}),
 });
 
 export const TerrainTileSchema = z.object({

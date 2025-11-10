@@ -216,8 +216,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		for (let x = 0; x <= image.width; x += selectedTileset.tileWidth) {
 			// Find all compound tiles that intersect this vertical line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
-				if (!tile.width || !tile.height) return false; // Not a compound tile
-				const tileWidth = tile.width || selectedTileset.tileWidth;
+				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+				const tileWidth =
+					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 				return x > tile.x && x < tile.x + tileWidth;
 			});
 
@@ -231,7 +232,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentY = 0;
 				for (const tile of intersectingTiles) {
-					const tileHeight = tile.height || selectedTileset.tileHeight;
+					const tileHeight =
+						tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 					// Draw from currentY to top of tile
 					if (currentY < tile.y) {
 						ctx.beginPath();
@@ -255,8 +257,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		for (let y = 0; y <= image.height; y += selectedTileset.tileHeight) {
 			// Find all compound tiles that intersect this horizontal line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
-				if (!tile.width || !tile.height) return false; // Not a compound tile
-				const tileHeight = tile.height || selectedTileset.tileHeight;
+				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+				const tileHeight =
+					tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 				return y > tile.y && y < tile.y + tileHeight;
 			});
 
@@ -270,7 +273,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentX = 0;
 				for (const tile of intersectingTiles) {
-					const tileWidth = tile.width || selectedTileset.tileWidth;
+					const tileWidth =
+						tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 					// Draw from currentX to left of tile
 					if (currentX < tile.x) {
 						ctx.beginPath();
@@ -297,14 +301,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Check the isCompound flag
 			if (tile.isCompound) {
 				// This is a compound tile
-				const tileWidth = tile.width || selectedTileset.tileWidth;
-				const tileHeight = tile.height || selectedTileset.tileHeight;
+				const tileWidth =
+					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
+				const tileHeight =
+					tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 
 				// Draw border around it
 				ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
 
-				// Optionally draw tile name
-				if (tile.name) {
+				// Draw tile name if present
+				if (tile.name !== "") {
 					ctx.save();
 					ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
 					ctx.font = "12px sans-serif";
@@ -604,7 +610,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						);
 					});
 
-					if (tile?.colliders) {
+					if (tile && tile.colliders.length > 0) {
 						for (const collider of tile.colliders) {
 							if (collider.points.length < 2) continue;
 
@@ -2840,9 +2846,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							if (tile.width && tile.height) {
 								// Check if click is within this compound tile's bounds
 								const tileRight =
-									tile.x + (tile.width || selectedTileset.tileWidth);
+									tile.x +
+									(tile.width !== 0 ? tile.width : selectedTileset.tileWidth);
 								const tileBottom =
-									tile.y + (tile.height || selectedTileset.tileHeight);
+									tile.y +
+									(tile.height !== 0
+										? tile.height
+										: selectedTileset.tileHeight);
 
 								if (
 									canvasX >= tile.x &&
@@ -2858,11 +2868,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										tile.y / selectedTileset.tileHeight,
 									);
 									const regionWidth = Math.ceil(
-										(tile.width || selectedTileset.tileWidth) /
-											selectedTileset.tileWidth,
+										(tile.width !== 0
+											? tile.width
+											: selectedTileset.tileWidth) / selectedTileset.tileWidth,
 									);
 									const regionHeight = Math.ceil(
-										(tile.height || selectedTileset.tileHeight) /
+										(tile.height !== 0
+											? tile.height
+											: selectedTileset.tileHeight) /
 											selectedTileset.tileHeight,
 									);
 

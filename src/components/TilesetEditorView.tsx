@@ -214,8 +214,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Find all compound tiles that intersect this vertical line
 				const intersectingTiles = localTiles
 					.filter((tile) => {
-						if (!tile.width || !tile.height) return false; // Not a compound tile
-						const tileWidth = tile.width || tilesetData.tileWidth;
+						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const tileWidth =
+							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
 						return x > tile.x && x < tile.x + tileWidth;
 					})
 					.sort((a, b) => a.y - b.y); // Sort by Y position
@@ -230,7 +231,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
-						const tileHeight = tile.height || tilesetData.tileHeight;
+						const tileHeight =
+							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
 						// Draw from currentY to top of tile
 						if (currentY < tile.y) {
 							ctx.beginPath();
@@ -259,8 +261,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Find all compound tiles that intersect this horizontal line
 				const intersectingTiles = tilesetData.tiles
 					.filter((tile) => {
-						if (!tile.width || !tile.height) return false; // Not a compound tile
-						const tileHeight = tile.height || tilesetData.tileHeight;
+						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const tileHeight =
+							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
 						return y > tile.y && y < tile.y + tileHeight;
 					})
 					.sort((a, b) => a.x - b.x); // Sort by X position
@@ -275,7 +278,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
-						const tileWidth = tile.width || tilesetData.tileWidth;
+						const tileWidth =
+							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
 						// Draw from currentX to left of tile
 						if (currentX < tile.x) {
 							ctx.beginPath();
@@ -333,8 +337,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						ctx.restore();
 					}
 
-					// Optionally draw tile name
-					if (tile.name) {
+					// Draw tile name if present
+					if (tile.name !== "") {
 						ctx.save();
 						ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
 						ctx.font = `${Math.max(10, 12 / viewState.scale)}px sans-serif`;
@@ -932,13 +936,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileY = y * tilesetData.tileHeight;
 		const tileWidth = width * tilesetData.tileWidth;
 		const tileHeight = height * tilesetData.tileHeight;
-		const newTile = {
+		const newTile: TileDefinition = {
 			id: packTileId(tileX, tileY, 0), // tileset index=0 (compound tile)
 			x: tileX,
 			y: tileY,
 			isCompound: true,
 			width: tileWidth,
 			height: tileHeight,
+			origin: { x: 0, y: 0 },
+			colliders: [],
+			name: "",
+			type: "",
+			properties: {},
 		};
 
 		// Update unified state with undo/redo support
@@ -1024,11 +1033,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		} else {
 			// Create new tile entry from packed ID with undo/redo support
 			const geometry = unpackTileId(selectedCompoundTileId);
-			const newTile = {
+			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
 				x: geometry.x,
 				y: geometry.y,
 				name,
+				isCompound: false,
+				width: 0,
+				height: 0,
+				origin: { x: 0, y: 0 },
+				colliders: [],
+				type: "",
+				properties: {},
 			};
 			setLocalTilesetState({
 				tiles: [...localTiles, newTile],
@@ -1055,11 +1071,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		} else {
 			// Create new tile entry from packed ID with undo/redo support
 			const geometry = unpackTileId(selectedCompoundTileId);
-			const newTile = {
+			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
 				x: geometry.x,
 				y: geometry.y,
 				type,
+				isCompound: false,
+				width: 0,
+				height: 0,
+				origin: { x: 0, y: 0 },
+				colliders: [],
+				name: "",
+				properties: {},
 			};
 			setLocalTilesetState({
 				tiles: [...localTiles, newTile],
@@ -1086,11 +1109,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		} else {
 			// Create new tile entry from packed ID with undo/redo support
 			const geometry = unpackTileId(selectedCompoundTileId);
-			const newTile = {
+			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
 				x: geometry.x,
 				y: geometry.y,
 				origin: { x, y },
+				isCompound: false,
+				width: 0,
+				height: 0,
+				colliders: [],
+				name: "",
+				type: "",
+				properties: {},
 			};
 			setLocalTilesetState({
 				tiles: [...localTiles, newTile],
@@ -1524,13 +1554,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												<div>
 													<input
 														type="number"
-														value={selectedTile?.origin?.x ?? 0}
+														value={selectedTile?.origin.x ?? 0}
 														onChange={(e) => {
 															const value = parseFloat(e.target.value) || 0;
 															const clamped = Math.max(0, Math.min(1, value));
 															handleUpdateTileOrigin(
 																clamped,
-																selectedTile?.origin?.y ?? 0,
+																selectedTile?.origin.y ?? 0,
 															);
 														}}
 														step="0.1"
@@ -1554,12 +1584,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												<div>
 													<input
 														type="number"
-														value={selectedTile?.origin?.y ?? 0}
+														value={selectedTile?.origin.y ?? 0}
 														onChange={(e) => {
 															const value = parseFloat(e.target.value) || 0;
 															const clamped = Math.max(0, Math.min(1, value));
 															handleUpdateTileOrigin(
-																selectedTile?.origin?.x ?? 0,
+																selectedTile?.origin.x ?? 0,
 																clamped,
 															);
 														}}
@@ -1995,7 +2025,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											</div>
 											<div className="flex-1">
 												<DragNumberInput
-													value={selectedTile?.origin?.x ?? 0}
+													value={selectedTile?.origin.x ?? 0}
 													onChange={(value) =>
 														handleUpdateTileOrigin(
 															value,
@@ -2017,7 +2047,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											</div>
 											<div className="flex-1">
 												<DragNumberInput
-													value={selectedTile?.origin?.y ?? 0}
+													value={selectedTile?.origin.y ?? 0}
 													onChange={(value) =>
 														handleUpdateTileOrigin(
 															selectedTile?.origin?.x ?? 0,

@@ -79,8 +79,8 @@ export const TilesetPanel = () => {
 				// Find all compound tiles that intersect this vertical line
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
-						if (!tile.width || !tile.height) return false; // Not a compound tile
-						const tileWidthPx = tile.width || tileWidth;
+						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
 						return x > tile.x && x < tile.x + tileWidthPx;
 					}) || [];
 
@@ -94,7 +94,7 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
-						const tileHeightPx = tile.height || tileHeight;
+						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
 						// Draw from currentY to top of tile
 						if (currentY < tile.y) {
 							ctx.beginPath();
@@ -119,8 +119,8 @@ export const TilesetPanel = () => {
 				// Find all compound tiles that intersect this horizontal line
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
-						if (!tile.width || !tile.height) return false; // Not a compound tile
-						const tileHeightPx = tile.height || tileHeight;
+						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
 						return y > tile.y && y < tile.y + tileHeightPx;
 					}) || [];
 
@@ -134,7 +134,7 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
-						const tileWidthPx = tile.width || tileWidth;
+						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
 						// Draw from currentX to left of tile
 						if (currentX < tile.x) {
 							ctx.beginPath();
@@ -161,12 +161,12 @@ export const TilesetPanel = () => {
 				currentTileset.tiles.forEach((tile) => {
 					if (tile.width && tile.height) {
 						// Only draw borders for compound tiles
-						const w = tile.width || tileWidth;
-						const h = tile.height || tileHeight;
+						const w = tile.width !== 0 ? tile.width : tileWidth;
+						const h = tile.height !== 0 ? tile.height : tileHeight;
 						ctx.strokeRect(tile.x, tile.y, w, h);
 
-						// Optionally draw tile name
-						if (tile.name) {
+						// Draw tile name if present
+						if (tile.name !== "") {
 							ctx.save();
 							ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
 							ctx.font = `${Math.max(10, 12 / scale)}px sans-serif`;
@@ -331,8 +331,8 @@ export const TilesetPanel = () => {
 
 			// First check if we clicked on a compound tile
 			const clickedTile = currentTileset.tiles.find((tile) => {
-				const w = tile.width || tileWidth;
-				const h = tile.height || tileHeight;
+				const w = tile.width !== 0 ? tile.width : tileWidth;
+				const h = tile.height !== 0 ? tile.height : tileHeight;
 				return x >= tile.x && x < tile.x + w && y >= tile.y && y < tile.y + h;
 			});
 

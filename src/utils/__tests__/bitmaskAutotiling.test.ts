@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { TerrainLayer, TilesetData } from "../../types";
 import {
 	bitmaskToGrid,
@@ -515,9 +516,9 @@ describe("bitmaskAutotiling", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					{ id: 1, x: 0, y: 0, type: "grass" },
-					{ id: 2, x: 16, y: 0, type: "grass" },
-					{ id: 3, x: 32, y: 0, type: "dirt" },
+					createSimpleTile(1, 0, 0, "grass"),
+					createSimpleTile(2, 16, 0, "grass"),
+					createSimpleTile(3, 32, 0, "dirt"),
 				],
 				terrainLayers: [],
 			};
@@ -534,8 +535,8 @@ describe("bitmaskAutotiling", () => {
 			const result = getTilesForTerrain(tileset, terrainLayer);
 
 			expect(result).toHaveLength(2);
-			expect(result[0]).toEqual({ id: 1, x: 0, y: 0, type: "grass" });
-			expect(result[1]).toEqual({ id: 2, x: 16, y: 0, type: "grass" });
+			expect(result[0]).toEqual(createSimpleTile(1, 0, 0, "grass"));
+			expect(result[1]).toEqual(createSimpleTile(2, 16, 0, "grass"));
 		});
 
 		it("should filter out tiles that don't exist in tileset", () => {
@@ -547,7 +548,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				tiles: [createSimpleTile(1, 0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -563,7 +564,7 @@ describe("bitmaskAutotiling", () => {
 			const result = getTilesForTerrain(tileset, terrainLayer);
 
 			expect(result).toHaveLength(1);
-			expect(result[0]).toEqual({ id: 1, x: 0, y: 0, type: "grass" });
+			expect(result[0]).toEqual(createSimpleTile(1, 0, 0, "grass"));
 		});
 
 		it("should return empty array when terrain layer has no tiles", () => {
@@ -575,7 +576,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				tiles: [createSimpleTile(1, 0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -599,7 +600,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				tiles: [createSimpleTile(1, 0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -624,7 +625,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				tiles: [createSimpleTile(1, 0, 0, "grass")],
 				terrainLayers: [],
 			};
 

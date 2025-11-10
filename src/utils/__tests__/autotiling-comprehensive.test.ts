@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TilesetData } from "../../types";
 import {
 	applyAutotiling,
@@ -33,14 +34,7 @@ describe("autotiling - comprehensive coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: packTileId(16, 0, 0), // Local ID for tileset
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",

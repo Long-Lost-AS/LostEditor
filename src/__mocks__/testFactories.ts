@@ -4,6 +4,7 @@ import type {
 	MapData,
 	PolygonCollider,
 	ProjectData,
+	TileDefinition,
 	TilesetData,
 } from "../types";
 
@@ -91,6 +92,38 @@ export function createMockCollisionPolygon(
 		],
 		...overrides,
 	};
+}
+
+export function createMockTileDefinition(
+	overrides?: Partial<TileDefinition>,
+): TileDefinition {
+	return {
+		id: 0,
+		x: 0,
+		y: 0,
+		isCompound: false,
+		width: 0,
+		height: 0,
+		origin: { x: 0, y: 0 },
+		colliders: [],
+		name: "",
+		type: "",
+		properties: {},
+		...overrides,
+	};
+}
+
+/**
+ * Helper to create a simple tile with minimal fields (for tests)
+ * Adds default values for all required fields
+ */
+export function createSimpleTile(
+	id: number,
+	x: number,
+	y: number,
+	type?: string,
+): TileDefinition {
+	return createMockTileDefinition({ id, x, y, type: type || "" });
 }
 
 /**
