@@ -1,4 +1,4 @@
-import type { MapLayer, TerrainLayer, Tileset } from "../types";
+import type { Layer, TerrainLayer, TilesetData } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
@@ -9,13 +9,13 @@ import { packTileId, unpackTileId } from "./tileId";
  * Check if a specific position on the map has terrain from a specific terrain layer
  */
 export function isTerrainAtPosition(
-	layer: MapLayer,
+	layer: Layer,
 	x: number,
 	y: number,
 	mapWidth: number,
 	mapHeight: number,
 	terrainLayerId: string,
-	tilesets: Tileset[],
+	tilesets: TilesetData[],
 ): boolean {
 	// Bounds check
 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
@@ -40,7 +40,7 @@ export function isTerrainAtPosition(
  */
 export function getTerrainLayerForTile(
 	tileId: number,
-	tilesets: Tileset[],
+	tilesets: TilesetData[],
 ): string | null {
 	const geometry = unpackTileId(tileId);
 	const tileset = tilesets[geometry.tilesetIndex];
@@ -66,15 +66,15 @@ export function getTerrainLayerForTile(
  * Place a terrain tile at the specified position with smart neighbor detection
  */
 export function placeTerrainTile(
-	layer: MapLayer,
+	layer: Layer,
 	x: number,
 	y: number,
 	mapWidth: number,
 	mapHeight: number,
 	terrainLayer: TerrainLayer,
-	tileset: Tileset,
+	tileset: TilesetData,
 	tilesetIndex: number,
-	tilesets: Tileset[],
+	tilesets: TilesetData[],
 ): void {
 	// Calculate bitmask based on neighbors
 	const bitmask = calculateBitmaskFromNeighbors((dx, dy) => {
@@ -113,7 +113,7 @@ export function placeTerrainTile(
  * Remove a terrain tile and update neighbors
  */
 export function removeTerrainTile(
-	layer: MapLayer,
+	layer: Layer,
 	x: number,
 	y: number,
 	mapWidth: number,
@@ -128,15 +128,15 @@ export function removeTerrainTile(
  * Used when a neighbor changes and this tile needs to recalculate its bitmask
  */
 export function updateNeighborTerrain(
-	layer: MapLayer,
+	layer: Layer,
 	x: number,
 	y: number,
 	mapWidth: number,
 	mapHeight: number,
 	terrainLayerId: string,
-	tileset: Tileset,
+	tileset: TilesetData,
 	tilesetIndex: number,
-	tilesets: Tileset[],
+	tilesets: TilesetData[],
 ): void {
 	// Bounds check
 	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
@@ -179,15 +179,15 @@ export function updateNeighborTerrain(
  * Update all 8 neighbors around a position after terrain changes
  */
 export function updateNeighborsAround(
-	layer: MapLayer,
+	layer: Layer,
 	x: number,
 	y: number,
 	mapWidth: number,
 	mapHeight: number,
 	terrainLayerId: string,
-	tileset: Tileset,
+	tileset: TilesetData,
 	tilesetIndex: number,
-	tilesets: Tileset[],
+	tilesets: TilesetData[],
 ): void {
 	// Update all 8 surrounding tiles
 	for (let dy = -1; dy <= 1; dy++) {

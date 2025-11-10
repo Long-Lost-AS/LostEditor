@@ -151,7 +151,6 @@ export const LayerSchema = z.object({
 	visible: z.boolean(),
 	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
-	entities: z.array(EntityInstanceSchema).default([]),
 	autotilingEnabled: z.boolean().optional().default(true),
 });
 
@@ -172,7 +171,6 @@ export const SerializedLayerSchema = z.object({
 	visible: z.boolean(),
 	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
-	entities: z.array(EntityInstanceSchema).default([]),
 	autotilingEnabled: z.boolean().optional().default(true),
 });
 

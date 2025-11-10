@@ -134,7 +134,6 @@ export interface Layer {
 	visible: boolean;
 	type: LayerType;
 	tiles: number[]; // Dense array of packed tile IDs (width * height entries, 0 = empty)
-	entities: EntityInstance[]; // For entity layers
 	autotilingEnabled?: boolean; // Whether autotiling is enabled for this layer (default: true)
 }
 
