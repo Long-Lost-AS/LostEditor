@@ -122,18 +122,22 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 			x: 0,
 			y: 0,
 			rotation: 0,
-			scaleX: 1,
-			scaleY: 1,
+			scale: { x: 1, y: 1 },
 		},
 	): Transform {
 		const x = parentTransform.x + entity.x;
 		const y = parentTransform.y + entity.y;
 		const rotation = (parentTransform.rotation || 0) + (entity.rotation || 0);
-		const scale = entity.scale || { x: 1, y: 1 };
-		const scaleX = parentTransform.scaleX * scale.x;
-		const scaleY = parentTransform.scaleY * scale.y;
+		const entityScale = entity.scale || { x: 1, y: 1 };
+		const scaleX = parentTransform.scale.x * entityScale.x;
+		const scaleY = parentTransform.scale.y * entityScale.y;
 
-		const transform: Transform = { x, y, rotation, scaleX, scaleY };
+		const transform: Transform = {
+			x,
+			y,
+			rotation,
+			scale: { x: scaleX, y: scaleY },
+		};
 
 		// Apply to children
 		if (entity.children) {

@@ -116,11 +116,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 				...tile,
 				x: geometry.x,
 				y: geometry.y,
-				// Only set width/height for compound tiles
-				...(geometry.isCompound && {
-					width: geometry.width,
-					height: geometry.height,
-				}),
+				// width/height are preserved from tile if present (for compound tiles)
 			};
 		});
 

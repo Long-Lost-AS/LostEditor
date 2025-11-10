@@ -33,11 +33,12 @@ export class ReferenceManager {
 			const { readTextFile } = await import("@tauri-apps/plugin-fs");
 			const content = await readTextFile(projectFile);
 			const parsedContent = JSON.parse(content);
-			const projectData = ProjectDataSchema.parse(parsedContent);
+			ProjectDataSchema.parse(parsedContent); // Validate structure
 
 			// Check tilesets referenced in project
-			if (projectData.tilesets) {
-				for (const tilesetPath of projectData.tilesets) {
+			const tilesets = (parsedContent as Record<string, unknown>).tilesets;
+			if (tilesets && Array.isArray(tilesets)) {
+				for (const tilesetPath of tilesets) {
 					const absolutePath = fileManager.isAbsolute(tilesetPath)
 						? tilesetPath
 						: fileManager.join(fileManager.dirname(projectFile), tilesetPath);
@@ -55,8 +56,9 @@ export class ReferenceManager {
 			}
 
 			// Check maps referenced in project
-			if (projectData.maps) {
-				for (const mapPath of projectData.maps) {
+			const maps = (parsedContent as Record<string, unknown>).maps;
+			if (maps && Array.isArray(maps)) {
+				for (const mapPath of maps) {
 					const absolutePath = fileManager.isAbsolute(mapPath)
 						? mapPath
 						: fileManager.join(fileManager.dirname(projectFile), mapPath);
@@ -276,13 +278,13 @@ export class ReferenceManager {
 		// Update tileset cache if a tileset was moved
 		const tileset = tilesetManager.getTilesetByPath(normalizedOld);
 		if (tileset) {
-			tilesetManager.updateTilesetPath(normalizedOld, normalizedNew);
+			tilesetManager.updatePath(normalizedOld, normalizedNew);
 		}
 
 		// Update map cache if a map was moved
-		const map = mapManager.getMapByPath(normalizedOld);
+		const map = mapManager.getMap(normalizedOld);
 		if (map) {
-			mapManager.updateMapPath(normalizedOld, normalizedNew);
+			mapManager.updatePath(normalizedOld, normalizedNew);
 		}
 
 		// Update imagePath in all loaded tilesets if an image was moved
@@ -310,7 +312,7 @@ export class ReferenceManager {
 			if (tileset.filePath?.startsWith(oldDirPath)) {
 				const relativePath = tileset.filePath.substring(oldDirPath.length);
 				const newTilesetPath = newDirPath + relativePath;
-				tilesetManager.updateTilesetPath(tileset.filePath, newTilesetPath);
+				tilesetManager.updatePath(tileset.filePath, newTilesetPath);
 			}
 		}
 
@@ -376,14 +378,15 @@ export class ReferenceManager {
 		try {
 			const content = await readTextFile(projectFile);
 			const parsedContent = JSON.parse(content);
-			const projectData = ProjectDataSchema.parse(parsedContent);
+			ProjectDataSchema.parse(parsedContent); // Validate structure
 			const projectDir = fileManager.dirname(projectFile);
 
 			const refTypes: ReferenceType[] = [];
 
 			// Check if targetPath is in tilesets array
-			if (projectData.tilesets) {
-				for (const tilesetPath of projectData.tilesets) {
+			const tilesets = (parsedContent as Record<string, unknown>).tilesets;
+			if (tilesets && Array.isArray(tilesets)) {
+				for (const tilesetPath of tilesets) {
 					const absoluteTilesetPath = fileManager.isAbsolute(tilesetPath)
 						? tilesetPath
 						: fileManager.join(projectDir, tilesetPath);
@@ -398,8 +401,9 @@ export class ReferenceManager {
 			}
 
 			// Check if targetPath is in maps array
-			if (projectData.maps) {
-				for (const mapPath of projectData.maps) {
+			const maps = (parsedContent as Record<string, unknown>).maps;
+			if (maps && Array.isArray(maps)) {
+				for (const mapPath of maps) {
 					const absoluteMapPath = fileManager.isAbsolute(mapPath)
 						? mapPath
 						: fileManager.join(projectDir, mapPath);
@@ -495,10 +499,13 @@ export class ReferenceManager {
 						fileManager.dirname(refFilePath),
 						newPath,
 					);
-					const index = data.tilesets.indexOf(refType.value);
-					if (index !== -1) {
-						data.tilesets[index] = newRelativePath;
-						modified = true;
+					const tilesets = (data as Record<string, unknown>).tilesets;
+					if (tilesets && Array.isArray(tilesets)) {
+						const index = tilesets.indexOf(refType.value);
+						if (index !== -1) {
+							tilesets[index] = newRelativePath;
+							modified = true;
+						}
 					}
 				} else if (refType.type === "project-map") {
 					// Update map path in project file
@@ -506,10 +513,13 @@ export class ReferenceManager {
 						fileManager.dirname(refFilePath),
 						newPath,
 					);
-					const index = data.maps.indexOf(refType.value);
-					if (index !== -1) {
-						data.maps[index] = newRelativePath;
-						modified = true;
+					const maps = (data as Record<string, unknown>).maps;
+					if (maps && Array.isArray(maps)) {
+						const index = maps.indexOf(refType.value);
+						if (index !== -1) {
+							maps[index] = newRelativePath;
+							modified = true;
+						}
 					}
 				} else if (refType.type === "tileset-image") {
 					// Update image path in tileset file
@@ -517,14 +527,17 @@ export class ReferenceManager {
 						fileManager.dirname(refFilePath),
 						newPath,
 					);
-					data.imagePath = newRelativePath;
+					(data as Record<string, unknown>).imagePath = newRelativePath;
 					modified = true;
 				}
 			}
 
 			// Also update openTabs in project file if present
-			if (data.openTabs?.tabs) {
-				for (const tab of data.openTabs.tabs) {
+			const openTabs = (data as Record<string, unknown>).openTabs as
+				| { tabs?: Array<{ filePath?: string }> }
+				| undefined;
+			if (openTabs?.tabs) {
+				for (const tab of openTabs.tabs) {
 					if (
 						tab.filePath &&
 						fileManager.normalize(tab.filePath) ===

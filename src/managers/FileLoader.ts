@@ -118,7 +118,14 @@ export abstract class FileLoader<TData, TJson> {
 		} catch (error) {
 			// Wrap errors with context
 			if (error instanceof ZodError) {
-				throw new ValidationError(fullPath, error.errors, error);
+				throw new ValidationError(
+					fullPath,
+					error.issues.map((issue) => ({
+						path: issue.path.join("."),
+						message: issue.message,
+					})),
+					error,
+				);
 			}
 			if (error instanceof Error) {
 				throw new FileOperationError("Load", fullPath, error);
