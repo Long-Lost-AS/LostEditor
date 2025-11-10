@@ -71,14 +71,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [
-					{
-						id: packTileId(0, 0, 0),
-						x: 0,
-						y: 0,
-						// No type specified
-					},
-				],
+				tiles: [createSimpleTile(packTileId(0, 0, 0), 0, 0)],
 				terrainLayers: [],
 			};
 
@@ -105,14 +98,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [
-					{
-						id: packTileId(0, 0, 0),
-						x: 0,
-						y: 0,
-						type: "grass",
-					},
-				],
+				tiles: [createSimpleTile(packTileId(0, 0, 0), 0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -217,14 +203,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [
-					{
-						id: packTileId(0, 0, 0),
-						x: 0,
-						y: 0,
-						type: "grass",
-					},
-				],
+				tiles: [createSimpleTile(packTileId(0, 0, 0), 0, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-terrain-4",

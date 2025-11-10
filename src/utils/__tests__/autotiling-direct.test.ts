@@ -18,14 +18,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: packTileId(16, 0, 0),
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -65,12 +58,7 @@ describe("autotiling - direct line coverage", () => {
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [
-				{
-					id: packTileId(16, 0, 0),
-					x: 16,
-					y: 0,
-					type: "grass", // This will be assigned to terrainType at line 83
-				},
+				createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"), // This will be assigned to terrainType at line 83
 			],
 			terrainLayers: [
 				{
@@ -104,14 +92,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: packTileId(16, 0, 0),
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -154,14 +135,7 @@ describe("autotiling - direct line coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [
-				{
-					id: packTileId(16, 0, 0),
-					x: 16,
-					y: 0,
-					type: "grass",
-				},
-			],
+			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
