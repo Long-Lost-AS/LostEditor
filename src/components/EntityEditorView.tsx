@@ -5,6 +5,7 @@ import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import { unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { Dropdown } from "./Dropdown";
@@ -217,9 +218,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Find all compound tiles that intersect this vertical line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
 				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+				const { x: tileX } = unpackTileId(tile.id);
 				const tileWidth =
 					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
-				return x > tile.x && x < tile.x + tileWidth;
+				return x > tileX && x < tileX + tileWidth;
 			});
 
 			if (intersectingTiles.length === 0) {
@@ -232,16 +234,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentY = 0;
 				for (const tile of intersectingTiles) {
+					const { y: tileY } = unpackTileId(tile.id);
 					const tileHeight =
 						tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 					// Draw from currentY to top of tile
-					if (currentY < tile.y) {
+					if (currentY < tileY) {
 						ctx.beginPath();
 						ctx.moveTo(x, currentY);
-						ctx.lineTo(x, tile.y);
+						ctx.lineTo(x, tileY);
 						ctx.stroke();
 					}
-					currentY = Math.max(currentY, tile.y + tileHeight);
+					currentY = Math.max(currentY, tileY + tileHeight);
 				}
 				// Draw remaining segment
 				if (currentY < image.height) {
@@ -258,9 +261,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Find all compound tiles that intersect this horizontal line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
 				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+				const { y: tileY } = unpackTileId(tile.id);
 				const tileHeight =
 					tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
-				return y > tile.y && y < tile.y + tileHeight;
+				return y > tileY && y < tileY + tileHeight;
 			});
 
 			if (intersectingTiles.length === 0) {
@@ -273,16 +277,17 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentX = 0;
 				for (const tile of intersectingTiles) {
+					const { x: tileX } = unpackTileId(tile.id);
 					const tileWidth =
 						tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 					// Draw from currentX to left of tile
-					if (currentX < tile.x) {
+					if (currentX < tileX) {
 						ctx.beginPath();
 						ctx.moveTo(currentX, y);
-						ctx.lineTo(tile.x, y);
+						ctx.lineTo(tileX, y);
 						ctx.stroke();
 					}
-					currentX = Math.max(currentX, tile.x + tileWidth);
+					currentX = Math.max(currentX, tileX + tileWidth);
 				}
 				// Draw remaining segment
 				if (currentX < image.width) {
@@ -301,13 +306,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Check the isCompound flag
 			if (tile.isCompound) {
 				// This is a compound tile
+				const { x: tileX, y: tileY } = unpackTileId(tile.id);
 				const tileWidth =
 					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 				const tileHeight =
 					tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 
 				// Draw border around it
-				ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
+				ctx.strokeRect(tileX, tileY, tileWidth, tileHeight);
 
 				// Draw tile name if present
 				if (tile.name !== "") {
@@ -316,8 +322,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					ctx.font = "12px sans-serif";
 					const metrics = ctx.measureText(tile.name);
 					const padding = 4;
-					const textX = tile.x + padding;
-					const textY = tile.y + 12 + padding;
+					const textX = tileX + padding;
+					const textY = tileY + 12 + padding;
 
 					// Draw background for text
 					ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -598,8 +604,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw colliders from the tile (only if tileset exists)
 				if (tileset) {
 					const tile = tileset.tiles.find((t) => {
-						const tileX = t.x;
-						const tileY = t.y;
+						const { x: tileX, y: tileY } = unpackTileId(t.id);
 						const tileWidth = t.width || tileset.tileWidth;
 						const tileHeight = t.height || tileset.tileHeight;
 
@@ -612,12 +617,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					});
 
 					if (tile && tile.colliders.length > 0) {
+						const { x: tileX, y: tileY } = unpackTileId(tile.id);
 						for (const collider of tile.colliders) {
 							if (collider.points.length < 2) continue;
 
 							// Calculate the offset of the sprite within the tile
-							const spriteOffsetX = layer.sprite.x - tile.x;
-							const spriteOffsetY = layer.sprite.y - tile.y;
+							const spriteOffsetX = layer.sprite.x - tileX;
+							const spriteOffsetY = layer.sprite.y - tileY;
 
 							ctx.strokeStyle = "rgba(0, 255, 0, 0.7)";
 							ctx.lineWidth = 2 / viewState.scale;
@@ -2846,27 +2852,26 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						for (const tile of selectedTileset.tiles || []) {
 							if (tile.width && tile.height) {
 								// Check if click is within this compound tile's bounds
+								const { x: tileX, y: tileY } = unpackTileId(tile.id);
 								const tileRight =
-									tile.x +
+									tileX +
 									(tile.width !== 0 ? tile.width : selectedTileset.tileWidth);
 								const tileBottom =
-									tile.y +
+									tileY +
 									(tile.height !== 0
 										? tile.height
 										: selectedTileset.tileHeight);
 
 								if (
-									canvasX >= tile.x &&
+									canvasX >= tileX &&
 									canvasX < tileRight &&
-									canvasY >= tile.y &&
+									canvasY >= tileY &&
 									canvasY < tileBottom
 								) {
 									// Clicked on this compound tile, select its entire region
-									const regionX = Math.floor(
-										tile.x / selectedTileset.tileWidth,
-									);
+									const regionX = Math.floor(tileX / selectedTileset.tileWidth);
 									const regionY = Math.floor(
-										tile.y / selectedTileset.tileHeight,
+										tileY / selectedTileset.tileHeight,
 									);
 									const regionWidth = Math.ceil(
 										(tile.width !== 0

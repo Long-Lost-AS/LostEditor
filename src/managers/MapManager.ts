@@ -1,6 +1,6 @@
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { type MapFileJson, MapFileSchema } from "../schemas";
-import type { MapData, SerializedMapData } from "../types";
+import { MapFileSchema } from "../schemas";
+import type { MapData, MapFileJson, SerializedMapData } from "../types";
 import { deserializeMapData, serializeMapData } from "../utils/mapSerializer";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";

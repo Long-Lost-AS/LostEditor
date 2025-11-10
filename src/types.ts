@@ -3,18 +3,26 @@ import type {
 	AnyTabSchema,
 	BaseTabSchema,
 	CollisionEditorTabSchema,
+	EntityDefinitionSchema,
 	EntityEditorTabSchema,
 	EntityEditorViewStateSchema,
+	LayerSchema,
 	LayerTypeSchema,
+	MapDataSchema,
 	MapTabSchema,
 	MapViewStateSchema,
 	PointSchema,
 	PolygonColliderSchema,
+	ProjectDataSchema,
+	SerializedLayerSchema,
+	SerializedMapDataSchema,
 	SpriteLayerSchema,
 	SpriteRectSchema,
 	TabTypeSchema,
 	TerrainLayerSchema,
 	TerrainTileSchema,
+	TileDefinitionSchema,
+	TilesetDataSchema,
 	TilesetTabSchema,
 	TilesetViewStateSchema,
 	ToolSchema,
@@ -34,21 +42,12 @@ export type SpriteRect = z.infer<typeof SpriteRectSchema>;
 
 export type SpriteLayer = z.infer<typeof SpriteLayerSchema>;
 
-// Runtime tile definition (after unpacking x/y from ID)
-export interface TileDefinition {
-	id: number; // Packed tile ID
-	x: number; // Unpacked x position (always present at runtime)
-	y: number; // Unpacked y position (always present at runtime)
-	isCompound: boolean;
-	width: number; // Width in pixels (0 = use tileset's tileWidth)
-	height: number; // Height in pixels (0 = use tileset's tileHeight)
-	origin: { x: number; y: number };
-	colliders: PolygonCollider[];
-	name: string;
-	type: string;
-	properties: Record<string, string>;
-}
+// Tile definition - inferred from schema
+// Note: x and y coordinates are packed in the 'id' field and should be unpacked using unpackTileId()
+export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
 
+// EntityDefinition must be manually defined (not inferred) because it's recursive
+// The schema uses z.lazy() which prevents type inference with z.infer<>
 export interface EntityDefinition {
 	id: string;
 	name: string;
@@ -70,18 +69,12 @@ export type TerrainTile = z.infer<typeof TerrainTileSchema>;
 
 export type TerrainLayer = z.infer<typeof TerrainLayerSchema>;
 
-// Base tileset data (JSON-serializable)
-export interface TilesetDataJson {
-	version: string;
-	name: string;
-	id: string;
-	order: number; // Numeric order for deterministic tileset ordering
-	imagePath: string;
-	tileWidth: number;
-	tileHeight: number;
-	tiles: TileDefinition[];
-	terrainLayers: TerrainLayer[]; // Terrain layers for Godot-style autotiling (required, can be empty)
-}
+// Base tileset data (JSON-serializable) - inferred from schema
+export type TilesetDataJson = z.infer<typeof TilesetDataSchema>;
+export type TileDefinitionJson = z.infer<typeof TileDefinitionSchema>;
+export type ProjectDataJson = z.infer<typeof ProjectDataSchema>;
+export type MapFileJson = z.infer<typeof SerializedMapDataSchema>;
+export type EntityDefinitionJson = z.infer<typeof EntityDefinitionSchema>;
 
 // Loaded tileset with image data (runtime only)
 export interface LoadedTileset extends TilesetDataJson {
@@ -108,6 +101,8 @@ export interface Tile {
 	cellY?: number;
 }
 
+// EntityInstance must be manually defined (not inferred) because it's recursive
+// The schema uses z.lazy() which prevents type inference with z.infer<>
 export interface EntityInstance {
 	id: string; // Unique instance ID
 	x: number; // Position on map (pixel coordinates)
@@ -122,63 +117,28 @@ export interface EntityInstance {
 
 export type LayerType = z.infer<typeof LayerTypeSchema>;
 
-export interface Layer {
-	id: string;
-	name: string;
-	visible: boolean;
-	type: LayerType;
-	tiles: number[]; // Dense array of packed tile IDs (width * height entries, 0 = empty)
-}
+export type Layer = z.infer<typeof LayerSchema>;
 
-export interface MapData {
+// MapData inferred from schema, with runtime-only id field
+export type MapData = z.infer<typeof MapDataSchema> & {
 	id?: string; // Runtime-only field added by EditorContext for tracking loaded maps
-	name: string;
-	width: number;
-	height: number;
-	tileWidth: number;
-	tileHeight: number;
-	layers: Layer[];
-	entities: EntityInstance[]; // Entities at map level, rendered on top of all tiles (required, can be empty)
-}
+};
 
 // ===========================
 // Serialized Map Types (for .lostmap files)
 // ===========================
 
-// Serialized layer format (version 4.0 - dense array)
-export interface SerializedLayer {
-	id: string;
-	name: string;
-	visible: boolean;
-	type: LayerType;
-	tiles: number[]; // Dense array of packed tile IDs (width * height entries)
-}
+// Serialized layer format (version 4.0 - dense array) - inferred from schema
+export type SerializedLayer = z.infer<typeof SerializedLayerSchema>;
 
-// Serialized map format (what's stored in .lostmap files version 4.0)
-export interface SerializedMapData {
-	version: string; // Format version ("4.0")
-	name: string;
-	width: number;
-	height: number;
-	tileWidth: number;
-	tileHeight: number;
-	layers: SerializedLayer[];
-	entities: EntityInstance[]; // Entities at map level (required, can be empty)
-}
+// Serialized map format (what's stored in .lostmap files version 4.0) - inferred from schema
+export type SerializedMapData = z.infer<typeof SerializedMapDataSchema>;
 
 // ===========================
 // Project Types
 // ===========================
 
-export interface ProjectData {
-	version: string;
-	name: string;
-	tilesets: string[]; // Array of tileset file paths
-	maps: string[]; // Array of map file paths (.lostmap files)
-	projectDir?: string; // Project directory for resolving relative paths
-	lastModified: string;
-	openTabs: TabState; // Open tabs state
-}
+export type ProjectData = z.infer<typeof ProjectDataSchema>;
 
 // ===========================
 // Editor Types

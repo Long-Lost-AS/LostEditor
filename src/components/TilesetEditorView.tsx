@@ -215,11 +215,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const intersectingTiles = localTiles
 					.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const { x: tileX } = unpackTileId(tile.id);
 						const tileWidth =
 							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
-						return x > tile.x && x < tile.x + tileWidth;
+						return x > tileX && x < tileX + tileWidth;
 					})
-					.sort((a, b) => a.y - b.y); // Sort by Y position
+					.sort((a, b) => {
+						const { y: aY } = unpackTileId(a.id);
+						const { y: bY } = unpackTileId(b.id);
+						return aY - bY;
+					}); // Sort by Y position
 
 				if (intersectingTiles.length === 0) {
 					// No intersections, draw full line
@@ -231,16 +236,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
+						const { y: tileY } = unpackTileId(tile.id);
 						const tileHeight =
 							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
 						// Draw from currentY to top of tile
-						if (currentY < tile.y) {
+						if (currentY < tileY) {
 							ctx.beginPath();
 							ctx.moveTo(x, currentY);
-							ctx.lineTo(x, tile.y);
+							ctx.lineTo(x, tileY);
 							ctx.stroke();
 						}
-						currentY = Math.max(currentY, tile.y + tileHeight);
+						currentY = Math.max(currentY, tileY + tileHeight);
 					}
 					// Draw remaining segment
 					if (currentY < tilesetData.imageData.height) {
@@ -262,11 +268,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const intersectingTiles = tilesetData.tiles
 					.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const { y: tileY } = unpackTileId(tile.id);
 						const tileHeight =
 							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
-						return y > tile.y && y < tile.y + tileHeight;
+						return y > tileY && y < tileY + tileHeight;
 					})
-					.sort((a, b) => a.x - b.x); // Sort by X position
+					.sort((a, b) => {
+						const { x: aX } = unpackTileId(a.id);
+						const { x: bX } = unpackTileId(b.id);
+						return aX - bX;
+					}); // Sort by X position
 
 				if (intersectingTiles.length === 0) {
 					// No intersections, draw full line
@@ -278,16 +289,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
+						const { x: tileX } = unpackTileId(tile.id);
 						const tileWidth =
 							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
 						// Draw from currentX to left of tile
-						if (currentX < tile.x) {
+						if (currentX < tileX) {
 							ctx.beginPath();
 							ctx.moveTo(currentX, y);
-							ctx.lineTo(tile.x, y);
+							ctx.lineTo(tileX, y);
 							ctx.stroke();
 						}
-						currentX = Math.max(currentX, tile.x + tileWidth);
+						currentX = Math.max(currentX, tileX + tileWidth);
 					}
 					// Draw remaining segment
 					if (currentX < tilesetData.imageData.width) {
@@ -306,16 +318,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Check the isCompound flag
 				if (tile.isCompound && tile.width && tile.height) {
 					// This is a compound tile
+					const { x: tileX, y: tileY } = unpackTileId(tile.id);
 					const tileWidth = tile.width;
 					const tileHeight = tile.height;
 
 					// Draw border around it
-					ctx.strokeRect(tile.x, tile.y, tileWidth, tileHeight);
+					ctx.strokeRect(tileX, tileY, tileWidth, tileHeight);
 
 					// Draw origin marker if this tile is selected
 					if (tile.id === selectedCompoundTileId && tile.origin) {
-						const originX = tile.x + tile.origin.x * tileWidth;
-						const originY = tile.y + tile.origin.y * tileHeight;
+						const originX = tileX + tile.origin.x * tileWidth;
+						const originY = tileY + tile.origin.y * tileHeight;
 						const markerSize = 8 / viewState.scale;
 
 						ctx.save();
@@ -344,8 +357,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						ctx.font = `${Math.max(10, 12 / viewState.scale)}px sans-serif`;
 						const metrics = ctx.measureText(tile.name);
 						const padding = 4 / viewState.scale;
-						const textX = tile.x + padding;
-						const textY = tile.y + 12 / viewState.scale + padding;
+						const textX = tileX + padding;
+						const textY = tileY + 12 / viewState.scale + padding;
 
 						// Draw background for text
 						ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -371,10 +384,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			for (const tile of tilesetData.tiles) {
 				if (tile.colliders.length === 0) continue;
 
+				const { x: tileX, y: tileY } = unpackTileId(tile.id);
 				for (const collider of tile.colliders) {
 					if (collider.points.length > 2) {
 						ctx.save();
-						ctx.translate(tile.x, tile.y);
+						ctx.translate(tileX, tileY);
 
 						// Draw filled polygon
 						ctx.beginPath();
@@ -755,18 +769,19 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			for (const tile of localTiles) {
 				if (tile.width && tile.height) {
 					// Check if click is within this compound tile's bounds
-					const tileRight = tile.x + tile.width;
-					const tileBottom = tile.y + tile.height;
+					const { x: tileX, y: tileY } = unpackTileId(tile.id);
+					const tileRight = tileX + tile.width;
+					const tileBottom = tileY + tile.height;
 
 					if (
-						canvasX >= tile.x &&
+						canvasX >= tileX &&
 						canvasX < tileRight &&
-						canvasY >= tile.y &&
+						canvasY >= tileY &&
 						canvasY < tileBottom
 					) {
 						// Clicked on this compound tile, select its entire region
-						const regionX = Math.floor(tile.x / tilesetData.tileWidth);
-						const regionY = Math.floor(tile.y / tilesetData.tileHeight);
+						const regionX = Math.floor(tileX / tilesetData.tileWidth);
+						const regionY = Math.floor(tileY / tilesetData.tileHeight);
 						const regionWidth = Math.ceil(tile.width / tilesetData.tileWidth);
 						const regionHeight = Math.ceil(
 							tile.height / tilesetData.tileHeight,
@@ -818,9 +833,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				// Check if there's a tile entry at this position (for properties)
 				const tilePosX = tileX * tilesetData.tileWidth;
 				const tilePosY = tileY * tilesetData.tileHeight;
-				const existingTile = localTiles.find(
-					(t) => t.x === tilePosX && t.y === tilePosY && !t.width && !t.height,
-				);
+				const existingTile = localTiles.find((t) => {
+					if (t.width || t.height) return false; // Skip compound tiles
+					const { x, y } = unpackTileId(t.id);
+					return x === tilePosX && y === tilePosY;
+				});
 
 				if (existingTile) {
 					setSelectedCompoundTileId(existingTile.id);
@@ -897,13 +914,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
-				const tileRight = tile.x + tile.width;
-				const tileBottom = tile.y + tile.height;
+				const { x: tileX, y: tileY } = unpackTileId(tile.id);
+				const tileRight = tileX + tile.width;
+				const tileBottom = tileY + tile.height;
 
 				if (
-					canvasX >= tile.x &&
+					canvasX >= tileX &&
 					canvasX < tileRight &&
-					canvasY >= tile.y &&
+					canvasY >= tileY &&
 					canvasY < tileBottom
 				) {
 					clickedCompoundTile = tile.id;
@@ -937,9 +955,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileWidth = width * tilesetData.tileWidth;
 		const tileHeight = height * tilesetData.tileHeight;
 		const newTile: TileDefinition = {
-			id: packTileId(tileX, tileY, 0), // tileset index=0 (compound tile)
-			x: tileX,
-			y: tileY,
+			id: packTileId(tileX, tileY, 0), // tileset index=0 (compound tile), x and y packed in id
 			isCompound: true,
 			width: tileWidth,
 			height: tileHeight,
@@ -1031,12 +1047,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				terrainLayers: localTerrainLayers,
 			});
 		} else {
-			// Create new tile entry from packed ID with undo/redo support
-			const geometry = unpackTileId(selectedCompoundTileId);
+			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
 			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
-				x: geometry.x,
-				y: geometry.y,
 				name,
 				isCompound: false,
 				width: 0,
@@ -1069,12 +1082,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				terrainLayers: localTerrainLayers,
 			});
 		} else {
-			// Create new tile entry from packed ID with undo/redo support
-			const geometry = unpackTileId(selectedCompoundTileId);
+			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
 			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
-				x: geometry.x,
-				y: geometry.y,
 				type,
 				isCompound: false,
 				width: 0,
@@ -1107,12 +1117,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				terrainLayers: localTerrainLayers,
 			});
 		} else {
-			// Create new tile entry from packed ID with undo/redo support
-			const geometry = unpackTileId(selectedCompoundTileId);
+			// Create new tile entry from packed ID with undo/redo support (x and y coords are in the id)
 			const newTile: TileDefinition = {
 				id: selectedCompoundTileId,
-				x: geometry.x,
-				y: geometry.y,
 				origin: { x, y },
 				isCompound: false,
 				width: 0,

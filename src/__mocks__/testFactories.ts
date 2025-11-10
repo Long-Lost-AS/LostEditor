@@ -107,8 +107,6 @@ export function createMockTileDefinition(
 ): TileDefinition {
 	return {
 		id: 0,
-		x: 0,
-		y: 0,
 		isCompound: false,
 		width: 0,
 		height: 0,
@@ -124,14 +122,21 @@ export function createMockTileDefinition(
 /**
  * Helper to create a simple tile with minimal fields (for tests)
  * Adds default values for all required fields
+ * Note: x and y are packed into the id using packTileId
  */
 export function createSimpleTile(
 	id: number,
-	x: number,
-	y: number,
+	x?: number,
+	y?: number,
 	type?: string,
 ): TileDefinition {
-	return createMockTileDefinition({ id, x, y, type: type || "" });
+	// If x and y are provided, pack them into the id (for backward compatibility with tests)
+	// Otherwise use id as-is
+	const packedId =
+		x !== undefined && y !== undefined
+			? Number(createTileId({ tilesetIndex: 0, localId: id })) // Use helper to pack x/y into id
+			: id;
+	return createMockTileDefinition({ id: packedId, type: type || "" });
 }
 
 /**

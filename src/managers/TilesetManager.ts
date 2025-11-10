@@ -1,11 +1,12 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { FileNotFoundError } from "../errors/FileErrors";
-import {
-	type TileDefinitionJson,
-	type TilesetDataJson,
-	TilesetDataSchema,
-} from "../schemas";
-import type { TileDefinition, TilesetData } from "../types";
+import { TilesetDataSchema } from "../schemas";
+import type {
+	TileDefinition,
+	TileDefinitionJson,
+	TilesetData,
+	TilesetDataJson,
+} from "../types";
 import { unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 import { FileLoader } from "./FileLoader";

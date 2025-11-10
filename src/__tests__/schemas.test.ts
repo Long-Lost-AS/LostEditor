@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { z } from "zod";
 import {
-	createDefaultLayer,
 	createDefaultMapData,
 	EditorSettingsSchema,
 	EntityDefinitionSchema,
 	EntityInstanceSchema,
-	ensureValidMapData,
 	LayerSchema,
 	LayerTypeSchema,
 	MapDataSchema,
@@ -21,8 +20,35 @@ import {
 	TerrainTileSchema,
 	TileDefinitionSchema,
 	TilesetDataSchema,
-	validateMapData,
 } from "../schemas";
+
+// Test-only helper functions
+function createDefaultLayer(
+	name: string = "Layer 1",
+	type: "tile" | "entity" = "tile",
+): z.infer<typeof LayerSchema> {
+	return LayerSchema.parse({
+		id: `layer-${Date.now()}`,
+		name,
+		visible: true,
+		type,
+		tiles: [],
+	});
+}
+
+function ensureValidMapData(data: unknown): z.infer<typeof MapDataSchema> {
+	return MapDataSchema.parse(data);
+}
+
+function validateMapData(data: unknown): boolean {
+	try {
+		MapDataSchema.parse(data);
+		return true;
+	} catch (error) {
+		console.warn("MapData validation failed:", error);
+		return false;
+	}
+}
 
 describe("schemas", () => {
 	describe("PointSchema", () => {

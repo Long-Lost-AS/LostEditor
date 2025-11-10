@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
-import { packTileId } from "../utils/tileId";
+import { packTileId, unpackTileId } from "../utils/tileId";
 import { Dropdown } from "./Dropdown";
 
 export const TilesetPanel = () => {
@@ -80,8 +80,9 @@ export const TilesetPanel = () => {
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const { x: tileX } = unpackTileId(tile.id);
 						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
-						return x > tile.x && x < tile.x + tileWidthPx;
+						return x > tileX && x < tileX + tileWidthPx;
 					}) || [];
 
 				if (intersectingTiles.length === 0) {
@@ -94,15 +95,16 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
+						const { y: tileY } = unpackTileId(tile.id);
 						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
 						// Draw from currentY to top of tile
-						if (currentY < tile.y) {
+						if (currentY < tileY) {
 							ctx.beginPath();
 							ctx.moveTo(x, currentY);
-							ctx.lineTo(x, tile.y);
+							ctx.lineTo(x, tileY);
 							ctx.stroke();
 						}
-						currentY = Math.max(currentY, tile.y + tileHeightPx);
+						currentY = Math.max(currentY, tileY + tileHeightPx);
 					}
 					// Draw remaining segment
 					if (currentY < displayImage.height) {
@@ -120,8 +122,9 @@ export const TilesetPanel = () => {
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
+						const { y: tileY } = unpackTileId(tile.id);
 						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
-						return y > tile.y && y < tile.y + tileHeightPx;
+						return y > tileY && y < tileY + tileHeightPx;
 					}) || [];
 
 				if (intersectingTiles.length === 0) {
@@ -134,15 +137,16 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
+						const { x: tileX } = unpackTileId(tile.id);
 						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
 						// Draw from currentX to left of tile
-						if (currentX < tile.x) {
+						if (currentX < tileX) {
 							ctx.beginPath();
 							ctx.moveTo(currentX, y);
-							ctx.lineTo(tile.x, y);
+							ctx.lineTo(tileX, y);
 							ctx.stroke();
 						}
-						currentX = Math.max(currentX, tile.x + tileWidthPx);
+						currentX = Math.max(currentX, tileX + tileWidthPx);
 					}
 					// Draw remaining segment
 					if (currentX < displayImage.width) {
@@ -161,9 +165,10 @@ export const TilesetPanel = () => {
 				currentTileset.tiles.forEach((tile) => {
 					if (tile.width && tile.height) {
 						// Only draw borders for compound tiles
+						const { x: tileX, y: tileY } = unpackTileId(tile.id);
 						const w = tile.width !== 0 ? tile.width : tileWidth;
 						const h = tile.height !== 0 ? tile.height : tileHeight;
-						ctx.strokeRect(tile.x, tile.y, w, h);
+						ctx.strokeRect(tileX, tileY, w, h);
 
 						// Draw tile name if present
 						if (tile.name !== "") {
@@ -172,8 +177,8 @@ export const TilesetPanel = () => {
 							ctx.font = `${Math.max(10, 12 / scale)}px sans-serif`;
 							const metrics = ctx.measureText(tile.name);
 							const padding = 4 / scale;
-							const textX = tile.x + padding;
-							const textY = tile.y + 12 / scale + padding;
+							const textX = tileX + padding;
+							const textY = tileY + 12 / scale + padding;
 
 							// Draw background for text
 							ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -205,9 +210,10 @@ export const TilesetPanel = () => {
 
 				if (selectedCompoundTile) {
 					// Highlight the entire compound tile
+					const { x, y } = unpackTileId(selectedCompoundTile.id);
 					ctx.strokeRect(
-						selectedCompoundTile.x,
-						selectedCompoundTile.y,
+						x,
+						y,
 						selectedCompoundTile.width ?? tileWidth,
 						selectedCompoundTile.height ?? tileHeight,
 					);
@@ -331,15 +337,19 @@ export const TilesetPanel = () => {
 
 			// First check if we clicked on a compound tile
 			const clickedTile = currentTileset.tiles.find((tile) => {
+				const { x: tileX, y: tileY } = unpackTileId(tile.id);
 				const w = tile.width !== 0 ? tile.width : tileWidth;
 				const h = tile.height !== 0 ? tile.height : tileHeight;
-				return x >= tile.x && x < tile.x + w && y >= tile.y && y < tile.y + h;
+				return x >= tileX && x < tileX + w && y >= tileY && y < tileY + h;
 			});
 
 			if (clickedTile) {
 				// For any tile in the tiles array, convert pixel coordinates to tile grid coordinates
-				const tileX = Math.floor(clickedTile.x / tileWidth);
-				const tileY = Math.floor(clickedTile.y / tileHeight);
+				const { x: clickedTileX, y: clickedTileY } = unpackTileId(
+					clickedTile.id,
+				);
+				const tileX = Math.floor(clickedTileX / tileWidth);
+				const tileY = Math.floor(clickedTileY / tileHeight);
 				// Use setSelectedTile to set everything atomically
 				setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
 			} else {

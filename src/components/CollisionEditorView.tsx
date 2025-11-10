@@ -6,6 +6,7 @@ import type {
 	PolygonCollider,
 } from "../types";
 import { isEditableElementFocused } from "../utils/keyboardUtils";
+import { unpackTileId } from "../utils/tileId";
 import { CollisionEditor } from "./CollisionEditor";
 
 interface CollisionEditorViewProps {
@@ -30,6 +31,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 			const tile = tileset.tiles.find((t) => t.id === tab.tileId);
 			if (!tile) return null;
 
+			const { x, y } = unpackTileId(tile.id);
 			return {
 				type: "tile" as const,
 				tileset,
@@ -39,8 +41,8 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				colliders: tile.colliders,
 				backgroundImage: tileset.imageData,
 				backgroundRect: {
-					x: tile.x,
-					y: tile.y,
+					x,
+					y,
 					width: tile.width !== 0 ? tile.width : tileset.tileWidth,
 					height: tile.height !== 0 ? tile.height : tileset.tileHeight,
 				},

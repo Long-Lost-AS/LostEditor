@@ -281,7 +281,10 @@ export const AnyTabSchema = z.discriminatedUnion("type", [
 // ===========================
 
 export const ProjectDataSchema = z.object({
+	version: z.string().default("1.0"),
 	name: z.string(),
+	tilesets: z.array(z.string()).default([]), // Array of tileset file paths
+	maps: z.array(z.string()).default([]), // Array of map file paths
 	projectDir: z.string().optional(),
 	lastModified: z.string(),
 	openTabs: z
@@ -309,48 +312,18 @@ export const EditorSettingsSchema = z.object({
 });
 
 // ===========================
-// Type Inference
-// ===========================
-
-// These let us infer TypeScript types from Zod schemas
-export type TilesetDataJson = z.infer<typeof TilesetDataSchema>;
-export type ProjectDataJson = z.infer<typeof ProjectDataSchema>;
-export type MapFileJson = z.infer<typeof MapFileSchema>;
-export type MapDataJson = z.infer<typeof MapDataSchema>;
-export type TileDefinitionJson = z.infer<typeof TileDefinitionSchema>;
-export type EntityDefinitionJson = z.infer<typeof EntityDefinitionSchema>;
-export type EntityInstanceJson = z.infer<typeof EntityInstanceSchema>;
-export type LayerJson = z.infer<typeof LayerSchema>;
-
-// ===========================
 // Factory Functions
 // ===========================
 
 /**
- * Create a valid default layer
- */
-export function createDefaultLayer(
-	name: string = "Layer 1",
-	type: "tile" | "entity" = "tile",
-): LayerJson {
-	return LayerSchema.parse({
-		id: `layer-${Date.now()}`,
-		name,
-		visible: true,
-		type,
-		tiles: [],
-		entities: [],
-	});
-}
-
-/**
  * Create valid default map data
+ * Used by EditorContext when creating new maps
  */
 export function createDefaultMapData(
 	name: string = "Untitled Map",
 	width: number = 32,
 	height: number = 32,
-): MapDataJson {
+): z.infer<typeof MapDataSchema> {
 	return MapDataSchema.parse({
 		name,
 		width,
@@ -364,31 +337,8 @@ export function createDefaultMapData(
 				visible: true,
 				type: "tile" as const,
 				tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
-				entities: [],
 			},
 		],
 		entities: [], // Map-level entities
 	});
-}
-
-/**
- * Validate and ensure MapData is complete
- */
-export function ensureValidMapData(data: unknown): MapDataJson {
-	// Parse with schema - this will throw if invalid
-	return MapDataSchema.parse(data);
-}
-
-/**
- * Check if data is valid MapData without throwing
- * Returns true if valid, false otherwise
- */
-export function validateMapData(data: unknown): boolean {
-	try {
-		MapDataSchema.parse(data);
-		return true;
-	} catch (error) {
-		console.warn("MapData validation failed:", error);
-		return false;
-	}
 }

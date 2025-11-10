@@ -1,12 +1,10 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import {
-	type MapFileJson,
 	MapFileSchema,
-	type ProjectDataJson,
 	ProjectDataSchema,
-	type TilesetDataJson,
 	TilesetDataSchema,
 } from "../schemas";
+import type { MapFileJson, ProjectDataJson, TilesetDataJson } from "../types";
 import { fileManager } from "./FileManager";
 import { mapManager } from "./MapManager";
 import { tilesetManager } from "./TilesetManager";

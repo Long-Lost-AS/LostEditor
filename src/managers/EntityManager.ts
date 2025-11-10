@@ -1,5 +1,10 @@
-import { type EntityDefinitionJson, EntityDefinitionSchema } from "../schemas";
-import type { EntityDefinition, EntityInstance, Transform } from "../types";
+import { EntityDefinitionSchema } from "../schemas";
+import type {
+	EntityDefinition,
+	EntityDefinitionJson,
+	EntityInstance,
+	Transform,
+} from "../types";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";
 

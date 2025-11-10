@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { tilesetManager } from "../managers/TilesetManager";
 import type { TilesetData } from "../types";
-import { packTileId } from "../utils/tileId";
+import { packTileId, unpackTileId } from "../utils/tileId";
 
 interface TilesetSelectMenuProps {
 	isOpen: boolean;
@@ -145,8 +145,9 @@ export const TilesetSelectMenu = ({
 			for (const tile of tileset.tiles) {
 				if (tile.isCompound && tile.width && tile.height) {
 					// Draw compound tile border
-					const screenX = offsetX + tile.x * scale;
-					const screenY = offsetY + tile.y * scale;
+					const { x: tileX, y: tileY } = unpackTileId(tile.id);
+					const screenX = offsetX + tileX * scale;
+					const screenY = offsetY + tileY * scale;
 					const screenWidth = tile.width * scale;
 					const screenHeight = tile.height * scale;
 
@@ -171,8 +172,11 @@ export const TilesetSelectMenu = ({
 			// Select the first tile (0, 0) by default so user can start drawing immediately
 			// Check if there's a compound tile at (0,0), otherwise use regular tile
 			const firstCompoundTile = tileset.tiles?.find(
-				(tile: { isCompound?: boolean; x: number; y: number }) =>
-					tile.isCompound && tile.x === 0 && tile.y === 0,
+				(tile: { isCompound?: boolean; id: number }) => {
+					if (!tile.isCompound) return false;
+					const { x, y } = unpackTileId(tile.id);
+					return x === 0 && y === 0;
+				},
 			);
 
 			if (firstCompoundTile) {
