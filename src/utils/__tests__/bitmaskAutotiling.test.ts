@@ -5,6 +5,7 @@ import {
 	bitmaskToGrid,
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
+	getTilesForTerrain,
 	gridToBitmask,
 	isBitmaskCellSet,
 	toggleBitmaskCell,
@@ -500,6 +501,145 @@ describe("bitmaskAutotiling", () => {
 				const grid = bitmaskToGrid(bitmask);
 				expect(gridToBitmask(grid)).toBe(bitmask);
 			}
+		});
+	});
+
+	describe("getTilesForTerrain", () => {
+		it("should return tiles that match terrain layer tile IDs", () => {
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: "test-1",
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [
+					{ id: 1, x: 0, y: 0, type: "grass" },
+					{ id: 2, x: 16, y: 0, type: "grass" },
+					{ id: 3, x: 32, y: 0, type: "dirt" },
+				],
+				terrainLayers: [],
+			};
+
+			const terrainLayer: TerrainLayer = {
+				id: "grass-layer",
+				name: "grass",
+				tiles: [
+					{ tileId: 1, bitmask: 16 },
+					{ tileId: 2, bitmask: 31 },
+				],
+			};
+
+			const result = getTilesForTerrain(tileset, terrainLayer);
+
+			expect(result).toHaveLength(2);
+			expect(result[0]).toEqual({ id: 1, x: 0, y: 0, type: "grass" });
+			expect(result[1]).toEqual({ id: 2, x: 16, y: 0, type: "grass" });
+		});
+
+		it("should filter out tiles that don't exist in tileset", () => {
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: "test-1",
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				terrainLayers: [],
+			};
+
+			const terrainLayer: TerrainLayer = {
+				id: "grass-layer",
+				name: "grass",
+				tiles: [
+					{ tileId: 1, bitmask: 16 },
+					{ tileId: 999, bitmask: 31 }, // Non-existent tile
+				],
+			};
+
+			const result = getTilesForTerrain(tileset, terrainLayer);
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ id: 1, x: 0, y: 0, type: "grass" });
+		});
+
+		it("should return empty array when terrain layer has no tiles", () => {
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: "test-1",
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				terrainLayers: [],
+			};
+
+			const terrainLayer: TerrainLayer = {
+				id: "grass-layer",
+				name: "grass",
+				tiles: [],
+			};
+
+			const result = getTilesForTerrain(tileset, terrainLayer);
+
+			expect(result).toEqual([]);
+		});
+
+		it("should handle terrain layer with undefined tiles", () => {
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: "test-1",
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				terrainLayers: [],
+			};
+
+			const terrainLayer: TerrainLayer = {
+				id: "grass-layer",
+				name: "grass",
+				tiles: [],
+				// tiles is undefined
+			};
+
+			const result = getTilesForTerrain(tileset, terrainLayer);
+
+			expect(result).toEqual([]);
+		});
+
+		it("should return empty array when all terrain tiles are invalid", () => {
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: "test-1",
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [{ id: 1, x: 0, y: 0, type: "grass" }],
+				terrainLayers: [],
+			};
+
+			const terrainLayer: TerrainLayer = {
+				id: "grass-layer",
+				name: "grass",
+				tiles: [
+					{ tileId: 100, bitmask: 16 },
+					{ tileId: 200, bitmask: 31 },
+				],
+			};
+
+			const result = getTilesForTerrain(tileset, terrainLayer);
+
+			expect(result).toEqual([]);
 		});
 	});
 });
