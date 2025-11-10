@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { tilesetManager } from "../managers/TilesetManager";
+import type { TilesetData } from "../types";
 import { packTileId } from "../utils/tileId";
 
 interface TilesetSelectMenuProps {
@@ -22,7 +23,7 @@ export const TilesetSelectMenu = ({
 		getActiveMapTab,
 		updateTabData,
 	} = useEditor();
-	const [tilesets, setTilesets] = useState<Tileset[]>([]);
+	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [loading, setLoading] = useState(false);
@@ -159,7 +160,7 @@ export const TilesetSelectMenu = ({
 
 	// Handler to select a tileset
 	const handleSelectTileset = useCallback(
-		(tileset: Tileset) => {
+		(tileset: TilesetData) => {
 			// Close the modal immediately for better UX
 			onClose();
 
@@ -170,18 +171,19 @@ export const TilesetSelectMenu = ({
 			// Select the first tile (0, 0) by default so user can start drawing immediately
 			// Check if there's a compound tile at (0,0), otherwise use regular tile
 			const firstCompoundTile = tileset.tiles?.find(
-				(tile) => tile.isCompound && tile.x === 0 && tile.y === 0,
+				(tile: { isCompound?: boolean; x: number; y: number }) =>
+					tile.isCompound && tile.x === 0 && tile.y === 0,
 			);
 
 			if (firstCompoundTile) {
 				// Select the compound tile
 				setSelectedTileId(firstCompoundTile.id);
-				setSelectedTile(0, 0);
+				setSelectedTile(0, 0, tileset.id, firstCompoundTile.id);
 			} else {
 				// Select regular tile at (0, 0)
 				const regularTileId = packTileId(0, 0, 0, false, false);
 				setSelectedTileId(regularTileId);
-				setSelectedTile(0, 0);
+				setSelectedTile(0, 0, tileset.id, regularTileId);
 			}
 
 			// Update active map tab to use this tileset (if one exists)
@@ -199,7 +201,6 @@ export const TilesetSelectMenu = ({
 				updateTabData(activeMapTab.id, {
 					viewState: {
 						...activeMapTab.viewState,
-						currentTileset: tileset,
 						selectedTilesetId: tileset.id,
 						currentTool: newTool,
 					},

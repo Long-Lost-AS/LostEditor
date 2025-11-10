@@ -902,9 +902,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		} = useDraggable({
 			id: item.path,
 			data: { item },
-			activationConstraint: {
-				distance: 8, // Require 8px of movement before dragging starts
-			},
 		});
 
 		// Only folders can receive drops
@@ -1274,13 +1271,17 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 											onMouseLeave={(e) => {
 												e.currentTarget.style.background = "transparent";
 											}}
-											onClick={() =>
-												handleOpenContainingFolder(contextMenu.item)
-											}
+											onClick={() => {
+												if (contextMenu.item) {
+													handleOpenContainingFolder(contextMenu.item);
+												}
+											}}
 											onKeyDown={(e) => {
 												if (e.key === "Enter" || e.key === " ") {
 													e.preventDefault();
-													handleOpenContainingFolder(contextMenu.item);
+													if (contextMenu.item) {
+														handleOpenContainingFolder(contextMenu.item);
+													}
 												}
 											}}
 											role="menuitem"
@@ -1302,11 +1303,17 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "transparent";
 										}}
-										onClick={() => handleRenameItem(contextMenu.item)}
+										onClick={() => {
+											if (contextMenu.item) {
+												handleRenameItem(contextMenu.item);
+											}
+										}}
 										onKeyDown={(e) => {
 											if (e.key === "Enter" || e.key === " ") {
 												e.preventDefault();
-												handleRenameItem(contextMenu.item);
+												if (contextMenu.item) {
+													handleRenameItem(contextMenu.item);
+												}
 											}
 										}}
 										role="menuitem"
@@ -1540,7 +1547,11 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 										onMouseLeave={(e) => {
 											e.currentTarget.style.background = "#c72e0f";
 										}}
-										onClick={() => handleDeleteItem(deleteConfirmModal.item)}
+										onClick={() => {
+											if (deleteConfirmModal.item) {
+												handleDeleteItem(deleteConfirmModal.item);
+											}
+										}}
 									>
 										Delete
 									</button>

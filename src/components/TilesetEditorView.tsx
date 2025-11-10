@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
-import type { TerrainLayer, TilesetTab } from "../types";
+import type { TerrainLayer, TileDefinition, TilesetTab } from "../types";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
@@ -41,7 +41,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [contextMenu, setContextMenu] = useState<{
 		x: number;
 		y: number;
-		compoundTileId?: string; // Track if we're on a compound tile
+		compoundTileId?: number; // Track if we're on a compound tile
 	} | null>(null);
 	const [mousePos, setMousePos] = useState<{
 		tileX: number;
@@ -67,7 +67,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Unified undo/redo state for the entire tileset (tiles + terrainLayers)
 	// This ensures all operations share a single chronological history
 	type TilesetUndoState = {
-		tiles: typeof tilesetData.tiles;
+		tiles: TileDefinition[];
 		terrainLayers: TerrainLayer[];
 	};
 
@@ -158,15 +158,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	]);
 
 	// Memoized tile position map for O(1) lookups
-	const _tilePositionMap = useMemo(() => {
-		const map = new Map<string, (typeof localTiles)[0]>();
-		for (const tile of localTiles) {
-			if (tile.width && tile.height) {
-				map.set(`${tile.x},${tile.y}`, tile);
-			}
-		}
-		return map;
-	}, [localTiles]);
+	// Note: Currently unused but may be useful for future optimizations
+	// const _tilePositionMap = useMemo(() => {
+	// 	const map = new Map<string, (typeof localTiles)[0]>();
+	// 	for (const tile of localTiles) {
+	// 		if (tile.width && tile.height) {
+	// 			map.set(`${tile.x},${tile.y}`, tile);
+	// 		}
+	// 	}
+	// 	return map;
+	// }, [localTiles]);
 
 	// Helper to get terrainLayers (returns local reducer state)
 	const getTerrainLayers = useCallback(() => {
@@ -299,7 +300,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.lineWidth = 2 / viewState.scale;
 			for (const tile of tilesetData.tiles) {
 				// Check the isCompound flag
-				if (tile.isCompound) {
+				if (tile.isCompound && tile.width && tile.height) {
 					// This is a compound tile
 					const tileWidth = tile.width;
 					const tileHeight = tile.height;
@@ -598,6 +599,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	// Helper to convert canvas coordinates to tile coordinates
 	const canvasToTile = (canvasX: number, canvasY: number) => {
+		if (!tilesetData) return { tileX: 0, tileY: 0 };
 		const tileX = Math.floor(canvasX / tilesetData.tileWidth);
 		const tileY = Math.floor(canvasY / tilesetData.tileHeight);
 		return { tileX, tileY };
@@ -609,6 +611,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		canvasY: number,
 		action: "set" | "clear",
 	) => {
+		if (!tilesetData) return;
 		const { tileX, tileY } = canvasToTile(canvasX, canvasY);
 
 		// Get terrain layer
@@ -668,6 +671,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
 		} else if (e.button === 0 && selectedTerrainLayer) {
 			// Left click with terrain layer selected = Paint bitmask cell
+			if (!tilesetData) return;
 			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
 			const { tileX, tileY } = canvasToTile(canvasX, canvasY);
 
@@ -718,14 +722,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			paintBitmaskCell(canvasX, canvasY, action);
 		} else if (e.button === 0) {
 			// Left click = Select tiles
+			if (!tilesetData) return;
 			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
 
 			// Check if click is within the tileset image bounds
 			if (
 				canvasX < 0 ||
 				canvasY < 0 ||
-				canvasX >= tilesetData.imageData?.width ||
-				canvasY >= tilesetData.imageData?.height
+				canvasX >= (tilesetData.imageData?.width ?? 0) ||
+				canvasY >= (tilesetData.imageData?.height ?? 0)
 			) {
 				// Clicked outside the tileset, clear selection
 				updateTabData(tab.id, {
@@ -746,8 +751,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			for (const tile of localTiles) {
 				if (tile.width && tile.height) {
 					// Check if click is within this compound tile's bounds
-					const tileRight = tile.x + (tile.width || tilesetData.tileWidth);
-					const tileBottom = tile.y + (tile.height || tilesetData.tileHeight);
+					const tileRight = tile.x + tile.width;
+					const tileBottom = tile.y + tile.height;
 
 					if (
 						canvasX >= tile.x &&
@@ -758,11 +763,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						// Clicked on this compound tile, select its entire region
 						const regionX = Math.floor(tile.x / tilesetData.tileWidth);
 						const regionY = Math.floor(tile.y / tilesetData.tileHeight);
-						const regionWidth = Math.ceil(
-							(tile.width || tilesetData.tileWidth) / tilesetData.tileWidth,
-						);
+						const regionWidth = Math.ceil(tile.width / tilesetData.tileWidth);
 						const regionHeight = Math.ceil(
-							(tile.height || tilesetData.tileHeight) / tilesetData.tileHeight,
+							tile.height / tilesetData.tileHeight,
 						);
 
 						updateTabData(tab.id, {
@@ -886,7 +889,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// Check if we're right-clicking on a compound tile
 		const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
-		let clickedCompoundTile: string | undefined;
+		let clickedCompoundTile: number | undefined;
 
 		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
@@ -920,7 +923,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleMarkAsCompoundTile = () => {
 		setContextMenu(null);
 
-		if (!viewState.selectedTileRegion) return;
+		if (!viewState.selectedTileRegion || !tilesetData) return;
 
 		const { x, y, width, height } = viewState.selectedTileRegion;
 
@@ -965,11 +968,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	const handleNameClick = () => {
+		if (!tilesetData) return;
 		setIsEditingName(true);
 		setEditedName(tilesetData.name);
 	};
 
 	const handleNameSave = () => {
+		if (!tilesetData) return;
 		if (editedName.trim() && editedName !== tilesetData.name) {
 			updateTileset(tab.tilesetId, { name: editedName.trim() });
 			updateTabData(tab.id, { title: editedName.trim(), isDirty: true });
@@ -978,6 +983,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	const handleNameKeyDown = (e: React.KeyboardEvent) => {
+		if (!tilesetData) return;
 		if (e.key === "Enter") {
 			handleNameSave();
 		} else if (e.key === "Escape") {
@@ -989,7 +995,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleAddCollider = () => {
 		setContextMenu(null);
 
-		if (!contextMenu?.compoundTileId) return;
+		if (!contextMenu?.compoundTileId || !tilesetData) return;
 
 		// Open collision editor tab for this compound tile
 		openCollisionEditor(

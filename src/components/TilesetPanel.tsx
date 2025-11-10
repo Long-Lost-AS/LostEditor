@@ -208,8 +208,8 @@ export const TilesetPanel = () => {
 					ctx.strokeRect(
 						selectedCompoundTile.x,
 						selectedCompoundTile.y,
-						selectedCompoundTile.width,
-						selectedCompoundTile.height,
+						selectedCompoundTile.width ?? tileWidth,
+						selectedCompoundTile.height ?? tileHeight,
 					);
 				} else {
 					// Regular single tile highlight
@@ -362,7 +362,7 @@ export const TilesetPanel = () => {
 			// Legacy: no current tileset, just select grid position
 			const tileX = Math.floor(x / tileWidth);
 			const tileY = Math.floor(y / tileHeight);
-			setSelectedTile(tileX, tileY);
+			setSelectedTile(tileX, tileY, "", 0);
 		}
 	};
 
