@@ -1,5 +1,13 @@
 import type { z } from "zod";
-import type { PolygonColliderSchema } from "./schemas";
+import type {
+	LayerTypeSchema,
+	PointSchema,
+	PolygonColliderSchema,
+	SpriteLayerSchema,
+	SpriteRectSchema,
+	TerrainLayerSchema,
+	TerrainTileSchema,
+} from "./schemas";
 
 // ===========================
 // Collision Types
@@ -11,25 +19,9 @@ export type PolygonCollider = z.infer<typeof PolygonColliderSchema>;
 // Tileset Types
 // ===========================
 
-export interface SpriteRect {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
+export type SpriteRect = z.infer<typeof SpriteRectSchema>;
 
-export interface SpriteLayer {
-	id: string;
-	name?: string;
-	type?: string;
-	tilesetId: string; // Reference to tileset containing sprite
-	sprite: SpriteRect; // Region in tileset
-	offset?: { x: number; y: number };
-	origin?: { x: number; y: number }; // Pivot point for rotation/entity anchor (normalized 0-1, where 0.5,0.5 is center)
-	rotation?: number;
-	zIndex: number; // For layer ordering (higher = front)
-	ysortOffset?: number; // Y-sort offset for depth sorting
-}
+export type SpriteLayer = z.infer<typeof SpriteLayerSchema>;
 
 export interface TileDefinition {
 	id: number; // Packed tile ID (sprite position + tileset index + flips)
@@ -62,16 +54,9 @@ export interface EntityDefinition {
 // Autotiling Types
 // ===========================
 
-export interface TerrainTile {
-	tileId: number; // Packed tile ID
-	bitmask: number; // 9-bit value (0-511) representing 3x3 grid
-}
+export type TerrainTile = z.infer<typeof TerrainTileSchema>;
 
-export interface TerrainLayer {
-	id: string;
-	name: string; // The terrain identifier (e.g., "Grass", "Dirt")
-	tiles: TerrainTile[]; // Tiles that belong to this terrain with their bitmasks (required, can be empty)
-}
+export type TerrainLayer = z.infer<typeof TerrainLayerSchema>;
 
 // Base tileset data (JSON-serializable)
 export interface TilesetDataJson {
@@ -123,7 +108,7 @@ export interface EntityInstance {
 	children?: EntityInstance[]; // Instance-specific child overrides
 }
 
-export type LayerType = "tile" | "entity";
+export type LayerType = z.infer<typeof LayerTypeSchema>;
 
 export interface Layer {
 	id: string;
@@ -156,7 +141,6 @@ export interface SerializedLayer {
 	visible: boolean;
 	type: LayerType;
 	tiles: number[]; // Dense array of packed tile IDs (width * height entries)
-	entities: EntityInstance[]; // Entities unchanged
 	autotilingEnabled?: boolean;
 }
 
@@ -304,10 +288,7 @@ export interface TabState {
 // Utility Types
 // ===========================
 
-export interface Point {
-	x: number;
-	y: number;
-}
+export type Point = z.infer<typeof PointSchema>;
 
 export interface Transform {
 	x: number;
