@@ -15,8 +15,8 @@ import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
-import { checkForUpdates } from "./utils/updater";
 import { testUpdaterConfiguration } from "./utils/testUpdater";
+import { checkForUpdates } from "./utils/updater";
 import "./style.css";
 
 const AppContent = () => {
