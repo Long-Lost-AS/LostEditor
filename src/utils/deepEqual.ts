@@ -27,9 +27,11 @@ export function deepEqual(a: unknown, b: unknown): boolean {
 
 		if (keysA.length !== keysB.length) return false;
 
-		return keysA.every(
-			(key) => keysB.includes(key) && deepEqual(a[key], b[key]),
-		);
+		return keysA.every((key) => {
+			const aObj = a as Record<string, unknown>;
+			const bObj = b as Record<string, unknown>;
+			return keysB.includes(key) && deepEqual(aObj[key], bObj[key]);
+		});
 	}
 
 	// Primitive values (already checked with === above)

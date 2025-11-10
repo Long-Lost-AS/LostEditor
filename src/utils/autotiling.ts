@@ -109,7 +109,7 @@ export function applyAutotiling(
 	const matchedTile = findTileByBitmask(tileset, terrainLayer, targetBitmask);
 
 	if (matchedTile) {
-		return matchedTile.id;
+		return matchedTile.tileId;
 	}
 
 	// If no bitmask match found, keep current tile
