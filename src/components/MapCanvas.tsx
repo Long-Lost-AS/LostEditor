@@ -6,6 +6,7 @@ import {
 	type EntityInstance,
 	hasImageData,
 	type MapData,
+	type PointInstance,
 	type SpriteLayer,
 	type Tool,
 } from "../types";
@@ -24,6 +25,11 @@ interface MapCanvasProps {
 	onEntityDragging?: (entityId: string, newX: number, newY: number) => void;
 	onDeleteEntity?: (entityId: string) => void;
 	onDuplicateEntity?: (entityId: string) => void;
+	onPlacePoint?: (x: number, y: number) => void;
+	onMovePoint?: (pointId: string, newX: number, newY: number) => void;
+	onPointSelected?: (pointId: string | null) => void;
+	onPointDragging?: (pointId: string, newX: number, newY: number) => void;
+	onDeletePoint?: (pointId: string) => void;
 	onStartBatch?: () => void;
 	onEndBatch?: () => void;
 }
@@ -40,6 +46,11 @@ export const MapCanvas = ({
 	onEntityDragging,
 	onDeleteEntity,
 	onDuplicateEntity,
+	onPlacePoint,
+	onMovePoint,
+	onPointSelected,
+	onPointDragging,
+	onDeletePoint,
 	onStartBatch,
 	onEndBatch,
 }: MapCanvasProps) => {
@@ -97,10 +108,34 @@ export const MapCanvas = ({
 		x: number;
 		y: number;
 	} | null>(null);
+
+	// Point selection state (for selecting and moving points)
+	const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+	const selectedPointIdRef = useRef<string | null>(null); // Ref for immediate access
+	const [isDraggingPoint, setIsDraggingPoint] = useState(false);
+	const [pointDragStart, setPointDragStart] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
+	const [pointDragOffset, setPointDragOffset] = useState<{
+		x: number;
+		y: number;
+	}>({ x: 0, y: 0 });
+	const [tempPointPosition, setTempPointPosition] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 	const tempEntityPositionRef = useRef<{ x: number; y: number } | null>(null); // Ref for immediate access
 	const [isHoveringSelectedEntity, setIsHoveringSelectedEntity] =
 		useState(false);
 	const DRAG_THRESHOLD = 5; // pixels before starting drag
+
+	// Click-through state for cycling between overlapping objects
+	const lastClickPosRef = useRef<{
+		x: number;
+		y: number;
+		time: number;
+	} | null>(null);
 
 	// Context menu state
 	const [contextMenu, setContextMenu] = useState<{
@@ -108,7 +143,8 @@ export const MapCanvas = ({
 		x: number;
 		y: number;
 		entityId: string | null;
-	}>({ visible: false, x: 0, y: 0, entityId: null });
+		pointId: string | null;
+	}>({ visible: false, x: 0, y: 0, entityId: null, pointId: null });
 
 	// Fill tool - flood fill helper function
 	const floodFill = (startX: number, startY: number) => {
@@ -488,6 +524,45 @@ export const MapCanvas = ({
 				});
 			}
 
+			// Render map-level points (on top of entities)
+			if (mapData.points && mapData.points.length > 0) {
+				mapData.points.forEach((point) => {
+					// Use temp position if this point is being dragged
+					const pointToRender =
+						isDraggingPoint && selectedPointId === point.id && tempPointPosition
+							? {
+									...point,
+									x: tempPointPosition.x,
+									y: tempPointPosition.y,
+								}
+							: point;
+
+					// Draw outer circle
+					ctx.strokeStyle = "rgba(255, 100, 100, 0.8)";
+					ctx.lineWidth = 2 / zoom;
+					ctx.beginPath();
+					ctx.arc(pointToRender.x, pointToRender.y, 8 / zoom, 0, Math.PI * 2);
+					ctx.stroke();
+
+					// Draw inner circle (filled)
+					ctx.fillStyle = "rgba(255, 100, 100, 0.7)";
+					ctx.beginPath();
+					ctx.arc(pointToRender.x, pointToRender.y, 4 / zoom, 0, Math.PI * 2);
+					ctx.fill();
+
+					// Draw name if zoomed in enough and name exists
+					if (zoom > 0.5 && pointToRender.name) {
+						ctx.fillStyle = "#ffffff";
+						ctx.font = `${12 / zoom}px sans-serif`;
+						ctx.fillText(
+							pointToRender.name,
+							pointToRender.x + 10 / zoom,
+							pointToRender.y + 4 / zoom,
+						);
+					}
+				});
+			}
+
 			// Draw grid
 			if (gridVisible) {
 				ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
@@ -686,6 +761,42 @@ export const MapCanvas = ({
 				}
 			}
 
+			// Draw point preview (when point tool is active)
+			if (mousePos && tool === "point" && canvas) {
+				// Calculate world position from screen coordinates
+				const rect = canvas.getBoundingClientRect();
+				const canvasX = mousePos.x - rect.left;
+				const canvasY = mousePos.y - rect.top;
+				const worldX = (canvasX - panX) / zoom;
+				const worldY = (canvasY - panY) / zoom;
+
+				// Draw preview circle with semi-transparency
+				ctx.globalAlpha = 0.5;
+				ctx.strokeStyle = "rgba(255, 100, 100, 0.8)";
+				ctx.lineWidth = 2 / zoom;
+				ctx.beginPath();
+				ctx.arc(worldX, worldY, 8 / zoom, 0, Math.PI * 2);
+				ctx.stroke();
+
+				ctx.fillStyle = "rgba(255, 100, 100, 0.7)";
+				ctx.beginPath();
+				ctx.arc(worldX, worldY, 4 / zoom, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.globalAlpha = 1.0;
+
+				// Draw crosshair at cursor position
+				ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
+				ctx.lineWidth = 2 / zoom;
+				const markerSize = 6 / zoom;
+
+				ctx.beginPath();
+				ctx.moveTo(worldX - markerSize, worldY);
+				ctx.lineTo(worldX + markerSize, worldY);
+				ctx.moveTo(worldX, worldY - markerSize);
+				ctx.lineTo(worldX, worldY + markerSize);
+				ctx.stroke();
+			}
+
 			// Draw selection highlight for selected entity (use refs for immediate updates)
 			const currentSelectedId = selectedEntityIdRef.current;
 			const currentTempPos = tempEntityPositionRef.current;
@@ -784,6 +895,34 @@ export const MapCanvas = ({
 				}
 			}
 
+			// Draw selection highlight for selected point
+			if (selectedPointId && mapData.points) {
+				const selectedPoint = mapData.points.find(
+					(p) => p.id === selectedPointId,
+				);
+				if (selectedPoint) {
+					const pointToRender =
+						tempPointPosition &&
+						isDraggingPoint &&
+						selectedPointId === selectedPoint.id
+							? {
+									...selectedPoint,
+									x: tempPointPosition.x,
+									y: tempPointPosition.y,
+								}
+							: selectedPoint;
+
+					// Draw selection circle
+					ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
+					ctx.lineWidth = 3 / zoom;
+					ctx.setLineDash([5 / zoom, 5 / zoom]);
+					ctx.beginPath();
+					ctx.arc(pointToRender.x, pointToRender.y, 12 / zoom, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.setLineDash([]);
+				}
+			}
+
 			// Draw rectangle preview (when dragging with rect tool)
 			if (isDrawingRect && rectStartTile && mousePos && canvas) {
 				const rect = canvas.getBoundingClientRect();
@@ -838,6 +977,9 @@ export const MapCanvas = ({
 		selectedEntityDefId,
 		selectedEntityId,
 		tempEntityPosition,
+		isDraggingPoint,
+		selectedPointId,
+		tempPointPosition,
 	]);
 
 	// Trigger render when dependencies change
@@ -858,6 +1000,9 @@ export const MapCanvas = ({
 		selectedEntityDefId,
 		selectedEntityId,
 		tempEntityPosition,
+		isDraggingPoint,
+		selectedPointId,
+		tempPointPosition,
 	]);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
@@ -893,10 +1038,30 @@ export const MapCanvas = ({
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
 			if (currentTool === "pointer") {
-				// Pointer tool: select entity at click position
+				// Pointer tool: select entity or point at click position
+				// Collect all clickable objects at this position
+				type ClickableObject =
+					| { type: "entity"; entity: EntityInstance }
+					| { type: "point"; point: PointInstance };
+				const clickableObjects: ClickableObject[] = [];
+
+				// Check for points FIRST (higher priority - they're smaller and harder to click)
+				if (mapData.points) {
+					const pointRadius = 8; // Click tolerance in world pixels
+					for (let i = mapData.points.length - 1; i >= 0; i--) {
+						const point = mapData.points[i];
+						const dx = worldX - point.x;
+						const dy = worldY - point.y;
+						const distance = Math.sqrt(dx * dx + dy * dy);
+
+						if (distance <= pointRadius) {
+							clickableObjects.push({ type: "point", point });
+						}
+					}
+				}
+
+				// Check for entities AFTER points
 				if (mapData.entities) {
-					// Check entities in reverse order (top to bottom)
-					let foundEntity = null;
 					for (let i = mapData.entities.length - 1; i >= 0; i--) {
 						const entity = mapData.entities[i];
 						const entityDef = entityManager.getEntityDefinition(
@@ -929,18 +1094,57 @@ export const MapCanvas = ({
 									worldY >= entityY &&
 									worldY <= entityY + scaledHeight
 								) {
-									foundEntity = entity;
-									break;
+									clickableObjects.push({ type: "entity", entity });
 								}
 							}
 						}
 					}
+				}
 
-					if (foundEntity) {
+				// Click-through: Hold Alt/Option key to cycle through overlapping objects
+				const isClickThrough = e.altKey && clickableObjects.length > 1;
+
+				// Don't update last click position here - wait for mouseUp to confirm it's not a drag
+
+				if (clickableObjects.length > 0) {
+					let objectToSelect: ClickableObject;
+
+					if (isClickThrough) {
+						// Cycle through objects: find currently selected object and select next one
+						let currentIndex = -1;
+
+						// Find current selection in the list
+						if (selectedEntityId) {
+							currentIndex = clickableObjects.findIndex(
+								(obj) =>
+									obj.type === "entity" && obj.entity.id === selectedEntityId,
+							);
+						} else if (selectedPointId) {
+							currentIndex = clickableObjects.findIndex(
+								(obj) =>
+									obj.type === "point" && obj.point.id === selectedPointId,
+							);
+						}
+
+						// Select next object (or first if current not found or is last)
+						const nextIndex = (currentIndex + 1) % clickableObjects.length;
+						objectToSelect = clickableObjects[nextIndex];
+					} else {
+						// Select first (topmost) object
+						objectToSelect = clickableObjects[0];
+					}
+
+					// Apply selection
+					if (objectToSelect.type === "entity") {
+						const foundEntity = objectToSelect.entity;
 						// Update both state and ref for immediate rendering
 						setSelectedEntityId(foundEntity.id);
 						selectedEntityIdRef.current = foundEntity.id;
-						// Store drag start position but don't start dragging yet
+						// Clear point selection
+						setSelectedPointId(null);
+						selectedPointIdRef.current = null;
+						onPointSelected?.(null);
+						// Always set drag start - allow dragging after selection
 						setEntityDragStart({ x: e.clientX, y: e.clientY });
 						setEntityDragOffset({
 							x: worldX - foundEntity.x,
@@ -951,10 +1155,33 @@ export const MapCanvas = ({
 						// Notify parent (this may cause a slower re-render)
 						onEntitySelected?.(foundEntity.id);
 					} else {
+						const foundPoint = objectToSelect.point;
+						// Clear entity selection
 						setSelectedEntityId(null);
 						selectedEntityIdRef.current = null;
 						onEntitySelected?.(null);
+						// Update point selection
+						setSelectedPointId(foundPoint.id);
+						selectedPointIdRef.current = foundPoint.id;
+						// Always set drag start - allow dragging after selection
+						setPointDragStart({ x: e.clientX, y: e.clientY });
+						setPointDragOffset({
+							x: worldX - foundPoint.x,
+							y: worldY - foundPoint.y,
+						});
+						// Trigger immediate render
+						renderMap.current();
+						// Notify parent
+						onPointSelected?.(foundPoint.id);
 					}
+				} else {
+					// No objects found - clear all selections
+					setSelectedEntityId(null);
+					selectedEntityIdRef.current = null;
+					setSelectedPointId(null);
+					selectedPointIdRef.current = null;
+					onEntitySelected?.(null);
+					onPointSelected?.(null);
 				}
 			} else if (currentTool === "rect") {
 				// Rectangle tool: start drawing rectangle
@@ -980,6 +1207,14 @@ export const MapCanvas = ({
 					onEntitySelected?.(null); // Clear parent's selection state too
 					// Place entity at pixel coordinates
 					onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
+				} else if (currentTool === "point") {
+					// Clear any point selection when using point tool
+					setSelectedPointId(null);
+					selectedPointIdRef.current = null;
+					setPointDragStart(null);
+					onPointSelected?.(null); // Clear parent's selection state too
+					// Place point at pixel coordinates
+					onPlacePoint?.(Math.floor(worldX), Math.floor(worldY));
 				}
 			}
 		}
@@ -1078,6 +1313,28 @@ export const MapCanvas = ({
 				// Call live update callback for sidebar
 				onEntityDragging?.(selectedEntityId, newX, newY);
 			}
+		} else if (pointDragStart && selectedPointId && currentTool === "pointer") {
+			// Check if we've moved enough to start dragging points
+			const dx = e.clientX - pointDragStart.x;
+			const dy = e.clientY - pointDragStart.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+
+			if (distance > DRAG_THRESHOLD) {
+				// Start dragging
+				if (!isDraggingPoint) {
+					setIsDraggingPoint(true);
+					// Start batching
+					onStartBatch?.();
+				}
+				// Update temp position
+				const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+				const newX = Math.floor(worldX - pointDragOffset.x);
+				const newY = Math.floor(worldY - pointDragOffset.y);
+				const newPos = { x: newX, y: newY };
+				setTempPointPosition(newPos);
+				// Call live update callback
+				onPointDragging?.(selectedPointId, newX, newY);
+			}
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			if (currentTool === "pencil") {
@@ -1110,6 +1367,9 @@ export const MapCanvas = ({
 	};
 
 	const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+		// Track if we actually dragged anything (for click-through logic)
+		let didDrag = false;
+
 		if (
 			isDraggingEntity &&
 			tempEntityPosition &&
@@ -1128,10 +1388,35 @@ export const MapCanvas = ({
 			setTempEntityPosition(null);
 			tempEntityPositionRef.current = null;
 			setEntityDragStart(null);
+			didDrag = true;
 		} else if (entityDragStart && currentTool === "pointer") {
 			// Click without drag - just clear drag start - only for pointer tool
 			setEntityDragStart(null);
-		} else if (isDrawingRect && rectStartTile) {
+		}
+
+		// Finish dragging point - commit position
+		if (isDraggingPoint && selectedPointId && tempPointPosition) {
+			onMovePoint?.(selectedPointId, tempPointPosition.x, tempPointPosition.y);
+			onEndBatch?.();
+			setIsDraggingPoint(false);
+			setTempPointPosition(null);
+			setPointDragStart(null);
+			didDrag = true;
+		} else if (pointDragStart && currentTool === "pointer") {
+			// Click without drag for point - just clear drag start
+			setPointDragStart(null);
+		}
+
+		// Update click-through tracking only if we didn't drag
+		if (currentTool === "pointer" && !didDrag) {
+			lastClickPosRef.current = {
+				x: e.clientX,
+				y: e.clientY,
+				time: Date.now(),
+			};
+		}
+
+		if (isDrawingRect && rectStartTile) {
 			// Finish drawing rectangle - place tiles in the rectangular area
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 
@@ -1169,67 +1454,115 @@ export const MapCanvas = ({
 	const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
 		e.preventDefault();
 
-		// Only show context menu for entities
-		if (currentTool !== "pointer" || !mapData.entities) {
+		// Only show context menu in pointer tool mode
+		if (currentTool !== "pointer") {
 			return;
 		}
 
 		const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
+		// Check for points FIRST (higher priority - same as click handling)
+		let foundPoint = null;
+		if (mapData.points) {
+			const pointRadius = 8;
+			for (let i = mapData.points.length - 1; i >= 0; i--) {
+				const point = mapData.points[i];
+				const dx = worldX - point.x;
+				const dy = worldY - point.y;
+				const distance = Math.sqrt(dx * dx + dy * dy);
+
+				if (distance <= pointRadius) {
+					foundPoint = point;
+					break;
+				}
+			}
+		}
+
+		if (foundPoint) {
+			// Show context menu for point
+			setContextMenu({
+				visible: true,
+				x: e.clientX,
+				y: e.clientY,
+				entityId: null,
+				pointId: foundPoint.id,
+			});
+
+			// Select the point if not already selected
+			if (selectedPointId !== foundPoint.id) {
+				setSelectedPointId(foundPoint.id);
+				selectedPointIdRef.current = foundPoint.id;
+				// Clear entity selection
+				setSelectedEntityId(null);
+				selectedEntityIdRef.current = null;
+				onEntitySelected?.(null);
+				renderMap.current();
+				onPointSelected?.(foundPoint.id);
+			}
+			return;
+		}
+
 		// Check if right-clicking on an entity (in reverse order - top to bottom)
 		let foundEntity = null;
-		for (let i = mapData.entities.length - 1; i >= 0; i--) {
-			const entity = mapData.entities[i];
-			const entityDef = entityManager.getEntityDefinition(
-				entity.tilesetId,
-				entity.entityDefId,
-			);
+		if (mapData.entities) {
+			for (let i = mapData.entities.length - 1; i >= 0; i--) {
+				const entity = mapData.entities[i];
+				const entityDef = entityManager.getEntityDefinition(
+					entity.tilesetId,
+					entity.entityDefId,
+				);
 
-			if (entityDef?.sprites && entityDef.sprites.length > 0) {
-				const firstSprite = entityDef.sprites[0];
-				if (firstSprite.sprite) {
-					const sprite = firstSprite.sprite;
-					const origin = firstSprite.origin || { x: 0.5, y: 1 };
-					const offset = firstSprite.offset || { x: 0, y: 0 };
-					const scale = entity.scale;
+				if (entityDef?.sprites && entityDef.sprites.length > 0) {
+					const firstSprite = entityDef.sprites[0];
+					if (firstSprite.sprite) {
+						const sprite = firstSprite.sprite;
+						const origin = firstSprite.origin || { x: 0.5, y: 1 };
+						const offset = firstSprite.offset || { x: 0, y: 0 };
+						const scale = entity.scale;
 
-					// Calculate scaled dimensions
-					const scaledWidth = sprite.width * scale.x;
-					const scaledHeight = sprite.height * scale.y;
+						// Calculate scaled dimensions
+						const scaledWidth = sprite.width * scale.x;
+						const scaledHeight = sprite.height * scale.y;
 
-					// Calculate entity bounds (using scaled dimensions)
-					const originOffsetX = origin.x * scaledWidth;
-					const originOffsetY = origin.y * scaledHeight;
-					const entityX = entity.x - originOffsetX + offset.x;
-					const entityY = entity.y - originOffsetY + offset.y;
+						// Calculate entity bounds (using scaled dimensions)
+						const originOffsetX = origin.x * scaledWidth;
+						const originOffsetY = origin.y * scaledHeight;
+						const entityX = entity.x - originOffsetX + offset.x;
+						const entityY = entity.y - originOffsetY + offset.y;
 
-					// Check if click is within entity bounds
-					if (
-						worldX >= entityX &&
-						worldX <= entityX + scaledWidth &&
-						worldY >= entityY &&
-						worldY <= entityY + scaledHeight
-					) {
-						foundEntity = entity;
-						break;
+						// Check if click is within entity bounds
+						if (
+							worldX >= entityX &&
+							worldX <= entityX + scaledWidth &&
+							worldY >= entityY &&
+							worldY <= entityY + scaledHeight
+						) {
+							foundEntity = entity;
+							break;
+						}
 					}
 				}
 			}
 		}
 
 		if (foundEntity) {
-			// Show context menu at cursor position
+			// Show context menu for entity
 			setContextMenu({
 				visible: true,
 				x: e.clientX,
 				y: e.clientY,
 				entityId: foundEntity.id,
+				pointId: null,
 			});
 
 			// Select the entity if not already selected
 			if (selectedEntityId !== foundEntity.id) {
 				setSelectedEntityId(foundEntity.id);
 				selectedEntityIdRef.current = foundEntity.id;
+				// Clear point selection
+				setSelectedPointId(null);
+				selectedPointIdRef.current = null;
+				onPointSelected?.(null);
 				renderMap.current();
 				onEntitySelected?.(foundEntity.id);
 			}
@@ -1300,21 +1633,23 @@ export const MapCanvas = ({
 		setZoom,
 	]);
 
-	// Handle keyboard arrow keys to move selected entity
+	// Handle keyboard arrow keys to move selected entity or point
 	useEffect(() => {
-		if (currentTool !== "pointer" || !selectedEntityId) {
+		if (currentTool !== "pointer" || (!selectedEntityId && !selectedPointId)) {
 			return;
 		}
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Only handle arrow keys
+			// Only handle arrow keys and Delete
 			if (
-				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Delete"].includes(
+					e.key,
+				)
 			) {
 				return;
 			}
 
-			// Don't move entity if user is typing in an input field
+			// Don't handle if user is typing in an input field
 			const target = e.target as HTMLElement;
 			if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
 				return;
@@ -1322,38 +1657,89 @@ export const MapCanvas = ({
 
 			e.preventDefault();
 
-			// Find the selected entity
-			const entity = mapData.entities?.find((e) => e.id === selectedEntityId);
-			if (!entity) {
+			// Handle Delete key
+			if (e.key === "Delete") {
+				if (selectedEntityId) {
+					onDeleteEntity?.(selectedEntityId);
+				} else if (selectedPointId) {
+					onDeletePoint?.(selectedPointId);
+				}
 				return;
 			}
 
-			// Calculate new position based on arrow key
-			let newX = entity.x;
-			let newY = entity.y;
+			// Handle arrow keys for entity movement
+			if (selectedEntityId) {
+				const entity = mapData.entities?.find((e) => e.id === selectedEntityId);
+				if (!entity) {
+					return;
+				}
 
-			switch (e.key) {
-				case "ArrowUp":
-					newY -= 1;
-					break;
-				case "ArrowDown":
-					newY += 1;
-					break;
-				case "ArrowLeft":
-					newX -= 1;
-					break;
-				case "ArrowRight":
-					newX += 1;
-					break;
+				// Calculate new position based on arrow key
+				let newX = entity.x;
+				let newY = entity.y;
+
+				switch (e.key) {
+					case "ArrowUp":
+						newY -= 1;
+						break;
+					case "ArrowDown":
+						newY += 1;
+						break;
+					case "ArrowLeft":
+						newX -= 1;
+						break;
+					case "ArrowRight":
+						newX += 1;
+						break;
+				}
+
+				// Move the entity
+				onMoveEntity(selectedEntityId, newX, newY);
 			}
+			// Handle arrow keys for point movement
+			else if (selectedPointId) {
+				const point = mapData.points?.find((p) => p.id === selectedPointId);
+				if (!point) {
+					return;
+				}
 
-			// Move the entity
-			onMoveEntity(selectedEntityId, newX, newY);
+				// Calculate new position based on arrow key
+				let newX = point.x;
+				let newY = point.y;
+
+				switch (e.key) {
+					case "ArrowUp":
+						newY -= 1;
+						break;
+					case "ArrowDown":
+						newY += 1;
+						break;
+					case "ArrowLeft":
+						newX -= 1;
+						break;
+					case "ArrowRight":
+						newX += 1;
+						break;
+				}
+
+				// Move the point
+				onMovePoint?.(selectedPointId, newX, newY);
+			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [currentTool, selectedEntityId, mapData.entities, onMoveEntity]);
+	}, [
+		currentTool,
+		selectedEntityId,
+		selectedPointId,
+		mapData.entities,
+		mapData.points,
+		onMoveEntity,
+		onMovePoint,
+		onDeleteEntity,
+		onDeletePoint,
+	]);
 
 	// Handle closing context menu with Escape or clicks outside
 	useEffect(() => {
@@ -1363,7 +1749,13 @@ export const MapCanvas = ({
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "Escape") {
-				setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+				setContextMenu({
+					visible: false,
+					x: 0,
+					y: 0,
+					entityId: null,
+					pointId: null,
+				});
 			}
 		};
 
@@ -1371,7 +1763,13 @@ export const MapCanvas = ({
 			// Check if click is outside the context menu
 			const target = e.target as HTMLElement;
 			if (!target.closest('[role="menu"]')) {
-				setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+				setContextMenu({
+					visible: false,
+					x: 0,
+					y: 0,
+					entityId: null,
+					pointId: null,
+				});
 			}
 		};
 
@@ -1400,13 +1798,14 @@ export const MapCanvas = ({
 				onMouseLeave={handleMouseLeave}
 				onContextMenu={handleContextMenu}
 				style={{
-					cursor: isDraggingEntity
-						? "grabbing"
-						: currentTool === "pointer" && isHoveringSelectedEntity
-							? "grab"
-							: isDragging
-								? "grabbing"
-								: "default",
+					cursor:
+						isDraggingEntity || isDraggingPoint
+							? "grabbing"
+							: currentTool === "pointer" && isHoveringSelectedEntity
+								? "grab"
+								: isDragging
+									? "grabbing"
+									: "default",
 				}}
 			/>
 			{autotilingOverride && (
@@ -1466,7 +1865,13 @@ export const MapCanvas = ({
 									}
 								}
 							}
-							setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+							setContextMenu({
+								visible: false,
+								x: 0,
+								y: 0,
+								entityId: null,
+								pointId: null,
+							});
 						}}
 						style={{
 							width: "100%",
@@ -1509,7 +1914,13 @@ export const MapCanvas = ({
 							if (contextMenu.entityId && onDuplicateEntity) {
 								onDuplicateEntity(contextMenu.entityId);
 							}
-							setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+							setContextMenu({
+								visible: false,
+								x: 0,
+								y: 0,
+								entityId: null,
+								pointId: null,
+							});
 						}}
 						style={{
 							width: "100%",
@@ -1552,7 +1963,13 @@ export const MapCanvas = ({
 							if (contextMenu.entityId && onDeleteEntity) {
 								onDeleteEntity(contextMenu.entityId);
 							}
-							setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+							setContextMenu({
+								visible: false,
+								x: 0,
+								y: 0,
+								entityId: null,
+								pointId: null,
+							});
 						}}
 						style={{
 							width: "100%",
@@ -1589,6 +2006,74 @@ export const MapCanvas = ({
 							<line x1="14" y1="11" x2="14" y2="17" />
 						</svg>
 						Delete Entity
+					</button>
+				</div>
+			)}
+			{contextMenu.visible && contextMenu.pointId && (
+				<div
+					role="menu"
+					style={{
+						position: "fixed",
+						left: `${contextMenu.x}px`,
+						top: `${contextMenu.y}px`,
+						background: "#1e1e1e",
+						border: "1px solid #454545",
+						borderRadius: "4px",
+						boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+						zIndex: 10000,
+						minWidth: "150px",
+					}}
+				>
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							if (contextMenu.pointId && onDeletePoint) {
+								onDeletePoint(contextMenu.pointId);
+							}
+							setContextMenu({
+								visible: false,
+								x: 0,
+								y: 0,
+								entityId: null,
+								pointId: null,
+							});
+						}}
+						style={{
+							width: "100%",
+							padding: "8px 12px",
+							background: "transparent",
+							border: "none",
+							color: "#ff6b6b",
+							textAlign: "left",
+							cursor: "pointer",
+							fontSize: "13px",
+							display: "flex",
+							alignItems: "center",
+							gap: "8px",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "#2a2a2a";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+						}}
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<title>Delete</title>
+							<polyline points="3 6 5 6 21 6" />
+							<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+							<line x1="10" y1="11" x2="10" y2="17" />
+							<line x1="14" y1="11" x2="14" y2="17" />
+						</svg>
+						Delete Point
 					</button>
 				</div>
 			)}

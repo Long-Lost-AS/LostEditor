@@ -49,6 +49,7 @@ export function createMockMap(overrides?: Partial<MapData>): MapData {
 		tileHeight: 16,
 		layers: [createMockLayer()],
 		entities: [],
+		points: [],
 		...overrides,
 	};
 }

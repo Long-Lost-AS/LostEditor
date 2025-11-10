@@ -11,6 +11,7 @@ import type {
 	MapDataSchema,
 	MapTabSchema,
 	MapViewStateSchema,
+	PointInstanceSchema,
 	PointSchema,
 	PolygonColliderSchema,
 	ProjectDataSchema,
@@ -114,6 +115,9 @@ export interface EntityInstance {
 	properties: Record<string, string>;
 	children: EntityInstance[];
 }
+
+// PointInstance - inferred from schema
+export type PointInstance = z.infer<typeof PointInstanceSchema>;
 
 export type LayerType = z.infer<typeof LayerTypeSchema>;
 

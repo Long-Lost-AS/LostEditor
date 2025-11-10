@@ -63,6 +63,24 @@ export const EntityIcon = ({ className, size = 16 }: IconProps) => (
 	</svg>
 );
 
+export const PointOfInterestIcon = ({ className, size = 16 }: IconProps) => (
+	<svg
+		aria-hidden="true"
+		width={size}
+		height={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		className={className}
+	>
+		<circle cx="12" cy="12" r="4" fill="currentColor" />
+		<circle cx="12" cy="12" r="8" />
+	</svg>
+);
+
 export const FileIcon = ({ className, size = 16 }: IconProps) => (
 	<svg
 		aria-hidden="true"

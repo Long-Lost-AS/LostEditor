@@ -5,6 +5,7 @@ import {
 	FillIcon,
 	PencilIcon,
 	PointerIcon,
+	PointOfInterestIcon,
 	RectangleIcon,
 } from "./Icons";
 
@@ -80,6 +81,14 @@ export const Toolbar = ({
 				title="Entity Tool"
 			>
 				<EntityIcon size={20} />
+			</button>
+			<button
+				type="button"
+				className={`tool-btn ${currentTool === "point" ? "active" : ""}`}
+				onClick={() => onToolChange("point")}
+				title="Point Tool"
+			>
+				<PointOfInterestIcon size={20} />
 			</button>
 
 			{/* Context-sensitive buttons */}

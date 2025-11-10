@@ -207,6 +207,7 @@ export const MapEditorView = ({
 			tileHeight: 16,
 			layers: [],
 			entities: [],
+			points: [],
 		},
 	);
 

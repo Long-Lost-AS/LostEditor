@@ -13,6 +13,7 @@ describe("mapSerializer", () => {
 				tileHeight: 16,
 				layers: [],
 				entities: [],
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -51,6 +52,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -98,6 +100,7 @@ describe("mapSerializer", () => {
 						children: [],
 					},
 				],
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -116,7 +119,7 @@ describe("mapSerializer", () => {
 				tileHeight: 16,
 				layers: [],
 				entities: [],
-				// entities is undefined (covered by line 38)
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -142,6 +145,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -174,6 +178,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -194,6 +199,7 @@ describe("mapSerializer", () => {
 				tileHeight: 16,
 				layers: [],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -223,6 +229,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -249,6 +256,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -281,6 +289,7 @@ describe("mapSerializer", () => {
 					} as Partial<SerializedLayer> as SerializedLayer,
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -312,6 +321,7 @@ describe("mapSerializer", () => {
 						children: [],
 					},
 				],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -355,6 +365,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -384,6 +395,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				entities: [],
+				points: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -411,6 +423,7 @@ describe("mapSerializer", () => {
 						tiles: new Array(16).fill(0).map((_, i) => i),
 					},
 				],
+				points: [],
 				entities: [
 					{
 						id: "entity-1",
@@ -445,6 +458,7 @@ describe("mapSerializer", () => {
 				tileHeight: 16,
 				layers: [],
 				entities: [],
+				points: [],
 			};
 
 			const serialized = serializeMapData(original);
