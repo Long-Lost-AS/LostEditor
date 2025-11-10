@@ -22,3 +22,10 @@ Thumbs.db
 
 # Electron
 *.electron/
+
+# Assets and icons
+assets/
+icons/
+
+# Test coverage
+coverage/
