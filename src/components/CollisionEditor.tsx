@@ -479,6 +479,7 @@ export const CollisionEditor = ({
 							name: "",
 							type: "",
 							points: drawingPoints,
+							properties: {},
 						};
 						setLocalColliders([...localColliders, newCollider]);
 						setDrawingPoints([]);
@@ -1258,7 +1259,7 @@ export const CollisionEditor = ({
 					{selectedCollider && !isDrawing && (
 						<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
 							<CustomPropertiesEditor
-								properties={selectedCollider.properties || {}}
+								properties={selectedCollider.properties}
 								onChange={handlePropertiesChange}
 							/>
 						</div>

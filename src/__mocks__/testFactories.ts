@@ -79,6 +79,7 @@ export function createMockProject(
 		tilesets: [],
 		maps: [],
 		lastModified: new Date().toISOString(),
+		openTabs: { tabs: [], activeTabId: null },
 		...overrides,
 	};
 }
@@ -96,6 +97,7 @@ export function createMockCollisionPolygon(
 			{ x: 16, y: 16 },
 			{ x: 0, y: 16 },
 		],
+		properties: {},
 		...overrides,
 	};
 }

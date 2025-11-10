@@ -1291,112 +1291,106 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				await settingsManager.save();
 
 				// Restore tabs (all resources already loaded, just match them up)
-				if (projectData.openTabs) {
-					const restoredTabs: AnyTab[] = [];
+				const restoredTabs: AnyTab[] = [];
 
-					for (const tab of projectData.openTabs.tabs || []) {
-						if (tab.type === "map") {
-							const mapTab = tab as MapTab;
+				for (const tab of projectData.openTabs.tabs) {
+					if (tab.type === "map") {
+						const mapTab = tab as MapTab;
 
-							// Find the already-loaded map by file path
-							if (mapTab.filePath) {
-								const mapId = `map-${mapTab.filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
-								const existingMap = loadedMaps.find((m) => m.id === mapId);
+						// Find the already-loaded map by file path
+						if (mapTab.filePath) {
+							const mapId = `map-${mapTab.filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+							const existingMap = loadedMaps.find((m) => m.id === mapId);
 
-								if (existingMap) {
-									// Create MapTab with reference to loaded map
-									const fullMapTab: MapTab = {
-										id: mapTab.id,
-										type: "map",
-										title: mapTab.title,
-										isDirty: false,
-										filePath: mapTab.filePath,
-										mapId: mapId,
-										mapFilePath: mapTab.filePath,
-										viewState: mapTab.viewState || {
-											zoom: 2,
-											panX: 0,
-											panY: 0,
-											currentLayerId: null,
-											gridVisible: true,
-											selectedTilesetId: null,
-											selectedTileId: null,
-											selectedEntityDefId: null,
-											currentTool: "pencil",
-										},
-									};
+							if (existingMap) {
+								// Create MapTab with reference to loaded map
+								const fullMapTab: MapTab = {
+									id: mapTab.id,
+									type: "map",
+									title: mapTab.title,
+									isDirty: false,
+									filePath: mapTab.filePath,
+									mapId: mapId,
+									mapFilePath: mapTab.filePath,
+									viewState: mapTab.viewState || {
+										zoom: 2,
+										panX: 0,
+										panY: 0,
+										currentLayerId: null,
+										gridVisible: true,
+										selectedTilesetId: null,
+										selectedTileId: null,
+										selectedEntityDefId: null,
+										currentTool: "pencil",
+									},
+								};
 
-									restoredTabs.push(fullMapTab);
-								} else {
-									console.warn(
-										`Map ${mapTab.filePath} not found in loaded maps, skipping tab`,
-									);
-								}
-							}
-						} else if (tab.type === "tileset") {
-							const tilesetTab = tab as TilesetTab;
-							const tilesetExists = tilesetManager.getTilesetById(
-								tilesetTab.tilesetId,
-							);
-							if (tilesetExists) {
-								// Mark as clean since we're loading from saved project
-								restoredTabs.push({ ...tab, isDirty: false });
+								restoredTabs.push(fullMapTab);
 							} else {
 								console.warn(
-									`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`,
+									`Map ${mapTab.filePath} not found in loaded maps, skipping tab`,
 								);
 							}
-						} else if (tab.type === "entity-editor") {
-							const entityTab = tab as EntityEditorTab;
+						}
+					} else if (tab.type === "tileset") {
+						const tilesetTab = tab as TilesetTab;
+						const tilesetExists = tilesetManager.getTilesetById(
+							tilesetTab.tilesetId,
+						);
+						if (tilesetExists) {
+							// Mark as clean since we're loading from saved project
+							restoredTabs.push({ ...tab, isDirty: false });
+						} else {
+							console.warn(
+								`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`,
+							);
+						}
+					} else if (tab.type === "entity-editor") {
+						const entityTab = tab as EntityEditorTab;
 
-							if (entityTab.filePath) {
-								// Entity should already be loaded, just retrieve it
-								const entityData = entityManager.getEntity(entityTab.filePath);
+						if (entityTab.filePath) {
+							// Entity should already be loaded, just retrieve it
+							const entityData = entityManager.getEntity(entityTab.filePath);
 
-								if (entityData) {
-									const fullEntityTab: EntityEditorTab = {
-										id: entityTab.id,
-										type: "entity-editor",
-										title: entityTab.title,
-										isDirty: false,
-										filePath: entityTab.filePath,
-										entityId: entityTab.entityId || entityTab.id,
-										entityData: entityData,
-										viewState: entityTab.viewState || {
-											scale: 1,
-											panX: 0,
-											panY: 0,
-											selectedSpriteLayerId: null,
-											selectedChildId: null,
-										},
-									};
+							if (entityData) {
+								const fullEntityTab: EntityEditorTab = {
+									id: entityTab.id,
+									type: "entity-editor",
+									title: entityTab.title,
+									isDirty: false,
+									filePath: entityTab.filePath,
+									entityId: entityTab.entityId || entityTab.id,
+									entityData: entityData,
+									viewState: entityTab.viewState || {
+										scale: 1,
+										panX: 0,
+										panY: 0,
+										selectedSpriteLayerId: null,
+										selectedChildId: null,
+									},
+								};
 
-									restoredTabs.push(fullEntityTab);
-								} else {
-									console.warn(
-										`Entity ${entityTab.filePath} not found in loaded entities, skipping tab`,
-									);
-								}
+								restoredTabs.push(fullEntityTab);
+							} else {
+								console.warn(
+									`Entity ${entityTab.filePath} not found in loaded entities, skipping tab`,
+								);
 							}
 						}
 					}
+				}
 
-					setTabs(restoredTabs);
+				setTabs(restoredTabs);
 
-					// Make sure the active tab is still in the restored tabs
-					const activeTabStillExists = restoredTabs.some(
-						(t) => t.id === projectData.openTabs?.activeTabId,
-					);
-					if (activeTabStillExists) {
-						setActiveTabId(projectData.openTabs.activeTabId || null);
-					} else if (restoredTabs.length > 0) {
-						setActiveTabId(restoredTabs[0].id);
-					} else {
-						setActiveTabId(null);
-					}
+				// Make sure the active tab is still in the restored tabs
+				const activeTabStillExists = restoredTabs.some(
+					(t) => t.id === projectData.openTabs.activeTabId,
+				);
+				if (activeTabStillExists) {
+					setActiveTabId(projectData.openTabs.activeTabId || null);
+				} else if (restoredTabs.length > 0) {
+					setActiveTabId(restoredTabs[0].id);
 				} else {
-					// No saved tabs, reset to default
-					setTabs([]);
 					setActiveTabId(null);
 				}
 
@@ -1458,6 +1452,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			maps: [],
 			projectDir: projectDir,
 			lastModified: new Date().toISOString(),
+			openTabs: { tabs: [], activeTabId: null },
 		};
 
 		// Save project file

@@ -388,6 +388,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			name: "",
 			type: "",
 			points: drawingPoints,
+			properties: {},
 		};
 
 		setLocalEntityState({
@@ -1779,7 +1780,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					{/* Custom Properties Section */}
 					<div className="p-4" style={{ borderBottom: "1px solid #3e3e42" }}>
 						<CustomPropertiesEditor
-							properties={localProperties || {}}
+							properties={localProperties}
 							onChange={handlePropertiesChange}
 						/>
 					</div>

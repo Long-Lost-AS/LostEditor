@@ -15,7 +15,7 @@ export const PolygonColliderSchema = z.object({
 	name: z.string().default(""),
 	type: z.string().default(""),
 	points: z.array(PointSchema),
-	properties: z.record(z.string(), z.string()).optional(),
+	properties: z.record(z.string(), z.string()).default({}),
 });
 
 // ===========================
@@ -280,7 +280,7 @@ export const ProjectDataSchema = z.object({
 			tabs: z.array(AnyTabSchema),
 			activeTabId: z.string().nullable(),
 		})
-		.optional(),
+		.default({ tabs: [], activeTabId: null }),
 });
 
 // ===========================

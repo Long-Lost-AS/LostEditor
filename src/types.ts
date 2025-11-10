@@ -166,7 +166,7 @@ export interface ProjectData {
 	maps: string[]; // Array of map file paths (.lostmap files)
 	projectDir?: string; // Project directory for resolving relative paths
 	lastModified: string;
-	openTabs?: TabState; // Open tabs state
+	openTabs: TabState; // Open tabs state
 }
 
 // ===========================

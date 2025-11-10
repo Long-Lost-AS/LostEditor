@@ -2069,7 +2069,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							{/* Custom Properties Section */}
 							{selectedTile?.isCompound && (
 								<CustomPropertiesEditor
-									properties={selectedTile.properties || {}}
+									properties={selectedTile.properties}
 									onChange={handlePropertiesChange}
 								/>
 							)}
