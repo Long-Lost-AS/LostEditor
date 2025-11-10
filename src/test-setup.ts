@@ -2,33 +2,36 @@ import "@testing-library/jest-dom";
 import { vi } from "vitest";
 
 // Mock HTMLCanvasElement methods
-HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
-	fillStyle: "",
-	strokeStyle: "",
-	lineWidth: 1,
-	fillRect: vi.fn(),
-	strokeRect: vi.fn(),
-	clearRect: vi.fn(),
-	beginPath: vi.fn(),
-	closePath: vi.fn(),
-	moveTo: vi.fn(),
-	lineTo: vi.fn(),
-	arc: vi.fn(),
-	fill: vi.fn(),
-	stroke: vi.fn(),
-	save: vi.fn(),
-	restore: vi.fn(),
-	scale: vi.fn(),
-	translate: vi.fn(),
-	rotate: vi.fn(),
-	setTransform: vi.fn(),
-	drawImage: vi.fn(),
-	createImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
-	getImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
-	putImageData: vi.fn(),
-	measureText: vi.fn(() => ({ width: 0 })),
-	canvas: {} as HTMLCanvasElement,
-})) as unknown as CanvasRenderingContext2D;
+HTMLCanvasElement.prototype.getContext = vi.fn(
+	() =>
+		({
+			fillStyle: "",
+			strokeStyle: "",
+			lineWidth: 1,
+			fillRect: vi.fn(),
+			strokeRect: vi.fn(),
+			clearRect: vi.fn(),
+			beginPath: vi.fn(),
+			closePath: vi.fn(),
+			moveTo: vi.fn(),
+			lineTo: vi.fn(),
+			arc: vi.fn(),
+			fill: vi.fn(),
+			stroke: vi.fn(),
+			save: vi.fn(),
+			restore: vi.fn(),
+			scale: vi.fn(),
+			translate: vi.fn(),
+			rotate: vi.fn(),
+			setTransform: vi.fn(),
+			drawImage: vi.fn(),
+			createImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
+			getImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
+			putImageData: vi.fn(),
+			measureText: vi.fn(() => ({ width: 0 })),
+			canvas: {} as HTMLCanvasElement,
+		}) as unknown as CanvasRenderingContext2D,
+) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
 // Mock HTMLImageElement
 global.Image = class MockImage {
@@ -143,7 +146,4 @@ export function resetAllMocks() {
 	});
 }
 
-// Auto-reset mocks before each test
-beforeEach(() => {
-	resetAllMocks();
-});
+// Note: beforeEach is not defined in this file, it's provided by vitest in test files

@@ -230,20 +230,20 @@ describe("bitmaskAutotiling", () => {
 
 	describe("findTileByBitmask", () => {
 		const mockTileset: TilesetData = {
+			version: "1.0",
 			name: "test",
+			id: "test-tileset-1",
+			order: 0,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			columns: 8,
-			rows: 8,
-			spacing: 0,
-			margin: 0,
-			properties: [],
 			tiles: [],
+			terrainLayers: [],
 		};
 
 		it("should return exact match when available", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-1",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 16 },
@@ -258,6 +258,7 @@ describe("bitmaskAutotiling", () => {
 
 		it("should return best match when no exact match", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-2",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 16 }, // Center-only tile
@@ -273,6 +274,7 @@ describe("bitmaskAutotiling", () => {
 
 		it("should return center tile as ultimate fallback", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-3",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 16 }, // Center-only tile
@@ -285,6 +287,7 @@ describe("bitmaskAutotiling", () => {
 
 		it("should return best match when no exact match", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-4",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 0b000000000 }, // No match (9 bits different)
@@ -299,6 +302,7 @@ describe("bitmaskAutotiling", () => {
 
 		it("should return null when no tiles in terrain layer", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-5",
 				name: "grass",
 				tiles: [],
 			};
@@ -309,6 +313,7 @@ describe("bitmaskAutotiling", () => {
 
 		it("should prefer exact match over best match", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-6",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 100 }, // Close match

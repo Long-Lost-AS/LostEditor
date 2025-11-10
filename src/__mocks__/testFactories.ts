@@ -1,11 +1,9 @@
 import type {
-	CollisionPolygon,
-	CustomProperty,
-	EntityData,
-	EntityLayer,
+	EntityDefinition,
+	Layer,
 	MapData,
+	PolygonCollider,
 	ProjectData,
-	TileLayer,
 	TilesetData,
 } from "../types";
 
@@ -17,66 +15,51 @@ export function createMockTileset(
 	overrides?: Partial<TilesetData>,
 ): TilesetData {
 	return {
+		version: "1.0",
 		name: "test-tileset",
+		id: "test-tileset-id",
+		order: 0,
 		imagePath: "/test/tileset.png",
 		tileWidth: 16,
 		tileHeight: 16,
-		columns: 8,
-		rows: 8,
-		spacing: 0,
-		margin: 0,
-		properties: [],
+		tiles: [],
+		terrainLayers: [],
 		...overrides,
 	};
 }
 
-export function createMockTileLayer(overrides?: Partial<TileLayer>): TileLayer {
+export function createMockLayer(overrides?: Partial<Layer>): Layer {
 	return {
+		id: "test-layer-1",
 		type: "tile",
 		name: "Tile Layer 1",
 		visible: true,
-		locked: false,
-		opacity: 1,
-		data: [],
-		properties: [],
-		...overrides,
-	};
-}
-
-export function createMockEntityLayer(
-	overrides?: Partial<EntityLayer>,
-): EntityLayer {
-	return {
-		type: "entity",
-		name: "Entity Layer 1",
-		visible: true,
-		locked: false,
-		opacity: 1,
-		entities: [],
-		properties: [],
+		tiles: [],
+		autotilingEnabled: true,
 		...overrides,
 	};
 }
 
 export function createMockMap(overrides?: Partial<MapData>): MapData {
 	return {
+		name: "Test Map",
 		width: 32,
 		height: 24,
 		tileWidth: 16,
 		tileHeight: 16,
-		tilesets: [],
-		layers: [createMockTileLayer()],
-		properties: [],
+		layers: [createMockLayer()],
+		entities: [],
 		...overrides,
 	};
 }
 
-export function createMockEntity(overrides?: Partial<EntityData>): EntityData {
+export function createMockEntity(
+	overrides?: Partial<EntityDefinition>,
+): EntityDefinition {
 	return {
+		id: "test-entity-id",
 		name: "test-entity",
-		spriteLayers: [],
-		collisionPolygons: [],
-		properties: [],
+		sprites: [],
 		...overrides,
 	};
 }
@@ -85,33 +68,28 @@ export function createMockProject(
 	overrides?: Partial<ProjectData>,
 ): ProjectData {
 	return {
-		name: "test-project",
 		version: "1.0.0",
+		name: "test-project",
+		tilesets: [],
+		maps: [],
+		lastModified: new Date().toISOString(),
 		...overrides,
 	};
 }
 
 export function createMockCollisionPolygon(
-	overrides?: Partial<CollisionPolygon>,
-): CollisionPolygon {
+	overrides?: Partial<PolygonCollider>,
+): PolygonCollider {
 	return {
+		id: "test-collider-id",
+		name: "test-collider",
+		type: "",
 		points: [
 			{ x: 0, y: 0 },
 			{ x: 16, y: 0 },
 			{ x: 16, y: 16 },
 			{ x: 0, y: 16 },
 		],
-		...overrides,
-	};
-}
-
-export function createMockCustomProperty(
-	overrides?: Partial<CustomProperty>,
-): CustomProperty {
-	return {
-		name: "testProperty",
-		type: "string",
-		value: "test value",
 		...overrides,
 	};
 }
@@ -158,10 +136,10 @@ export function createMockImageData(width = 32, height = 32): ImageData {
 export function createPopulatedTileLayer(
 	width: number,
 	height: number,
-	fillTileId = 0n,
-): TileLayer {
-	const data = new Array(width * height).fill(fillTileId);
-	return createMockTileLayer({ data });
+	fillTileId = 0,
+): Layer {
+	const tiles = new Array(width * height).fill(fillTileId);
+	return createMockLayer({ tiles });
 }
 
 /**

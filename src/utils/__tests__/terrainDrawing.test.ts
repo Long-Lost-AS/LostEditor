@@ -65,6 +65,21 @@ describe("terrainDrawing", () => {
 		};
 	}
 
+	// Helper to create an empty tileset (for testing tileset arrays with gaps)
+	function createEmptyTileset(index: number): TilesetData {
+		return {
+			version: "1.0",
+			id: `empty-tileset-${index}`,
+			order: index,
+			name: `empty-tileset-${index}`,
+			imagePath: `/empty${index}.png`,
+			tileWidth: 16,
+			tileHeight: 16,
+			tiles: [],
+			terrainLayers: [],
+		};
+	}
+
 	describe("isTerrainAtPosition", () => {
 		it("should return false for out of bounds positions", () => {
 			const layer = createLayer([packTileId(1, 1, 0)], 1);
@@ -299,8 +314,8 @@ describe("terrainDrawing", () => {
 			// Place with tileset index 3
 			placeTerrainTile(layer, 0, 0, 1, 1, terrainLayer, tileset, 3, [
 				tileset,
-				{},
-				{},
+				createEmptyTileset(1),
+				createEmptyTileset(2),
 				tileset,
 			]);
 
@@ -482,8 +497,8 @@ describe("terrainDrawing", () => {
 
 			updateNeighborTerrain(layer, 0, 0, 1, 1, "grass-layer-1", tileset, 3, [
 				tileset,
-				{},
-				{},
+				createEmptyTileset(1),
+				createEmptyTileset(2),
 				tileset,
 			]);
 

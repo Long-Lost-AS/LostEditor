@@ -11,44 +11,48 @@ describe("autotiling", () => {
 	// Helper to create a test layer
 	function createLayer(tiles: number[], _width: number): Layer {
 		return {
+			id: "test-layer-1",
 			type: "tile",
 			name: "Test Layer",
 			visible: true,
-			locked: false,
-			opacity: 1,
 			tiles,
-			properties: [],
+			autotilingEnabled: true,
 		};
 	}
 
 	// Helper to create a test tileset with terrain
 	function createTilesetWithTerrain(): TilesetData {
 		return {
+			version: "1.0",
 			name: "terrain-tileset",
+			id: "test-tileset-1",
+			order: 0,
 			imagePath: "/terrain.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			columns: 8,
-			rows: 8,
-			spacing: 0,
-			margin: 0,
-			properties: [],
 			tiles: [
 				{
 					id: packTileId(0, 0, 0, false, false),
+					x: 0,
+					y: 0,
 					type: "grass",
 				},
 				{
 					id: packTileId(16, 0, 0, false, false),
+					x: 16,
+					y: 0,
 					type: "grass",
 				},
 				{
 					id: packTileId(32, 0, 0, false, false),
+					x: 32,
+					y: 0,
 					type: "dirt",
 				},
 			],
 			terrainLayers: [
 				{
+					id: "grass-terrain-1",
 					name: "grass",
 					tiles: [
 						{ tileId: packTileId(0, 0, 0), bitmask: 16 }, // Center only
@@ -56,6 +60,7 @@ describe("autotiling", () => {
 					],
 				},
 				{
+					id: "dirt-terrain-1",
 					name: "dirt",
 					tiles: [{ tileId: packTileId(32, 0, 0), bitmask: 16 }],
 				},
@@ -74,21 +79,22 @@ describe("autotiling", () => {
 
 		it("should return null when tile has no terrain type", () => {
 			const tileset: TilesetData = {
+				version: "1.0",
 				name: "test",
+				id: "test-tileset-2",
+				order: 0,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [
 					{
 						id: packTileId(0, 0, 0),
+						x: 0,
+						y: 0,
 						// No type specified
 					},
 				],
+				terrainLayers: [],
 			};
 
 			const layer = createLayer([packTileId(0, 0, 0)], 1);
@@ -107,22 +113,22 @@ describe("autotiling", () => {
 
 		it("should return null when terrain layer not found", () => {
 			const tileset: TilesetData = {
+				version: "1.0",
 				name: "test",
+				id: "test-tileset-3",
+				order: 0,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [
 					{
 						id: packTileId(0, 0, 0),
+						x: 0,
+						y: 0,
 						type: "grass",
 					},
 				],
-				// No terrainLayers
+				terrainLayers: [],
 			};
 
 			const layer = createLayer([packTileId(0, 0, 0)], 1);
@@ -219,23 +225,24 @@ describe("autotiling", () => {
 			// So matchedTile is null, condition is false, should return currentTileId
 			// But... let me check what actually happens
 			const tileset: TilesetData = {
+				version: "1.0",
 				name: "test",
+				id: "test-tileset-4",
+				order: 0,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [
 					{
 						id: packTileId(0, 0, 0),
+						x: 0,
+						y: 0,
 						type: "grass",
 					},
 				],
 				terrainLayers: [
 					{
+						id: "grass-terrain-4",
 						name: "grass",
 						tiles: [], // No tiles available
 					},
@@ -415,17 +422,15 @@ describe("autotiling", () => {
 
 		it("should return empty array when no terrain layers", () => {
 			const tileset: TilesetData = {
+				version: "1.0",
 				name: "test",
+				id: "test-tileset-5",
+				order: 0,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [],
-				// No terrainLayers
+				terrainLayers: [],
 			};
 
 			const groups = getAllAutotileGroups([tileset]);
@@ -444,33 +449,29 @@ describe("autotiling", () => {
 
 		it("should combine terrain layers from multiple tilesets", () => {
 			const tileset1: TilesetData = {
+				version: "1.0",
 				name: "tileset1",
+				id: "test-tileset-6",
+				order: 0,
 				imagePath: "/1.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [],
-				terrainLayers: [{ name: "grass", tiles: [] }],
+				terrainLayers: [{ id: "grass-terrain-6", name: "grass", tiles: [] }],
 			};
 
 			const tileset2: TilesetData = {
+				version: "1.0",
 				name: "tileset2",
+				id: "test-tileset-7",
+				order: 1,
 				imagePath: "/2.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [],
 				terrainLayers: [
-					{ name: "dirt", tiles: [] },
-					{ name: "water", tiles: [] },
+					{ id: "dirt-terrain-7", name: "dirt", tiles: [] },
+					{ id: "water-terrain-7", name: "water", tiles: [] },
 				],
 			};
 
@@ -482,6 +483,7 @@ describe("autotiling", () => {
 
 		it("should preserve terrain layer data", () => {
 			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-8",
 				name: "grass",
 				tiles: [
 					{ tileId: 1, bitmask: 16 },
@@ -490,15 +492,13 @@ describe("autotiling", () => {
 			};
 
 			const tileset: TilesetData = {
+				version: "1.0",
 				name: "test",
+				id: "test-tileset-8",
+				order: 0,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				columns: 8,
-				rows: 8,
-				spacing: 0,
-				margin: 0,
-				properties: [],
 				tiles: [],
 				terrainLayers: [terrainLayer],
 			};
