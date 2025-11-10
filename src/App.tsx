@@ -10,6 +10,8 @@ import { EntitySelectMenu } from "./components/EntitySelectMenu";
 import { MapEditorView } from "./components/MapEditorView";
 import { ResourceBrowser } from "./components/ResourceBrowser";
 import { TabBar } from "./components/TabBar";
+import { TerrainLayerPickerModal } from "./components/TerrainLayerPickerModal";
+import { TilePickerModal } from "./components/TilePickerModal";
 import { TilesetEditorView } from "./components/TilesetEditorView";
 import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
@@ -47,6 +49,8 @@ const AppContent = () => {
 	const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 	const [isEntitySelectMenuOpen, setIsEntitySelectMenuOpen] = useState(false);
 	const [isTilesetSelectMenuOpen, setIsTilesetSelectMenuOpen] = useState(false);
+	const [isTilePickerOpen, setIsTilePickerOpen] = useState(false);
+	const [isTerrainPickerOpen, setIsTerrainPickerOpen] = useState(false);
 
 	// Bottom panel resize state
 	const [bottomPanelHeight, setBottomPanelHeight] = useState(250);
@@ -367,6 +371,28 @@ const AppContent = () => {
 				setIsTilesetSelectMenuOpen((prev) => !prev);
 			}
 
+			// Cmd/Ctrl+G - Toggle TilePickerModal
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "g" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				setIsTilePickerOpen((prev) => !prev);
+			}
+
+			// Cmd/Ctrl+L - Toggle TerrainLayerPickerModal
+			if (
+				(e.ctrlKey || e.metaKey) &&
+				e.key === "l" &&
+				!e.shiftKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				setIsTerrainPickerOpen((prev) => !prev);
+			}
+
 			// Cmd/Ctrl+Shift+U - Test Updater Configuration (debug only)
 			if (
 				(e.ctrlKey || e.metaKey) &&
@@ -399,7 +425,13 @@ const AppContent = () => {
 				{activeMapTab && (
 					<div className="editor-top-section">
 						<UndoRedoProvider>
-							<MapEditorView tab={activeMapTab} />
+							<MapEditorView
+								tab={activeMapTab}
+								onOpenEntitySelect={() => setIsEntitySelectMenuOpen(true)}
+								onOpenTilesetSelect={() => setIsTilesetSelectMenuOpen(true)}
+								onOpenTilePicker={() => setIsTilePickerOpen(true)}
+								onOpenTerrainPicker={() => setIsTerrainPickerOpen(true)}
+							/>
 						</UndoRedoProvider>
 					</div>
 				)}
@@ -498,6 +530,18 @@ const AppContent = () => {
 			<TilesetSelectMenu
 				isOpen={isTilesetSelectMenuOpen}
 				onClose={() => setIsTilesetSelectMenuOpen(false)}
+			/>
+
+			{/* Tile Picker Modal */}
+			<TilePickerModal
+				isOpen={isTilePickerOpen}
+				onClose={() => setIsTilePickerOpen(false)}
+			/>
+
+			{/* Terrain Layer Picker Modal */}
+			<TerrainLayerPickerModal
+				isOpen={isTerrainPickerOpen}
+				onClose={() => setIsTerrainPickerOpen(false)}
 			/>
 		</div>
 	);

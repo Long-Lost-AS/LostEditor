@@ -23,6 +23,7 @@ interface MapCanvasProps {
 	onEntitySelected?: (entityId: string | null) => void;
 	onEntityDragging?: (entityId: string, newX: number, newY: number) => void;
 	onDeleteEntity?: (entityId: string) => void;
+	onDuplicateEntity?: (entityId: string) => void;
 	onStartBatch?: () => void;
 	onEndBatch?: () => void;
 }
@@ -38,6 +39,7 @@ export const MapCanvas = ({
 	onEntitySelected,
 	onEntityDragging,
 	onDeleteEntity,
+	onDuplicateEntity,
 	onStartBatch,
 	onEndBatch,
 }: MapCanvasProps) => {
@@ -1499,6 +1501,49 @@ export const MapCanvas = ({
 							<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
 						</svg>
 						Edit Entity
+					</button>
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							if (contextMenu.entityId && onDuplicateEntity) {
+								onDuplicateEntity(contextMenu.entityId);
+							}
+							setContextMenu({ visible: false, x: 0, y: 0, entityId: null });
+						}}
+						style={{
+							width: "100%",
+							padding: "8px 12px",
+							background: "transparent",
+							border: "none",
+							color: "#cccccc",
+							textAlign: "left",
+							cursor: "pointer",
+							fontSize: "13px",
+							display: "flex",
+							alignItems: "center",
+							gap: "8px",
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = "#2a2a2a";
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = "transparent";
+						}}
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+						>
+							<title>Duplicate</title>
+							<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+						</svg>
+						Duplicate Entity
 					</button>
 					<button
 						type="button"

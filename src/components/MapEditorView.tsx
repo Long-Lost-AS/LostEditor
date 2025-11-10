@@ -34,14 +34,16 @@ import {
 } from "../utils/terrainDrawing";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { DragNumberInput } from "./DragNumberInput";
-import { EntityPanel } from "./EntityPanel";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { MapCanvas } from "./MapCanvas";
-import { TilesetPanel } from "./TilesetPanel";
 import { Toolbar } from "./Toolbar";
 
 interface MapEditorViewProps {
 	tab: MapTab;
+	onOpenEntitySelect: () => void;
+	onOpenTilesetSelect: () => void;
+	onOpenTilePicker: () => void;
+	onOpenTerrainPicker: () => void;
 }
 
 interface SortableLayerItemProps {
@@ -148,7 +150,13 @@ const SortableLayerItem = ({
 	);
 };
 
-export const MapEditorView = ({ tab }: MapEditorViewProps) => {
+export const MapEditorView = ({
+	tab,
+	onOpenEntitySelect,
+	onOpenTilesetSelect,
+	onOpenTilePicker,
+	onOpenTerrainPicker,
+}: MapEditorViewProps) => {
 	const {
 		getMapById,
 		updateMap,
@@ -692,6 +700,39 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 		[localMapData, setProjectModified, setLocalMapData],
 	);
 
+	// Handle duplicating an entity
+	const handleDuplicateEntity = useCallback(
+		(entityId: string) => {
+			if (!localMapData) return;
+
+			// Find the entity to duplicate
+			const entityToDuplicate = localMapData.entities?.find(
+				(entity) => entity.id === entityId,
+			);
+			if (!entityToDuplicate) return;
+
+			// Create a new entity with a new ID but same properties
+			// Offset it slightly so it's visible
+			const newEntity: EntityInstance = {
+				...entityToDuplicate,
+				id: `entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				x: entityToDuplicate.x + 16, // Offset by 16 pixels
+				y: entityToDuplicate.y + 16,
+			};
+
+			const newEntities = [...(localMapData.entities || []), newEntity];
+
+			setLocalMapData({
+				...localMapData,
+				entities: newEntities,
+			});
+			setProjectModified(true);
+			// Select the newly duplicated entity
+			setSelectedEntityId(newEntity.id);
+		},
+		[localMapData, setProjectModified, setLocalMapData],
+	);
+
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
@@ -1209,6 +1250,10 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 				<Toolbar
 					currentTool={tab.viewState.currentTool || "pencil"}
 					onToolChange={handleToolChange}
+					onOpenEntitySelect={onOpenEntitySelect}
+					onOpenTilesetSelect={onOpenTilesetSelect}
+					onOpenTilePicker={onOpenTilePicker}
+					onOpenTerrainPicker={onOpenTerrainPicker}
 				/>
 
 				{/* Map Canvas */}
@@ -1224,6 +1269,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onEntitySelected={setSelectedEntityId}
 						onEntityDragging={handleEntityDragging}
 						onDeleteEntity={handleDeleteEntity}
+						onDuplicateEntity={handleDuplicateEntity}
 						onStartBatch={startBatch}
 						onEndBatch={endBatch}
 					/>
@@ -1248,16 +1294,17 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			/>
 
 			{/* Right Sidebar - Tileset Panel */}
-			<div
-				className="flex flex-col"
-				style={{
-					width: `${rightPanelWidth}px`,
-					background: "#252526",
-					borderLeft: "1px solid #3e3e42",
-				}}
-			>
-				{(tab.viewState.currentTool || "pencil") === "pointer" &&
-				selectedEntityId ? (
+			{/* Right Panel - Only show when entity is selected */}
+			{(tab.viewState.currentTool || "pencil") === "pointer" &&
+			selectedEntityId ? (
+				<div
+					className="flex flex-col"
+					style={{
+						width: `${rightPanelWidth}px`,
+						background: "#252526",
+						borderLeft: "1px solid #3e3e42",
+					}}
+				>
 					<EntityPropertiesPanel
 						selectedEntityId={selectedEntityId}
 						mapData={localMapData}
@@ -1265,12 +1312,8 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						onDragStart={startBatch}
 						onDragEnd={endBatch}
 					/>
-				) : (tab.viewState.currentTool || "pencil") === "entity" ? (
-					<EntityPanel />
-				) : (
-					<TilesetPanel />
-				)}
-			</div>
+				</div>
+			) : null}
 
 			{/* Context Menu */}
 			{contextMenu &&
