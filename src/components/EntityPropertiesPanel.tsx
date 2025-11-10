@@ -149,7 +149,7 @@ export const EntityPropertiesPanel = ({
 							Rotation (degrees)
 						</div>
 						<DragNumberInput
-							value={entity.rotation || 0}
+							value={entity.rotation}
 							onChange={handleUpdateRotation}
 							onInput={handleUpdateRotation}
 							onDragStart={onDragStart}
@@ -174,9 +174,9 @@ export const EntityPropertiesPanel = ({
 								</div>
 								<div className="flex-1">
 									<DragNumberInput
-										value={entity.scale?.x || 1}
-										onChange={(x) => handleUpdateScale(x, entity.scale?.y || 1)}
-										onInput={(x) => handleUpdateScale(x, entity.scale?.y || 1)}
+										value={entity.scale.x}
+										onChange={(x) => handleUpdateScale(x, entity.scale.y)}
+										onInput={(x) => handleUpdateScale(x, entity.scale.y)}
 										onDragStart={onDragStart}
 										onDragEnd={onDragEnd}
 										dragSpeed={0.1}
@@ -191,9 +191,9 @@ export const EntityPropertiesPanel = ({
 								</div>
 								<div className="flex-1">
 									<DragNumberInput
-										value={entity.scale?.y || 1}
-										onChange={(y) => handleUpdateScale(entity.scale?.x || 1, y)}
-										onInput={(y) => handleUpdateScale(entity.scale?.x || 1, y)}
+										value={entity.scale.y}
+										onChange={(y) => handleUpdateScale(entity.scale.x, y)}
+										onInput={(y) => handleUpdateScale(entity.scale.x, y)}
 										onDragStart={onDragStart}
 										onDragEnd={onDragEnd}
 										dragSpeed={0.1}

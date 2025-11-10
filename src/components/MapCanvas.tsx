@@ -241,10 +241,8 @@ export const MapCanvas = ({
 					const offset = spriteLayer.offset || { x: 0, y: 0 };
 					const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 					const rotation =
-						parentRotation +
-						(spriteLayer.rotation || 0) +
-						(instance.rotation || 0);
-					const scale = instance.scale || { x: 1, y: 1 };
+						parentRotation + (spriteLayer.rotation || 0) + instance.rotation;
+					const scale = instance.scale;
 
 					// Calculate scaled dimensions
 					const scaledWidth = sprite.width * scale.x;
@@ -282,18 +280,16 @@ export const MapCanvas = ({
 			}
 
 			// Render children (if entity definitions support hierarchical children)
-			if (entityDef.children) {
-				entityDef.children.forEach((child: EntityDefinition) => {
-					renderEntity(
-						ctx,
-						child,
-						instance,
-						tilesetImage,
-						parentX,
-						parentY,
-						parentRotation,
-					);
-				});
+			for (const child of entityDef.children) {
+				renderEntity(
+					ctx,
+					child,
+					instance,
+					tilesetImage,
+					parentX,
+					parentY,
+					parentRotation,
+				);
 			}
 		},
 		[],
@@ -717,7 +713,7 @@ export const MapCanvas = ({
 							isDraggingEntity && currentTempPos
 								? currentTempPos.y
 								: selectedEntity.y;
-						const scale = selectedEntity.scale || { x: 1, y: 1 };
+						const scale = selectedEntity.scale;
 
 						// Calculate bounding box for the entity
 						let minX = Infinity,
@@ -912,7 +908,7 @@ export const MapCanvas = ({
 								const sprite = firstSprite.sprite;
 								const origin = firstSprite.origin || { x: 0.5, y: 1 };
 								const offset = firstSprite.offset || { x: 0, y: 0 };
-								const scale = entity.scale || { x: 1, y: 1 };
+								const scale = entity.scale;
 
 								// Calculate scaled dimensions
 								const scaledWidth = sprite.width * scale.x;
@@ -1015,7 +1011,7 @@ export const MapCanvas = ({
 						const sprite = firstSprite.sprite;
 						const origin = firstSprite.origin || { x: 0.5, y: 1 };
 						const offset = firstSprite.offset || { x: 0, y: 0 };
-						const scale = selectedEntity.scale || { x: 1, y: 1 };
+						const scale = selectedEntity.scale;
 
 						// Calculate scaled dimensions
 						const scaledWidth = sprite.width * scale.x;
@@ -1193,7 +1189,7 @@ export const MapCanvas = ({
 					const sprite = firstSprite.sprite;
 					const origin = firstSprite.origin || { x: 0.5, y: 1 };
 					const offset = firstSprite.offset || { x: 0, y: 0 };
-					const scale = entity.scale || { x: 1, y: 1 };
+					const scale = entity.scale;
 
 					// Calculate scaled dimensions
 					const scaledWidth = sprite.width * scale.x;

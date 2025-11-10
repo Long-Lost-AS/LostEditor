@@ -81,6 +81,10 @@ describe("mapSerializer", () => {
 						y: 20,
 						entityDefId: "player",
 						tilesetId: "tileset-1",
+						rotation: 0,
+						scale: { x: 1, y: 1 },
+						properties: {},
+						children: [],
 					},
 					{
 						id: "entity-2",
@@ -90,6 +94,8 @@ describe("mapSerializer", () => {
 						tilesetId: "tileset-1",
 						rotation: 45,
 						scale: { x: 2, y: 2 },
+						properties: {},
+						children: [],
 					},
 				],
 			};
@@ -300,6 +306,10 @@ describe("mapSerializer", () => {
 						y: 20,
 						entityDefId: "player",
 						tilesetId: "tileset-1",
+						rotation: 0,
+						scale: { x: 1, y: 1 },
+						properties: {},
+						children: [],
 					},
 				],
 			};
@@ -408,6 +418,10 @@ describe("mapSerializer", () => {
 						y: 50,
 						entityDefId: "player",
 						tilesetId: "tileset-1",
+						rotation: 0,
+						scale: { x: 1, y: 1 },
+						properties: {},
+						children: [],
 					},
 				],
 			};
