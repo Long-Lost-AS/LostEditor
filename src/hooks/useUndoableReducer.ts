@@ -100,7 +100,7 @@ function undoableReducer<T>(
 
 			// Add the batch start to history and keep current state as present
 			return {
-				past: [...state.past, state.batchStart].slice(-50),
+				past: [...state.past, state.batchStart as T].slice(-50),
 				present: state.present,
 				future: [], // Clear future on new change
 				isBatching: false,
@@ -187,7 +187,7 @@ export function useUndoableReducer<T>(
 		dispatch({ type: "RESET", payload: newState });
 	}, []);
 
-	const controls: UndoableControls = {
+	const controls: UndoableControls<T> = {
 		undo,
 		redo,
 		canUndo: state.past.length > 0,

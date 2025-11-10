@@ -21,6 +21,7 @@ import { createDefaultMapData, ProjectDataSchema } from "../schemas";
 import { SettingsManager } from "../settings";
 import type {
 	AnyTab,
+	EntityDefinition,
 	EntityEditorTab,
 	Layer,
 	LayerType,
@@ -38,6 +39,31 @@ import {
 } from "../utils/autotiling";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
+
+// Tauri dialog types
+declare global {
+	interface Window {
+		__TAURI__: {
+			dialog: {
+				confirm: (
+					message: string,
+					options?: { title?: string; kind?: string },
+				) => Promise<boolean>;
+				open: (options: {
+					title?: string;
+					directory?: boolean;
+					multiple?: boolean;
+					filters?: Array<{ name: string; extensions: string[] }>;
+					defaultPath?: string;
+				}) => Promise<string | string[] | null>;
+				message: (
+					message: string,
+					options?: { title?: string; kind?: string },
+				) => Promise<void>;
+			};
+		};
+	}
+}
 
 interface EditorContextType {
 	// Tab state
@@ -297,9 +323,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		onCancel: () => void;
 	} | null>(null);
 
-	// [REMOVED] Circular dependency: tabs → mapData sync
-	// Each view now manages its own state and fetches from maps array
-
 	const setPan = useCallback(
 		(x: number, y: number) => {
 			setPanX(x);
@@ -396,8 +419,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				name: `Layer ${currentMap.layers.length + 1}`,
 				visible: true,
 				type: layerType,
-				tiles: new Map(),
-				entities: [],
+				tiles: [],
 			};
 
 			updateMap(mapTab.mapId, {
@@ -548,9 +570,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Calculate cells from width/height
 						const tileWidth = selectedTileset?.tileWidth || 16;
 						const tileHeight = selectedTileset?.tileHeight || 16;
-						const widthInTiles = Math.ceil(selectedTileDef.width / tileWidth);
+						const widthInTiles = Math.ceil(
+							(selectedTileDef.width ?? 0) / tileWidth,
+						);
 						const heightInTiles = Math.ceil(
-							selectedTileDef.height / tileHeight,
+							(selectedTileDef.height ?? 0) / tileHeight,
 						);
 
 						// Place all cells of the compound tile
@@ -606,10 +630,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								const tileWidth = selectedTileset?.tileWidth || 16;
 								const tileHeight = selectedTileset?.tileHeight || 16;
 								const widthInTiles = Math.ceil(
-									selectedTileDef.width / tileWidth,
+									(selectedTileDef.width ?? 0) / tileWidth,
 								);
 								const heightInTiles = Math.ceil(
-									selectedTileDef.height / tileHeight,
+									(selectedTileDef.height ?? 0) / tileHeight,
 								);
 
 								for (let dy = 0; dy < heightInTiles; dy++) {
@@ -1028,7 +1052,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			}
 
 			const projectData: ProjectData = {
+				version: "1.0",
 				name: projectName,
+				tilesets: [],
+				maps: [],
 				projectDir,
 				lastModified: new Date().toISOString(),
 				openTabs: {
@@ -1626,7 +1653,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						if (prev.find((t) => t.id === tileset?.id)) {
 							return prev;
 						}
-						return [...prev, tileset];
+						return tileset ? [...prev, tileset] : prev;
 					});
 					setProjectModified(true);
 				}
