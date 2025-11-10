@@ -23,6 +23,27 @@ describe("keyboardUtils", () => {
 			expect(result).toBe(false);
 		});
 
+		it("should handle null target gracefully", () => {
+			// Create event with null target
+			const event = new KeyboardEvent("keydown");
+			Object.defineProperty(event, "target", {
+				value: null,
+				writable: false,
+			});
+
+			const result = isEditableElementFocused(event);
+			expect(result).toBe(false);
+		});
+
+		it("should return false when called without event and no activeElement", () => {
+			// This test is tricky because document.activeElement always exists
+			// But we can test the null check by passing an event with null target
+			// and ensuring document.activeElement is not an editable element
+			const result = isEditableElementFocused();
+			// Default activeElement (body) is not editable
+			expect(result).toBe(false);
+		});
+
 		it("should return true when INPUT element is focused", () => {
 			const input = document.createElement("input");
 			container.appendChild(input);

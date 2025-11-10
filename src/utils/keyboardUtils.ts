@@ -15,10 +15,6 @@ export function isEditableElementFocused(event?: KeyboardEvent): boolean {
 	const target =
 		(event?.target as HTMLElement) || (document.activeElement as HTMLElement);
 
-	if (!target) {
-		return false;
-	}
-
 	const tagName = target.tagName;
 
 	// Check for INPUT, TEXTAREA, or content editable elements
