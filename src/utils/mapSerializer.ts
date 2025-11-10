@@ -34,7 +34,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		tileWidth: mapData.tileWidth,
 		tileHeight: mapData.tileHeight,
 		layers: serializedLayers,
-		entities: mapData.entities || [], // Entities at map level
+		entities: mapData.entities, // Entities at map level
 	};
 }
 

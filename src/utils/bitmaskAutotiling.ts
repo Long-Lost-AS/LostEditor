@@ -106,9 +106,7 @@ export function findTileByBitmask(
 	let bestMatchScore = -1;
 	let centerTile: { tileId: number } | null = null;
 
-	const terrainTiles = terrainLayer.tiles || [];
-
-	for (const terrainTile of terrainTiles) {
+	for (const terrainTile of terrainLayer.tiles) {
 		const tileBitmask = terrainTile.bitmask;
 
 		// Check for exact match
@@ -155,8 +153,7 @@ export function getTilesForTerrain(
 	tileset: TilesetData,
 	terrainLayer: TerrainLayer,
 ): TileDefinition[] {
-	const terrainTiles = terrainLayer.tiles || [];
-	return terrainTiles
+	return terrainLayer.tiles
 		.map((tt) => tileset.tiles.find((t) => t.id === tt.tileId))
 		.filter((t): t is TileDefinition => t !== undefined);
 }

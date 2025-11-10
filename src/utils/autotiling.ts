@@ -47,7 +47,7 @@ function getTileTerrainType(
 	});
 	if (!tileDef) return null;
 
-	return tileDef.type || null;
+	return tileDef.type ?? null;
 }
 
 /**
@@ -176,9 +176,7 @@ export function getAllAutotileGroups(tilesets: TilesetData[]): TerrainLayer[] {
 	const groups: TerrainLayer[] = [];
 
 	for (const tileset of tilesets) {
-		if (tileset.terrainLayers) {
-			groups.push(...tileset.terrainLayers);
-		}
+		groups.push(...tileset.terrainLayers);
 	}
 
 	return groups;
