@@ -40,14 +40,14 @@ export interface TileDefinition {
 
 export interface EntityDefinition {
 	id: string;
-	name?: string;
-	type?: string;
+	name: string;
+	type: string;
 	sprites: SpriteLayer[]; // Multiple sprite layers for composition
-	offset?: { x: number; y: number };
-	rotation?: number;
-	colliders?: PolygonCollider[]; // Multiple colliders
-	children?: EntityDefinition[];
-	properties?: Record<string, string>; // Default custom properties
+	offset: { x: number; y: number };
+	rotation: number;
+	colliders: PolygonCollider[]; // Multiple colliders
+	children: EntityDefinition[];
+	properties: Record<string, string>; // Default custom properties
 	filePath?: string; // Path to .lostentity file (undefined for inline entities)
 }
 
@@ -103,10 +103,10 @@ export interface EntityInstance {
 	y: number; // Position on map (pixel coordinates)
 	entityDefId: string; // Reference to entity definition
 	tilesetId: string; // Reference to tileset containing the entity
-	rotation?: number; // Instance-specific rotation override
-	scale?: { x: number; y: number };
-	properties?: Record<string, string>;
-	children?: EntityInstance[]; // Instance-specific child overrides
+	rotation: number;
+	scale: { x: number; y: number };
+	properties: Record<string, string>;
+	children: EntityInstance[];
 }
 
 export type LayerType = z.infer<typeof LayerTypeSchema>;

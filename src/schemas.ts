@@ -84,27 +84,27 @@ export const TerrainLayerSchema = z.object({
 export const EntityDefinitionSchema: z.ZodType<EntityDefinition> = z.lazy(() =>
 	z.object({
 		id: z.string(),
-		name: z.string().optional(),
-		type: z.string().optional(),
+		name: z.string().default(""),
+		type: z.string().default(""),
 		sprites: z.array(SpriteLayerSchema).default([]),
 		offset: z
 			.object({
 				x: z.number(),
 				y: z.number(),
 			})
-			.optional(),
-		rotation: z.number().optional(),
-		colliders: z.array(PolygonColliderSchema).optional(),
-		children: z.array(EntityDefinitionSchema).optional(),
-		properties: z.record(z.string(), z.string()).optional(),
+			.default({ x: 0, y: 0 }),
+		rotation: z.number().default(0),
+		colliders: z.array(PolygonColliderSchema).default([]),
+		children: z.array(EntityDefinitionSchema).default([]),
+		properties: z.record(z.string(), z.string()).default({}),
 		filePath: z.string().optional(),
 	}),
 );
 
 export const TilesetDataSchema = z.object({
-	version: z.string().optional().default("1.0"),
+	version: z.string().default("1.0"),
 	name: z.string(),
-	id: z.string().optional(),
+	id: z.string().default(""),
 	order: z.number().int().nonnegative(), // Numeric order for deterministic ordering
 	imagePath: z.string(),
 	tileWidth: z.number(),
@@ -125,15 +125,15 @@ export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 		y: z.number(),
 		entityDefId: z.string(),
 		tilesetId: z.string(),
-		rotation: z.number().optional(),
+		rotation: z.number().default(0),
 		scale: z
 			.object({
 				x: z.number(),
 				y: z.number(),
 			})
-			.optional(),
-		properties: z.record(z.string(), z.string()).optional(),
-		children: z.array(EntityInstanceSchema).optional(),
+			.default({ x: 1, y: 1 }),
+		properties: z.record(z.string(), z.string()).default({}),
+		children: z.array(EntityInstanceSchema).default([]),
 	}),
 );
 

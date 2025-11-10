@@ -59,7 +59,13 @@ export function createMockEntity(
 	return {
 		id: "test-entity-id",
 		name: "test-entity",
+		type: "",
 		sprites: [],
+		offset: { x: 0, y: 0 },
+		rotation: 0,
+		colliders: [],
+		children: [],
+		properties: {},
 		...overrides,
 	};
 }

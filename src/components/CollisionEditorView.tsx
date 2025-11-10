@@ -74,7 +74,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				entity,
 				width: Math.max(bbox.width, 1),
 				height: Math.max(bbox.height, 1),
-				colliders: entity.colliders || [],
+				colliders: entity.colliders,
 				backgroundImage: undefined, // SpriteLayer doesn't have imageData
 				backgroundRect: bbox,
 			};

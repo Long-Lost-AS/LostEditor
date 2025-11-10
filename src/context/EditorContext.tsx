@@ -1892,8 +1892,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const entity: EntityDefinition = {
 			id: `entity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			name: "New Entity",
+			type: "",
 			sprites: [],
+			offset: { x: 0, y: 0 },
+			rotation: 0,
 			colliders: [],
+			children: [],
+			properties: {},
 			filePath: result.filePath,
 		};
 

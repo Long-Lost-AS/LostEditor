@@ -110,6 +110,10 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 			y,
 			entityDefId,
 			tilesetId,
+			rotation: 0,
+			scale: { x: 1, y: 1 },
+			properties: {},
+			children: [],
 		};
 	}
 
@@ -127,10 +131,9 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 	): Transform {
 		const x = parentTransform.x + entity.x;
 		const y = parentTransform.y + entity.y;
-		const rotation = (parentTransform.rotation || 0) + (entity.rotation || 0);
-		const entityScale = entity.scale || { x: 1, y: 1 };
-		const scaleX = parentTransform.scale.x * entityScale.x;
-		const scaleY = parentTransform.scale.y * entityScale.y;
+		const rotation = parentTransform.rotation + entity.rotation;
+		const scaleX = parentTransform.scale.x * entity.scale.x;
+		const scaleY = parentTransform.scale.y * entity.scale.y;
 
 		const transform: Transform = {
 			x,
@@ -140,10 +143,8 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 		};
 
 		// Apply to children
-		if (entity.children) {
-			for (const child of entity.children) {
-				this.applyTransformRecursive(child, transform);
-			}
+		for (const child of entity.children) {
+			this.applyTransformRecursive(child, transform);
 		}
 
 		return transform;

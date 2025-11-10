@@ -38,8 +38,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		},
 	] = useUndoableReducer<EntityUndoState>({
 		sprites: entityData.sprites || [],
-		colliders: entityData.colliders || [],
-		properties: entityData.properties || {},
+		colliders: entityData.colliders,
+		properties: entityData.properties,
 	});
 
 	// Extract individual parts for convenience
@@ -60,8 +60,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Switching to a different entity, reset unified history
 			resetEntityHistory({
 				sprites: entityData.sprites || [],
-				colliders: entityData.colliders || [],
-				properties: entityData.properties || {},
+				colliders: entityData.colliders,
+				properties: entityData.properties,
 			});
 		}
 		prevEntityIdRef.current = entityData.id;
@@ -109,8 +109,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [isEditingType, setIsEditingType] = useState(false);
-	const [editedName, setEditedName] = useState(entityData.name || "");
-	const [editedType, setEditedType] = useState(entityData.type || "");
+	const [editedName, setEditedName] = useState(entityData.name);
+	const [editedType, setEditedType] = useState(entityData.type);
 	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
 		string | null
 	>(null);
@@ -182,8 +182,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Reset editing state when switching tabs to prevent showing stale data
 	useEffect(() => {
-		setEditedName(entityData.name || "");
-		setEditedType(entityData.type || "");
+		setEditedName(entityData.name);
+		setEditedType(entityData.type);
 		setIsEditingName(false);
 		setIsEditingType(false);
 	}, [entityData.name, entityData.type]);
@@ -1692,7 +1692,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									onKeyDown={(e) => {
 										if (e.key === "Enter") handleNameSave();
 										if (e.key === "Escape") {
-											setEditedName(entityData.name || "");
+											setEditedName(entityData.name);
 											setIsEditingName(false);
 										}
 									}}
@@ -1742,7 +1742,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									onKeyDown={(e) => {
 										if (e.key === "Enter") handleTypeSave();
 										if (e.key === "Escape") {
-											setEditedType(entityData.type || "");
+											setEditedType(entityData.type);
 											setIsEditingType(false);
 										}
 									}}

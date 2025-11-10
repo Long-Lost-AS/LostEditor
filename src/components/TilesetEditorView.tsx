@@ -369,7 +369,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.fillStyle = "rgba(255, 0, 255, 0.2)";
 			ctx.lineWidth = 2 / viewState.scale;
 			for (const tile of tilesetData.tiles) {
-				if (!tile.colliders) continue;
+				if (tile.colliders.length === 0) continue;
 
 				for (const collider of tile.colliders) {
 					if (collider.points.length > 2) {
