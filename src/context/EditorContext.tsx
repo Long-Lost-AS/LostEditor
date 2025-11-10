@@ -155,7 +155,6 @@ interface EditorContextType {
 	removeLayer: (layerId: string) => void;
 	updateLayerVisibility: (layerId: string, visible: boolean) => void;
 	updateLayerName: (layerId: string, name: string) => void;
-	updateLayerAutotiling: (layerId: string, enabled: boolean) => void;
 	reorderLayers: (newLayersOrder: Layer[]) => void;
 
 	// Tile Actions
@@ -490,24 +489,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[getActiveMapTab, getMapById, updateMap],
 	);
 
-	const updateLayerAutotiling = useCallback(
-		(layerId: string, enabled: boolean) => {
-			const mapTab = getActiveMapTab();
-			if (!mapTab) return;
-
-			const currentMap = getMapById(mapTab.mapId);
-			if (!currentMap) return;
-
-			updateMap(mapTab.mapId, {
-				layers: currentMap.layers.map((l) =>
-					l.id === layerId ? { ...l, autotilingEnabled: enabled } : l,
-				),
-			});
-			setProjectModified(true);
-		},
-		[getActiveMapTab, getMapById, updateMap],
-	);
-
 	const reorderLayers = useCallback(
 		(newLayersOrder: Layer[]) => {
 			const mapTab = getActiveMapTab();
@@ -615,9 +596,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 					let updatedLayer = { ...layer, tiles: newTiles };
 
-					// Apply autotiling if enabled and not overridden
-					const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
-					if (autotilingEnabled && !autotilingOverride) {
+					// Apply autotiling if not overridden
+					if (!autotilingOverride) {
 						// Get all autotile groups from loaded tilesets
 						const autotileGroups = getAllAutotileGroups(tilesets);
 
@@ -713,8 +693,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					let updatedLayer = { ...layer, tiles: newTiles };
 
 					// Apply autotiling to neighbors after erasing
-					const autotilingEnabled = layer.autotilingEnabled !== false; // Default to true
-					if (autotilingEnabled && !autotilingOverride) {
+					if (!autotilingOverride) {
 						// Get all autotile groups from loaded tilesets
 						const autotileGroups = getAllAutotileGroups(tilesets);
 
@@ -2316,7 +2295,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		removeLayer,
 		updateLayerVisibility,
 		updateLayerName,
-		updateLayerAutotiling,
 		reorderLayers,
 		placeTile,
 		eraseTile,

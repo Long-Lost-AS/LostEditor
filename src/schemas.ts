@@ -1,8 +1,6 @@
 import { z } from "zod";
 import type { EntityDefinition, EntityInstance } from "./types";
 
-// Note: BigIntSchema removed - we now use regular numbers for tile IDs
-
 // ===========================
 // Collision Schemas
 // ===========================
@@ -121,8 +119,6 @@ export const TilesetDataSchema = z.object({
 // Map Schemas
 // ===========================
 
-// TileSchema removed - tiles are now stored as dense array of numbers
-
 // Entity instance is also recursive
 export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 	z.object({
@@ -151,7 +147,6 @@ export const LayerSchema = z.object({
 	visible: z.boolean(),
 	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
-	autotilingEnabled: z.boolean().optional().default(true),
 });
 
 export const MapDataSchema = z.object({
@@ -171,7 +166,6 @@ export const SerializedLayerSchema = z.object({
 	visible: z.boolean(),
 	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
-	autotilingEnabled: z.boolean().optional().default(true),
 });
 
 export const SerializedMapDataSchema = z.object({
@@ -339,7 +333,6 @@ export function createDefaultLayer(
 		type,
 		tiles: [],
 		entities: [],
-		autotilingEnabled: true,
 	});
 }
 
@@ -365,7 +358,6 @@ export function createDefaultMapData(
 				type: "tile" as const,
 				tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
 				entities: [],
-				autotilingEnabled: true,
 			},
 		],
 		entities: [], // Map-level entities

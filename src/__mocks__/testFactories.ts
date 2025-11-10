@@ -35,7 +35,6 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 		name: "Tile Layer 1",
 		visible: true,
 		tiles: [],
-		autotilingEnabled: true,
 		...overrides,
 	};
 }

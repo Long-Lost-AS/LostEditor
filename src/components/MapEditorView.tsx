@@ -53,7 +53,6 @@ interface SortableLayerItemProps {
 	onDoubleClick: () => void;
 	onContextMenu: (e: React.MouseEvent) => void;
 	onVisibilityChange: (visible: boolean) => void;
-	onAutotilingChange: (enabled: boolean) => void;
 	onNameChange: (name: string) => void;
 	onNameSubmit: () => void;
 	onKeyDown: (e: React.KeyboardEvent) => void;
@@ -68,7 +67,6 @@ const SortableLayerItem = ({
 	onDoubleClick,
 	onContextMenu,
 	onVisibilityChange,
-	onAutotilingChange,
 	onNameChange,
 	onNameSubmit,
 	onKeyDown,
@@ -128,30 +126,6 @@ const SortableLayerItem = ({
 				title="Toggle visibility"
 				style={{ accentColor: "#007acc" }}
 			/>
-			{layer.type === "tile" && (
-				<button
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onAutotilingChange(!(layer.autotilingEnabled !== false));
-					}}
-					title={
-						layer.autotilingEnabled !== false
-							? "Autotiling ON"
-							: "Autotiling OFF"
-					}
-					style={{
-						background: "none",
-						border: "none",
-						cursor: "pointer",
-						padding: "2px 4px",
-						opacity: layer.autotilingEnabled !== false ? 1 : 0.3,
-						fontSize: "14px",
-					}}
-				>
-					🗠
-				</button>
-			)}
 			{isEditing ? (
 				<input
 					type="text"
@@ -381,7 +355,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			type: "tile" as const,
 			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
 			entities: [],
-			autotilingEnabled: true,
 		};
 		if (!localMapData) return;
 		setLocalMapData({
@@ -427,16 +400,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 			...localMapData,
 			layers: localMapData.layers.map((l) =>
 				l.id === layerId ? { ...l, name } : l,
-			),
-		});
-	};
-
-	const handleUpdateLayerAutotiling = (layerId: string, enabled: boolean) => {
-		if (!localMapData?.layers) return;
-		setLocalMapData({
-			...localMapData,
-			layers: localMapData.layers.map((l) =>
-				l.id === layerId ? { ...l, autotilingEnabled: enabled } : l,
 			),
 		});
 	};
@@ -584,8 +547,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						updatedLayer = { ...layer, tiles: newTiles };
 
 						// Apply autotiling to neighbors
-						const autotilingEnabled = layer.autotilingEnabled !== false;
-						if (autotilingEnabled && !autotilingOverride) {
+						if (!autotilingOverride) {
 							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
@@ -852,8 +814,7 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 						let updatedLayer = { ...layer, tiles: newTiles };
 
 						// Apply autotiling if enabled
-						const autotilingEnabled = layer.autotilingEnabled !== false;
-						if (autotilingEnabled && !autotilingOverride) {
+						if (!autotilingOverride) {
 							const autotileGroups = getAllAutotileGroups(tilesets);
 
 							if (autotileGroups.length > 0) {
@@ -1174,9 +1135,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 														onVisibilityChange={(visible) =>
 															handleUpdateLayerVisibility(layer.id, visible)
 														}
-														onAutotilingChange={(enabled) =>
-															handleUpdateLayerAutotiling(layer.id, enabled)
-														}
 														onNameChange={setEditingLayerName}
 														onNameSubmit={() => handleLayerNameSubmit(layer.id)}
 														onKeyDown={(e) =>
@@ -1209,29 +1167,6 @@ export const MapEditorView = ({ tab }: MapEditorViewProps) => {
 																title="Toggle visibility"
 																style={{ accentColor: "#007acc" }}
 															/>
-															{activeLayer.type === "tile" && (
-																<button
-																	type="button"
-																	title={
-																		activeLayer.autotilingEnabled !== false
-																			? "Autotiling ON"
-																			: "Autotiling OFF"
-																	}
-																	style={{
-																		background: "none",
-																		border: "none",
-																		cursor: "pointer",
-																		padding: "2px 4px",
-																		opacity:
-																			activeLayer.autotilingEnabled !== false
-																				? 1
-																				: 0.3,
-																		fontSize: "14px",
-																	}}
-																>
-																	🗠
-																</button>
-															)}
 															<span className="flex-1 select-none">
 																{activeLayer.name}
 															</span>

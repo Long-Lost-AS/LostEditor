@@ -116,7 +116,6 @@ export interface Layer {
 	visible: boolean;
 	type: LayerType;
 	tiles: number[]; // Dense array of packed tile IDs (width * height entries, 0 = empty)
-	autotilingEnabled?: boolean; // Whether autotiling is enabled for this layer (default: true)
 }
 
 export interface MapData {
@@ -141,7 +140,6 @@ export interface SerializedLayer {
 	visible: boolean;
 	type: LayerType;
 	tiles: number[]; // Dense array of packed tile IDs (width * height entries)
-	autotilingEnabled?: boolean;
 }
 
 // Serialized map format (what's stored in .lostmap files version 4.0)

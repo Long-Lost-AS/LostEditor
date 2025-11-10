@@ -27,7 +27,6 @@ interface SortableLayerItemProps {
 	onLayerClick: (layer: Layer) => void;
 	onDoubleClick: (layer: Layer) => void;
 	onVisibilityChange: (layerId: string, visible: boolean) => void;
-	onAutotilingChange: (layerId: string, enabled: boolean) => void;
 	onNameChange: (name: string) => void;
 	onNameSubmit: (layerId: string) => void;
 	onKeyDown: (e: React.KeyboardEvent, layerId: string) => void;
@@ -41,7 +40,6 @@ const SortableLayerItem = ({
 	onLayerClick,
 	onDoubleClick,
 	onVisibilityChange,
-	onAutotilingChange,
 	onNameChange,
 	onNameSubmit,
 	onKeyDown,
@@ -91,30 +89,6 @@ const SortableLayerItem = ({
 				onClick={(e) => e.stopPropagation()}
 				title="Toggle visibility"
 			/>
-			{layer.type === "tile" && (
-				<button
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						onAutotilingChange(layer.id, !(layer.autotilingEnabled !== false));
-					}}
-					title={
-						layer.autotilingEnabled !== false
-							? "Autotiling ON"
-							: "Autotiling OFF"
-					}
-					style={{
-						background: "none",
-						border: "none",
-						cursor: "pointer",
-						padding: "2px 4px",
-						opacity: layer.autotilingEnabled !== false ? 1 : 0.3,
-						fontSize: "14px",
-					}}
-				>
-					🗠
-				</button>
-			)}
 			{isEditing ? (
 				<input
 					type="text"
@@ -141,7 +115,6 @@ export const LayersPanel = () => {
 		removeLayer,
 		updateLayerVisibility,
 		updateLayerName,
-		updateLayerAutotiling,
 		reorderLayers,
 	} = useEditor();
 
@@ -256,7 +229,6 @@ export const LayersPanel = () => {
 								onLayerClick={setCurrentLayer}
 								onDoubleClick={handleDoubleClick}
 								onVisibilityChange={updateLayerVisibility}
-								onAutotilingChange={updateLayerAutotiling}
 								onNameChange={setEditingName}
 								onNameSubmit={handleNameSubmit}
 								onKeyDown={handleKeyDown}
@@ -273,26 +245,6 @@ export const LayersPanel = () => {
 								readOnly
 								title="Toggle visibility"
 							/>
-							{activeLayer.type === "tile" && (
-								<button
-									type="button"
-									title={
-										activeLayer.autotilingEnabled !== false
-											? "Autotiling ON"
-											: "Autotiling OFF"
-									}
-									style={{
-										background: "none",
-										border: "none",
-										cursor: "pointer",
-										padding: "2px 4px",
-										opacity: activeLayer.autotilingEnabled !== false ? 1 : 0.3,
-										fontSize: "14px",
-									}}
-								>
-									🗠
-								</button>
-							)}
 							<span>{activeLayer.name}</span>
 						</div>
 					) : null}

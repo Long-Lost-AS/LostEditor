@@ -16,7 +16,6 @@ describe("autotiling", () => {
 			name: "Test Layer",
 			visible: true,
 			tiles,
-			autotilingEnabled: true,
 		};
 	}
 
