@@ -13,9 +13,9 @@ export const PointSchema = z.object({
 });
 
 export const PolygonColliderSchema = z.object({
-	id: z.string().optional(),
-	name: z.string().optional(),
-	type: z.string().optional(),
+	id: z.string().default(""),
+	name: z.string().default(""),
+	type: z.string().default(""),
 	points: z.array(PointSchema),
 	properties: z.record(z.string(), z.string()).optional(),
 });

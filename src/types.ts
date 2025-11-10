@@ -1,14 +1,11 @@
+import type { z } from "zod";
+import type { PolygonColliderSchema } from "./schemas";
+
 // ===========================
 // Collision Types
 // ===========================
 
-export interface PolygonCollider {
-	id?: string;
-	name?: string;
-	type?: string;
-	points: Array<{ x: number; y: number }>;
-	properties?: Record<string, string>;
-}
+export type PolygonCollider = z.infer<typeof PolygonColliderSchema>;
 
 // ===========================
 // Tileset Types
