@@ -379,6 +379,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		const newCollider: PolygonCollider = {
 			id: `collider-${Date.now()}`,
+			name: "",
+			type: "",
 			points: drawingPoints,
 		};
 
@@ -1625,7 +1627,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const snappedY = Math.round(contextMenu.insertPosition.y);
 
 			const updatedColliders = localColliders.map((c) => {
-				if (c.id === contextMenu.colliderId) {
+				if (
+					c.id === contextMenu.colliderId &&
+					contextMenu.edgeIndex !== undefined
+				) {
 					const newPoints = [...c.points];
 					newPoints.splice(contextMenu.edgeIndex + 1, 0, {
 						x: snappedX,

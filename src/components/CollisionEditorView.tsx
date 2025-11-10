@@ -34,15 +34,15 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				type: "tile" as const,
 				tileset,
 				tile,
-				width: tile.width,
-				height: tile.height,
+				width: tile.width ?? tileset.tileWidth,
+				height: tile.height ?? tileset.tileHeight,
 				colliders: tile.colliders || [],
 				backgroundImage: tileset.imageData,
 				backgroundRect: {
 					x: tile.x,
 					y: tile.y,
-					width: tile.width,
-					height: tile.height,
+					width: tile.width ?? tileset.tileWidth,
+					height: tile.height ?? tileset.tileHeight,
 				},
 			};
 		} else {
@@ -57,13 +57,14 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 
 			const entity = entityTab.entityData;
 
-			// Calculate bounding box for entity
-			const bbox = entity.spriteLayer
+			// Calculate bounding box for entity (use first sprite layer)
+			const firstSprite = entity.sprites?.[0];
+			const bbox = firstSprite
 				? {
-						x: entity.spriteLayer.x,
-						y: entity.spriteLayer.y,
-						width: entity.spriteLayer.width,
-						height: entity.spriteLayer.height,
+						x: firstSprite.sprite.x,
+						y: firstSprite.sprite.y,
+						width: firstSprite.sprite.width,
+						height: firstSprite.sprite.height,
 					}
 				: { x: 0, y: 0, width: 32, height: 32 };
 
@@ -74,7 +75,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				width: Math.max(bbox.width, 1),
 				height: Math.max(bbox.height, 1),
 				colliders: entity.colliders || [],
-				backgroundImage: entity.spriteLayer?.imageData,
+				backgroundImage: undefined, // SpriteLayer doesn't have imageData
 				backgroundRect: bbox,
 			};
 		}

@@ -21,9 +21,9 @@ export const PropertiesPanel = () => {
 		}
 	}, [
 		activeMap?.id,
-		activeMap.height,
-		activeMap.tileHeight,
-		activeMap.tileWidth,
+		activeMap?.height,
+		activeMap?.tileHeight,
+		activeMap?.tileWidth,
 		activeMap,
 	]);
 

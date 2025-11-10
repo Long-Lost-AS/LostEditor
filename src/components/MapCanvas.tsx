@@ -156,7 +156,9 @@ export const MapCanvas = ({
 		const visited = new Set<number>();
 
 		while (queue.length > 0) {
-			const { x, y } = queue.shift();
+			const pos = queue.shift();
+			if (!pos) continue;
+			const { x, y } = pos;
 			const index = y * mapData.width + x;
 
 			// Skip if out of bounds
