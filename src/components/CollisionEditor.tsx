@@ -2,6 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { PolygonCollider } from "../types";
+import {
+	canClosePolygon,
+	findEdgeAtPosition as findEdgeAtPos,
+	findPointAtPosition as findPointAtPos,
+	isPointInPolygon,
+} from "../utils/collisionGeometry";
+import {
+	getDefaultColliderOptions,
+	renderCollider,
+	renderControlPoints,
+	renderDrawingPreview,
+} from "../utils/collisionRendering";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
@@ -170,101 +182,53 @@ export const CollisionEditor = ({
 			}
 
 			// Draw completed colliders
+			const colliderOptions = getDefaultColliderOptions("editor");
 			localColliders.forEach((collider) => {
 				if (collider.points.length === 0) return;
 
 				const isSelected = collider.id === selectedColliderId;
 
-				// Fill
-				ctx.fillStyle = isSelected
-					? "rgba(255, 0, 255, 0.25)"
-					: "rgba(255, 0, 255, 0.1)";
-				ctx.beginPath();
-				ctx.moveTo(collider.points[0].x, collider.points[0].y);
-				for (let i = 1; i < collider.points.length; i++) {
-					ctx.lineTo(collider.points[i].x, collider.points[i].y);
-				}
-				ctx.closePath();
-				ctx.fill();
-
-				// Stroke
-				ctx.strokeStyle = isSelected
-					? "rgba(255, 0, 255, 0.9)"
-					: "rgba(255, 0, 255, 0.5)";
-				ctx.lineWidth = 2 / scale;
-				ctx.stroke();
+				// Render collider using shared utility
+				renderCollider(ctx, collider, {
+					...colliderOptions,
+					lineWidth: 2 / scale,
+					isSelected,
+					fillColor: isSelected
+						? "rgba(255, 0, 255, 0.25)"
+						: "rgba(255, 0, 255, 0.1)",
+					strokeColor: isSelected
+						? "rgba(255, 0, 255, 0.9)"
+						: "rgba(255, 0, 255, 0.5)",
+				});
 
 				// Draw control points for selected collider
 				if (isSelected) {
-					collider.points.forEach((point, index) => {
-						const isPointSelected = index === selectedPointIndex;
-						ctx.fillStyle = isPointSelected
-							? "rgba(255, 255, 0, 0.9)"
-							: "rgba(255, 0, 255, 0.9)";
-						ctx.beginPath();
-						ctx.arc(
-							point.x,
-							point.y,
-							(isPointSelected ? 6 : 4) / scale,
-							0,
-							Math.PI * 2,
-						);
-						ctx.fill();
-
-						ctx.fillStyle = "#fff";
-						ctx.font = `${10 / scale}px monospace`;
-						ctx.fillText(
-							index.toString(),
-							point.x + 8 / scale,
-							point.y - 8 / scale,
-						);
-					});
+					renderControlPoints(
+						ctx,
+						collider.points,
+						{
+							color: "rgba(255, 0, 255, 0.9)",
+							radius: 4 / scale,
+							selectedColor: "rgba(255, 255, 0, 0.9)",
+							showIndices: true,
+							fontSize: 10 / scale,
+							textColor: "#fff",
+						},
+						selectedPointIndex,
+					);
 				}
 			});
 
 			// Draw in-progress polygon
 			if (isDrawing && drawingPoints.length > 0) {
-				// Draw lines
-				ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
-				ctx.lineWidth = 2 / scale;
-				ctx.beginPath();
-				ctx.moveTo(drawingPoints[0].x, drawingPoints[0].y);
-				for (let i = 1; i < drawingPoints.length; i++) {
-					ctx.lineTo(drawingPoints[i].x, drawingPoints[i].y);
-				}
-				ctx.stroke();
-
-				// Draw points
-				drawingPoints.forEach((point, index) => {
-					ctx.fillStyle =
-						index === 0
-							? "rgba(255, 100, 100, 0.9)"
-							: "rgba(100, 150, 255, 0.9)";
-					ctx.beginPath();
-					ctx.arc(
-						point.x,
-						point.y,
-						(index === 0 ? 6 : 4) / scale,
-						0,
-						Math.PI * 2,
-					);
-					ctx.fill();
+				renderDrawingPreview(ctx, drawingPoints, mousePos, {
+					strokeColor: "rgba(100, 150, 255, 0.8)",
+					pointColor: "rgba(100, 150, 255, 0.9)",
+					lineWidth: 2 / scale,
+					pointRadius: 4 / scale,
+					firstPointHighlightColor: "rgba(255, 100, 100, 0.9)",
+					canClose: drawingPoints.length >= 3,
 				});
-
-				// Highlight first point if we have at least 3 points
-				if (drawingPoints.length >= 3) {
-					ctx.strokeStyle = "rgba(255, 100, 100, 0.9)";
-					ctx.lineWidth = 3 / scale;
-					ctx.beginPath();
-					ctx.arc(
-						drawingPoints[0].x,
-						drawingPoints[0].y,
-						8 / scale,
-						0,
-						Math.PI * 2,
-					);
-					ctx.stroke();
-				}
 			}
 
 			// Draw 1px grid
@@ -301,6 +265,7 @@ export const CollisionEditor = ({
 		pan,
 		backgroundImage,
 		backgroundRect,
+		mousePos,
 	]);
 
 	// Setup wheel event listener for zoom and pan
@@ -368,46 +333,23 @@ export const CollisionEditor = ({
 		};
 	};
 
+	// Helper wrappers using the shared collision geometry utilities
 	const findPointAtPosition = (
 		points: Array<{ x: number; y: number }>,
 		x: number,
 		y: number,
 	): number | null => {
 		const threshold = 8 / scale;
-		for (let i = 0; i < points.length; i++) {
-			const dx = points[i].x - x;
-			const dy = points[i].y - y;
-			if (Math.sqrt(dx * dx + dy * dy) <= threshold) {
-				return i;
-			}
-		}
-		return null;
+		return findPointAtPos(points, x, y, threshold);
 	};
 
 	const findColliderAtPosition = (x: number, y: number): string | null => {
 		// Check in reverse order (top to bottom)
-		for (let i = colliders.length - 1; i >= 0; i--) {
-			const collider = colliders[i];
+		for (let i = localColliders.length - 1; i >= 0; i--) {
+			const collider = localColliders[i];
 			if (collider.points.length < 3) continue;
 
-			// Point-in-polygon test
-			let inside = false;
-			for (
-				let j = 0, k = collider.points.length - 1;
-				j < collider.points.length;
-				k = j++
-			) {
-				const xi = collider.points[j].x;
-				const yi = collider.points[j].y;
-				const xj = collider.points[k].x;
-				const yj = collider.points[k].y;
-
-				const intersect =
-					yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-				if (intersect) inside = !inside;
-			}
-
-			if (inside && collider.id) {
+			if (isPointInPolygon(x, y, collider.points) && collider.id) {
 				return collider.id;
 			}
 		}
@@ -419,40 +361,13 @@ export const CollisionEditor = ({
 		x: number,
 		y: number,
 	): { edgeIndex: number; insertPosition: { x: number; y: number } } | null => {
-		if (points.length < 2) return null;
-
 		const threshold = 8 / scale;
-
-		for (let i = 0; i < points.length; i++) {
-			const p1 = points[i];
-			const p2 = points[(i + 1) % points.length];
-
-			const dx = p2.x - p1.x;
-			const dy = p2.y - p1.y;
-			const lengthSquared = dx * dx + dy * dy;
-
-			if (lengthSquared === 0) continue;
-
-			const t = Math.max(
-				0,
-				Math.min(1, ((x - p1.x) * dx + (y - p1.y) * dy) / lengthSquared),
-			);
-			const projX = p1.x + t * dx;
-			const projY = p1.y + t * dy;
-
-			const distX = x - projX;
-			const distY = y - projY;
-			const distance = Math.sqrt(distX * distX + distY * distY);
-
-			if (distance <= threshold) {
-				return {
-					edgeIndex: i,
-					insertPosition: { x: projX, y: projY },
-				};
-			}
-		}
-
-		return null;
+		const result = findEdgeAtPos(points, x, y, threshold);
+		if (!result) return null;
+		return {
+			edgeIndex: result.edgeIndex,
+			insertPosition: { x: result.insertX, y: result.insertY },
+		};
 	};
 
 	const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -467,27 +382,20 @@ export const CollisionEditor = ({
 				const snapped = getCanvasCoords(e, true);
 
 				// Check if clicking near first point to close polygon
-				if (drawingPoints.length >= 3) {
-					const firstPoint = drawingPoints[0];
-					const dx = snapped.x - firstPoint.x;
-					const dy = snapped.y - firstPoint.y;
-					const distance = Math.sqrt(dx * dx + dy * dy);
-
-					if (distance <= 8 / scale) {
-						// Close the polygon
-						const newCollider: PolygonCollider = {
-							id: generateId(),
-							name: "",
-							type: "",
-							points: drawingPoints,
-							properties: {},
-						};
-						setLocalColliders([...localColliders, newCollider]);
-						setDrawingPoints([]);
-						setIsDrawing(false);
-						setSelectedColliderId(newCollider.id);
-						return;
-					}
+				if (canClosePolygon(drawingPoints, snapped.x, snapped.y, 8 / scale)) {
+					// Close the polygon
+					const newCollider: PolygonCollider = {
+						id: generateId(),
+						name: "",
+						type: "",
+						points: drawingPoints,
+						properties: {},
+					};
+					setLocalColliders([...localColliders, newCollider]);
+					setDrawingPoints([]);
+					setIsDrawing(false);
+					setSelectedColliderId(newCollider.id);
+					return;
 				}
 
 				// Add new point

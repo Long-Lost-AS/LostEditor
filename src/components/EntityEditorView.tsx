@@ -4,6 +4,12 @@ import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
+import {
+	canClosePolygon,
+	findEdgeAtPosition as findEdgeAtPos,
+	findPointAtPosition as findPointAtPos,
+	isPointInPolygon as pointInPolygon,
+} from "../utils/collisionGeometry";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { unpackTileId } from "../utils/tileId";
@@ -960,19 +966,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const snappedY = Math.round(worldY);
 
 			// Check if clicking near first point to close polygon (need at least 3 points)
-			if (drawingPoints.length >= 3) {
-				const firstPoint = drawingPoints[0];
-				const distance = calculateDistance(
-					{ x: snappedX, y: snappedY },
-					firstPoint,
-				);
-
-				// Threshold of 8 pixels (adjusted for zoom)
-				if (distance <= 8 / viewState.scale) {
-					// Close the polygon
-					handleFinishDrawing();
-					return;
-				}
+			if (
+				canClosePolygon(drawingPoints, snappedX, snappedY, 8 / viewState.scale)
+			) {
+				// Close the polygon
+				handleFinishDrawing();
+				return;
 			}
 
 			// Add point to drawing
@@ -1490,30 +1489,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	};
 
 	// Helper: Calculate distance between two points
-	const calculateDistance = (
-		p1: { x: number; y: number },
-		p2: { x: number; y: number },
-	) => {
-		const dx = p1.x - p2.x;
-		const dy = p1.y - p2.y;
-		return Math.sqrt(dx * dx + dy * dy);
-	};
-
-	// Helper: Find point at position
+	// Helper wrappers using the shared collision geometry utilities
 	const findPointAtPosition = (
 		points: Array<{ x: number; y: number }>,
 		x: number,
 		y: number,
 	): number | null => {
 		const threshold = 8 / viewState.scale;
-		for (let i = 0; i < points.length; i++) {
-			const dx = points[i].x - x;
-			const dy = points[i].y - y;
-			if (Math.sqrt(dx * dx + dy * dy) <= threshold) {
-				return i;
-			}
-		}
-		return null;
+		return findPointAtPos(points, x, y, threshold);
 	};
 
 	// Helper: Find edge at position
@@ -1522,40 +1505,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		x: number,
 		y: number,
 	): { edgeIndex: number; insertPosition: { x: number; y: number } } | null => {
-		if (points.length < 2) return null;
-
 		const threshold = 8 / viewState.scale;
-
-		for (let i = 0; i < points.length; i++) {
-			const p1 = points[i];
-			const p2 = points[(i + 1) % points.length];
-
-			const dx = p2.x - p1.x;
-			const dy = p2.y - p1.y;
-			const lengthSquared = dx * dx + dy * dy;
-
-			if (lengthSquared === 0) continue;
-
-			const t = Math.max(
-				0,
-				Math.min(1, ((x - p1.x) * dx + (y - p1.y) * dy) / lengthSquared),
-			);
-			const projX = p1.x + t * dx;
-			const projY = p1.y + t * dy;
-
-			const distX = x - projX;
-			const distY = y - projY;
-			const distance = Math.sqrt(distX * distX + distY * distY);
-
-			if (distance <= threshold) {
-				return {
-					edgeIndex: i,
-					insertPosition: { x: projX, y: projY },
-				};
-			}
-		}
-
-		return null;
+		const result = findEdgeAtPos(points, x, y, threshold);
+		if (!result) return null;
+		return {
+			edgeIndex: result.edgeIndex,
+			insertPosition: { x: result.insertX, y: result.insertY },
+		};
 	};
 
 	// Start drawing a new collider
@@ -1571,18 +1527,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		y: number,
 		points: Array<{ x: number; y: number }>,
 	) => {
-		let inside = false;
-		for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-			const xi = points[i].x;
-			const yi = points[i].y;
-			const xj = points[j].x;
-			const yj = points[j].y;
-
-			const intersect =
-				yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-			if (intersect) inside = !inside;
-		}
-		return inside;
+		return pointInPolygon(x, y, points);
 	};
 
 	// Delete a collider

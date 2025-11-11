@@ -11,6 +11,12 @@ import {
 	type SpriteLayer,
 	type Tool,
 } from "../types";
+import {
+	calculateDistance as calcDistance,
+	findEdgeAtPosition as findEdgeAtPos,
+	findPointAtPosition as findPointAtPos,
+	isPointInPolygon as pointInPolygon,
+} from "../utils/collisionGeometry";
 import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 
 // Map canvas props interface
@@ -208,25 +214,13 @@ export const MapCanvas = ({
 	}>({ visible: false, x: 0, y: 0, entityId: null, pointId: null });
 
 	// Helper functions for collider manipulation
+	// Helper wrappers using the shared collision geometry utilities
 	const isPointInPolygon = (
 		x: number,
 		y: number,
 		points: Array<{ x: number; y: number }>,
 	): boolean => {
-		if (points.length < 3) return false;
-
-		let inside = false;
-		for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-			const xi = points[i].x;
-			const yi = points[i].y;
-			const xj = points[j].x;
-			const yj = points[j].y;
-
-			const intersect =
-				yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-			if (intersect) inside = !inside;
-		}
-		return inside;
+		return pointInPolygon(x, y, points);
 	};
 
 	const findColliderPointAtPosition = (
@@ -238,16 +232,7 @@ export const MapCanvas = ({
 		if (!collider) return null;
 
 		const threshold = 8 / zoom; // Click tolerance in world pixels
-		for (let i = 0; i < collider.points.length; i++) {
-			const point = collider.points[i];
-			const dx = worldX - point.x;
-			const dy = worldY - point.y;
-			const distance = Math.sqrt(dx * dx + dy * dy);
-			if (distance <= threshold) {
-				return i;
-			}
-		}
-		return null;
+		return findPointAtPos(collider.points, worldX, worldY, threshold);
 	};
 
 	const calculateDistance = (
@@ -256,9 +241,7 @@ export const MapCanvas = ({
 		x2: number,
 		y2: number,
 	): number => {
-		const dx = x2 - x1;
-		const dy = y2 - y1;
-		return Math.sqrt(dx * dx + dy * dy);
+		return calcDistance(x1, y1, x2, y2);
 	};
 
 	const findEdgeAtPosition = (
@@ -266,39 +249,13 @@ export const MapCanvas = ({
 		x: number,
 		y: number,
 	): { edgeIndex: number; insertPosition: { x: number; y: number } } | null => {
-		if (points.length < 2) return null;
-
 		const threshold = 8 / zoom;
-
-		for (let i = 0; i < points.length; i++) {
-			const p1 = points[i];
-			const p2 = points[(i + 1) % points.length];
-
-			const dx = p2.x - p1.x;
-			const dy = p2.y - p1.y;
-			const lengthSquared = dx * dx + dy * dy;
-
-			if (lengthSquared === 0) continue;
-
-			const t = Math.max(
-				0,
-				Math.min(1, ((x - p1.x) * dx + (y - p1.y) * dy) / lengthSquared),
-			);
-			const projX = p1.x + t * dx;
-			const projY = p1.y + t * dy;
-
-			const distX = x - projX;
-			const distY = y - projY;
-			const distance = Math.sqrt(distX * distX + distY * distY);
-
-			if (distance <= threshold) {
-				return {
-					edgeIndex: i,
-					insertPosition: { x: projX, y: projY },
-				};
-			}
-		}
-		return null;
+		const result = findEdgeAtPos(points, x, y, threshold);
+		if (!result) return null;
+		return {
+			edgeIndex: result.edgeIndex,
+			insertPosition: { x: result.insertX, y: result.insertY },
+		};
 	};
 
 	// Fill tool - flood fill helper function
@@ -2496,27 +2453,6 @@ export const MapCanvas = ({
 									: "default",
 				}}
 			/>
-			{/* autotilingOverride && (
-				<div
-					style={{
-						position: "absolute",
-						top: "10px",
-						left: "50%",
-						transform: "translateX(-50%)",
-						background: "rgba(255, 165, 0, 0.9)",
-						color: "white",
-						padding: "6px 12px",
-						borderRadius: "4px",
-						fontSize: "12px",
-						fontWeight: "bold",
-						pointerEvents: "none",
-						zIndex: 1000,
-						boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
-					}}
-				>
-					AUTOTILING DISABLED (Shift)
-				</div>
-			) */}
 			{contextMenu.visible && contextMenu.entityId && (
 				<div
 					role="menu"
