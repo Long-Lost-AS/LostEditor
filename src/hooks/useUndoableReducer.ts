@@ -132,20 +132,23 @@ export interface UndoableControls<T = unknown> {
 	startBatch: () => void;
 	endBatch: () => void;
 	reset: (newState: T) => void;
+	getHistory: () => { past: T[]; present: T; future: T[] };
 }
 
 /**
  * Hook that provides undo/redo functionality using a reducer pattern.
  * This is more predictable than effect-based synchronization.
  * Supports both direct state updates and updater functions like React's setState.
+ * Can optionally restore from persisted undo history.
  */
 export function useUndoableReducer<T>(
 	initialState: T,
+	initialHistory?: { past: T[]; present: T; future: T[] },
 ): [T, (newState: T | ((prev: T) => T)) => void, UndoableControls<T>] {
 	const [state, dispatch] = useReducer(undoableReducer<T>, {
-		past: [],
-		present: initialState,
-		future: [],
+		past: initialHistory?.past || [],
+		present: initialHistory?.present || initialState,
+		future: initialHistory?.future || [],
 		isBatching: false,
 		batchStart: null,
 	});
@@ -187,6 +190,14 @@ export function useUndoableReducer<T>(
 		dispatch({ type: "RESET", payload: newState });
 	}, []);
 
+	const getHistory = useCallback(() => {
+		return {
+			past: stateRef.current.past,
+			present: stateRef.current.present,
+			future: stateRef.current.future,
+		};
+	}, []);
+
 	const controls: UndoableControls<T> = {
 		undo,
 		redo,
@@ -195,6 +206,7 @@ export function useUndoableReducer<T>(
 		startBatch,
 		endBatch,
 		reset,
+		getHistory,
 	};
 
 	return [state.present, setState, controls];

@@ -104,11 +104,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			startBatch,
 			endBatch,
 			reset: resetTilesetHistory,
+			getHistory,
 		},
-	] = useUndoableReducer<TilesetUndoState>({
-		tiles: tilesetData?.tiles || [],
-		terrainLayers: tilesetData?.terrainLayers || [],
-	});
+	] = useUndoableReducer<TilesetUndoState>(
+		{
+			tiles: tilesetData?.tiles || [],
+			terrainLayers: tilesetData?.terrainLayers || [],
+		},
+		tab.undoHistory,
+	);
 
 	// Extract individual parts for convenience
 	const localTiles = localTilesetState.tiles;
@@ -169,6 +173,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		localTerrainLayers,
 		localTiles,
 	]);
+
+	// Persist undo history to tab state on unmount (when switching tabs)
+	useEffect(() => {
+		return () => {
+			// Save history when component unmounts
+			const history = getHistory();
+			updateTabData(tab.id, { undoHistory: history });
+		};
+	}, [tab.id, updateTabData, getHistory]);
 
 	// Memoized tile position map for O(1) lookups
 	// Note: Currently unused but may be useful for future optimizations

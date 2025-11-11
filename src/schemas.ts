@@ -232,11 +232,19 @@ export const MapViewStateSchema = z.object({
 	currentTool: ToolSchema,
 });
 
+// Undo/redo history schemas for tab persistence
+export const MapUndoHistorySchema = z.object({
+	past: z.array(MapDataSchema),
+	present: MapDataSchema,
+	future: z.array(MapDataSchema),
+});
+
 export const MapTabSchema = BaseTabSchema.extend({
 	type: z.literal("map-editor"),
 	mapId: z.string(),
 	mapFilePath: z.string().optional(),
 	viewState: MapViewStateSchema,
+	undoHistory: MapUndoHistorySchema.optional(),
 });
 
 export const TilesetViewStateSchema = z.object({
@@ -251,10 +259,22 @@ export const TilesetViewStateSchema = z.object({
 		.nullable(),
 });
 
+const TilesetUndoStateSchema = z.object({
+	tiles: z.array(TileDefinitionSchema),
+	terrainLayers: z.array(TerrainLayerSchema),
+});
+
+export const TilesetUndoHistorySchema = z.object({
+	past: z.array(TilesetUndoStateSchema),
+	present: TilesetUndoStateSchema,
+	future: z.array(TilesetUndoStateSchema),
+});
+
 export const TilesetTabSchema = BaseTabSchema.extend({
 	type: z.literal("tileset-editor"),
 	tilesetId: z.string(),
 	viewState: TilesetViewStateSchema,
+	undoHistory: TilesetUndoHistorySchema.optional(),
 });
 
 export const EntityEditorViewStateSchema = z.object({
@@ -265,11 +285,18 @@ export const EntityEditorViewStateSchema = z.object({
 	selectedChildId: z.string().nullable(),
 });
 
+export const EntityUndoHistorySchema = z.object({
+	past: z.array(EntityDefinitionSchema),
+	present: EntityDefinitionSchema,
+	future: z.array(EntityDefinitionSchema),
+});
+
 export const EntityEditorTabSchema = BaseTabSchema.extend({
 	type: z.literal("entity-editor"),
 	entityId: z.string(),
 	entityData: EntityDefinitionSchema,
 	viewState: EntityEditorViewStateSchema,
+	undoHistory: EntityUndoHistorySchema.optional(),
 });
 
 export const CollisionEditorTabSchema = BaseTabSchema.extend({
