@@ -17,6 +17,7 @@ import {
 	findPointAtPosition as findPointAtPos,
 	isPointInPolygon as pointInPolygon,
 } from "../utils/collisionGeometry";
+import { getArrowKeyDelta, isArrowKey } from "../utils/keyboardMovement";
 import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 
 // Map canvas props interface
@@ -2222,9 +2223,7 @@ export const MapCanvas = ({
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Only handle arrow keys (not Delete - that's handled in MapEditorView)
-			if (
-				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
-			) {
+			if (!isArrowKey(e.key)) {
 				return;
 			}
 
@@ -2236,6 +2235,10 @@ export const MapCanvas = ({
 
 			e.preventDefault();
 
+			// Get movement delta from arrow key
+			const delta = getArrowKeyDelta(e.key);
+			if (!delta) return;
+
 			// Handle arrow keys for entity movement
 			if (selectedEntityId) {
 				const entity = mapData.entities?.find((e) => e.id === selectedEntityId);
@@ -2243,27 +2246,12 @@ export const MapCanvas = ({
 					return;
 				}
 
-				// Calculate new position based on arrow key
-				let newX = entity.x;
-				let newY = entity.y;
-
-				switch (e.key) {
-					case "ArrowUp":
-						newY -= 1;
-						break;
-					case "ArrowDown":
-						newY += 1;
-						break;
-					case "ArrowLeft":
-						newX -= 1;
-						break;
-					case "ArrowRight":
-						newX += 1;
-						break;
-				}
-
 				// Move the entity
-				onMoveEntity(selectedEntityId, newX, newY);
+				onMoveEntity(
+					selectedEntityId,
+					entity.x + delta.deltaX,
+					entity.y + delta.deltaY,
+				);
 			}
 			// Handle arrow keys for point movement
 			else if (selectedPointId) {
@@ -2272,27 +2260,12 @@ export const MapCanvas = ({
 					return;
 				}
 
-				// Calculate new position based on arrow key
-				let newX = point.x;
-				let newY = point.y;
-
-				switch (e.key) {
-					case "ArrowUp":
-						newY -= 1;
-						break;
-					case "ArrowDown":
-						newY += 1;
-						break;
-					case "ArrowLeft":
-						newX -= 1;
-						break;
-					case "ArrowRight":
-						newX += 1;
-						break;
-				}
-
 				// Move the point
-				onMovePoint?.(selectedPointId, newX, newY);
+				onMovePoint?.(
+					selectedPointId,
+					point.x + delta.deltaX,
+					point.y + delta.deltaY,
+				);
 			}
 			// Handle arrow keys for collider movement
 			else if (selectedColliderId) {
@@ -2303,25 +2276,6 @@ export const MapCanvas = ({
 					return;
 				}
 
-				// Calculate delta based on arrow key
-				let deltaX = 0;
-				let deltaY = 0;
-
-				switch (e.key) {
-					case "ArrowUp":
-						deltaY = -1;
-						break;
-					case "ArrowDown":
-						deltaY = 1;
-						break;
-					case "ArrowLeft":
-						deltaX = -1;
-						break;
-					case "ArrowRight":
-						deltaX = 1;
-						break;
-				}
-
 				// If a specific point is selected, move only that point
 				if (selectedColliderPointIndex !== null) {
 					const point = collider.points[selectedColliderPointIndex];
@@ -2329,15 +2283,15 @@ export const MapCanvas = ({
 						onUpdateColliderPoint?.(
 							selectedColliderId,
 							selectedColliderPointIndex,
-							point.x + deltaX,
-							point.y + deltaY,
+							point.x + delta.deltaX,
+							point.y + delta.deltaY,
 						);
 					}
 				} else {
 					// Move entire collider
 					const newPoints = collider.points.map((p) => ({
-						x: p.x + deltaX,
-						y: p.y + deltaY,
+						x: p.x + delta.deltaX,
+						y: p.y + delta.deltaY,
 					}));
 					onUpdateCollider?.(selectedColliderId, { points: newPoints });
 				}
