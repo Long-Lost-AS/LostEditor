@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TilesetData } from "../../types";
 import {
 	getTerrainLayerForTile,
@@ -8,7 +9,7 @@ import {
 	updateNeighborsAround,
 	updateNeighborTerrain,
 } from "../terrainDrawing";
-import { packTileId } from "../tileId";
+import { hashTilesetId, packTileId } from "../tileId";
 
 /**
  * NOTE: Many tests in this file document bugs in the source code:
@@ -34,9 +35,11 @@ describe("terrainDrawing", () => {
 
 	// Helper to create a test tileset with terrain
 	function createTilesetWithTerrain(): TilesetData {
+		const tilesetId = "test-tileset-1";
+		const hash = hashTilesetId(tilesetId);
 		return {
 			version: "1.0",
-			id: "test-tileset-1",
+			id: tilesetId,
 			order: 0,
 			name: "terrain-tileset",
 			imagePath: "/terrain.png",
@@ -48,7 +51,7 @@ describe("terrainDrawing", () => {
 					id: "grass-layer-1",
 					name: "grass",
 					tiles: [
-						{ tileId: packTileId(1, 1, 0), bitmask: 16 }, // Center only
+						{ tileId: packTileId(1, 1, 0), bitmask: 16 }, // Center only (local coords, hash 0)
 						{ tileId: packTileId(16, 0, 0), bitmask: 511 }, // All neighbors
 						{ tileId: packTileId(32, 0, 0), bitmask: 0 }, // No neighbors (invalid, but for testing)
 					],
@@ -62,7 +65,8 @@ describe("terrainDrawing", () => {
 					],
 				},
 			],
-		};
+			_hash: hash, // Store for easy reference in tests
+		} as TilesetData & { _hash: number };
 	}
 
 	// Helper to create an empty tileset (for testing tileset arrays with gaps)
@@ -80,10 +84,21 @@ describe("terrainDrawing", () => {
 		};
 	}
 
+	// Helper to create a tile ID with the correct hash for a given tileset
+	function createTileWithHash(
+		tileset: TilesetData,
+		x: number,
+		y: number,
+	): number {
+		const hash = hashTilesetId(tileset.id);
+		return packTileId(x, y, hash);
+	}
+
 	describe("isTerrainAtPosition", () => {
 		it("should return false for out of bounds positions", () => {
-			const layer = createLayer([packTileId(1, 1, 0)], 1);
-			const tilesets = [createTilesetWithTerrain()];
+			const tileset = createTilesetWithTerrain();
+			const layer = createLayer([createTileWithHash(tileset, 1, 1)], 1);
+			const tilesets = [tileset];
 
 			expect(
 				isTerrainAtPosition(layer, -1, 0, 1, 1, "grass-layer-1", tilesets),
@@ -117,7 +132,7 @@ describe("terrainDrawing", () => {
 
 		it("should return true when tile belongs to specified terrain layer", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassTile = packTileId(1, 1, 0); // Grass terrain
+			const grassTile = createTileWithHash(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
 			const result = isTerrainAtPosition(layer, 0, 0, 1, 1, "grass-layer-1", [
@@ -129,7 +144,7 @@ describe("terrainDrawing", () => {
 
 		it("should return false when tile belongs to different terrain layer", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassTile = packTileId(1, 1, 0); // Grass terrain
+			const grassTile = createTileWithHash(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
 			const result = isTerrainAtPosition(layer, 0, 0, 1, 1, "dirt-layer-1", [
@@ -140,8 +155,8 @@ describe("terrainDrawing", () => {
 
 		it("should handle multi-tile grid correctly", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassTile = packTileId(1, 1, 0);
-			const dirtTile = packTileId(1, 16, 0);
+			const grassTile = createTileWithHash(tileset, 1, 1);
+			const dirtTile = createTileWithHash(tileset, 1, 16);
 
 			const layer = createLayer([grassTile, dirtTile, dirtTile, grassTile], 2);
 
@@ -190,7 +205,7 @@ describe("terrainDrawing", () => {
 
 		it("should return correct terrain layer id for grass tile", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassTile = packTileId(1, 1, 0);
+			const grassTile = createTileWithHash(tileset, 1, 1);
 
 			const result = getTerrainLayerForTile(grassTile, [tileset]);
 			expect(result).toBe("grass-layer-1");
@@ -198,7 +213,7 @@ describe("terrainDrawing", () => {
 
 		it("should return correct terrain layer id for dirt tile", () => {
 			const tileset = createTilesetWithTerrain();
-			const dirtTile = packTileId(1, 16, 0);
+			const dirtTile = createTileWithHash(tileset, 1, 16);
 
 			const result = getTerrainLayerForTile(dirtTile, [tileset]);
 			expect(result).toBe("dirt-layer-1");
@@ -206,7 +221,9 @@ describe("terrainDrawing", () => {
 
 		it("should return null for tile not in any terrain layer", () => {
 			const tileset = createTilesetWithTerrain();
-			const unknownTile = packTileId(100, 100, 0);
+			const hash = hashTilesetId(tileset.id);
+			// Tile with correct hash but not in any terrain layer
+			const unknownTile = packTileId(100, 100, hash);
 
 			const result = getTerrainLayerForTile(unknownTile, [tileset]);
 			expect(result).toBeNull();
@@ -232,8 +249,9 @@ describe("terrainDrawing", () => {
 				],
 			};
 
-			// Tile from tileset index 1 (tileset2)
-			const waterTile = packTileId(1, 1, 1);
+			// Tile from tileset2 with correct hash
+			const hash2 = hashTilesetId(tileset2.id);
+			const waterTile = packTileId(1, 1, hash2);
 			const result = getTerrainLayerForTile(waterTile, [tileset1, tileset2]);
 
 			expect(result).toBe("water-layer-1");
@@ -283,7 +301,8 @@ describe("terrainDrawing", () => {
 		it("should place fully connected tile when surrounded", () => {
 			const tileset = createTilesetWithTerrain();
 			const terrainLayer = tileset.terrainLayers?.[0]; // grass
-			const grassCenterTile = packTileId(1, 1, 0);
+			const hash = hashTilesetId(tileset.id);
+			const grassCenterTile = createTileWithHash(tileset, 1, 1);
 
 			const layer = createLayer(
 				[
@@ -300,10 +319,12 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			placeTerrainTile(layer, 1, 1, 3, 3, terrainLayer, tileset, 0, [tileset]);
+			placeTerrainTile(layer, 1, 1, 3, 3, terrainLayer, tileset, hash, [
+				tileset,
+			]);
 
 			// Should place bitmask 511 tile (all neighbors)
-			expect(layer.tiles[4]).toBe(packTileId(16, 0, 0));
+			expect(layer.tiles[4]).toBe(packTileId(16, 0, hash));
 		});
 
 		it("should use correct tileset index for placed tile", () => {
@@ -450,20 +471,68 @@ describe("terrainDrawing", () => {
 
 		it("should do nothing when terrain layer not found in tileset", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassTile = packTileId(1, 1, 0);
+			const hash = hashTilesetId(tileset.id);
+			const grassTile = createTileWithHash(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			updateNeighborTerrain(layer, 0, 0, 1, 1, "unknown-layer", tileset, 0, [
+			updateNeighborTerrain(layer, 0, 0, 1, 1, "unknown-layer", tileset, hash, [
 				tileset,
 			]);
 
 			expect(layer.tiles[0]).toBe(grassTile); // Unchanged
 		});
 
+		it("should early return when terrain layer not found by ID (line 165)", () => {
+			// Create tileset with ONLY grass layer, no dirt layer
+			const tilesetId = "test-tileset-missing-layer";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				id: tilesetId,
+				order: 0,
+				name: "test",
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [
+					createSimpleTile(packTileId(1, 1, 0), 1, 1), // Grass tile (in grass layer)
+				],
+				terrainLayers: [
+					{
+						id: "grass-layer-only",
+						name: "grass",
+						tiles: [{ tileId: packTileId(1, 1, 0), bitmask: 16 }],
+					},
+					// NO dirt layer!
+				],
+			};
+
+			const grassTile = createTileWithHash(tileset, 1, 1);
+			const layer = createLayer([grassTile], 1);
+
+			// Try to update as if it's a dirt layer (which doesn't exist in tileset.terrainLayers)
+			// The tile DOES belong to grass-layer-only, so it passes the check at line 154-158
+			// But then at line 161-165 it can't find "dirt-layer-missing" in terrainLayers
+			updateNeighborTerrain(
+				layer,
+				0,
+				0,
+				1,
+				1,
+				"dirt-layer-missing",
+				tileset,
+				hash,
+				[tileset],
+			);
+
+			expect(layer.tiles[0]).toBe(grassTile); // Should remain unchanged
+		});
+
 		it("should update tile when it matches the terrain layer", () => {
 			const tileset = createTilesetWithTerrain();
-			const grassCenterTile = packTileId(1, 1, 0); // Grass center-only
-			const grassAllTile = packTileId(16, 0, 0); // All neighbors
+			const hash = hashTilesetId(tileset.id);
+			const grassCenterTile = createTileWithHash(tileset, 1, 1); // Grass center-only
+			const grassAllTile = packTileId(16, 0, hash); // All neighbors
 
 			const layer = createLayer(
 				[
@@ -481,7 +550,7 @@ describe("terrainDrawing", () => {
 			);
 
 			// Update center tile which now has all 8 neighbors
-			updateNeighborTerrain(layer, 1, 1, 3, 3, "grass-layer-1", tileset, 0, [
+			updateNeighborTerrain(layer, 1, 1, 3, 3, "grass-layer-1", tileset, hash, [
 				tileset,
 			]);
 
@@ -705,15 +774,16 @@ describe("terrainDrawing", () => {
 			const tileset = createTilesetWithTerrain();
 			const grassLayer = tileset.terrainLayers?.[0];
 			const dirtLayer = tileset.terrainLayers?.[1];
+			const hash = hashTilesetId(tileset.id);
 
 			const layer = createLayer([0, 0, 0, 0, 0, 0, 0, 0, 0], 3);
 
 			// Place grass in center
-			placeTerrainTile(layer, 1, 1, 3, 3, grassLayer, tileset, 0, [tileset]);
+			placeTerrainTile(layer, 1, 1, 3, 3, grassLayer, tileset, hash, [tileset]);
 
 			// Place dirt around it
-			placeTerrainTile(layer, 0, 0, 3, 3, dirtLayer, tileset, 0, [tileset]);
-			placeTerrainTile(layer, 2, 2, 3, 3, dirtLayer, tileset, 0, [tileset]);
+			placeTerrainTile(layer, 0, 0, 3, 3, dirtLayer, tileset, hash, [tileset]);
+			placeTerrainTile(layer, 2, 2, 3, 3, dirtLayer, tileset, hash, [tileset]);
 
 			// Both types should be placed
 			expect(getTerrainLayerForTile(layer.tiles[0], [tileset])).toBe(

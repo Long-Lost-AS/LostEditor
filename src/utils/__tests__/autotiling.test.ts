@@ -6,7 +6,7 @@ import {
 	getAllAutotileGroups,
 	updateTileAndNeighbors,
 } from "../autotiling";
-import { packTileId } from "../tileId";
+import { hashTilesetId, packTileId } from "../tileId";
 
 describe("autotiling", () => {
 	// Helper to create a test layer
@@ -471,6 +471,290 @@ describe("autotiling", () => {
 
 			expect(groups[0]).toEqual(terrainLayer);
 			expect(groups[0].tiles).toHaveLength(2);
+		});
+	});
+
+	describe("edge cases for hash-based tileset lookup", () => {
+		it("should handle tileset not found by hash in applyAutotiling (line 77)", () => {
+			const tilesetId = "test-tileset-hash-mismatch";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				terrainLayers: [
+					{
+						id: "grass-terrain",
+						name: "grass",
+						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					},
+				],
+			};
+
+			// Create tile with a different hash that won't match the tileset
+			const wrongHash = (hash + 1) % 16384; // Different hash
+			const tileWithWrongHash = packTileId(16, 0, wrongHash);
+			const layer = createLayer([tileWithWrongHash], 1);
+
+			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
+			expect(result).toBeNull();
+		});
+
+		it("should handle tile with no type in applyAutotiling (line 85)", () => {
+			const tilesetId = "test-tileset-no-type";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0)], // No type specified
+				terrainLayers: [],
+			};
+
+			const globalTileId = packTileId(16, 0, hash);
+			const layer = createLayer([globalTileId], 1);
+
+			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
+			expect(result).toBeNull();
+		});
+
+		it("should handle terrain type with no matching layer (line 93)", () => {
+			const tilesetId = "test-tileset-no-layer";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "water")], // Type "water"
+				terrainLayers: [
+					{
+						id: "grass-terrain",
+						name: "grass", // But only "grass" layer exists
+						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					},
+				],
+			};
+
+			const globalTileId = packTileId(16, 0, hash);
+			const layer = createLayer([globalTileId], 1);
+
+			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
+			expect(result).toBeNull();
+		});
+
+		it("should handle tileset not found by hash in getTileTerrainType (line 43)", () => {
+			const tilesetId = "test-tileset-terrain-type";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				terrainLayers: [
+					{
+						id: "grass-terrain",
+						name: "grass",
+						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					},
+				],
+			};
+
+			// Place a grass tile, then add a neighbor with wrong hash
+			const grassTile = packTileId(16, 0, hash);
+			const wrongHash = (hash + 1) % 16384;
+			const tileWithWrongHash = packTileId(32, 0, wrongHash);
+			const layer = createLayer([grassTile, tileWithWrongHash], 2);
+
+			// applyAutotiling will call getTileTerrainType for the neighbor
+			// which will fail at line 43 because hash doesn't match
+			const result = applyAutotiling(layer, 0, 0, 2, 1, [tileset]);
+			expect(result).toBeDefined(); // Should still return something for the main tile
+		});
+
+		it("should handle tile type undefined via ?? operator (line 52)", () => {
+			const tilesetId = "test-tileset-undefined-type";
+			const hash = hashTilesetId(tilesetId);
+
+			// Create a tile with type explicitly set to undefined
+			const tileWithUndefinedType = createSimpleTile(
+				packTileId(16, 0, 0),
+				16,
+				0,
+			);
+			// @ts-expect-error - Testing edge case where type is undefined
+			delete tileWithUndefinedType.type; // Ensure type is undefined
+
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [tileWithUndefinedType],
+				terrainLayers: [],
+			};
+
+			const grassTile = packTileId(32, 0, 0);
+			const neighborTile = packTileId(16, 0, hash);
+			const layer = createLayer([grassTile, neighborTile], 2);
+
+			// This should trigger getTileTerrainType returning null via ?? operator
+			const result = applyAutotiling(layer, 0, 0, 2, 1, [tileset]);
+			expect(result).toBeDefined();
+		});
+	});
+
+	describe("coverage for hash-based system", () => {
+		it("should cover getTileTerrainType with matching neighbors", () => {
+			const tilesetId = "test-tileset-neighbors";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [
+					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
+					createSimpleTile(packTileId(32, 0, 0), 32, 0, "grass"),
+				],
+				terrainLayers: [
+					{
+						id: "grass-terrain-neighbors",
+						name: "grass",
+						tiles: [
+							{ tileId: packTileId(16, 0, 0), bitmask: 16 }, // Isolated
+							{ tileId: packTileId(32, 0, 0), bitmask: 17 }, // With right neighbor
+						],
+					},
+				],
+			};
+
+			// Create a 2x1 map with two grass tiles side by side
+			const globalTileId = packTileId(16, 0, hash);
+			const layer = createLayer([globalTileId, globalTileId], 2);
+
+			// Apply autotiling to first tile - it has a grass neighbor to the right
+			const result = applyAutotiling(layer, 0, 0, 2, 1, [tileset]);
+
+			// getTileTerrainType will be called to check the neighbor
+			expect(result).toBeDefined();
+		});
+
+		it("should cover getTileTerrainType when tile definition not found", () => {
+			const tilesetId = "test-tileset-nodef";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				terrainLayers: [
+					{
+						id: "grass-terrain-nodef",
+						name: "grass",
+						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					},
+				],
+			};
+
+			// Create tile with geometry that doesn't match any tile definition
+			const nonExistentTile = packTileId(99, 99, hash);
+			// Place it next to a grass tile to ensure getTileTerrainType is called
+			const grassTile = packTileId(16, 0, hash);
+			const layer = createLayer([grassTile, nonExistentTile], 2);
+
+			// Apply autotiling - will call getTileTerrainType for the neighbor
+			const result = applyAutotiling(layer, 0, 0, 2, 1, [tileset]);
+			expect(result).toBeDefined();
+		});
+
+		it("should return current tile when no bitmask match (line 120)", () => {
+			const tilesetId = "test-tileset-coverage";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")], // Use x=16 to avoid ID 0
+				terrainLayers: [
+					{
+						id: "grass-terrain-coverage",
+						name: "grass",
+						tiles: [], // No tiles - will force fallback to line 120
+					},
+				],
+			};
+
+			const globalTileId = packTileId(16, 0, hash);
+			const layer = createLayer([globalTileId], 1);
+			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
+
+			// Should return current tile when no bitmask match
+			expect(result).toBe(globalTileId);
+		});
+
+		it("should update tiles when applyAutotiling returns non-null (lines 168-169)", () => {
+			// Create a tileset where autotiling will succeed
+			const tilesetId = "test-tileset-update";
+			const hash = hashTilesetId(tilesetId);
+			const tileset: TilesetData = {
+				version: "1.0",
+				name: "test",
+				id: tilesetId,
+				order: 0,
+				imagePath: "/test.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")], // Use x=16 to avoid ID 0
+				terrainLayers: [
+					{
+						id: "grass-terrain-update",
+						name: "grass",
+						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }], // Center-only bitmask
+					},
+				],
+			};
+
+			const globalTileId = packTileId(16, 0, hash);
+			const layer = createLayer([globalTileId], 1);
+			const updates = updateTileAndNeighbors(layer, [{ x: 0, y: 0 }], 1, 1, [
+				tileset,
+			]);
+
+			// Should have at least one update
+			expect(updates.length).toBeGreaterThan(0);
+			expect(updates[0]).toHaveProperty("index");
+			expect(updates[0]).toHaveProperty("tileId");
 		});
 	});
 

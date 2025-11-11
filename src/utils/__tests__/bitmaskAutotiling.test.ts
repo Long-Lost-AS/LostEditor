@@ -327,6 +327,25 @@ describe("bitmaskAutotiling", () => {
 			const result = findTileByBitmask(mockTileset, terrainLayer, 50);
 			expect(result).toEqual({ tileId: 2 });
 		});
+
+		it("should select tile with better match score (coverage for line 124)", () => {
+			const terrainLayer: TerrainLayer = {
+				id: "grass-terrain-7",
+				name: "grass",
+				tiles: [
+					{ tileId: 1, bitmask: 0b000000000 }, // 8 matching bits with target (all zeros except bit 0)
+					{ tileId: 2, bitmask: 0b000000001 }, // 9 matching bits with target (exact match)
+					{ tileId: 3, bitmask: 0b111111111 }, // 1 matching bit with target (only bit 0)
+				],
+			};
+
+			// Target has only bottom-right set
+			const target = 0b000000001;
+
+			const result = findTileByBitmask(mockTileset, terrainLayer, target);
+			// Should select tile 2 which has exact match (9 bits vs 8 bits)
+			expect(result).toEqual({ tileId: 2 });
+		});
 	});
 
 	describe("toggleBitmaskCell", () => {

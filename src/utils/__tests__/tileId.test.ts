@@ -48,7 +48,7 @@ describe("tileId utilities", () => {
 			expect(unpacked).toEqual({
 				x: 100,
 				y: 200,
-				tilesetIndex: 3,
+				tilesetHash: 3,
 				flipX: true,
 				flipY: false,
 			});
@@ -61,10 +61,10 @@ describe("tileId utilities", () => {
 			expect(unpacked.y).toBe(65535);
 		});
 
-		it("should handle maximum tileset index", () => {
+		it("should handle maximum tileset hash", () => {
 			const packed = packTileId(0, 0, 16383, false, false);
 			const unpacked = unpackTileId(packed);
-			expect(unpacked.tilesetIndex).toBe(16383);
+			expect(unpacked.tilesetHash).toBe(16383);
 		});
 
 		it("should throw error for negative x coordinate", () => {
@@ -91,15 +91,15 @@ describe("tileId utilities", () => {
 			);
 		});
 
-		it("should throw error for negative tileset index", () => {
+		it("should throw error for negative tileset hash", () => {
 			expect(() => packTileId(0, 0, -1)).toThrow(
-				"Tileset index -1 out of range (0-16383)",
+				"Tileset hash -1 out of range (0-16383)",
 			);
 		});
 
-		it("should throw error for tileset index too large", () => {
+		it("should throw error for tileset hash too large", () => {
 			expect(() => packTileId(0, 0, 16384)).toThrow(
-				"Tileset index 16384 out of range (0-16383)",
+				"Tileset hash 16384 out of range (0-16383)",
 			);
 		});
 
@@ -117,7 +117,7 @@ describe("tileId utilities", () => {
 			expect(unpacked).toEqual({
 				x: 0,
 				y: 0,
-				tilesetIndex: 0,
+				tilesetHash: 0,
 				flipX: false,
 				flipY: false,
 			});
@@ -129,7 +129,7 @@ describe("tileId utilities", () => {
 			expect(unpacked).toEqual({
 				x: 16,
 				y: 32,
-				tilesetIndex: 0,
+				tilesetHash: 0,
 				flipX: false,
 				flipY: false,
 			});
@@ -138,7 +138,7 @@ describe("tileId utilities", () => {
 		it("should unpack tileset index", () => {
 			const packed = packTileId(0, 0, 7, false, false);
 			const unpacked = unpackTileId(packed);
-			expect(unpacked.tilesetIndex).toBe(7);
+			expect(unpacked.tilesetHash).toBe(7);
 		});
 
 		it("should unpack flipX flag", () => {
@@ -166,7 +166,7 @@ describe("tileId utilities", () => {
 			const original: TileGeometry = {
 				x: 128,
 				y: 256,
-				tilesetIndex: 5,
+				tilesetHash: 5,
 				flipX: true,
 				flipY: false,
 			};
@@ -174,7 +174,7 @@ describe("tileId utilities", () => {
 			const packed = packTileId(
 				original.x,
 				original.y,
-				original.tilesetIndex,
+				original.tilesetHash,
 				original.flipX,
 				original.flipY,
 			);
@@ -185,17 +185,17 @@ describe("tileId utilities", () => {
 
 		it("should handle edge case values", () => {
 			const testCases: TileGeometry[] = [
-				{ x: 0, y: 0, tilesetIndex: 0, flipX: false, flipY: false },
-				{ x: 16384, y: 16384, tilesetIndex: 100, flipX: false, flipY: false },
-				{ x: 8192, y: 8192, tilesetIndex: 500, flipX: false, flipY: true },
-				{ x: 1, y: 1, tilesetIndex: 1, flipX: true, flipY: false },
+				{ x: 0, y: 0, tilesetHash: 0, flipX: false, flipY: false },
+				{ x: 16384, y: 16384, tilesetHash: 100, flipX: false, flipY: false },
+				{ x: 8192, y: 8192, tilesetHash: 500, flipX: false, flipY: true },
+				{ x: 1, y: 1, tilesetHash: 1, flipX: true, flipY: false },
 			];
 
 			for (const testCase of testCases) {
 				const packed = packTileId(
 					testCase.x,
 					testCase.y,
-					testCase.tilesetIndex,
+					testCase.tilesetHash,
 					testCase.flipX,
 					testCase.flipY,
 				);
@@ -217,7 +217,7 @@ describe("tileId utilities", () => {
 
 			// But the tileset index has an off-by-one error (99 instead of 100)
 			// This is a known limitation at extreme values
-			expect(unpacked.tilesetIndex).toBe(99);
+			expect(unpacked.tilesetHash).toBe(99);
 		});
 	});
 
@@ -231,7 +231,7 @@ describe("tileId utilities", () => {
 			expect(unpacked.flipY).toBe(false);
 			expect(unpacked.x).toBe(16);
 			expect(unpacked.y).toBe(32);
-			expect(unpacked.tilesetIndex).toBe(1);
+			expect(unpacked.tilesetHash).toBe(1);
 		});
 
 		it("should set flipY to true", () => {
@@ -268,7 +268,7 @@ describe("tileId utilities", () => {
 
 			expect(unpacked.x).toBe(50);
 			expect(unpacked.y).toBe(100);
-			expect(unpacked.tilesetIndex).toBe(3);
+			expect(unpacked.tilesetHash).toBe(3);
 		});
 	});
 
@@ -282,7 +282,7 @@ describe("tileId utilities", () => {
 			expect(unpacked.flipY).toBe(false);
 			expect(unpacked.x).toBe(16);
 			expect(unpacked.y).toBe(32);
-			expect(unpacked.tilesetIndex).toBe(1);
+			expect(unpacked.tilesetHash).toBe(1);
 		});
 
 		it("should return same ID if no flips present", () => {
@@ -381,7 +381,7 @@ describe("tileId utilities", () => {
 			const unpacked = unpackTileId(flippedId);
 			expect(unpacked.x).toBe(32);
 			expect(unpacked.y).toBe(48);
-			expect(unpacked.tilesetIndex).toBe(2);
+			expect(unpacked.tilesetHash).toBe(2);
 			expect(unpacked.flipX).toBe(true);
 
 			// Check that it's the same geometry
@@ -407,7 +407,7 @@ describe("tileId utilities", () => {
 				const repacked = packTileId(
 					unpacked.x,
 					unpacked.y,
-					unpacked.tilesetIndex,
+					unpacked.tilesetHash,
 					unpacked.flipX,
 					unpacked.flipY,
 				);
@@ -422,7 +422,7 @@ describe("tileId utilities", () => {
 
 			expect(unpacked.x).toBe(16384);
 			expect(unpacked.y).toBe(16384);
-			expect(unpacked.tilesetIndex).toBe(1000);
+			expect(unpacked.tilesetHash).toBe(1000);
 			expect(unpacked.flipX).toBe(true);
 			expect(unpacked.flipY).toBe(true);
 		});
