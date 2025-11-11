@@ -34,6 +34,8 @@ export interface ControlPointRenderOptions {
 	fontSize?: number;
 	/** Text color for indices */
 	textColor?: string;
+	/** Stroke width for point outline (optional, scales with radius if not provided) */
+	strokeWidth?: number;
 }
 
 export interface DrawingPreviewOptions {
@@ -128,9 +130,13 @@ export function renderControlPoints(
 		showIndices = false,
 		fontSize = 12,
 		textColor = "#ffffff",
+		strokeWidth,
 	} = options;
 
 	ctx.save();
+
+	// Calculate stroke width - if not provided, scale with radius
+	const effectiveStrokeWidth = strokeWidth ?? Math.max(0.5, radius * 0.25);
 
 	for (let i = 0; i < points.length; i++) {
 		const point = points[i];
@@ -142,7 +148,7 @@ export function renderControlPoints(
 		ctx.fillStyle = isSelected ? selectedColor : color;
 		ctx.fill();
 		ctx.strokeStyle = "#000000";
-		ctx.lineWidth = 1;
+		ctx.lineWidth = effectiveStrokeWidth;
 		ctx.stroke();
 
 		// Draw point index
