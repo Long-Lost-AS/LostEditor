@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
+import { useCanvasZoomPan } from "../hooks/useCanvasZoomPan";
 import { packTileId, unpackTileId } from "../utils/tileId";
 
 interface TilePickerModalProps {
@@ -20,30 +21,32 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 	} = useEditor();
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
+
+	// Zoom and pan using shared hook
+	const {
+		scale,
+		pan,
+		setPan,
+		containerRef: zoomPanContainerRef,
+	} = useCanvasZoomPan({
+		initialScale: 1.0,
+		initialPan: { x: 0, y: 0 },
+		minScale: 0.5,
+		maxScale: 8,
+		zoomSpeed: 0.01,
+	});
 
 	const activeMap = getActiveMap();
 
-	const [scale, setScale] = useState(1.0);
-	const [pan, setPan] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-	// Refs to track current pan and zoom values for wheel event
-	const panRef = useRef(pan);
-	const scaleRef = useRef(scale);
-
-	useEffect(() => {
-		panRef.current = pan;
-		scaleRef.current = scale;
-	}, [pan, scale]);
 
 	// Draw the tileset with grid overlay and selection highlight
 	useEffect(() => {
 		if (!isOpen) return;
 
 		const canvas = canvasRef.current;
-		const container = containerRef.current;
+		const container = zoomPanContainerRef.current;
 		if (!canvas || !container || !currentTileset?.imageData) return;
 
 		const ctx = canvas.getContext("2d");
@@ -270,50 +273,15 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 		// Initial draw
 		draw();
 
-		// Native wheel event listener (to allow preventDefault)
-		const handleWheel = (e: WheelEvent) => {
-			e.preventDefault();
-
-			if (e.ctrlKey) {
-				// Zoom towards mouse position
-				const rect = canvas.getBoundingClientRect();
-				const mouseX = e.clientX - rect.left;
-				const mouseY = e.clientY - rect.top;
-
-				// Calculate world position at mouse before zoom
-				const worldX = (mouseX - panRef.current.x) / scaleRef.current;
-				const worldY = (mouseY - panRef.current.y) / scaleRef.current;
-
-				// Calculate new scale
-				const delta = -e.deltaY * 0.01;
-				const newScale = Math.max(0.5, Math.min(8, scaleRef.current + delta));
-
-				// Adjust pan to keep world position under mouse
-				const newPanX = mouseX - worldX * newScale;
-				const newPanY = mouseY - worldY * newScale;
-
-				setPan({ x: newPanX, y: newPanY });
-				setScale(newScale);
-			} else {
-				// Pan
-				setPan({
-					x: panRef.current.x - e.deltaX,
-					y: panRef.current.y - e.deltaY,
-				});
-			}
-		};
-
 		// Use ResizeObserver to watch for container size changes and redraw
 		const resizeObserver = new ResizeObserver(() => {
 			draw();
 		});
 
 		resizeObserver.observe(container);
-		canvas.addEventListener("wheel", handleWheel, { passive: false });
 
 		return () => {
 			resizeObserver.disconnect();
-			canvas.removeEventListener("wheel", handleWheel);
 		};
 	}, [
 		isOpen,
@@ -324,6 +292,7 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 		selectedTileId,
 		pan,
 		scale,
+		zoomPanContainerRef,
 	]);
 
 	// Helper to convert screen coordinates to canvas coordinates
@@ -527,7 +496,7 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 				) : (
 					<>
 						<div
-							ref={containerRef}
+							ref={zoomPanContainerRef}
 							style={{
 								width: "100%",
 								flex: 1,
