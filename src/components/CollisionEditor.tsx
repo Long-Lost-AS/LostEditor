@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useCanvasZoomPan } from "../hooks/useCanvasZoomPan";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { PolygonCollider } from "../types";
+import { drawCheckerboard, drawGrid } from "../utils/canvasUtils";
 import {
 	canClosePolygon,
 	findEdgeAtPosition as findEdgeAtPos,
@@ -15,10 +17,12 @@ import {
 	renderDrawingPreview,
 } from "../utils/collisionRendering";
 import { generateId } from "../utils/id";
+import { getArrowKeyDelta } from "../utils/keyboardMovement";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { LightbulbIcon, PlusIcon, TrashIcon } from "./Icons";
+import { InlineEdit } from "./InlineEdit";
 
 interface CollisionEditorProps {
 	width: number;
@@ -38,7 +42,21 @@ export const CollisionEditor = ({
 	backgroundRect,
 }: CollisionEditorProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
+
+	// Zoom and pan using shared hook
+	const {
+		scale,
+		pan,
+		setPan,
+		eventToCanvas,
+		containerRef: zoomPanContainerRef,
+	} = useCanvasZoomPan({
+		initialScale: 4,
+		initialPan: { x: 50, y: 50 },
+		minScale: 0.5,
+		maxScale: 16,
+		zoomSpeed: 0.01,
+	});
 
 	// Drawing state
 	const [isDrawing, setIsDrawing] = useState(false);
@@ -67,11 +85,9 @@ export const CollisionEditor = ({
 		{ undo, redo, canUndo, canRedo, startBatch, endBatch },
 	] = useUndoableReducer<PolygonCollider[]>(colliders);
 
-	// Pan/zoom state
+	// Pan/zoom state for manual panning (middle mouse button)
 	const [isPanning, setIsPanning] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-	const [scale, setScale] = useState(4);
-	const [pan, setPan] = useState({ x: 50, y: 50 });
 	const [snapToGrid] = useState(true); // Always enabled
 
 	// UI state
@@ -86,17 +102,6 @@ export const CollisionEditor = ({
 	const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
 		null,
 	);
-	const [editingColliderName, setEditingColliderName] = useState(false);
-	const [editingColliderType, setEditingColliderType] = useState(false);
-
-	// Refs for event handlers
-	const panRef = useRef(pan);
-	const scaleRef = useRef(scale);
-
-	useEffect(() => {
-		panRef.current = pan;
-		scaleRef.current = scale;
-	}, [pan, scale]);
 
 	// Register undo/redo callbacks for keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
@@ -140,7 +145,7 @@ export const CollisionEditor = ({
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		const container = containerRef.current;
+		const container = zoomPanContainerRef.current;
 		if (!canvas || !container) return;
 
 		const ctx = canvas.getContext("2d");
@@ -170,15 +175,7 @@ export const CollisionEditor = ({
 					backgroundRect.height,
 				);
 			} else {
-				const gridSize = 8;
-				for (let y = 0; y < height; y += gridSize) {
-					for (let x = 0; x < width; x += gridSize) {
-						const isEven =
-							(Math.floor(x / gridSize) + Math.floor(y / gridSize)) % 2 === 0;
-						ctx.fillStyle = isEven ? "#333" : "#444";
-						ctx.fillRect(x, y, gridSize, gridSize);
-					}
-				}
+				drawCheckerboard(ctx, width, height, 8, "#333", "#444");
 			}
 
 			// Draw completed colliders
@@ -232,20 +229,10 @@ export const CollisionEditor = ({
 			}
 
 			// Draw 1px grid
-			ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-			ctx.lineWidth = 1 / scale;
-			for (let x = 0; x <= width; x += 1) {
-				ctx.beginPath();
-				ctx.moveTo(x, 0);
-				ctx.lineTo(x, height);
-				ctx.stroke();
-			}
-			for (let y = 0; y <= height; y += 1) {
-				ctx.beginPath();
-				ctx.moveTo(0, y);
-				ctx.lineTo(width, y);
-				ctx.stroke();
-			}
+			drawGrid(ctx, width, height, 1, {
+				color: "rgba(255, 255, 255, 0.1)",
+				lineWidth: 1 / scale,
+			});
 
 			ctx.restore();
 		};
@@ -266,45 +253,11 @@ export const CollisionEditor = ({
 		backgroundImage,
 		backgroundRect,
 		mousePos,
+		zoomPanContainerRef,
 	]);
 
-	// Setup wheel event listener for zoom and pan
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		const handleWheel = (e: WheelEvent) => {
-			e.preventDefault();
-
-			if (e.ctrlKey || e.metaKey) {
-				const rect = container.getBoundingClientRect();
-				const mouseX = e.clientX - rect.left;
-				const mouseY = e.clientY - rect.top;
-
-				const worldX = (mouseX - panRef.current.x) / scaleRef.current;
-				const worldY = (mouseY - panRef.current.y) / scaleRef.current;
-
-				const delta = -e.deltaY * 0.01;
-				const newScale = Math.max(0.5, Math.min(16, scaleRef.current + delta));
-
-				const newPanX = mouseX - worldX * newScale;
-				const newPanY = mouseY - worldY * newScale;
-
-				setPan({ x: newPanX, y: newPanY });
-				setScale(newScale);
-			} else {
-				setPan({
-					x: panRef.current.x - e.deltaX,
-					y: panRef.current.y - e.deltaY,
-				});
-			}
-		};
-
-		container.addEventListener("wheel", handleWheel, { passive: false });
-		return () => container.removeEventListener("wheel", handleWheel);
-	}, []);
-
 	// Keyboard shortcuts are now handled by UndoRedoProvider via useRegisterUndoRedo
+	// Wheel zoom/pan is handled by useCanvasZoomPan hook
 
 	const snapCoord = (value: number) => {
 		return snapToGrid ? Math.round(value) : value;
@@ -314,15 +267,10 @@ export const CollisionEditor = ({
 		e: React.MouseEvent<HTMLCanvasElement>,
 		applySnap = true,
 	) => {
-		const canvas = canvasRef.current;
-		if (!canvas) return { x: 0, y: 0 };
-
-		const rect = canvas.getBoundingClientRect();
-		const screenX = e.clientX - rect.left;
-		const screenY = e.clientY - rect.top;
-
-		const canvasX = (screenX - pan.x) / scale;
-		const canvasY = (screenY - pan.y) / scale;
+		const { x: canvasX, y: canvasY } = eventToCanvas(
+			e,
+			canvasRef as React.RefObject<HTMLElement>,
+		);
 
 		const finalX = applySnap ? snapCoord(canvasX) : canvasX;
 		const finalY = applySnap ? snapCoord(canvasY) : canvasY;
@@ -520,36 +468,15 @@ export const CollisionEditor = ({
 					setSelectedPointIndex(null);
 				}
 			}
-		} else if (
-			e.key === "ArrowUp" ||
-			e.key === "ArrowDown" ||
-			e.key === "ArrowLeft" ||
-			e.key === "ArrowRight"
-		) {
-			if (!selectedColliderId) return;
+		}
 
+		// Arrow key movement
+		const delta = getArrowKeyDelta(e.key);
+		if (delta && selectedColliderId) {
 			e.preventDefault();
 
 			const collider = getSelectedCollider();
 			if (!collider) return;
-
-			let deltaX = 0;
-			let deltaY = 0;
-
-			switch (e.key) {
-				case "ArrowUp":
-					deltaY = -1;
-					break;
-				case "ArrowDown":
-					deltaY = 1;
-					break;
-				case "ArrowLeft":
-					deltaX = -1;
-					break;
-				case "ArrowRight":
-					deltaX = 1;
-					break;
-			}
 
 			// If a specific point is selected, move only that point
 			if (selectedPointIndex !== null) {
@@ -557,11 +484,11 @@ export const CollisionEditor = ({
 				newPoints[selectedPointIndex] = {
 					x: Math.max(
 						0,
-						Math.min(width, newPoints[selectedPointIndex].x + deltaX),
+						Math.min(width, newPoints[selectedPointIndex].x + delta.deltaX),
 					),
 					y: Math.max(
 						0,
-						Math.min(height, newPoints[selectedPointIndex].y + deltaY),
+						Math.min(height, newPoints[selectedPointIndex].y + delta.deltaY),
 					),
 				};
 				const newColliders = localColliders.map((c) =>
@@ -571,8 +498,8 @@ export const CollisionEditor = ({
 			} else {
 				// Move entire collider
 				const newPoints = collider.points.map((p) => ({
-					x: Math.max(0, Math.min(width, p.x + deltaX)),
-					y: Math.max(0, Math.min(height, p.y + deltaY)),
+					x: Math.max(0, Math.min(width, p.x + delta.deltaX)),
+					y: Math.max(0, Math.min(height, p.y + delta.deltaY)),
 				}));
 				const newColliders = localColliders.map((c) =>
 					c.id === selectedColliderId ? { ...c, points: newPoints } : c,
@@ -783,55 +710,11 @@ export const CollisionEditor = ({
 								>
 									Name
 								</div>
-								{editingColliderName ? (
-									<input
-										type="text"
-										defaultValue={selectedCollider.name || ""}
-										onBlur={(e) => {
-											handleUpdateColliderName(e.target.value);
-											setEditingColliderName(false);
-										}}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleUpdateColliderName(e.currentTarget.value);
-												setEditingColliderName(false);
-											} else if (e.key === "Escape") {
-												setEditingColliderName(false);
-											}
-										}}
-										className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
-										style={{
-											background: "#3e3e42",
-											border: "1px solid #007acc",
-										}}
-									/>
-								) : (
-									<div
-										onClick={() => setEditingColliderName(true)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												setEditingColliderName(true);
-											}
-										}}
-										className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
-										style={{
-											background: "#3e3e42",
-											border: "1px solid #3e3e42",
-										}}
-										onMouseEnter={(e) => {
-											e.currentTarget.style.background = "#4a4a4e";
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.background = "#3e3e42";
-										}}
-										role="button"
-										tabIndex={0}
-										aria-label="Edit collider name"
-									>
-										{selectedCollider.name || "(none)"}
-									</div>
-								)}
+								<InlineEdit
+									value={selectedCollider.name || ""}
+									onChange={handleUpdateColliderName}
+									placeholder="(none)"
+								/>
 							</div>
 							<div className="mb-3">
 								<div
@@ -840,55 +723,11 @@ export const CollisionEditor = ({
 								>
 									Type
 								</div>
-								{editingColliderType ? (
-									<input
-										type="text"
-										defaultValue={selectedCollider.type || ""}
-										onBlur={(e) => {
-											handleUpdateColliderType(e.target.value);
-											setEditingColliderType(false);
-										}}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleUpdateColliderType(e.currentTarget.value);
-												setEditingColliderType(false);
-											} else if (e.key === "Escape") {
-												setEditingColliderType(false);
-											}
-										}}
-										className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
-										style={{
-											background: "#3e3e42",
-											border: "1px solid #007acc",
-										}}
-									/>
-								) : (
-									<div
-										onClick={() => setEditingColliderType(true)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												setEditingColliderType(true);
-											}
-										}}
-										className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
-										style={{
-											background: "#3e3e42",
-											border: "1px solid #3e3e42",
-										}}
-										onMouseEnter={(e) => {
-											e.currentTarget.style.background = "#4a4a4e";
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.background = "#3e3e42";
-										}}
-										role="button"
-										tabIndex={0}
-										aria-label="Edit collider type"
-									>
-										{selectedCollider.type || "(none)"}
-									</div>
-								)}
+								<InlineEdit
+									value={selectedCollider.type || ""}
+									onChange={handleUpdateColliderType}
+									placeholder="(none)"
+								/>
 							</div>
 
 							{/* Position (center of all points) - only show when no specific point is selected */}
@@ -1178,7 +1017,7 @@ export const CollisionEditor = ({
 
 			{/* Right Side - Canvas Area */}
 			<div
-				ref={containerRef}
+				ref={zoomPanContainerRef}
 				className="flex-1 overflow-hidden relative"
 				onKeyDown={handleLocalKeyDown}
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: Canvas container needs keyboard events for arrow key navigation
