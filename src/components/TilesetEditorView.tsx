@@ -936,7 +936,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleDeleteCompoundTile = () => {
 		setContextMenu(null);
 
-		if (!contextMenu?.compoundTileId) return;
+		if (contextMenu?.compoundTileId === undefined) return;
 
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
