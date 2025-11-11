@@ -250,37 +250,6 @@ export const MapCanvas = ({
 		return null;
 	};
 
-	// @ts-expect-error - Unused for now, will be used in future
-	const _findColliderAtPosition = (
-		worldX: number,
-		worldY: number,
-	): string | null => {
-		if (!mapData.colliders) return null;
-
-		// Check in reverse order (top to bottom)
-		for (let i = mapData.colliders.length - 1; i >= 0; i--) {
-			const collider = mapData.colliders[i];
-			if (collider.points.length < 3) continue;
-
-			// Check if point is inside polygon
-			if (isPointInPolygon(worldX, worldY, collider.points)) {
-				return collider.id;
-			}
-
-			// Also check if near any control point (for easier selection of small colliders)
-			const threshold = 8 / zoom;
-			for (const point of collider.points) {
-				const dx = worldX - point.x;
-				const dy = worldY - point.y;
-				const distance = Math.sqrt(dx * dx + dy * dy);
-				if (distance <= threshold) {
-					return collider.id;
-				}
-			}
-		}
-		return null;
-	};
-
 	const calculateDistance = (
 		x1: number,
 		y1: number,
