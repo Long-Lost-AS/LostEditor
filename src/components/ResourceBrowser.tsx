@@ -1415,6 +1415,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 											setFolderNameModal({ visible: false, defaultName: "" });
 										}
 									}}
+									spellCheck={false}
 								/>
 								<div className="flex gap-2 justify-end">
 									<button
@@ -1616,6 +1617,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 											});
 										}
 									}}
+									spellCheck={false}
 								/>
 								<div className="flex gap-2 justify-end">
 									<button

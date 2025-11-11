@@ -92,6 +92,7 @@ export const ColliderPropertiesPanel = ({
 								background: "#3e3e42",
 								color: "#cccccc",
 							}}
+							spellCheck={false}
 						/>
 					</div>
 
@@ -113,6 +114,7 @@ export const ColliderPropertiesPanel = ({
 								background: "#3e3e42",
 								color: "#cccccc",
 							}}
+							spellCheck={false}
 						/>
 					</div>
 

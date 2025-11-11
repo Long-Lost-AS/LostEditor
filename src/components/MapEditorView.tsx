@@ -134,6 +134,7 @@ const SortableLayerItem = ({
 				onClick={(e) => e.stopPropagation()}
 				title="Toggle visibility"
 				style={{ accentColor: "#007acc" }}
+				spellCheck={false}
 			/>
 			{isEditing ? (
 				<input
@@ -149,6 +150,7 @@ const SortableLayerItem = ({
 						color: "#cccccc",
 						border: "1px solid #1177bb",
 					}}
+					spellCheck={false}
 				/>
 			) : (
 				<span className="flex-1 select-none">{layer.name}</span>
@@ -1320,6 +1322,7 @@ export const MapEditorView = ({
 								color: "#cccccc",
 								border: "1px solid #1177bb",
 							}}
+							spellCheck={false}
 						/>
 					) : (
 						<div
@@ -1501,6 +1504,7 @@ export const MapEditorView = ({
 																readOnly
 																title="Toggle visibility"
 																style={{ accentColor: "#007acc" }}
+																spellCheck={false}
 															/>
 															<span className="flex-1 select-none">
 																{activeLayer.name}

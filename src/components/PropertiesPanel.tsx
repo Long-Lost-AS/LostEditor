@@ -51,6 +51,7 @@ export const PropertiesPanel = () => {
 						min="1"
 						max="200"
 						aria-label="Map width"
+						spellCheck={false}
 					/>
 					<span>×</span>
 					<input
@@ -60,6 +61,7 @@ export const PropertiesPanel = () => {
 						min="1"
 						max="200"
 						aria-label="Map height"
+						spellCheck={false}
 					/>
 				</div>
 			</div>
@@ -73,6 +75,7 @@ export const PropertiesPanel = () => {
 						min="1"
 						aria-label="Tile width"
 						max="256"
+						spellCheck={false}
 					/>
 					<span>×</span>
 					<input
@@ -82,6 +85,7 @@ export const PropertiesPanel = () => {
 						min="1"
 						max="256"
 						aria-label="Tile height"
+						spellCheck={false}
 					/>
 				</div>
 			</div>

@@ -88,6 +88,7 @@ const SortableLayerItem = ({
 				}}
 				onClick={(e) => e.stopPropagation()}
 				title="Toggle visibility"
+				spellCheck={false}
 			/>
 			{isEditing ? (
 				<input
@@ -98,6 +99,7 @@ const SortableLayerItem = ({
 					onKeyDown={(e) => onKeyDown(e, layer.id)}
 					onClick={(e) => e.stopPropagation()}
 					className="layer-name-input"
+					spellCheck={false}
 				/>
 			) : (
 				<span>{layer.name}</span>
@@ -244,6 +246,7 @@ export const LayersPanel = () => {
 								checked={activeLayer.visible}
 								readOnly
 								title="Toggle visibility"
+								spellCheck={false}
 							/>
 							<span>{activeLayer.name}</span>
 						</div>
