@@ -3,7 +3,7 @@ import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "./bitmaskAutotiling";
-import { packTileId, unpackTileId } from "./tileId";
+import { hashTilesetId, packTileId, unpackTileId } from "./tileId";
 
 /**
  * Check if a specific position on the map has terrain from a specific terrain layer
@@ -43,13 +43,17 @@ export function getTerrainLayerForTile(
 	tilesets: TilesetData[],
 ): string | null {
 	const geometry = unpackTileId(tileId);
-	const tileset = tilesets[geometry.tilesetIndex];
+
+	// Find tileset by hash instead of array index
+	const tileset = tilesets.find(
+		(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+	);
 
 	if (!tileset || !tileset.terrainLayers) {
 		return null;
 	}
 
-	// Create a local tile ID (tileset index 0) for comparison
+	// Create a local tile ID (tileset hash 0) for comparison
 	const localTileId = packTileId(geometry.x, geometry.y, 0);
 
 	// Check each terrain layer to see if this tile belongs to it
@@ -73,7 +77,7 @@ export function placeTerrainTile(
 	mapHeight: number,
 	terrainLayer: TerrainLayer,
 	tileset: TilesetData,
-	tilesetIndex: number,
+	tilesetHash: number,
 	tilesets: TilesetData[],
 ): void {
 	// Calculate bitmask based on neighbors
@@ -101,7 +105,7 @@ export function placeTerrainTile(
 	const globalTileId = packTileId(
 		localGeometry.x,
 		localGeometry.y,
-		tilesetIndex,
+		tilesetHash,
 	);
 
 	// Place the tile
@@ -135,7 +139,7 @@ export function updateNeighborTerrain(
 	mapHeight: number,
 	terrainLayerId: string,
 	tileset: TilesetData,
-	tilesetIndex: number,
+	tilesetHash: number,
 	tilesets: TilesetData[],
 ): void {
 	// Bounds check
@@ -170,7 +174,7 @@ export function updateNeighborTerrain(
 		mapHeight,
 		terrainLayer,
 		tileset,
-		tilesetIndex,
+		tilesetHash,
 		tilesets,
 	);
 }
@@ -186,7 +190,7 @@ export function updateNeighborsAround(
 	mapHeight: number,
 	terrainLayerId: string,
 	tileset: TilesetData,
-	tilesetIndex: number,
+	tilesetHash: number,
 	tilesets: TilesetData[],
 ): void {
 	// Update all 8 surrounding tiles
@@ -202,7 +206,7 @@ export function updateNeighborsAround(
 				mapHeight,
 				terrainLayerId,
 				tileset,
-				tilesetIndex,
+				tilesetHash,
 				tilesets,
 			);
 		}

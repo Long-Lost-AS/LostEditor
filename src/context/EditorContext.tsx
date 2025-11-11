@@ -33,10 +33,6 @@ import type {
 	TilesetTab,
 	Tool,
 } from "../types";
-import {
-	getAllAutotileGroups,
-	updateTileAndNeighbors,
-} from "../utils/autotiling";
 import { generateId } from "../utils/id";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
@@ -161,7 +157,6 @@ interface EditorContextType {
 	// Tile Actions
 	placeTile: (x: number, y: number) => void;
 	eraseTile: (x: number, y: number) => void;
-	autotilingOverride: boolean; // True when Shift is held to bypass autotiling
 
 	// Entity Actions
 	placeEntity: (x: number, y: number) => void;
@@ -291,9 +286,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		selection.type === "terrain" ? selection.terrainLayerId : null;
 	const selectedTileX = selection.type === "tile" ? selection.tileX : 0;
 	const selectedTileY = selection.type === "tile" ? selection.tileY : 0;
-
-	// Autotiling state (always false, no shift override)
-	const autotilingOverride = false;
 
 	// Multi-tileset state
 	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
@@ -595,56 +587,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						}
 					}
 
-					let updatedLayer = { ...layer, tiles: newTiles };
-
-					// Apply autotiling if not overridden
-					if (!autotilingOverride) {
-						// Get all autotile groups from loaded tilesets
-						const autotileGroups = getAllAutotileGroups(tilesets);
-
-						if (autotileGroups.length > 0) {
-							// Determine which positions to update (placed tile + neighbors)
-							const positionsToUpdate: Array<{ x: number; y: number }> = [];
-
-							// Handle compound tiles (multiple cells)
-							if (selectedTileDef?.isCompound) {
-								const tileWidth = selectedTileset?.tileWidth || 16;
-								const tileHeight = selectedTileset?.tileHeight || 16;
-								const widthInTiles = Math.ceil(
-									(selectedTileDef.width ?? 0) / tileWidth,
-								);
-								const heightInTiles = Math.ceil(
-									(selectedTileDef.height ?? 0) / tileHeight,
-								);
-
-								for (let dy = 0; dy < heightInTiles; dy++) {
-									for (let dx = 0; dx < widthInTiles; dx++) {
-										positionsToUpdate.push({ x: x + dx, y: y + dy });
-									}
-								}
-							} else {
-								// Regular single tile
-								positionsToUpdate.push({ x, y });
-							}
-
-							// Apply autotiling to placed tiles and their neighbors
-							const autotiledTiles = updateTileAndNeighbors(
-								updatedLayer,
-								positionsToUpdate,
-								mapWidth,
-								mapHeight,
-								tilesets,
-							);
-
-							// Merge autotiled tiles back into the layer
-							for (const update of autotiledTiles) {
-								newTiles[update.index] = update.tileId;
-							}
-
-							updatedLayer = { ...layer, tiles: newTiles };
-						}
-					}
-
+					const updatedLayer = { ...layer, tiles: newTiles };
 					setCurrentLayer(updatedLayer);
 					return updatedLayer;
 				}
@@ -691,31 +634,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						newTiles[index] = 0;
 					}
 
-					let updatedLayer = { ...layer, tiles: newTiles };
-
-					// Apply autotiling to neighbors after erasing
-					if (!autotilingOverride) {
-						// Get all autotile groups from loaded tilesets
-						const autotileGroups = getAllAutotileGroups(tilesets);
-
-						if (autotileGroups.length > 0) {
-							// Update the 8 neighbors around the erased tile
-							const autotiledTiles = updateTileAndNeighbors(
-								updatedLayer,
-								[{ x, y }],
-								mapWidth,
-								mapHeight,
-								tilesets,
-							);
-
-							// Merge autotiled tiles back into the layer
-							for (const update of autotiledTiles) {
-								newTiles[update.index] = update.tileId;
-							}
-
-							updatedLayer = { ...layer, tiles: newTiles };
-						}
-					}
+					const updatedLayer = { ...layer, tiles: newTiles };
 
 					setCurrentLayer(updatedLayer);
 					return updatedLayer;
@@ -728,7 +647,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			});
 			setProjectModified(true);
 		},
-		[getActiveMapTab, getMapById, updateMap, currentLayer, tilesets],
+		[getActiveMapTab, getMapById, updateMap, currentLayer],
 	);
 
 	// Entity management functions
@@ -2299,7 +2218,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		reorderLayers,
 		placeTile,
 		eraseTile,
-		autotilingOverride,
 		placeEntity,
 		removeEntity,
 		saveProject,

@@ -11,7 +11,7 @@ import {
 	type SpriteLayer,
 	type Tool,
 } from "../types";
-import { packTileId, unpackTileId } from "../utils/tileId";
+import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 
 // Map canvas props interface
 interface MapCanvasProps {
@@ -101,7 +101,7 @@ export const MapCanvas = ({
 		panY,
 		setPan,
 		gridVisible,
-		autotilingOverride,
+		// autotilingOverride,
 		selectedTilesetId,
 		selectedTileId,
 		selectedEntityDefId,
@@ -355,16 +355,17 @@ export const MapCanvas = ({
 		}
 
 		const selectedTileset = tilesets.find((ts) => ts.id === selectedTilesetId);
-		const tilesetIndex = selectedTileset?.order ?? -1;
-		if (tilesetIndex === -1) {
+		if (!selectedTileset) {
 			return;
 		}
+
+		const tilesetHash = hashTilesetId(selectedTileset.id);
 
 		const geometry = unpackTileId(selectedTileId);
 		const globalTileId = packTileId(
 			geometry.x,
 			geometry.y,
-			tilesetIndex,
+			tilesetHash,
 			geometry.flipX,
 			geometry.flipY,
 		);
@@ -563,11 +564,13 @@ export const MapCanvas = ({
 						const x = index % mapData.width;
 						const y = Math.floor(index / mapData.width);
 
-						// Unpack tile geometry from the packed ID (includes tileset index)
+						// Unpack tile geometry from the packed ID (includes tileset hash)
 						const geometry = unpackTileId(tileId);
 
-						// Get tileset by index
-						const tileset = tilesets[geometry.tilesetIndex];
+						// Get tileset by hash
+						const tileset = tilesets.find(
+							(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+						);
 						if (!tileset?.imageData) {
 							continue;
 						}
@@ -927,9 +930,11 @@ export const MapCanvas = ({
 				const tileX = Math.floor(worldX / mapData.tileWidth);
 				const tileY = Math.floor(worldY / mapData.tileHeight);
 
-				// Unpack tileId to get tileset index and geometry
+				// Unpack tileId to get tileset hash and geometry
 				const geometry = unpackTileId(tileId);
-				const tileset = tilesets[geometry.tilesetIndex];
+				const tileset = tilesets.find(
+					(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+				);
 				if (tileset?.imageData) {
 					// Create local tile ID to find definition
 					const localTileId = packTileId(
@@ -1317,6 +1322,7 @@ export const MapCanvas = ({
 	// Trigger render when dependencies change
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to redraw when these values change
 	useEffect(() => {
+		console.log("MapCanvas re-rendering due to dependency change");
 		renderMap.current();
 	}, [
 		mapData,
@@ -1652,8 +1658,8 @@ export const MapCanvas = ({
 							onAddCollider?.(drawingColliderPoints);
 							setIsDrawingCollider(false);
 							setDrawingColliderPoints([]);
-							// Switch to pointer tool
-							onToolChange?.("pointer");
+							// Switch to pointer tool (defer to avoid setState during render)
+							setTimeout(() => onToolChange?.("pointer"), 0);
 							// Note: The collider selection will be handled by handleAddCollider in MapEditorView
 							return;
 						}
@@ -2523,7 +2529,7 @@ export const MapCanvas = ({
 									: "default",
 				}}
 			/>
-			{autotilingOverride && (
+			{/* autotilingOverride && (
 				<div
 					style={{
 						position: "absolute",
@@ -2543,7 +2549,7 @@ export const MapCanvas = ({
 				>
 					AUTOTILING DISABLED (Shift)
 				</div>
-			)}
+			) */}
 			{contextMenu.visible && contextMenu.entityId && (
 				<div
 					role="menu"

@@ -3,7 +3,7 @@ import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "./bitmaskAutotiling";
-import { unpackTileId } from "./tileId";
+import { hashTilesetId, unpackTileId } from "./tileId";
 
 /**
  * Get tile ID from dense array at position (x, y)
@@ -35,9 +35,11 @@ function getTileTerrainType(
 	const tileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
 	if (tileId === 0) return null;
 
-	// Unpack to get tileset index and geometry
+	// Unpack to get tileset hash and geometry
 	const geometry = unpackTileId(tileId);
-	const tileset = tilesets[geometry.tilesetIndex];
+	const tileset = tilesets.find(
+		(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+	);
 	if (!tileset) return null;
 
 	// Find tile definition by matching geometry (x, y coords in sprite sheet)
@@ -67,9 +69,11 @@ export function applyAutotiling(
 	const currentTileId = getTileIdAt(layer, x, y, mapWidth, mapHeight);
 	if (currentTileId === 0) return null;
 
-	// Unpack to get tileset index and geometry
+	// Unpack to get tileset hash and geometry
 	const geometry = unpackTileId(currentTileId);
-	const tileset = tilesets[geometry.tilesetIndex];
+	const tileset = tilesets.find(
+		(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+	);
 	if (!tileset) return null;
 
 	// Find tile definition by matching geometry (x, y coords in sprite sheet)

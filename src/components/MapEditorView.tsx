@@ -30,10 +30,6 @@ import type {
 	PolygonCollider,
 	Tool,
 } from "../types";
-import {
-	getAllAutotileGroups,
-	updateTileAndNeighbors,
-} from "../utils/autotiling";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
@@ -41,7 +37,7 @@ import {
 	placeTerrainTile,
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
-import { packTileId, unpackTileId } from "../utils/tileId";
+import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
@@ -178,7 +174,6 @@ export const MapEditorView = ({
 		selectedEntityDefId,
 		selectedTerrainLayerId,
 		tilesets,
-		autotilingOverride,
 		setProjectModified,
 		reorderLayers,
 	} = useEditor();
@@ -278,7 +273,7 @@ export const MapEditorView = ({
 	);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
-	const isFirstRun = useRef(true);
+	// const isFirstRun = useRef(true);
 
 	// Track previous tab ID to detect tab switches
 	const prevTabIdRef = useRef<string | null>(null);
@@ -305,18 +300,19 @@ export const MapEditorView = ({
 
 	// One-way sync: local map data → global maps array (source of truth)
 	useEffect(() => {
+		console.log("Syncing localMapData to global maps", { mapId: tab.mapId });
 		// Update the global maps array with local changes
 		updateMap(tab.mapId, localMapData);
 
 		// Only mark dirty after first run (i.e., on actual user changes)
-		if (!isFirstRun.current) {
-			updateTabData(tab.id, { isDirty: true });
-		} else {
-			// Clear the flag after skipping
-			setTimeout(() => {
-				isFirstRun.current = false;
-			}, 0);
-		}
+		// if (!isFirstRun.current) {
+		updateTabData(tab.id, { isDirty: true });
+		// } else {
+		// 	// Clear the flag after skipping
+		// 	setTimeout(() => {
+		// 		isFirstRun.current = false;
+		// 	}, 0);
+		// }
 	}, [localMapData, tab.mapId, updateMap, tab.id, updateTabData]);
 
 	// Update edited name when local map data changes
@@ -561,7 +557,7 @@ export const MapEditorView = ({
 								ts.terrainLayers?.some((l) => l.id === terrainLayerId),
 							);
 							if (tileset) {
-								const tilesetIndex = tilesets.indexOf(tileset);
+								const tilesetHash = hashTilesetId(tileset.id);
 								const mutableLayer = { ...layer, tiles: newTiles };
 								updateNeighborsAround(
 									mutableLayer,
@@ -571,7 +567,7 @@ export const MapEditorView = ({
 									mapHeight,
 									terrainLayerId,
 									tileset,
-									tilesetIndex,
+									tilesetHash,
 									tilesets,
 								);
 								updatedLayer = { ...layer, tiles: mutableLayer.tiles };
@@ -579,27 +575,6 @@ export const MapEditorView = ({
 						}
 
 						updatedLayer = { ...layer, tiles: newTiles };
-
-						// Apply autotiling to neighbors
-						if (!autotilingOverride) {
-							const autotileGroups = getAllAutotileGroups(tilesets);
-
-							if (autotileGroups.length > 0) {
-								const autotiledTiles = updateTileAndNeighbors(
-									updatedLayer,
-									[{ x, y }],
-									mapWidth,
-									mapHeight,
-									tilesets,
-								);
-
-								for (const update of autotiledTiles) {
-									newTiles[update.index] = update.tileId;
-								}
-
-								updatedLayer = { ...layer, tiles: newTiles };
-							}
-						}
 
 						// No need to setCurrentLayer - it's component-local only
 						return updatedLayer;
@@ -609,13 +584,7 @@ export const MapEditorView = ({
 			}));
 			setProjectModified(true);
 		},
-		[
-			currentLayer,
-			tilesets,
-			autotilingOverride,
-			setProjectModified,
-			setLocalMapData,
-		],
+		[currentLayer, tilesets, setProjectModified, setLocalMapData],
 	);
 
 	const handlePlaceEntity = useCallback(
@@ -1023,29 +992,50 @@ export const MapEditorView = ({
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
+			console.log("handlePlaceTilesBatch called", {
+				tiles,
+				currentLayerId: currentLayer?.id,
+				currentLayerType: currentLayer?.type,
+				tilesArrayLength: currentLayer?.tiles?.length,
+				selectedTilesetId,
+				selectedTileId,
+				selectedTerrainLayerId,
+			});
 			if (!currentLayer || currentLayer.type !== "tile") {
+				console.log("Early return: no tile layer");
 				return;
 			}
 			if (tiles.length === 0) {
+				console.log("Early return: no tiles");
 				return;
 			}
 
 			// Check if we're in terrain painting mode
 			if (selectedTerrainLayerId) {
+				console.log("Terrain painting mode");
 				// For terrain tiles, we need to place each one and update neighbors
 				// But we can batch the entire operation into one state update
 				const selectedTileset = selectedTilesetId
 					? tilesets.find((ts) => ts.id === selectedTilesetId)
 					: null;
-				if (!selectedTileset?.terrainLayers) return;
+				if (!selectedTileset?.terrainLayers) {
+					console.log("Early return: no terrain layers in tileset");
+					return;
+				}
 
 				const terrainLayer = selectedTileset.terrainLayers.find(
 					(l) => l.id === selectedTerrainLayerId,
 				);
-				if (!terrainLayer) return;
+				if (!terrainLayer) {
+					console.log("Early return: terrain layer not found");
+					return;
+				}
 
-				const tilesetIndex = selectedTileset.order;
-				if (tilesetIndex === undefined) return;
+				const tilesetHash = hashTilesetId(selectedTileset.id);
+				console.log("Terrain painting proceeding", {
+					terrainLayer,
+					tilesetHash,
+				});
 
 				setLocalMapData((prev) => ({
 					...prev,
@@ -1064,7 +1054,7 @@ export const MapEditorView = ({
 									prev.height,
 									terrainLayer,
 									selectedTileset,
-									tilesetIndex,
+									tilesetHash,
 									tilesets,
 								);
 							});
@@ -1079,7 +1069,7 @@ export const MapEditorView = ({
 									prev.height,
 									terrainLayer.id,
 									selectedTileset,
-									tilesetIndex,
+									tilesetHash,
 									tilesets,
 								);
 							});
@@ -1097,103 +1087,70 @@ export const MapEditorView = ({
 			const selectedTileset = selectedTilesetId
 				? tilesets.find((ts) => ts.id === selectedTilesetId)
 				: null;
-			const selectedTileDef =
-				selectedTileset && selectedTileId
-					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
-					: null;
 
-			const tilesetIndex = selectedTileset?.order ?? -1;
-
-			if (tilesetIndex === -1 || !selectedTileId) {
+			if (!selectedTileset || !selectedTileId) {
+				console.log("Early return: invalid tileset or no tile selected", {
+					selectedTilesetId,
+					selectedTileId,
+				});
 				return;
 			}
+
+			const tilesetHash = hashTilesetId(selectedTileset.id);
 
 			const geometry = unpackTileId(selectedTileId);
 			const globalTileId = packTileId(
 				geometry.x,
 				geometry.y,
-				tilesetIndex, // Use the correct tileset index, not the one from unpacking
+				tilesetHash,
 				geometry.flipX,
 				geometry.flipY,
 			);
+			console.log("Regular tile painting", {
+				geometry,
+				globalTileId,
+				tilesetHash,
+			});
 
-			setLocalMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						// Ensure tiles array is properly sized
-						const totalSize = prev.width * prev.height;
-						const newTiles =
-							layer.tiles && layer.tiles.length === totalSize
-								? [...layer.tiles]
-								: new Array(totalSize).fill(0);
+			setLocalMapData((prev) => {
+				console.log("Updating layers", {
+					prevLayersCount: prev.layers.length,
+					currentLayerId: currentLayer.id,
+					layerIds: prev.layers.map((l) => l.id),
+				});
+				return {
+					...prev,
+					layers: prev.layers.map((layer) => {
+						if (layer.id === currentLayer.id) {
+							console.log("Found matching layer to update", {
+								layerId: layer.id,
+							});
+							// Ensure tiles array is properly sized
+							const totalSize = prev.width * prev.height;
+							const newTiles =
+								layer.tiles && layer.tiles.length === totalSize
+									? [...layer.tiles]
+									: new Array(totalSize).fill(0);
 
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
+							const mapWidth = prev.width;
+							const mapHeight = prev.height;
 
-						// Place all tiles
-						tiles.forEach(({ x, y }) => {
-							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-								const index = y * mapWidth + x;
-								newTiles[index] = globalTileId;
-							}
-						});
-
-						let updatedLayer = { ...layer, tiles: newTiles };
-
-						// Apply autotiling if enabled
-						if (!autotilingOverride) {
-							const autotileGroups = getAllAutotileGroups(tilesets);
-
-							if (autotileGroups.length > 0) {
-								const positionsToUpdate: Array<{ x: number; y: number }> = [];
-
-								// Collect all positions that need autotiling
-								tiles.forEach(({ x, y }) => {
-									if (selectedTileDef?.isCompound) {
-										const tileWidth = selectedTileset?.tileWidth || 16;
-										const tileHeight = selectedTileset?.tileHeight || 16;
-										const widthInTiles = Math.ceil(
-											(selectedTileDef.width ?? tileWidth) / tileWidth,
-										);
-										const heightInTiles = Math.ceil(
-											(selectedTileDef.height ?? tileHeight) / tileHeight,
-										);
-
-										for (let dy = 0; dy < heightInTiles; dy++) {
-											for (let dx = 0; dx < widthInTiles; dx++) {
-												positionsToUpdate.push({ x: x + dx, y: y + dy });
-											}
-										}
-									} else {
-										positionsToUpdate.push({ x, y });
-									}
-								});
-
-								const autotiledTiles = updateTileAndNeighbors(
-									updatedLayer,
-									positionsToUpdate,
-									mapWidth,
-									mapHeight,
-									tilesets,
-								);
-
-								if (autotiledTiles && autotiledTiles.length > 0) {
-									// Apply autotiling updates to the tiles array
-									const finalTiles = [...updatedLayer.tiles];
-									for (const update of autotiledTiles) {
-										finalTiles[update.index] = update.tileId;
-									}
-									updatedLayer = { ...updatedLayer, tiles: finalTiles };
+							// Place all tiles
+							tiles.forEach(({ x, y }) => {
+								if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+									const index = y * mapWidth + x;
+									newTiles[index] = globalTileId;
+									console.log("Placing tile at", { x, y, index, globalTileId });
 								}
-							}
-						}
+							});
 
-						return updatedLayer;
-					}
-					return layer;
-				}),
-			}));
+							return { ...layer, tiles: newTiles };
+						}
+						return layer;
+					}),
+				};
+			});
+			console.log("State update completed - tile painting");
 			setProjectModified(true);
 		},
 		[
@@ -1202,7 +1159,6 @@ export const MapEditorView = ({
 			selectedTileId,
 			selectedTerrainLayerId,
 			tilesets,
-			autotilingOverride,
 			setProjectModified,
 			setLocalMapData,
 		],
