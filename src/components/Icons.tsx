@@ -337,3 +337,20 @@ export const PlusIcon = ({ className, size = 16 }: IconProps) => (
 		<line x1="5" y1="12" x2="19" y2="12" />
 	</svg>
 );
+
+export const PolygonIcon = ({ className, size = 16 }: IconProps) => (
+	<svg
+		aria-hidden="true"
+		width={size}
+		height={size}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		className={className}
+	>
+		<polygon points="12 2 22 12 17 22 7 22 2 12" />
+	</svg>
+);

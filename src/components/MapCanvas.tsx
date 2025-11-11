@@ -7,6 +7,7 @@ import {
 	hasImageData,
 	type MapData,
 	type PointInstance,
+	type PolygonCollider,
 	type SpriteLayer,
 	type Tool,
 } from "../types";
@@ -17,6 +18,7 @@ interface MapCanvasProps {
 	mapData: MapData;
 	currentTool: Tool;
 	currentLayerId: string | null;
+	onToolChange?: (tool: Tool) => void;
 	onPlaceTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
 	onEraseTile: (x: number, y: number) => void;
 	onPlaceEntity: (x: number, y: number) => void;
@@ -30,6 +32,32 @@ interface MapCanvasProps {
 	onPointSelected?: (pointId: string | null) => void;
 	onPointDragging?: (pointId: string, newX: number, newY: number) => void;
 	onDeletePoint?: (pointId: string) => void;
+	onAddCollider?: (points: Array<{ x: number; y: number }>) => void;
+	onUpdateColliderPoint?: (
+		colliderId: string,
+		pointIndex: number,
+		x: number,
+		y: number,
+	) => void;
+	onUpdateCollider?: (
+		colliderId: string,
+		updates: Partial<PolygonCollider>,
+	) => void;
+	onColliderDragging?: (
+		colliderId: string,
+		updates: Partial<PolygonCollider>,
+	) => void;
+	onColliderSelected?: (colliderId: string | null) => void;
+	onColliderPointSelected?: (pointIndex: number | null) => void;
+	onDeleteCollider?: (colliderId: string) => void;
+	onContextMenuRequest?: (menu: {
+		x: number;
+		y: number;
+		colliderId?: string;
+		pointIndex?: number;
+		edgeIndex?: number;
+		insertPosition?: { x: number; y: number };
+	}) => void;
 	onStartBatch?: () => void;
 	onEndBatch?: () => void;
 }
@@ -38,6 +66,7 @@ export const MapCanvas = ({
 	mapData,
 	currentTool,
 	currentLayerId,
+	onToolChange,
 	onPlaceTilesBatch,
 	onEraseTile,
 	onPlaceEntity,
@@ -51,6 +80,14 @@ export const MapCanvas = ({
 	onPointSelected,
 	onPointDragging,
 	onDeletePoint,
+	onAddCollider,
+	onUpdateColliderPoint,
+	onUpdateCollider,
+	onColliderDragging,
+	onColliderSelected,
+	onColliderPointSelected,
+	onDeleteCollider: _onDeleteCollider,
+	onContextMenuRequest,
 	onStartBatch,
 	onEndBatch,
 }: MapCanvasProps) => {
@@ -130,6 +167,30 @@ export const MapCanvas = ({
 		useState(false);
 	const DRAG_THRESHOLD = 5; // pixels before starting drag
 
+	// Collision drawing state (similar to EntityEditorView)
+	const [isDrawingCollider, setIsDrawingCollider] = useState(false);
+	const [drawingColliderPoints, setDrawingColliderPoints] = useState<
+		Array<{ x: number; y: number }>
+	>([]);
+	const [selectedColliderId, setSelectedColliderId] = useState<string | null>(
+		null,
+	);
+	const [selectedColliderPointIndex, setSelectedColliderPointIndex] = useState<
+		number | null
+	>(null);
+	const [isDraggingColliderPoint, setIsDraggingColliderPoint] = useState(false);
+	const [_isDraggingCollider, _setIsDraggingCollider] = useState(false);
+	const [colliderDragStart, setColliderDragStart] = useState<{
+		x: number;
+		y: number;
+		originalPoints: Array<{ x: number; y: number }>;
+		pointIndex: number | null; // null = dragging whole collider, number = dragging specific point
+	} | null>(null);
+	const [tempColliderPointPosition, setTempColliderPointPosition] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
+
 	// Click-through state for cycling between overlapping objects
 	const lastClickPosRef = useRef<{
 		x: number;
@@ -145,6 +206,131 @@ export const MapCanvas = ({
 		entityId: string | null;
 		pointId: string | null;
 	}>({ visible: false, x: 0, y: 0, entityId: null, pointId: null });
+
+	// Helper functions for collider manipulation
+	const isPointInPolygon = (
+		x: number,
+		y: number,
+		points: Array<{ x: number; y: number }>,
+	): boolean => {
+		if (points.length < 3) return false;
+
+		let inside = false;
+		for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+			const xi = points[i].x;
+			const yi = points[i].y;
+			const xj = points[j].x;
+			const yj = points[j].y;
+
+			const intersect =
+				yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+			if (intersect) inside = !inside;
+		}
+		return inside;
+	};
+
+	const findColliderPointAtPosition = (
+		worldX: number,
+		worldY: number,
+		colliderId: string,
+	): number | null => {
+		const collider = mapData.colliders?.find((c) => c.id === colliderId);
+		if (!collider) return null;
+
+		const threshold = 8 / zoom; // Click tolerance in world pixels
+		for (let i = 0; i < collider.points.length; i++) {
+			const point = collider.points[i];
+			const dx = worldX - point.x;
+			const dy = worldY - point.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+			if (distance <= threshold) {
+				return i;
+			}
+		}
+		return null;
+	};
+
+	// @ts-expect-error - Unused for now, will be used in future
+	const _findColliderAtPosition = (
+		worldX: number,
+		worldY: number,
+	): string | null => {
+		if (!mapData.colliders) return null;
+
+		// Check in reverse order (top to bottom)
+		for (let i = mapData.colliders.length - 1; i >= 0; i--) {
+			const collider = mapData.colliders[i];
+			if (collider.points.length < 3) continue;
+
+			// Check if point is inside polygon
+			if (isPointInPolygon(worldX, worldY, collider.points)) {
+				return collider.id;
+			}
+
+			// Also check if near any control point (for easier selection of small colliders)
+			const threshold = 8 / zoom;
+			for (const point of collider.points) {
+				const dx = worldX - point.x;
+				const dy = worldY - point.y;
+				const distance = Math.sqrt(dx * dx + dy * dy);
+				if (distance <= threshold) {
+					return collider.id;
+				}
+			}
+		}
+		return null;
+	};
+
+	const calculateDistance = (
+		x1: number,
+		y1: number,
+		x2: number,
+		y2: number,
+	): number => {
+		const dx = x2 - x1;
+		const dy = y2 - y1;
+		return Math.sqrt(dx * dx + dy * dy);
+	};
+
+	const findEdgeAtPosition = (
+		points: Array<{ x: number; y: number }>,
+		x: number,
+		y: number,
+	): { edgeIndex: number; insertPosition: { x: number; y: number } } | null => {
+		if (points.length < 2) return null;
+
+		const threshold = 8 / zoom;
+
+		for (let i = 0; i < points.length; i++) {
+			const p1 = points[i];
+			const p2 = points[(i + 1) % points.length];
+
+			const dx = p2.x - p1.x;
+			const dy = p2.y - p1.y;
+			const lengthSquared = dx * dx + dy * dy;
+
+			if (lengthSquared === 0) continue;
+
+			const t = Math.max(
+				0,
+				Math.min(1, ((x - p1.x) * dx + (y - p1.y) * dy) / lengthSquared),
+			);
+			const projX = p1.x + t * dx;
+			const projY = p1.y + t * dy;
+
+			const distX = x - projX;
+			const distY = y - projY;
+			const distance = Math.sqrt(distX * distX + distY * distY);
+
+			if (distance <= threshold) {
+				return {
+					edgeIndex: i,
+					insertPosition: { x: projX, y: projY },
+				};
+			}
+		}
+		return null;
+	};
 
 	// Fill tool - flood fill helper function
 	const floodFill = (startX: number, startY: number) => {
@@ -563,6 +749,145 @@ export const MapCanvas = ({
 				});
 			}
 
+			// Render map-level colliders (on top of points)
+			if (mapData.colliders && mapData.colliders.length > 0) {
+				mapData.colliders.forEach((collider) => {
+					if (collider.points.length < 2) return;
+
+					// Determine if this collider is selected
+					const isSelected = selectedColliderId === collider.id;
+
+					// Draw polygon outline
+					ctx.strokeStyle = isSelected
+						? "rgba(255, 165, 0, 0.9)"
+						: "rgba(255, 165, 0, 0.6)";
+					ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
+					ctx.beginPath();
+
+					// Handle temp point position if dragging a point (for pointer tool)
+					const getPointPosition = (index: number) => {
+						if (
+							currentTool === "pointer" &&
+							isDraggingColliderPoint &&
+							isSelected &&
+							selectedColliderPointIndex === index &&
+							tempColliderPointPosition
+						) {
+							return tempColliderPointPosition;
+						}
+						return collider.points[index];
+					};
+
+					// Draw the collider polygon
+					const firstPoint = getPointPosition(0);
+					ctx.moveTo(firstPoint.x, firstPoint.y);
+
+					for (let i = 1; i < collider.points.length; i++) {
+						const point = getPointPosition(i);
+						ctx.lineTo(point.x, point.y);
+					}
+
+					// Close the polygon if we have at least 3 points
+					if (collider.points.length >= 3) {
+						ctx.closePath();
+					}
+
+					ctx.stroke();
+
+					// Draw semi-transparent fill if complete (3+ points)
+					if (collider.points.length >= 3) {
+						ctx.fillStyle = isSelected
+							? "rgba(255, 165, 0, 0.15)"
+							: "rgba(255, 165, 0, 0.08)";
+						ctx.fill();
+					}
+
+					// Draw control points
+					for (let i = 0; i < collider.points.length; i++) {
+						const point = getPointPosition(i);
+						const isSelectedPoint =
+							isSelected && selectedColliderPointIndex === i;
+
+						// Outer circle
+						ctx.strokeStyle = isSelectedPoint
+							? "rgba(0, 150, 255, 0.9)"
+							: "rgba(255, 165, 0, 0.9)";
+						ctx.lineWidth = isSelectedPoint ? 3 / zoom : 2 / zoom;
+						ctx.beginPath();
+						ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+						ctx.stroke();
+
+						// Inner circle (filled)
+						ctx.fillStyle = isSelectedPoint
+							? "rgba(0, 150, 255, 0.8)"
+							: "rgba(255, 165, 0, 0.7)";
+						ctx.beginPath();
+						ctx.arc(point.x, point.y, 3 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+					}
+
+					// Draw collider name if selected and zoomed in enough
+					if (isSelected && zoom > 0.5 && collider.name) {
+						// Calculate center point
+						const centerX =
+							collider.points.reduce((sum, p) => sum + p.x, 0) /
+							collider.points.length;
+						const centerY =
+							collider.points.reduce((sum, p) => sum + p.y, 0) /
+							collider.points.length;
+
+						ctx.fillStyle = "#ffffff";
+						ctx.font = `${12 / zoom}px sans-serif`;
+						ctx.textAlign = "center";
+						ctx.fillText(collider.name, centerX, centerY);
+						ctx.textAlign = "left"; // Reset
+					}
+				});
+			}
+
+			// Draw currently-being-drawn collider (when in collision tool)
+			if (isDrawingCollider && drawingColliderPoints.length > 0) {
+				// Draw lines connecting points (like EntityEditorView)
+				ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
+				ctx.lineWidth = 2 / zoom;
+				ctx.beginPath();
+
+				const firstPoint = drawingColliderPoints[0];
+				ctx.moveTo(firstPoint.x, firstPoint.y);
+
+				for (let i = 1; i < drawingColliderPoints.length; i++) {
+					const point = drawingColliderPoints[i];
+					ctx.lineTo(point.x, point.y);
+				}
+
+				ctx.stroke();
+
+				// Draw points
+				drawingColliderPoints.forEach((point, index) => {
+					// First point is red and larger, others are blue (like EntityEditorView)
+					if (index === 0) {
+						ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
+						ctx.beginPath();
+						ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+					} else {
+						ctx.fillStyle = "rgba(100, 150, 255, 0.9)";
+						ctx.beginPath();
+						ctx.arc(point.x, point.y, 4 / zoom, 0, Math.PI * 2);
+						ctx.fill();
+					}
+				});
+
+				// Draw red ring around first point when we have 3+ points (closure hint, like EntityEditorView)
+				if (drawingColliderPoints.length >= 3) {
+					ctx.strokeStyle = "rgba(255, 100, 100, 0.9)";
+					ctx.lineWidth = 3 / zoom;
+					ctx.beginPath();
+					ctx.arc(firstPoint.x, firstPoint.y, 8 / zoom, 0, Math.PI * 2);
+					ctx.stroke();
+				}
+			}
+
 			// Draw grid
 			if (gridVisible) {
 				ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
@@ -972,7 +1297,7 @@ export const MapCanvas = ({
 		selectedTilesetId,
 		isDrawingRect,
 		rectStartTile,
-		isDraggingEntity, // Render entity with hierarchy
+		isDraggingEntity,
 		renderEntity,
 		selectedEntityDefId,
 		selectedEntityId,
@@ -980,6 +1305,13 @@ export const MapCanvas = ({
 		isDraggingPoint,
 		selectedPointId,
 		tempPointPosition,
+		isDrawingCollider,
+		drawingColliderPoints,
+		selectedColliderId,
+		selectedColliderPointIndex,
+		isDraggingColliderPoint,
+		tempColliderPointPosition,
+		currentTool,
 	]);
 
 	// Trigger render when dependencies change
@@ -1003,6 +1335,12 @@ export const MapCanvas = ({
 		isDraggingPoint,
 		selectedPointId,
 		tempPointPosition,
+		isDrawingCollider,
+		drawingColliderPoints,
+		selectedColliderId,
+		selectedColliderPointIndex,
+		isDraggingColliderPoint,
+		tempColliderPointPosition,
 	]);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
@@ -1038,11 +1376,65 @@ export const MapCanvas = ({
 			const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 
 			if (currentTool === "pointer") {
-				// Pointer tool: select entity or point at click position
+				// Pointer tool: select entity, point, or collider at click position
+
+				// If a collider is selected, check if clicking on one of its points to drag
+				if (selectedColliderId) {
+					const selectedCollider = mapData.colliders?.find(
+						(c) => c.id === selectedColliderId,
+					);
+					if (selectedCollider) {
+						const pointIndex = findColliderPointAtPosition(
+							worldX,
+							worldY,
+							selectedColliderId,
+						);
+						if (pointIndex !== null) {
+							// Clicked on a collider point - start dragging it
+							setSelectedColliderPointIndex(pointIndex);
+							setColliderDragStart({
+								x: e.clientX,
+								y: e.clientY,
+								originalPoints: selectedCollider.points.map((p) => ({ ...p })),
+								pointIndex: pointIndex, // Dragging specific point
+							});
+							setIsDraggingColliderPoint(true);
+							setTempColliderPointPosition({
+								x: selectedCollider.points[pointIndex].x,
+								y: selectedCollider.points[pointIndex].y,
+							});
+							onStartBatch?.();
+							renderMap.current();
+							onColliderPointSelected?.(pointIndex);
+							return;
+						}
+
+						// Not clicking on a point - check if clicking inside the collider body
+						if (
+							selectedCollider.points.length >= 3 &&
+							isPointInPolygon(worldX, worldY, selectedCollider.points)
+						) {
+							// Clicked inside collider body - start dragging the whole collider
+							// Clear selected point index so we drag all points
+							setSelectedColliderPointIndex(null);
+							setColliderDragStart({
+								x: e.clientX,
+								y: e.clientY,
+								originalPoints: selectedCollider.points.map((p) => ({ ...p })),
+								pointIndex: null, // Dragging whole collider
+							});
+							_setIsDraggingCollider(true);
+							onStartBatch?.();
+							return;
+						}
+					}
+				}
+
 				// Collect all clickable objects at this position
 				type ClickableObject =
 					| { type: "entity"; entity: EntityInstance }
-					| { type: "point"; point: PointInstance };
+					| { type: "point"; point: PointInstance }
+					| { type: "collider"; collider: PolygonCollider };
 				const clickableObjects: ClickableObject[] = [];
 
 				// Check for points FIRST (higher priority - they're smaller and harder to click)
@@ -1101,6 +1493,32 @@ export const MapCanvas = ({
 					}
 				}
 
+				// Check for colliders AFTER entities
+				if (mapData.colliders) {
+					for (let i = mapData.colliders.length - 1; i >= 0; i--) {
+						const collider = mapData.colliders[i];
+						if (collider.points.length < 3) continue;
+
+						// Check if point is inside polygon
+						if (isPointInPolygon(worldX, worldY, collider.points)) {
+							clickableObjects.push({ type: "collider", collider });
+							continue;
+						}
+
+						// Also check if near any control point (for easier selection of small colliders)
+						const threshold = 8 / zoom;
+						for (const point of collider.points) {
+							const dx = worldX - point.x;
+							const dy = worldY - point.y;
+							const distance = Math.sqrt(dx * dx + dy * dy);
+							if (distance <= threshold) {
+								clickableObjects.push({ type: "collider", collider });
+								break;
+							}
+						}
+					}
+				}
+
 				// Click-through: Hold Alt/Option key to cycle through overlapping objects
 				const isClickThrough = e.altKey && clickableObjects.length > 1;
 
@@ -1124,6 +1542,12 @@ export const MapCanvas = ({
 								(obj) =>
 									obj.type === "point" && obj.point.id === selectedPointId,
 							);
+						} else if (selectedColliderId) {
+							currentIndex = clickableObjects.findIndex(
+								(obj) =>
+									obj.type === "collider" &&
+									obj.collider.id === selectedColliderId,
+							);
 						}
 
 						// Select next object (or first if current not found or is last)
@@ -1140,10 +1564,12 @@ export const MapCanvas = ({
 						// Update both state and ref for immediate rendering
 						setSelectedEntityId(foundEntity.id);
 						selectedEntityIdRef.current = foundEntity.id;
-						// Clear point selection
+						// Clear point and collider selection
 						setSelectedPointId(null);
 						selectedPointIdRef.current = null;
 						onPointSelected?.(null);
+						setSelectedColliderId(null);
+						onColliderSelected?.(null);
 						// Always set drag start - allow dragging after selection
 						setEntityDragStart({ x: e.clientX, y: e.clientY });
 						setEntityDragOffset({
@@ -1154,12 +1580,14 @@ export const MapCanvas = ({
 						renderMap.current();
 						// Notify parent (this may cause a slower re-render)
 						onEntitySelected?.(foundEntity.id);
-					} else {
+					} else if (objectToSelect.type === "point") {
 						const foundPoint = objectToSelect.point;
-						// Clear entity selection
+						// Clear entity and collider selection
 						setSelectedEntityId(null);
 						selectedEntityIdRef.current = null;
 						onEntitySelected?.(null);
+						setSelectedColliderId(null);
+						onColliderSelected?.(null);
 						// Update point selection
 						setSelectedPointId(foundPoint.id);
 						selectedPointIdRef.current = foundPoint.id;
@@ -1173,6 +1601,22 @@ export const MapCanvas = ({
 						renderMap.current();
 						// Notify parent
 						onPointSelected?.(foundPoint.id);
+					} else {
+						// Collider selection
+						const foundCollider = objectToSelect.collider;
+						// Clear entity and point selection
+						setSelectedEntityId(null);
+						selectedEntityIdRef.current = null;
+						onEntitySelected?.(null);
+						setSelectedPointId(null);
+						selectedPointIdRef.current = null;
+						onPointSelected?.(null);
+						// Update collider selection
+						setSelectedColliderId(foundCollider.id);
+						// Trigger immediate render
+						renderMap.current();
+						// Notify parent
+						onColliderSelected?.(foundCollider.id);
 					}
 				} else {
 					// No objects found - clear all selections
@@ -1180,8 +1624,52 @@ export const MapCanvas = ({
 					selectedEntityIdRef.current = null;
 					setSelectedPointId(null);
 					selectedPointIdRef.current = null;
+					setSelectedColliderId(null);
 					onEntitySelected?.(null);
 					onPointSelected?.(null);
+					onColliderSelected?.(null);
+				}
+			} else if (currentTool === "collision") {
+				// Collision tool: Tiled-like click-to-place polygon drawing
+				if (isDrawingCollider) {
+					// Already drawing - add a point
+					const snappedX = Math.floor(worldX);
+					const snappedY = Math.floor(worldY);
+
+					// Check if clicking near first point to close polygon (need at least 3 points)
+					if (drawingColliderPoints.length >= 3) {
+						const firstPoint = drawingColliderPoints[0];
+						const distance = calculateDistance(
+							snappedX,
+							snappedY,
+							firstPoint.x,
+							firstPoint.y,
+						);
+
+						// Threshold of 8 pixels (adjusted for zoom)
+						if (distance <= 8 / zoom) {
+							// Close the polygon - create the collider
+							onAddCollider?.(drawingColliderPoints);
+							setIsDrawingCollider(false);
+							setDrawingColliderPoints([]);
+							// Switch to pointer tool
+							onToolChange?.("pointer");
+							// Note: The collider selection will be handled by handleAddCollider in MapEditorView
+							return;
+						}
+					}
+
+					// Add point to drawing
+					setDrawingColliderPoints((prev) => [
+						...prev,
+						{ x: snappedX, y: snappedY },
+					]);
+				} else {
+					// Not drawing - start drawing mode immediately
+					setIsDrawingCollider(true);
+					setDrawingColliderPoints([
+						{ x: Math.floor(worldX), y: Math.floor(worldY) },
+					]);
 				}
 			} else if (currentTool === "rect") {
 				// Rectangle tool: start drawing rectangle
@@ -1335,6 +1823,58 @@ export const MapCanvas = ({
 				// Call live update callback
 				onPointDragging?.(selectedPointId, newX, newY);
 			}
+		} else if (
+			colliderDragStart &&
+			selectedColliderId &&
+			currentTool === "pointer"
+		) {
+			// Check if we've moved enough to start dragging
+			const dx = e.clientX - colliderDragStart.x;
+			const dy = e.clientY - colliderDragStart.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+
+			if (distance > DRAG_THRESHOLD) {
+				const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+				const startWorldPos = screenToWorld(
+					colliderDragStart.x,
+					colliderDragStart.y,
+				);
+
+				// Calculate the drag delta in world coordinates
+				const deltaX = worldX - startWorldPos.worldX;
+				const deltaY = worldY - startWorldPos.worldY;
+
+				if (colliderDragStart.pointIndex !== null) {
+					// Dragging a single point
+					if (!isDraggingColliderPoint) {
+						setIsDraggingColliderPoint(true);
+					}
+					const originalPoint =
+						colliderDragStart.originalPoints[colliderDragStart.pointIndex];
+					const newX = Math.floor(originalPoint.x + deltaX);
+					const newY = Math.floor(originalPoint.y + deltaY);
+					setTempColliderPointPosition({ x: newX, y: newY });
+					// Update the actual collider point position
+					onUpdateColliderPoint?.(
+						selectedColliderId,
+						colliderDragStart.pointIndex,
+						newX,
+						newY,
+					);
+				} else {
+					// Dragging the whole collider - update all points at once
+					if (!_isDraggingCollider) {
+						_setIsDraggingCollider(true);
+					}
+					// Calculate new points all at once
+					const newPoints = colliderDragStart.originalPoints.map((p) => ({
+						x: Math.floor(p.x + deltaX),
+						y: Math.floor(p.y + deltaY),
+					}));
+					// Use dragging callback for smooth updates (doesn't mark as modified)
+					onColliderDragging?.(selectedColliderId, { points: newPoints });
+				}
+			}
 		} else if (isDrawing) {
 			const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 			if (currentTool === "pencil") {
@@ -1405,6 +1945,53 @@ export const MapCanvas = ({
 		} else if (pointDragStart && currentTool === "pointer") {
 			// Click without drag for point - just clear drag start
 			setPointDragStart(null);
+		}
+
+		// Finish dragging collider point or whole collider
+		if (
+			(isDraggingColliderPoint || _isDraggingCollider) &&
+			selectedColliderId &&
+			currentTool === "pointer" &&
+			colliderDragStart
+		) {
+			// Commit final position and mark as modified
+			if (_isDraggingCollider) {
+				// Whole collider was dragged - get final positions from colliderDragStart
+				const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
+				const startWorldPos = screenToWorld(
+					colliderDragStart.x,
+					colliderDragStart.y,
+				);
+				const deltaX = worldX - startWorldPos.worldX;
+				const deltaY = worldY - startWorldPos.worldY;
+				const newPoints = colliderDragStart.originalPoints.map((p) => ({
+					x: Math.floor(p.x + deltaX),
+					y: Math.floor(p.y + deltaY),
+				}));
+				onUpdateCollider?.(selectedColliderId, { points: newPoints });
+			} else if (
+				isDraggingColliderPoint &&
+				tempColliderPointPosition &&
+				colliderDragStart.pointIndex !== null
+			) {
+				// Single point was dragged - commit final position
+				onUpdateColliderPoint?.(
+					selectedColliderId,
+					colliderDragStart.pointIndex,
+					tempColliderPointPosition.x,
+					tempColliderPointPosition.y,
+				);
+			}
+			// End batching to commit as one undo/redo entry
+			onEndBatch?.();
+			setIsDraggingColliderPoint(false);
+			_setIsDraggingCollider(false);
+			setTempColliderPointPosition(null);
+			setColliderDragStart(null);
+			didDrag = true;
+		} else if (colliderDragStart && currentTool === "pointer") {
+			// Click without drag - just clear drag start
+			setColliderDragStart(null);
 		}
 
 		// Update click-through tracking only if we didn't drag
@@ -1566,6 +2153,67 @@ export const MapCanvas = ({
 				renderMap.current();
 				onEntitySelected?.(foundEntity.id);
 			}
+			return;
+		}
+
+		// Check for colliders - if a collider is selected, check for point or edge clicks first
+		if (selectedColliderId && mapData.colliders) {
+			const selectedCollider = mapData.colliders.find(
+				(c) => c.id === selectedColliderId,
+			);
+			if (selectedCollider) {
+				// Check if clicking on a point
+				const pointIndex = findColliderPointAtPosition(
+					worldX,
+					worldY,
+					selectedCollider.id,
+				);
+				if (pointIndex !== null) {
+					onContextMenuRequest?.({
+						x: e.clientX,
+						y: e.clientY,
+						colliderId: selectedCollider.id,
+						pointIndex,
+					});
+					return;
+				}
+
+				// Check if clicking on an edge
+				const edge = findEdgeAtPosition(
+					selectedCollider.points,
+					worldX,
+					worldY,
+				);
+				if (edge) {
+					onContextMenuRequest?.({
+						x: e.clientX,
+						y: e.clientY,
+						colliderId: selectedCollider.id,
+						edgeIndex: edge.edgeIndex,
+						insertPosition: edge.insertPosition,
+					});
+					return;
+				}
+			}
+		}
+
+		// Check if we right-clicked on a collider
+		if (mapData.colliders) {
+			for (const collider of mapData.colliders) {
+				if (
+					collider.points.length >= 3 &&
+					isPointInPolygon(worldX, worldY, collider.points)
+				) {
+					onContextMenuRequest?.({
+						x: e.clientX,
+						y: e.clientY,
+						colliderId: collider.id,
+					});
+					// Select the collider
+					onColliderSelected?.(collider.id);
+					return;
+				}
+			}
 		}
 	};
 
@@ -1633,18 +2281,19 @@ export const MapCanvas = ({
 		setZoom,
 	]);
 
-	// Handle keyboard arrow keys to move selected entity or point
+	// Handle keyboard arrow keys to move selected entity, point, or collider
 	useEffect(() => {
-		if (currentTool !== "pointer" || (!selectedEntityId && !selectedPointId)) {
+		if (
+			currentTool !== "pointer" ||
+			(!selectedEntityId && !selectedPointId && !selectedColliderId)
+		) {
 			return;
 		}
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Only handle arrow keys and Delete
+			// Only handle arrow keys (not Delete - that's handled in MapEditorView)
 			if (
-				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Delete"].includes(
-					e.key,
-				)
+				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
 			) {
 				return;
 			}
@@ -1656,16 +2305,6 @@ export const MapCanvas = ({
 			}
 
 			e.preventDefault();
-
-			// Handle Delete key
-			if (e.key === "Delete") {
-				if (selectedEntityId) {
-					onDeleteEntity?.(selectedEntityId);
-				} else if (selectedPointId) {
-					onDeletePoint?.(selectedPointId);
-				}
-				return;
-			}
 
 			// Handle arrow keys for entity movement
 			if (selectedEntityId) {
@@ -1725,6 +2364,54 @@ export const MapCanvas = ({
 				// Move the point
 				onMovePoint?.(selectedPointId, newX, newY);
 			}
+			// Handle arrow keys for collider movement
+			else if (selectedColliderId) {
+				const collider = mapData.colliders?.find(
+					(c) => c.id === selectedColliderId,
+				);
+				if (!collider) {
+					return;
+				}
+
+				// Calculate delta based on arrow key
+				let deltaX = 0;
+				let deltaY = 0;
+
+				switch (e.key) {
+					case "ArrowUp":
+						deltaY = -1;
+						break;
+					case "ArrowDown":
+						deltaY = 1;
+						break;
+					case "ArrowLeft":
+						deltaX = -1;
+						break;
+					case "ArrowRight":
+						deltaX = 1;
+						break;
+				}
+
+				// If a specific point is selected, move only that point
+				if (selectedColliderPointIndex !== null) {
+					const point = collider.points[selectedColliderPointIndex];
+					if (point) {
+						onUpdateColliderPoint?.(
+							selectedColliderId,
+							selectedColliderPointIndex,
+							point.x + deltaX,
+							point.y + deltaY,
+						);
+					}
+				} else {
+					// Move entire collider
+					const newPoints = collider.points.map((p) => ({
+						x: p.x + deltaX,
+						y: p.y + deltaY,
+					}));
+					onUpdateCollider?.(selectedColliderId, { points: newPoints });
+				}
+			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
@@ -1733,13 +2420,41 @@ export const MapCanvas = ({
 		currentTool,
 		selectedEntityId,
 		selectedPointId,
+		selectedColliderId,
+		selectedColliderPointIndex,
 		mapData.entities,
 		mapData.points,
+		mapData.colliders,
 		onMoveEntity,
 		onMovePoint,
-		onDeleteEntity,
-		onDeletePoint,
+		onUpdateColliderPoint,
+		onUpdateCollider,
 	]);
+
+	// Handle keyboard events for collision tool (Escape to cancel drawing)
+	useEffect(() => {
+		if (currentTool !== "collision") {
+			return;
+		}
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Don't handle if user is typing in an input field
+			const target = e.target as HTMLElement;
+			if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+				return;
+			}
+
+			if (e.key === "Escape" && isDrawingCollider) {
+				// Cancel drawing
+				e.preventDefault();
+				setIsDrawingCollider(false);
+				setDrawingColliderPoints([]);
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [currentTool, isDrawingCollider]);
 
 	// Handle closing context menu with Escape or clicks outside
 	useEffect(() => {

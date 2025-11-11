@@ -27,6 +27,7 @@ import type {
 	MapData,
 	MapTab,
 	PointInstance,
+	PolygonCollider,
 	Tool,
 } from "../types";
 import {
@@ -41,6 +42,7 @@ import {
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
 import { packTileId, unpackTileId } from "../utils/tileId";
+import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { MapCanvas } from "./MapCanvas";
@@ -208,6 +210,7 @@ export const MapEditorView = ({
 			layers: [],
 			entities: [],
 			points: [],
+			colliders: [],
 		},
 	);
 
@@ -232,6 +235,14 @@ export const MapEditorView = ({
 	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 	const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 
+	// Collider selection state
+	const [selectedColliderId, setSelectedColliderId] = useState<string | null>(
+		null,
+	);
+	const [selectedColliderPointIndex, setSelectedColliderPointIndex] = useState<
+		number | null
+	>(null);
+
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
 
@@ -248,7 +259,11 @@ export const MapEditorView = ({
 	const [contextMenu, setContextMenu] = useState<{
 		x: number;
 		y: number;
-		layerId: string;
+		layerId?: string;
+		colliderId?: string;
+		pointIndex?: number;
+		edgeIndex?: number;
+		insertPosition?: { x: number; y: number };
 	} | null>(null);
 
 	// Drag-and-drop state
@@ -840,6 +855,171 @@ export const MapEditorView = ({
 		[localMapData, setProjectModified, setLocalMapData],
 	);
 
+	// Handle adding a new collider
+	const handleAddCollider = useCallback(
+		(points: Array<{ x: number; y: number }>) => {
+			if (!localMapData) return;
+
+			const collider: PolygonCollider = {
+				id: generateId(),
+				name: `Collider ${(localMapData.colliders || []).length + 1}`,
+				type: "wall",
+				points: points.map((p) => ({ x: Math.floor(p.x), y: Math.floor(p.y) })),
+				properties: {},
+			};
+
+			setLocalMapData({
+				...localMapData,
+				colliders: [...(localMapData.colliders || []), collider],
+			});
+			setProjectModified(true);
+			// Auto-select the newly created collider
+			setSelectedColliderId(collider.id);
+		},
+		[localMapData, setLocalMapData, setProjectModified],
+	);
+
+	// Handle updating a collider point
+	const handleUpdateColliderPoint = useCallback(
+		(colliderId: string, pointIndex: number, x: number, y: number) => {
+			if (!localMapData) return;
+
+			const newColliders = (localMapData.colliders || []).map((collider) => {
+				if (collider.id === colliderId) {
+					const newPoints = [...collider.points];
+					newPoints[pointIndex] = { x: Math.floor(x), y: Math.floor(y) };
+					return { ...collider, points: newPoints };
+				}
+				return collider;
+			});
+
+			setLocalMapData({
+				...localMapData,
+				colliders: newColliders,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setLocalMapData, setProjectModified],
+	);
+
+	// Handle updating collider properties
+	const handleUpdateCollider = useCallback(
+		(colliderId: string, updates: Partial<PolygonCollider>) => {
+			if (!localMapData) return;
+
+			const newColliders = (localMapData.colliders || []).map((collider) =>
+				collider.id === colliderId ? { ...collider, ...updates } : collider,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				colliders: newColliders,
+			});
+			setProjectModified(true);
+		},
+		[localMapData, setLocalMapData, setProjectModified],
+	);
+
+	// Handle collider dragging (updates without marking as modified)
+	const handleColliderDragging = useCallback(
+		(colliderId: string, updates: Partial<PolygonCollider>) => {
+			if (!localMapData) return;
+
+			const newColliders = (localMapData.colliders || []).map((collider) =>
+				collider.id === colliderId ? { ...collider, ...updates } : collider,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				colliders: newColliders,
+			});
+			// Don't mark as modified during drag - only on release
+		},
+		[localMapData, setLocalMapData],
+	);
+
+	// Handle deleting a collider
+	const handleDeleteCollider = useCallback(
+		(colliderId: string) => {
+			if (!localMapData) return;
+
+			const newColliders = (localMapData.colliders || []).filter(
+				(collider) => collider.id !== colliderId,
+			);
+
+			setLocalMapData({
+				...localMapData,
+				colliders: newColliders,
+			});
+			setProjectModified(true);
+			setSelectedColliderId(null); // Clear selection after delete
+			setSelectedColliderPointIndex(null);
+		},
+		[localMapData, setLocalMapData, setProjectModified],
+	);
+
+	// Handle deleting a collider point
+	const handleDeleteColliderPoint = useCallback(() => {
+		if (!contextMenu?.colliderId || contextMenu.pointIndex === undefined)
+			return;
+		if (!localMapData) return;
+
+		const collider = (localMapData.colliders || []).find(
+			(c) => c.id === contextMenu.colliderId,
+		);
+		if (!collider || collider.points.length <= 3) return;
+
+		const newPoints = collider.points.filter(
+			(_, i) => i !== contextMenu.pointIndex,
+		);
+		const newColliders = (localMapData.colliders || []).map((c) =>
+			c.id === contextMenu.colliderId ? { ...c, points: newPoints } : c,
+		);
+
+		setLocalMapData({
+			...localMapData,
+			colliders: newColliders,
+		});
+		setProjectModified(true);
+		setContextMenu(null);
+	}, [contextMenu, localMapData, setLocalMapData, setProjectModified]);
+
+	// Handle inserting a point on a collider edge
+	const handleInsertColliderPoint = useCallback(() => {
+		if (
+			!contextMenu?.colliderId ||
+			contextMenu.edgeIndex === undefined ||
+			!contextMenu.insertPosition
+		)
+			return;
+		if (!localMapData) return;
+
+		const snappedX = Math.round(contextMenu.insertPosition.x);
+		const snappedY = Math.round(contextMenu.insertPosition.y);
+
+		const newColliders = (localMapData.colliders || []).map((c) => {
+			if (
+				c.id === contextMenu.colliderId &&
+				contextMenu.edgeIndex !== undefined
+			) {
+				const newPoints = [...c.points];
+				newPoints.splice(contextMenu.edgeIndex + 1, 0, {
+					x: snappedX,
+					y: snappedY,
+				});
+				return { ...c, points: newPoints };
+			}
+			return c;
+		});
+
+		setLocalMapData({
+			...localMapData,
+			colliders: newColliders,
+		});
+		setProjectModified(true);
+		setContextMenu(null);
+	}, [contextMenu, localMapData, setLocalMapData, setProjectModified]);
+
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
@@ -1074,7 +1254,7 @@ export const MapEditorView = ({
 		};
 	}, [contextMenu]);
 
-	// Delete entity or point on Backspace or Delete key
+	// Delete entity, point, or collider on Backspace or Delete key
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Only delete if something is selected and we're not typing in an input field
@@ -1089,6 +1269,31 @@ export const MapEditorView = ({
 				} else if (selectedPointId) {
 					e.preventDefault();
 					handleDeletePoint(selectedPointId);
+				} else if (selectedColliderId) {
+					e.preventDefault();
+					// If a specific point is selected, delete the point
+					if (selectedColliderPointIndex !== null) {
+						const collider = localMapData.colliders?.find(
+							(c) => c.id === selectedColliderId,
+						);
+						if (collider && collider.points.length > 3) {
+							const newPoints = collider.points.filter(
+								(_, i) => i !== selectedColliderPointIndex,
+							);
+							const newColliders = (localMapData.colliders || []).map((c) =>
+								c.id === selectedColliderId ? { ...c, points: newPoints } : c,
+							);
+							setLocalMapData({
+								...localMapData,
+								colliders: newColliders,
+							});
+							setSelectedColliderPointIndex(null);
+							setProjectModified(true);
+						}
+					} else {
+						// No point selected, delete the entire collider
+						handleDeleteCollider(selectedColliderId);
+					}
 				}
 			}
 		};
@@ -1100,8 +1305,14 @@ export const MapEditorView = ({
 	}, [
 		selectedEntityId,
 		selectedPointId,
+		selectedColliderId,
+		selectedColliderPointIndex,
+		localMapData,
 		handleDeleteEntity,
 		handleDeletePoint,
+		handleDeleteCollider,
+		setLocalMapData,
+		setProjectModified,
 	]);
 
 	// Guard against undefined - map should always exist in global state
@@ -1377,6 +1588,7 @@ export const MapEditorView = ({
 					<MapCanvas
 						mapData={localMapData}
 						currentTool={tab.viewState.currentTool || "pencil"}
+						onToolChange={handleToolChange}
 						currentLayerId={currentLayerId}
 						onPlaceTilesBatch={handlePlaceTilesBatch}
 						onEraseTile={handleEraseTile}
@@ -1391,6 +1603,14 @@ export const MapEditorView = ({
 						onPointSelected={setSelectedPointId}
 						onPointDragging={handlePointDragging}
 						onDeletePoint={handleDeletePoint}
+						onAddCollider={handleAddCollider}
+						onUpdateColliderPoint={handleUpdateColliderPoint}
+						onUpdateCollider={handleUpdateCollider}
+						onColliderDragging={handleColliderDragging}
+						onColliderSelected={setSelectedColliderId}
+						onColliderPointSelected={setSelectedColliderPointIndex}
+						onDeleteCollider={handleDeleteCollider}
+						onContextMenuRequest={setContextMenu}
 						onStartBatch={startBatch}
 						onEndBatch={endBatch}
 					/>
@@ -1415,9 +1635,11 @@ export const MapEditorView = ({
 			/>
 
 			{/* Right Sidebar - Tileset Panel */}
-			{/* Right Panel - Show when entity or point is selected */}
-			{(tab.viewState.currentTool || "pencil") === "pointer" &&
-			(selectedEntityId || selectedPointId) ? (
+			{/* Right Panel - Show when entity, point, or collider is selected */}
+			{((tab.viewState.currentTool || "pencil") === "pointer" &&
+				(selectedEntityId || selectedPointId || selectedColliderId)) ||
+			((tab.viewState.currentTool || "pencil") === "collision" &&
+				selectedColliderId) ? (
 				<div
 					className="flex flex-col"
 					style={{
@@ -1439,6 +1661,16 @@ export const MapEditorView = ({
 							selectedPointId={selectedPointId}
 							mapData={localMapData}
 							onUpdatePoint={handleUpdatePoint}
+							onDragStart={startBatch}
+							onDragEnd={endBatch}
+						/>
+					) : selectedColliderId ? (
+						<ColliderPropertiesPanel
+							selectedColliderId={selectedColliderId}
+							selectedPointIndex={selectedColliderPointIndex}
+							mapData={localMapData}
+							onUpdateCollider={handleUpdateCollider}
+							onUpdateColliderPoint={handleUpdateColliderPoint}
 							onDragStart={startBatch}
 							onDragEnd={endBatch}
 						/>
@@ -1481,36 +1713,156 @@ export const MapEditorView = ({
 								boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
 							}}
 						>
-							<div
-								onClick={() => {
-									handleRemoveLayer(contextMenu.layerId);
-									setContextMenu(null);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										handleRemoveLayer(contextMenu.layerId);
+							{contextMenu.colliderId ? (
+								// Right-clicked on collider
+								<>
+									{contextMenu.pointIndex !== undefined && (
+										<div
+											className="px-4 py-2 text-sm cursor-pointer transition-colors"
+											style={{ color: "#f48771" }}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "transparent";
+											}}
+											onClick={handleDeleteColliderPoint}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleDeleteColliderPoint();
+												}
+											}}
+											role="menuitem"
+											tabIndex={0}
+										>
+											Delete Point
+										</div>
+									)}
+									{contextMenu.edgeIndex !== undefined && (
+										<>
+											<div
+												className="px-4 py-2 text-sm cursor-pointer transition-colors"
+												style={{ color: "#4ade80" }}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
+												onClick={handleInsertColliderPoint}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														handleInsertColliderPoint();
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
+											>
+												Add Point
+											</div>
+											<div
+												className="px-4 py-2 text-sm cursor-pointer transition-colors"
+												style={{ color: "#f48771" }}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
+												onClick={() => {
+													if (contextMenu.colliderId) {
+														handleDeleteCollider(contextMenu.colliderId);
+													}
+													setContextMenu(null);
+												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														if (contextMenu.colliderId) {
+															handleDeleteCollider(contextMenu.colliderId);
+														}
+														setContextMenu(null);
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
+											>
+												Delete Collider
+											</div>
+										</>
+									)}
+									{contextMenu.pointIndex === undefined &&
+										contextMenu.edgeIndex === undefined && (
+											<div
+												className="px-4 py-2 text-sm cursor-pointer transition-colors"
+												style={{ color: "#f48771" }}
+												onMouseEnter={(e) => {
+													e.currentTarget.style.background = "#3e3e42";
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.background = "transparent";
+												}}
+												onClick={() => {
+													if (contextMenu.colliderId) {
+														handleDeleteCollider(contextMenu.colliderId);
+													}
+													setContextMenu(null);
+												}}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														if (contextMenu.colliderId) {
+															handleDeleteCollider(contextMenu.colliderId);
+														}
+														setContextMenu(null);
+													}
+												}}
+												role="menuitem"
+												tabIndex={0}
+											>
+												Delete Collider
+											</div>
+										)}
+								</>
+							) : contextMenu.layerId ? (
+								// Right-clicked on layer
+								<div
+									onClick={() => {
+										if (contextMenu.layerId) {
+											handleRemoveLayer(contextMenu.layerId);
+										}
 										setContextMenu(null);
-									}
-								}}
-								role="menuitem"
-								tabIndex={0}
-								style={{
-									padding: "8px 12px",
-									fontSize: "13px",
-									color: "#cccccc",
-									cursor: "pointer",
-									transition: "background 0.1s",
-								}}
-								onMouseEnter={(e) => {
-									e.currentTarget.style.background = "#2a2d2e";
-								}}
-								onMouseLeave={(e) => {
-									e.currentTarget.style.background = "transparent";
-								}}
-							>
-								Delete Layer
-							</div>
+									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											if (contextMenu.layerId) {
+												handleRemoveLayer(contextMenu.layerId);
+											}
+											setContextMenu(null);
+										}
+									}}
+									role="menuitem"
+									tabIndex={0}
+									style={{
+										padding: "8px 12px",
+										fontSize: "13px",
+										color: "#cccccc",
+										cursor: "pointer",
+										transition: "background 0.1s",
+									}}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#2a2d2e";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
+								>
+									Delete Layer
+								</div>
+							) : null}
 						</div>
 					</>,
 					document.body,

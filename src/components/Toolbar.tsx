@@ -6,6 +6,7 @@ import {
 	PencilIcon,
 	PointerIcon,
 	PointOfInterestIcon,
+	PolygonIcon,
 	RectangleIcon,
 } from "./Icons";
 
@@ -81,6 +82,14 @@ export const Toolbar = ({
 				title="Entity Tool"
 			>
 				<EntityIcon size={20} />
+			</button>
+			<button
+				type="button"
+				className={`tool-btn ${currentTool === "collision" ? "active" : ""}`}
+				onClick={() => onToolChange("collision")}
+				title="Collision Tool"
+			>
+				<PolygonIcon size={20} />
 			</button>
 			<button
 				type="button"
