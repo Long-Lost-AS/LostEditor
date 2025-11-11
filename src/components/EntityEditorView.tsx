@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useCanvasZoomPan } from "../hooks/useCanvasZoomPan";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
+import { drawGrid } from "../utils/canvasUtils";
 import {
 	canClosePolygon,
 	findEdgeAtPosition as findEdgeAtPos,
@@ -23,7 +25,7 @@ interface EntityEditorViewProps {
 
 export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const { updateTabData, getTilesetById, tilesets } = useEditor();
-	const { entityData, viewState } = tab;
+	const { entityData } = tab;
 
 	// Unified undo/redo state for the entire entity
 	type EntityUndoState = {
@@ -111,8 +113,21 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [tab.id, updateTabData, localColliders, localProperties, localSprites]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [pan, setPan] = useState({ x: viewState.panX, y: viewState.panY });
+
+	// Zoom and pan using shared hook (local state only)
+	const {
+		scale,
+		pan,
+		setPan,
+		containerRef: zoomPanContainerRef,
+	} = useCanvasZoomPan({
+		initialScale: 2,
+		initialPan: { x: 100, y: 100 },
+		minScale: 0.1,
+		maxScale: 10,
+		zoomSpeed: 0.01,
+	});
+
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 	const [isEditingName, setIsEditingName] = useState(false);
@@ -178,15 +193,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [isPickerDragging, setIsPickerDragging] = useState(false);
 	const pickerCanvasRef = useRef<HTMLCanvasElement>(null);
 
-	// Refs to track current pan and zoom values
-	const panRef = useRef(pan);
-	const scaleRef = useRef(viewState.scale);
 	const drawRef = useRef<() => void>(() => {});
-
-	useEffect(() => {
-		panRef.current = pan;
-		scaleRef.current = viewState.scale;
-	}, [pan, viewState.scale]);
 
 	// Reset editing state when switching tabs to prevent showing stale data
 	useEffect(() => {
@@ -370,18 +377,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [isSpritePicking, selectedTilesetId, selectedRegion, getTilesetById]);
 
 	// Update view state when pan changes - use ref to avoid infinite loop
-	const viewStateRef = useRef(viewState);
-	viewStateRef.current = viewState;
-
-	useEffect(() => {
-		updateTabData(tab.id, {
-			viewState: {
-				...viewStateRef.current,
-				panX: pan.x,
-				panY: pan.y,
-			},
-		});
-	}, [pan.x, pan.y, tab.id, updateTabData]);
 
 	// Cancel drawing
 	const handleCancelDrawing = useCallback(() => {
@@ -442,57 +437,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		handleFinishDrawing,
 	]);
 
-	// Handle wheel zoom and pan
-	useEffect(() => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
-
-		const handleWheel = (e: WheelEvent) => {
-			e.preventDefault();
-
-			if (e.ctrlKey) {
-				// Zoom towards mouse position
-				const rect = canvas.getBoundingClientRect();
-				const mouseX = e.clientX - rect.left;
-				const mouseY = e.clientY - rect.top;
-
-				// Calculate world position at mouse before zoom
-				const worldX = (mouseX - panRef.current.x) / scaleRef.current;
-				const worldY = (mouseY - panRef.current.y) / scaleRef.current;
-
-				// Calculate new zoom
-				const delta = -e.deltaY * 0.01;
-				const newScale = Math.max(0.1, Math.min(10, scaleRef.current + delta));
-
-				// Adjust pan to keep world position under mouse
-				const newPanX = mouseX - worldX * newScale;
-				const newPanY = mouseY - worldY * newScale;
-
-				setPan({ x: newPanX, y: newPanY });
-				updateTabData(tab.id, {
-					viewState: {
-						...viewState,
-						scale: newScale,
-						panX: newPanX,
-						panY: newPanY,
-					},
-				});
-			} else {
-				// Pan
-				const newPanX = panRef.current.x - e.deltaX;
-				const newPanY = panRef.current.y - e.deltaY;
-				setPan({ x: newPanX, y: newPanY });
-			}
-		};
-
-		canvas.addEventListener("wheel", handleWheel, { passive: false });
-		return () => canvas.removeEventListener("wheel", handleWheel);
-	}, [tab.id, viewState, updateTabData]);
+	// Wheel zoom and pan is now handled by useCanvasZoomPan hook
 
 	// Update draw function when dependencies change
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		const container = containerRef.current;
+		const container = zoomPanContainerRef.current;
 		if (!canvas || !container) return;
 
 		const ctx = canvas.getContext("2d");
@@ -506,29 +456,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Apply transforms for pan and zoom
 			ctx.save();
 			ctx.translate(pan.x, pan.y);
-			ctx.scale(viewState.scale, viewState.scale);
+			ctx.scale(scale, scale);
 
-			// Draw grid
+			// Draw grid using shared utility
 			const gridSize = 16; // 16px grid
 			const gridExtent = 500; // Draw grid from -500 to +500
-			ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-			ctx.lineWidth = 1 / viewState.scale;
-
-			// Vertical lines
-			for (let x = -gridExtent; x <= gridExtent; x += gridSize) {
-				ctx.beginPath();
-				ctx.moveTo(x, -gridExtent);
-				ctx.lineTo(x, gridExtent);
-				ctx.stroke();
-			}
-
-			// Horizontal lines
-			for (let y = -gridExtent; y <= gridExtent; y += gridSize) {
-				ctx.beginPath();
-				ctx.moveTo(-gridExtent, y);
-				ctx.lineTo(gridExtent, y);
-				ctx.stroke();
-			}
+			ctx.save();
+			ctx.translate(-gridExtent, -gridExtent);
+			drawGrid(ctx, gridExtent * 2, gridExtent * 2, gridSize, {
+				color: "rgba(255, 255, 255, 0.05)",
+				lineWidth: 1 / scale,
+			});
+			ctx.restore();
 
 			// Draw sprite layers (sorted by zIndex)
 			const sortedLayers = [...localSprites].sort(
@@ -587,12 +526,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					// Draw border
 					ctx.strokeStyle = "#AA66CC";
-					ctx.lineWidth = 2 / viewState.scale;
+					ctx.lineWidth = 2 / scale;
 					ctx.strokeRect(0, 0, layer.sprite.width, layer.sprite.height);
 
 					// Draw X pattern
 					ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-					ctx.lineWidth = 3 / viewState.scale;
+					ctx.lineWidth = 3 / scale;
 					ctx.beginPath();
 					ctx.moveTo(layer.sprite.width * 0.2, layer.sprite.height * 0.2);
 					ctx.lineTo(layer.sprite.width * 0.8, layer.sprite.height * 0.8);
@@ -602,7 +541,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					// Draw "?" text in center
 					ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-					ctx.font = `${Math.max(16, layer.sprite.height * 0.4) / viewState.scale}px Arial`;
+					ctx.font = `${Math.max(16, layer.sprite.height * 0.4) / scale}px Arial`;
 					ctx.textAlign = "center";
 					ctx.textBaseline = "middle";
 					ctx.fillText("?", layer.sprite.width / 2, layer.sprite.height / 2);
@@ -633,7 +572,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							const spriteOffsetY = layer.sprite.y - tileY;
 
 							ctx.strokeStyle = "rgba(0, 255, 0, 0.7)";
-							ctx.lineWidth = 2 / viewState.scale;
+							ctx.lineWidth = 2 / scale;
 							ctx.beginPath();
 
 							const firstPoint = collider.points[0];
@@ -670,9 +609,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					ctx.fillStyle = isSelected
 						? "rgba(255, 200, 0, 0.2)"
 						: "rgba(255, 165, 0, 0.1)";
-					ctx.lineWidth = isSelected
-						? 3 / viewState.scale
-						: 2 / viewState.scale;
+					ctx.lineWidth = isSelected ? 3 / scale : 2 / scale;
 					ctx.beginPath();
 
 					const firstPoint = collider.points[0];
@@ -698,7 +635,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							ctx.arc(
 								point.x,
 								point.y,
-								(isPointSelected ? 6 : 4) / viewState.scale,
+								(isPointSelected ? 6 : 4) / scale,
 								0,
 								Math.PI * 2,
 							);
@@ -706,11 +643,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 							// Draw point index numbers
 							ctx.fillStyle = "#fff";
-							ctx.font = `${10 / viewState.scale}px monospace`;
+							ctx.font = `${10 / scale}px monospace`;
 							ctx.fillText(
 								index.toString(),
-								point.x + 8 / viewState.scale,
-								point.y - 8 / viewState.scale,
+								point.x + 8 / scale,
+								point.y - 8 / scale,
 							);
 						});
 
@@ -720,11 +657,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						const centerX = sumX / collider.points.length;
 						const centerY = sumY / collider.points.length;
 
-						const crossSize = 10 / viewState.scale;
+						const crossSize = 10 / scale;
 
 						ctx.strokeStyle = "rgba(100, 200, 255, 1)";
 						ctx.fillStyle = "rgba(100, 200, 255, 1)";
-						ctx.lineWidth = 2 / viewState.scale;
+						ctx.lineWidth = 2 / scale;
 
 						// Draw crosshair
 						ctx.beginPath();
@@ -736,7 +673,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 						// Draw center circle
 						ctx.beginPath();
-						ctx.arc(centerX, centerY, 3 / viewState.scale, 0, Math.PI * 2);
+						ctx.arc(centerX, centerY, 3 / scale, 0, Math.PI * 2);
 						ctx.fill();
 					}
 				}
@@ -746,7 +683,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			if (isDrawing && drawingPoints.length > 0) {
 				// Draw lines connecting points
 				ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
-				ctx.lineWidth = 2 / viewState.scale;
+				ctx.lineWidth = 2 / scale;
 				ctx.beginPath();
 
 				const firstPoint = drawingPoints[0];
@@ -765,12 +702,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					if (index === 0) {
 						ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 6 / viewState.scale, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 6 / scale, 0, Math.PI * 2);
 						ctx.fill();
 					} else {
 						ctx.fillStyle = "rgba(100, 150, 255, 0.9)";
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 4 / viewState.scale, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 4 / scale, 0, Math.PI * 2);
 						ctx.fill();
 					}
 				});
@@ -778,15 +715,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw red ring around first point when we have 3+ points (closure hint)
 				if (drawingPoints.length >= 3) {
 					ctx.strokeStyle = "rgba(255, 100, 100, 0.9)";
-					ctx.lineWidth = 3 / viewState.scale;
+					ctx.lineWidth = 3 / scale;
 					ctx.beginPath();
-					ctx.arc(
-						firstPoint.x,
-						firstPoint.y,
-						8 / viewState.scale,
-						0,
-						Math.PI * 2,
-					);
+					ctx.arc(firstPoint.x, firstPoint.y, 8 / scale, 0, Math.PI * 2);
 					ctx.stroke();
 				}
 			}
@@ -815,7 +746,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					// Draw selection outline
 					ctx.strokeStyle = "rgba(0, 122, 204, 0.9)";
-					ctx.lineWidth = 2 / viewState.scale;
+					ctx.lineWidth = 2 / scale;
 					ctx.strokeRect(
 						0,
 						0,
@@ -824,11 +755,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					);
 
 					// Draw origin marker (crosshair) - always at the origin point
-					const crossSize = 8 / viewState.scale;
+					const crossSize = 8 / scale;
 
 					ctx.strokeStyle = "rgba(255, 100, 100, 1)";
 					ctx.fillStyle = "rgba(255, 100, 100, 1)";
-					ctx.lineWidth = 2 / viewState.scale;
+					ctx.lineWidth = 2 / scale;
 
 					// Draw crosshair
 					ctx.beginPath();
@@ -840,18 +771,18 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					// Draw center circle
 					ctx.beginPath();
-					ctx.arc(originX, originY, 3 / viewState.scale, 0, Math.PI * 2);
+					ctx.arc(originX, originY, 3 / scale, 0, Math.PI * 2);
 					ctx.fill();
 
 					// Draw YSort offset marker if it exists
 					const ysortOffset = selectedLayer.ysortOffset || 0;
 					if (ysortOffset !== 0) {
 						const ysortY = originY + ysortOffset;
-						const lineLength = 15 / viewState.scale;
+						const lineLength = 15 / scale;
 
 						ctx.strokeStyle = "rgba(100, 255, 100, 1)";
 						ctx.fillStyle = "rgba(100, 255, 100, 1)";
-						ctx.lineWidth = 2 / viewState.scale;
+						ctx.lineWidth = 2 / scale;
 
 						// Draw horizontal line
 						ctx.beginPath();
@@ -861,26 +792,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 						// Draw small circles at the ends
 						ctx.beginPath();
-						ctx.arc(
-							originX - lineLength,
-							ysortY,
-							2 / viewState.scale,
-							0,
-							Math.PI * 2,
-						);
-						ctx.arc(
-							originX + lineLength,
-							ysortY,
-							2 / viewState.scale,
-							0,
-							Math.PI * 2,
-						);
+						ctx.arc(originX - lineLength, ysortY, 2 / scale, 0, Math.PI * 2);
+						ctx.arc(originX + lineLength, ysortY, 2 / scale, 0, Math.PI * 2);
 						ctx.fill();
 
 						// Draw vertical line connecting origin to ysort position
-						ctx.setLineDash([4 / viewState.scale, 4 / viewState.scale]);
+						ctx.setLineDash([4 / scale, 4 / scale]);
 						ctx.strokeStyle = "rgba(100, 255, 100, 0.5)";
-						ctx.lineWidth = 1 / viewState.scale;
+						ctx.lineWidth = 1 / scale;
 						ctx.beginPath();
 						ctx.moveTo(originX, originY);
 						ctx.lineTo(originX, ysortY);
@@ -897,14 +816,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	}, [
 		localSprites,
 		localColliders,
-		viewState,
 		pan,
+		scale,
 		getTilesetById,
 		selectedSpriteLayerId,
 		selectedColliderId,
 		selectedColliderPointIndex,
 		isDrawing,
 		drawingPoints,
+		zoomPanContainerRef,
 	]);
 
 	// Trigger render when dependencies change
@@ -913,7 +833,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		drawRef.current();
 	}, [
 		pan,
-		viewState.scale,
+		scale,
 		localSprites,
 		localColliders,
 		selectedSpriteLayerId,
@@ -924,7 +844,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	// Setup canvas resizing with ResizeObserver
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		const container = containerRef.current;
+		const container = zoomPanContainerRef.current;
 		if (!canvas || !container) return;
 
 		const resizeCanvas = () => {
@@ -945,7 +865,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		return () => {
 			resizeObserver.disconnect();
 		};
-	}, []);
+	}, [zoomPanContainerRef]);
 
 	// Mouse handlers for panning and sprite dragging
 	const handleMouseDown = (e: React.MouseEvent) => {
@@ -956,8 +876,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		const rect = canvas.getBoundingClientRect();
 		const canvasX = e.clientX - rect.left;
 		const canvasY = e.clientY - rect.top;
-		const worldX = (canvasX - pan.x) / viewState.scale;
-		const worldY = (canvasY - pan.y) / viewState.scale;
+		const worldX = (canvasX - pan.x) / scale;
+		const worldY = (canvasY - pan.y) / scale;
 
 		// Handle drawing mode (Tiled-like click-to-place)
 		if (isDrawing && e.button === 0) {
@@ -966,9 +886,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const snappedY = Math.round(worldY);
 
 			// Check if clicking near first point to close polygon (need at least 3 points)
-			if (
-				canClosePolygon(drawingPoints, snappedX, snappedY, 8 / viewState.scale)
-			) {
+			if (canClosePolygon(drawingPoints, snappedX, snappedY, 8 / scale)) {
 				// Close the polygon
 				handleFinishDrawing();
 				return;
@@ -1127,8 +1045,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const rect = canvas.getBoundingClientRect();
 			const canvasX = e.clientX - rect.left;
 			const canvasY = e.clientY - rect.top;
-			const worldX = (canvasX - pan.x) / viewState.scale;
-			const worldY = (canvasY - pan.y) / viewState.scale;
+			const worldX = (canvasX - pan.x) / scale;
+			const worldY = (canvasY - pan.y) / scale;
 
 			// Calculate the new offset
 			const deltaX = worldX - spriteDragStart.x;
@@ -1152,8 +1070,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const rect = canvas.getBoundingClientRect();
 			const canvasX = e.clientX - rect.left;
 			const canvasY = e.clientY - rect.top;
-			const worldX = (canvasX - pan.x) / viewState.scale;
-			const worldY = (canvasY - pan.y) / viewState.scale;
+			const worldX = (canvasX - pan.x) / scale;
+			const worldY = (canvasY - pan.y) / scale;
 
 			// Snap to integer coordinates
 			const snappedX = Math.round(worldX);
@@ -1182,8 +1100,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const rect = canvas.getBoundingClientRect();
 			const canvasX = e.clientX - rect.left;
 			const canvasY = e.clientY - rect.top;
-			const worldX = (canvasX - pan.x) / viewState.scale;
-			const worldY = (canvasY - pan.y) / viewState.scale;
+			const worldX = (canvasX - pan.x) / scale;
+			const worldY = (canvasY - pan.y) / scale;
 
 			// Calculate delta from initial drag start position
 			const deltaX = worldX - colliderDragStart.x;
@@ -1240,8 +1158,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		const mouseY = e.clientY - rect.top;
 
 		// Convert to world coordinates
-		const worldX = (mouseX - pan.x) / viewState.scale;
-		const worldY = (mouseY - pan.y) / viewState.scale;
+		const worldX = (mouseX - pan.x) / scale;
+		const worldY = (mouseY - pan.y) / scale;
 
 		// If a collider is selected, check for point or edge clicks first
 		if (selectedColliderId) {
@@ -1495,7 +1413,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		x: number,
 		y: number,
 	): number | null => {
-		const threshold = 8 / viewState.scale;
+		const threshold = 8 / scale;
 		return findPointAtPos(points, x, y, threshold);
 	};
 
@@ -1505,7 +1423,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		x: number,
 		y: number,
 	): { edgeIndex: number; insertPosition: { x: number; y: number } } | null => {
-		const threshold = 8 / viewState.scale;
+		const threshold = 8 / scale;
 		const result = findEdgeAtPos(points, x, y, threshold);
 		if (!result) return null;
 		return {
@@ -1741,7 +1659,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 			{/* Middle - Canvas Preview */}
 			<div
-				ref={containerRef}
+				ref={zoomPanContainerRef}
 				className="flex-1 overflow-hidden relative"
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
@@ -1822,9 +1740,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					<div className="flex-1" />
 					<div className="flex items-center gap-2">
 						<span className="text-gray-500">Zoom:</span>
-						<span className="font-mono">
-							{Math.round(viewState.scale * 100)}%
-						</span>
+						<span className="font-mono">{Math.round(scale * 100)}%</span>
 					</div>
 				</div>
 			</div>
