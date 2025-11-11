@@ -17,7 +17,6 @@ describe("autotiling - comprehensive coverage", () => {
 	function createLayer(tiles: number[]): Layer {
 		return {
 			id: "test-layer",
-			type: "tile",
 			name: "Test Layer",
 			visible: true,
 			tiles,

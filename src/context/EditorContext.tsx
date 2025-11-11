@@ -24,7 +24,6 @@ import type {
 	EntityDefinition,
 	EntityEditorTab,
 	Layer,
-	LayerType,
 	MapData,
 	MapTab,
 	ProjectData,
@@ -148,7 +147,7 @@ interface EditorContextType {
 	setGridVisible: (visible: boolean) => void;
 
 	// Layer Actions
-	addLayer: (layerType: LayerType) => void;
+	addLayer: () => void;
 	removeLayer: (layerId: string) => void;
 	updateLayerVisibility: (layerId: string, visible: boolean) => void;
 	updateLayerName: (layerId: string, name: string) => void;
@@ -157,10 +156,6 @@ interface EditorContextType {
 	// Tile Actions
 	placeTile: (x: number, y: number) => void;
 	eraseTile: (x: number, y: number) => void;
-
-	// Entity Actions
-	placeEntity: (x: number, y: number) => void;
-	removeEntity: (entityId: string) => void;
 
 	// Project Actions
 	saveProject: () => Promise<void>;
@@ -398,31 +393,27 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		return undefined;
 	}, [activeTabId, tabs, maps]);
 
-	const addLayer = useCallback(
-		(layerType: LayerType = "tile") => {
-			const mapTab = getActiveMapTab();
-			if (!mapTab) return;
+	const addLayer = useCallback(() => {
+		const mapTab = getActiveMapTab();
+		if (!mapTab) return;
 
-			const currentMap = getMapById(mapTab.mapId);
-			if (!currentMap) return;
+		const currentMap = getMapById(mapTab.mapId);
+		if (!currentMap) return;
 
-			const newLayer: Layer = {
-				id: generateId(),
-				name: `Layer ${currentMap.layers.length + 1}`,
-				visible: true,
-				type: layerType,
-				tiles: [],
-			};
+		const newLayer: Layer = {
+			id: generateId(),
+			name: `Layer ${currentMap.layers.length + 1}`,
+			visible: true,
+			tiles: [],
+		};
 
-			updateMap(mapTab.mapId, {
-				layers: [...currentMap.layers, newLayer],
-			});
+		updateMap(mapTab.mapId, {
+			layers: [...currentMap.layers, newLayer],
+		});
 
-			setCurrentLayer(newLayer);
-			setProjectModified(true);
-		},
-		[getActiveMapTab, getMapById, updateMap],
-	);
+		setCurrentLayer(newLayer);
+		setProjectModified(true);
+	}, [getActiveMapTab, getMapById, updateMap]);
 
 	const removeLayer = useCallback(
 		(layerId: string) => {
@@ -497,7 +488,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 	const placeTile = useCallback(
 		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "tile") return;
+			if (!currentLayer) return;
 
 			const mapTab = getActiveMapTab();
 			if (!mapTab) return;
@@ -612,7 +603,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 	const eraseTile = useCallback(
 		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "tile") return;
+			if (!currentLayer) return;
 
 			const mapTab = getActiveMapTab();
 			if (!mapTab) return;
@@ -644,62 +635,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			updateMap(mapTab.mapId, {
 				layers: updatedLayers,
-			});
-			setProjectModified(true);
-		},
-		[getActiveMapTab, getMapById, updateMap, currentLayer],
-	);
-
-	// Entity management functions
-	const placeEntity = useCallback(
-		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "entity") return;
-			if (!selectedTilesetId || !selectedEntityDefId) return;
-
-			const mapTab = getActiveMapTab();
-			if (!mapTab) return;
-
-			const currentMap = getMapById(mapTab.mapId);
-			if (!currentMap) return;
-
-			const entityInstance = entityManager.createInstance(
-				selectedTilesetId,
-				selectedEntityDefId,
-				x,
-				y,
-			);
-
-			if (!entityInstance) return;
-
-			// Add entity to map-level entities array
-			updateMap(mapTab.mapId, {
-				entities: [...(currentMap.entities || []), entityInstance],
-			});
-			setProjectModified(true);
-		},
-		[
-			getActiveMapTab,
-			getMapById,
-			updateMap,
-			currentLayer,
-			selectedTilesetId,
-			selectedEntityDefId,
-		],
-	);
-
-	const removeEntity = useCallback(
-		(entityId: string) => {
-			if (!currentLayer || currentLayer.type !== "entity") return;
-
-			const mapTab = getActiveMapTab();
-			if (!mapTab) return;
-
-			const currentMap = getMapById(mapTab.mapId);
-			if (!currentMap) return;
-
-			// Remove entity from map-level entities array
-			updateMap(mapTab.mapId, {
-				entities: (currentMap.entities || []).filter((e) => e.id !== entityId),
 			});
 			setProjectModified(true);
 		},
@@ -2218,8 +2153,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		reorderLayers,
 		placeTile,
 		eraseTile,
-		placeEntity,
-		removeEntity,
 		saveProject,
 		saveProjectAs,
 		loadProject,

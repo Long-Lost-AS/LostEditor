@@ -13,7 +13,6 @@ describe("autotiling", () => {
 	function createLayer(tiles: number[], _width: number): Layer {
 		return {
 			id: "test-layer-1",
-			type: "tile",
 			name: "Test Layer",
 			visible: true,
 			tiles,

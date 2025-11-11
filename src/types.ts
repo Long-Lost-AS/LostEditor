@@ -7,7 +7,6 @@ import type {
 	EntityEditorTabSchema,
 	EntityEditorViewStateSchema,
 	LayerSchema,
-	LayerTypeSchema,
 	MapDataSchema,
 	MapTabSchema,
 	MapViewStateSchema,
@@ -118,8 +117,6 @@ export interface EntityInstance {
 
 // PointInstance - inferred from schema
 export type PointInstance = z.infer<typeof PointInstanceSchema>;
-
-export type LayerType = z.infer<typeof LayerTypeSchema>;
 
 export type Layer = z.infer<typeof LayerSchema>;
 

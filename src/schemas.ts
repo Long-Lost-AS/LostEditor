@@ -147,13 +147,10 @@ export const PointInstanceSchema = z.object({
 	properties: z.record(z.string(), z.string()).default({}),
 });
 
-export const LayerTypeSchema = z.enum(["tile", "entity"]);
-
 export const LayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
-	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
 });
 
@@ -174,7 +171,6 @@ export const SerializedLayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
-	type: LayerTypeSchema,
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
 });
 
@@ -350,7 +346,6 @@ export function createDefaultMapData(
 				id: generateId(),
 				name: "Layer 1",
 				visible: true,
-				type: "tile" as const,
 				tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
 			},
 		],

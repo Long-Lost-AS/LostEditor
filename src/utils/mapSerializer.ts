@@ -22,7 +22,6 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		id: layer.id,
 		name: layer.name,
 		visible: layer.visible,
-		type: layer.type,
 		tiles: layer.tiles, // Dense array - already serializable!
 	}));
 
@@ -62,7 +61,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			id: layer.id,
 			name: layer.name,
 			visible: layer.visible,
-			type: layer.type,
 			tiles,
 		};
 	});

@@ -32,7 +32,6 @@ export function createMockTileset(
 export function createMockLayer(overrides?: Partial<Layer>): Layer {
 	return {
 		id: "test-layer-1",
-		type: "tile",
 		name: "Tile Layer 1",
 		visible: true,
 		tiles: [],

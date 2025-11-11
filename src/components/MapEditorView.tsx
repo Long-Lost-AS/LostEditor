@@ -529,7 +529,7 @@ export const MapEditorView = ({
 	// Paint functions (tile placement, erasing, entity placement)
 	const handleEraseTile = useCallback(
 		(x: number, y: number) => {
-			if (!currentLayer || currentLayer.type !== "tile") return;
+			if (!currentLayer) return;
 
 			setLocalMapData((prev) => ({
 				...prev,
@@ -995,13 +995,12 @@ export const MapEditorView = ({
 			console.log("handlePlaceTilesBatch called", {
 				tiles,
 				currentLayerId: currentLayer?.id,
-				currentLayerType: currentLayer?.type,
 				tilesArrayLength: currentLayer?.tiles?.length,
 				selectedTilesetId,
 				selectedTileId,
 				selectedTerrainLayerId,
 			});
-			if (!currentLayer || currentLayer.type !== "tile") {
+			if (!currentLayer) {
 				console.log("Early return: no tile layer");
 				return;
 			}

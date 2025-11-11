@@ -41,14 +41,12 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile",
 						tiles: [1, 2, 3, 4],
 					},
 					{
 						id: "layer-2",
 						name: "Objects",
 						visible: false,
-						type: "entity",
 						tiles: [0, 0, 0, 0],
 					},
 				],
@@ -63,7 +61,6 @@ describe("mapSerializer", () => {
 			expect(result.layers[0].id).toBe("layer-1");
 			expect(result.layers[0].name).toBe("Ground");
 			expect(result.layers[0].visible).toBe(true);
-			expect(result.layers[0].type).toBe("tile");
 			expect(result.layers[0].tiles).toEqual([1, 2, 3, 4]);
 
 			expect(result.layers[1].id).toBe("layer-2");
@@ -144,7 +141,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Test",
 						visible: true,
-						type: "tile",
 						tiles,
 					},
 				],
@@ -157,40 +153,6 @@ describe("mapSerializer", () => {
 
 			expect(result.layers[0].tiles).toEqual(tiles);
 			expect(result.layers[0].tiles).toHaveLength(100);
-		});
-
-		it("should handle multiple layers with different types", () => {
-			const mapData: MapData = {
-				name: "Multi-layer Map",
-				width: 3,
-				height: 3,
-				tileWidth: 16,
-				tileHeight: 16,
-				layers: [
-					{
-						id: "tile-layer",
-						name: "Tiles",
-						visible: true,
-						type: "tile",
-						tiles: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-					},
-					{
-						id: "entity-layer",
-						name: "Entities",
-						visible: true,
-						type: "entity",
-						tiles: [],
-					},
-				],
-				entities: [],
-				points: [],
-				colliders: [],
-			};
-
-			const result = serializeMapData(mapData);
-
-			expect(result.layers[0].type).toBe("tile");
-			expect(result.layers[1].type).toBe("entity");
 		});
 	});
 
@@ -231,7 +193,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile",
 						tiles: [1, 2, 3, 4],
 					},
 				],
@@ -259,7 +220,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile",
 						tiles: [1, 2, 3], // Only 3 tiles, but should be 25
 					},
 				],
@@ -293,7 +253,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile",
 						// tiles is undefined (covered by line 53)
 					} as Partial<SerializedLayer> as SerializedLayer,
 				],
@@ -371,7 +330,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Test Layer",
 						visible: false,
-						type: "entity",
 						tiles: [0, 0, 0, 0],
 					},
 				],
@@ -385,7 +343,6 @@ describe("mapSerializer", () => {
 			expect(result.layers[0].id).toBe("layer-1");
 			expect(result.layers[0].name).toBe("Test Layer");
 			expect(result.layers[0].visible).toBe(false);
-			expect(result.layers[0].type).toBe("entity");
 		});
 
 		it("should handle large tile arrays correctly", () => {
@@ -402,7 +359,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Large",
 						visible: true,
-						type: "tile",
 						tiles: largeTiles,
 					},
 				],
@@ -432,7 +388,6 @@ describe("mapSerializer", () => {
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile",
 						tiles: new Array(16).fill(0).map((_, i) => i),
 					},
 				],

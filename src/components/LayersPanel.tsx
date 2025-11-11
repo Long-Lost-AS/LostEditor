@@ -251,7 +251,7 @@ export const LayersPanel = () => {
 				</DragOverlay>
 			</DndContext>
 			<div className="layer-controls">
-				<button type="button" onClick={() => addLayer("tile")}>
+				<button type="button" onClick={() => addLayer()}>
 					+ Add Layer
 				</button>
 				<button

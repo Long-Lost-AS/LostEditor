@@ -341,7 +341,7 @@ export const MapCanvas = ({
 		const activeLayer = mapData.layers.find(
 			(layer) => layer.id === currentLayerId,
 		);
-		if (!activeLayer || activeLayer.type === "entity") {
+		if (!activeLayer) {
 			return;
 		}
 
@@ -549,107 +549,105 @@ export const MapCanvas = ({
 			mapData.layers.forEach((layer) => {
 				if (!layer.visible) return;
 
-				if (layer.type === "tile" || !layer.type) {
-					// Render tile layer - iterate dense array
-					// Collect compound tile positions to draw indicators after all tiles
-					const compoundTilePositions: Array<{ x: number; y: number }> = [];
-					let _tileCount = 0;
+				// Render tile layer - iterate dense array
+				// Collect compound tile positions to draw indicators after all tiles
+				const compoundTilePositions: Array<{ x: number; y: number }> = [];
+				let _tileCount = 0;
 
-					for (let index = 0; index < layer.tiles.length; index++) {
-						const tileId = layer.tiles[index];
-						if (tileId === 0) continue; // Skip empty tiles
+				for (let index = 0; index < layer.tiles.length; index++) {
+					const tileId = layer.tiles[index];
+					if (tileId === 0) continue; // Skip empty tiles
 
-						_tileCount++;
-						// Calculate x, y position from array index
-						const x = index % mapData.width;
-						const y = Math.floor(index / mapData.width);
+					_tileCount++;
+					// Calculate x, y position from array index
+					const x = index % mapData.width;
+					const y = Math.floor(index / mapData.width);
 
-						// Unpack tile geometry from the packed ID (includes tileset hash)
-						const geometry = unpackTileId(tileId);
+					// Unpack tile geometry from the packed ID (includes tileset hash)
+					const geometry = unpackTileId(tileId);
 
-						// Get tileset by hash
-						const tileset = tilesets.find(
-							(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
-						);
-						if (!tileset?.imageData) {
-							continue;
-						}
-
-						// Create local tile ID to find definition
-						const localTileId = packTileId(
-							geometry.x,
-							geometry.y,
-							0,
-							geometry.flipX,
-							geometry.flipY,
-						);
-
-						// Find tile definition
-						const tileDefinition = tileset.tiles.find(
-							(t) => t.id === localTileId,
-						);
-
-						// Determine dimensions
-						let sourceWidth = tileset.tileWidth;
-						let sourceHeight = tileset.tileHeight;
-						let originOffsetX = 0;
-						let originOffsetY = 0;
-
-						if (
-							tileDefinition?.isCompound &&
-							tileDefinition.width &&
-							tileDefinition.height
-						) {
-							// Compound tile - use full dimensions
-							sourceWidth = tileDefinition.width;
-							sourceHeight = tileDefinition.height;
-
-							// Apply origin offset if specified
-							if (tileDefinition.origin) {
-								originOffsetX = tileDefinition.origin.x * sourceWidth;
-								originOffsetY = tileDefinition.origin.y * sourceHeight;
-							}
-
-							// Store position for indicator drawing later
-							compoundTilePositions.push({ x, y });
-						}
-
-						// Draw the tile with origin offset
-						ctx.drawImage(
-							tileset.imageData,
-							geometry.x,
-							geometry.y,
-							sourceWidth,
-							sourceHeight,
-							x * mapData.tileWidth - originOffsetX,
-							y * mapData.tileHeight - originOffsetY,
-							sourceWidth,
-							sourceHeight,
-						);
+					// Get tileset by hash
+					const tileset = tilesets.find(
+						(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+					);
+					if (!tileset?.imageData) {
+						continue;
 					}
 
-					// Draw compound tile indicators on top of all tiles
-					compoundTilePositions.forEach(({ x, y }) => {
-						// Draw a small dot at the center of the cell that stores this compound tile
-						const cellCenterX = x * mapData.tileWidth + mapData.tileWidth / 2;
-						const cellCenterY = y * mapData.tileHeight + mapData.tileHeight / 2;
+					// Create local tile ID to find definition
+					const localTileId = packTileId(
+						geometry.x,
+						geometry.y,
+						0,
+						geometry.flipX,
+						geometry.flipY,
+					);
 
-						ctx.fillStyle = "rgba(255, 165, 0, 0.7)";
-						ctx.beginPath();
-						ctx.arc(cellCenterX, cellCenterY, 3 / zoom, 0, Math.PI * 2);
-						ctx.fill();
+					// Find tile definition
+					const tileDefinition = tileset.tiles.find(
+						(t) => t.id === localTileId,
+					);
 
-						// Draw a small outline around the origin cell
-						ctx.strokeStyle = "rgba(255, 165, 0, 0.5)";
-						ctx.lineWidth = 1 / zoom;
-						ctx.strokeRect(
-							x * mapData.tileWidth,
-							y * mapData.tileHeight,
-							mapData.tileWidth,
-							mapData.tileHeight,
-						);
-					});
+					// Determine dimensions
+					let sourceWidth = tileset.tileWidth;
+					let sourceHeight = tileset.tileHeight;
+					let originOffsetX = 0;
+					let originOffsetY = 0;
+
+					if (
+						tileDefinition?.isCompound &&
+						tileDefinition.width &&
+						tileDefinition.height
+					) {
+						// Compound tile - use full dimensions
+						sourceWidth = tileDefinition.width;
+						sourceHeight = tileDefinition.height;
+
+						// Apply origin offset if specified
+						if (tileDefinition.origin) {
+							originOffsetX = tileDefinition.origin.x * sourceWidth;
+							originOffsetY = tileDefinition.origin.y * sourceHeight;
+						}
+
+						// Store position for indicator drawing later
+						compoundTilePositions.push({ x, y });
+					}
+
+					// Draw the tile with origin offset
+					ctx.drawImage(
+						tileset.imageData,
+						geometry.x,
+						geometry.y,
+						sourceWidth,
+						sourceHeight,
+						x * mapData.tileWidth - originOffsetX,
+						y * mapData.tileHeight - originOffsetY,
+						sourceWidth,
+						sourceHeight,
+					);
 				}
+
+				// Draw compound tile indicators on top of all tiles
+				compoundTilePositions.forEach(({ x, y }) => {
+					// Draw a small dot at the center of the cell that stores this compound tile
+					const cellCenterX = x * mapData.tileWidth + mapData.tileWidth / 2;
+					const cellCenterY = y * mapData.tileHeight + mapData.tileHeight / 2;
+
+					ctx.fillStyle = "rgba(255, 165, 0, 0.7)";
+					ctx.beginPath();
+					ctx.arc(cellCenterX, cellCenterY, 3 / zoom, 0, Math.PI * 2);
+					ctx.fill();
+
+					// Draw a small outline around the origin cell
+					ctx.strokeStyle = "rgba(255, 165, 0, 0.5)";
+					ctx.lineWidth = 1 / zoom;
+					ctx.strokeRect(
+						x * mapData.tileWidth,
+						y * mapData.tileHeight,
+						mapData.tileWidth,
+						mapData.tileHeight,
+					);
+				});
 			});
 
 			// Render map-level entities (on top of all layers)

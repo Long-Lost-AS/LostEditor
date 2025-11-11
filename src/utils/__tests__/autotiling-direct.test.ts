@@ -31,7 +31,6 @@ describe("autotiling - direct line coverage", () => {
 		const grassTile = packTileId(16, 0, 0);
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [
@@ -72,7 +71,6 @@ describe("autotiling - direct line coverage", () => {
 		const grassTile = packTileId(16, 0, 0);
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [grassTile],
@@ -105,7 +103,6 @@ describe("autotiling - direct line coverage", () => {
 		const grassTile = packTileId(16, 0, 0);
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [
@@ -150,7 +147,6 @@ describe("autotiling - direct line coverage", () => {
 		const grassTile = packTileId(16, 0, 0);
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [grassTile],
@@ -185,7 +181,6 @@ describe("autotiling - direct line coverage", () => {
 
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [tileId, 0, 0, 0],
@@ -220,7 +215,6 @@ describe("autotiling - direct line coverage", () => {
 
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [tileId],
@@ -253,7 +247,6 @@ describe("autotiling - direct line coverage", () => {
 
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [tileId, tileId, tileId, tileId],
@@ -300,7 +293,6 @@ describe("autotiling - direct line coverage", () => {
 
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [

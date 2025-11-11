@@ -6,7 +6,6 @@ import {
 	EntityDefinitionSchema,
 	EntityInstanceSchema,
 	LayerSchema,
-	LayerTypeSchema,
 	MapDataSchema,
 	MapFileSchema,
 	PointSchema,
@@ -26,13 +25,11 @@ import { generateId } from "../utils/id";
 // Test-only helper functions
 function createDefaultLayer(
 	name: string = "Layer 1",
-	type: "tile" | "entity" = "tile",
 ): z.infer<typeof LayerSchema> {
 	return LayerSchema.parse({
 		id: generateId(),
 		name,
 		visible: true,
-		type,
 		tiles: [],
 	});
 }
@@ -309,27 +306,12 @@ describe("schemas", () => {
 		});
 	});
 
-	describe("LayerTypeSchema", () => {
-		it('should accept "tile"', () => {
-			expect(() => LayerTypeSchema.parse("tile")).not.toThrow();
-		});
-
-		it('should accept "entity"', () => {
-			expect(() => LayerTypeSchema.parse("entity")).not.toThrow();
-		});
-
-		it("should reject other values", () => {
-			expect(() => LayerTypeSchema.parse("invalid")).toThrow();
-		});
-	});
-
 	describe("LayerSchema", () => {
 		it("should validate minimal layer", () => {
 			const valid = {
 				id: "layer-1",
 				name: "Layer 1",
 				visible: true,
-				type: "tile" as const,
 			};
 			expect(() => LayerSchema.parse(valid)).not.toThrow();
 		});
@@ -339,7 +321,6 @@ describe("schemas", () => {
 				id: "layer-1",
 				name: "Layer 1",
 				visible: true,
-				type: "tile" as const,
 			};
 			const result = LayerSchema.parse(input);
 			expect(result.tiles).toEqual([]);
@@ -350,20 +331,9 @@ describe("schemas", () => {
 				id: "layer-1",
 				name: "Layer 1",
 				visible: true,
-				type: "tile" as const,
 				tiles: [1, 2, 3, 0, 5],
 			};
 			expect(() => LayerSchema.parse(valid)).not.toThrow();
-		});
-
-		it("should reject invalid layer type", () => {
-			const invalid = {
-				id: "layer-1",
-				name: "Layer 1",
-				visible: true,
-				type: "invalid",
-			};
-			expect(() => LayerSchema.parse(invalid)).toThrow();
 		});
 	});
 
@@ -958,7 +928,6 @@ describe("schemas", () => {
 			it("should create default tile layer with default name", () => {
 				const layer = createDefaultLayer();
 				expect(layer.name).toBe("Layer 1");
-				expect(layer.type).toBe("tile");
 				expect(layer.visible).toBe(true);
 				expect(layer.tiles).toEqual([]);
 				// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -970,13 +939,6 @@ describe("schemas", () => {
 			it("should create layer with custom name", () => {
 				const layer = createDefaultLayer("Custom Layer");
 				expect(layer.name).toBe("Custom Layer");
-				expect(layer.type).toBe("tile");
-			});
-
-			it("should create entity layer when specified", () => {
-				const layer = createDefaultLayer("Entities", "entity");
-				expect(layer.type).toBe("entity");
-				expect(layer.name).toBe("Entities");
 			});
 
 			it("should generate unique IDs for sequential calls", () => {
@@ -996,7 +958,6 @@ describe("schemas", () => {
 				expect(layer).toHaveProperty("id");
 				expect(layer).toHaveProperty("name");
 				expect(layer).toHaveProperty("visible");
-				expect(layer).toHaveProperty("type");
 				expect(layer).toHaveProperty("tiles");
 			});
 		});
@@ -1041,7 +1002,6 @@ describe("schemas", () => {
 
 			it("should set first layer as tile type", () => {
 				const map = createDefaultMapData();
-				expect(map.layers[0].type).toBe("tile");
 				expect(map.layers[0].visible).toBe(true);
 			});
 		});

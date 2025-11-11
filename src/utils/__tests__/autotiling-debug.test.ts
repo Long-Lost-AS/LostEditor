@@ -36,7 +36,6 @@ describe("autotiling - debug coverage", () => {
 
 		const layer: Layer = {
 			id: "test-layer",
-			type: "tile",
 			name: "Test",
 			visible: true,
 			tiles: [grassTileIdGlobal, 0, 0, 0], // 2x2 grid with one grass tile (global ID)

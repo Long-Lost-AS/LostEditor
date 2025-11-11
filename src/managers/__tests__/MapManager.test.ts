@@ -29,7 +29,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Layer 1",
 						visible: true,
 						tiles: [0, 0, 0],
@@ -151,7 +150,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Layer 1",
 						visible: true,
 						tiles: [123456789012345, 987654321098765, 0, 1],
@@ -167,13 +165,11 @@ describe("MapManager", () => {
 			const result = await mapManager.load("maps/bigint.lostmap");
 
 			const tileLayer = result.layers[0];
-			if (tileLayer.type === "tile") {
-				// Note: Tiles are stored as regular numbers in runtime format
-				expect(tileLayer.tiles[0]).toBe(123456789012345);
-				expect(tileLayer.tiles[1]).toBe(987654321098765);
-				expect(tileLayer.tiles[2]).toBe(0);
-				expect(tileLayer.tiles[3]).toBe(1);
-			}
+			// Note: Tiles are stored as regular numbers in runtime format
+			expect(tileLayer.tiles[0]).toBe(123456789012345);
+			expect(tileLayer.tiles[1]).toBe(987654321098765);
+			expect(tileLayer.tiles[2]).toBe(0);
+			expect(tileLayer.tiles[3]).toBe(1);
 		});
 	});
 
@@ -186,7 +182,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Tile Layer",
 						visible: true,
 						tiles: [0, 1, 2, 3],
@@ -243,7 +238,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Tile Layer",
 						visible: true,
 						tiles: [1, 2, 3, 4, 5, 6],
@@ -269,7 +263,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Tile Layer",
 						visible: true,
 						tiles: [],
@@ -578,7 +571,6 @@ describe("MapManager", () => {
 				layers: [
 					{
 						id: "layer-1",
-						type: "tile",
 						name: "Layer 1",
 						visible: true,
 						tiles: [0, 0, 0, 0],
@@ -598,9 +590,7 @@ describe("MapManager", () => {
 
 			// Modify
 			mapData.name = "Modified Map";
-			if (mapData.layers[0].type === "tile") {
-				mapData.layers[0].tiles[0] = 999;
-			}
+			mapData.layers[0].tiles[0] = 999;
 
 			// Save
 			await mapManager.saveMap(mapData, "maps/workflow.lostmap");
@@ -693,7 +683,6 @@ describe("MapManager", () => {
 					{
 						id: "layer-ground",
 						name: "Ground",
-						type: "tile",
 						visible: true,
 						tiles: [1, 2, 3, 4, 5, 6, 7, 8],
 					},
@@ -724,16 +713,11 @@ describe("MapManager", () => {
 			expect(reloaded.layers).toHaveLength(originalMap.layers.length);
 
 			const reloadedTileLayer = reloaded.layers[0];
-			if (
-				reloadedTileLayer.type === "tile" &&
-				originalMap.layers[0].type === "tile"
-			) {
-				// Deserialization pads tiles to match map size (width * height)
-				expect(reloadedTileLayer.tiles.slice(0, 8)).toEqual(
-					originalMap.layers[0].tiles,
-				);
-				expect(reloadedTileLayer.tiles.length).toBe(8 * 8); // 64 tiles for 8x8 map
-			}
+			// Deserialization pads tiles to match map size (width * height)
+			expect(reloadedTileLayer.tiles.slice(0, 8)).toEqual(
+				originalMap.layers[0].tiles,
+			);
+			expect(reloadedTileLayer.tiles.length).toBe(8 * 8); // 64 tiles for 8x8 map
 		});
 	});
 

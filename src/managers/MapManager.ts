@@ -105,29 +105,27 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 
 		// Now replace each tiles placeholder with formatted flat array (row-based line breaks)
 		serialized.layers.forEach((layer) => {
-			if (layer.type === "tile") {
-				// Ensure tiles array exists, even if empty
-				const tiles = layer.tiles && layer.tiles.length > 0 ? layer.tiles : [];
+			// Ensure tiles array exists, even if empty
+			const tiles = layer.tiles && layer.tiles.length > 0 ? layer.tiles : [];
 
-				// Build a flat array string with line breaks every mapWidth tiles
-				const parts: string[] = [];
-				if (tiles.length > 0) {
-					for (let i = 0; i < tiles.length; i += mapWidth) {
-						const row = tiles.slice(i, i + mapWidth);
-						parts.push(row.join(", "));
-					}
+			// Build a flat array string with line breaks every mapWidth tiles
+			const parts: string[] = [];
+			if (tiles.length > 0) {
+				for (let i = 0; i < tiles.length; i += mapWidth) {
+					const row = tiles.slice(i, i + mapWidth);
+					parts.push(row.join(", "));
 				}
-				const formattedTiles =
-					tiles.length > 0
-						? `[\n        ${parts.join(",\n        ")}\n      ]`
-						: "[]";
-
-				// Replace the first occurrence of the placeholder
-				jsonString = jsonString.replace(
-					'"__TILES_PLACEHOLDER__"',
-					formattedTiles,
-				);
 			}
+			const formattedTiles =
+				tiles.length > 0
+					? `[\n        ${parts.join(",\n        ")}\n      ]`
+					: "[]";
+
+			// Replace the first occurrence of the placeholder
+			jsonString = jsonString.replace(
+				'"__TILES_PLACEHOLDER__"',
+				formattedTiles,
+			);
 		});
 
 		return jsonString;
