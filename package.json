@@ -29,8 +29,8 @@
     "tile-editor",
     "game-dev"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Richard Strømland Egeli",
+  "license": "Custom",
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "biome check --write",
