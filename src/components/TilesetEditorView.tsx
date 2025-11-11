@@ -978,15 +978,28 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleAddCollider = () => {
 		setContextMenu(null);
 
-		if (!contextMenu?.compoundTileId || !tilesetData) return;
+		if (!tilesetData) return;
 
-		// Open collision editor tab for this compound tile
-		openCollisionEditor(
-			"tile",
-			tilesetData.id,
-			contextMenu.compoundTileId,
-			tab.id,
-		);
+		let tileId: number;
+
+		if (contextMenu?.compoundTileId !== undefined) {
+			// Right-clicked on a compound tile
+			tileId = contextMenu.compoundTileId;
+		} else if (
+			selectedTileRegion &&
+			selectedTileRegion.width === 1 &&
+			selectedTileRegion.height === 1
+		) {
+			// Single tile selection - calculate tile ID from position
+			const tileX = selectedTileRegion.x * tilesetData.tileWidth;
+			const tileY = selectedTileRegion.y * tilesetData.tileHeight;
+			tileId = packTileId(tileX, tileY, 0);
+		} else {
+			return;
+		}
+
+		// Open collision editor tab for this tile
+		openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
 	};
 
 	const handleUpdateTileName = (name: string) => {
@@ -1231,6 +1244,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								color: "#cccccc",
 								border: "1px solid #1177bb",
 							}}
+							spellCheck={false}
 						/>
 					) : (
 						<div
@@ -1296,6 +1310,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												fontSize: "13px",
 											}}
 											min="1"
+											spellCheck={false}
 										/>
 									</div>
 									<div>
@@ -1321,6 +1336,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												fontSize: "13px",
 											}}
 											min="1"
+											spellCheck={false}
 										/>
 									</div>
 								</div>
@@ -1447,6 +1463,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														color: "#cccccc",
 														border: "1px solid #1177bb",
 													}}
+													spellCheck={false}
 												/>
 											) : (
 												<div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1538,6 +1555,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 															border: "1px solid #555",
 															fontSize: "13px",
 														}}
+														spellCheck={false}
 													/>
 													<div
 														className="text-[10px] mt-0.5"
@@ -1568,6 +1586,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 															border: "1px solid #555",
 															fontSize: "13px",
 														}}
+														spellCheck={false}
 													/>
 													<div
 														className="text-[10px] mt-0.5"
@@ -1654,6 +1673,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid #1177bb",
 												}}
+												spellCheck={false}
 											/>
 										) : (
 											<div
@@ -1713,6 +1733,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													color: "#cccccc",
 													border: "1px solid #1177bb",
 												}}
+												spellCheck={false}
 											/>
 										) : (
 											<div
@@ -1881,6 +1902,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid #1177bb",
 										}}
+										spellCheck={false}
 									/>
 								) : (
 									<div
@@ -1940,6 +1962,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											color: "#cccccc",
 											border: "1px solid #1177bb",
 										}}
+										spellCheck={false}
 									/>
 								) : (
 									<div
@@ -2066,7 +2089,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							border: "1px solid #3e3e42",
 						}}
 					>
-						{contextMenu.compoundTileId ? (
+						{contextMenu.compoundTileId !== undefined ? (
 							// Show options when right-clicking on compound tile
 							<>
 								<div
@@ -2116,8 +2139,60 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									<span>Delete Compound Tile</span>
 								</div>
 							</>
+						) : selectedTileRegion &&
+							selectedTileRegion.width === 1 &&
+							selectedTileRegion.height === 1 ? (
+							// Single tile selection - show collider option only
+							<>
+								<div
+									onClick={handleAddCollider}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleAddCollider();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Add or edit collider"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#cccccc" }}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
+								>
+									<ShieldIcon size={16} />
+									<span>Add/Edit Collider</span>
+								</div>
+								<div
+									onClick={handleClearSelection}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											handleClearSelection();
+										}
+									}}
+									role="button"
+									tabIndex={0}
+									aria-label="Clear selection"
+									className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+									style={{ color: "#cccccc" }}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.background = "#3e3e42";
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.background = "transparent";
+									}}
+								>
+									<span>✕</span>
+									<span>Clear Selection</span>
+								</div>
+							</>
 						) : (
-							// Show create option when right-clicking on selection
+							// Multi-tile selection - show create compound tile option
 							<>
 								<div
 									onClick={handleMarkAsCompoundTile}
