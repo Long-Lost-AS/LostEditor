@@ -52,7 +52,9 @@ export const ColliderPropertiesPanel = ({
 	};
 
 	const selectedPoint =
-		selectedPointIndex !== null ? collider.points[selectedPointIndex] : null;
+		selectedPointIndex !== null && selectedPointIndex < collider.points.length
+			? collider.points[selectedPointIndex]
+			: null;
 
 	return (
 		<div
@@ -165,7 +167,7 @@ export const ColliderPropertiesPanel = ({
 					</div>
 
 					{/* Selected Point Position */}
-					{selectedPoint !== null && selectedPointIndex !== null && (
+					{selectedPoint && selectedPointIndex !== null && (
 						<div>
 							<div
 								className="text-xs font-medium block mb-1.5"

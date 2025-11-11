@@ -862,8 +862,8 @@ export const MapEditorView = ({
 
 			const collider: PolygonCollider = {
 				id: generateId(),
-				name: `Collider ${(localMapData.colliders || []).length + 1}`,
-				type: "wall",
+				name: "",
+				type: "",
 				points: points.map((p) => ({ x: Math.floor(p.x), y: Math.floor(p.y) })),
 				properties: {},
 			};
