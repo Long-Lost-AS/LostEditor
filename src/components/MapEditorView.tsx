@@ -761,8 +761,17 @@ export const MapEditorView = ({
 			setProjectModified(true);
 			// Auto-select the newly placed point
 			setSelectedPointId(pointInstance.id);
+			// Switch to pointer tool after a brief delay to ensure state updates
+			setTimeout(() => {
+				updateTabData(tab.id, {
+					viewState: {
+						...tab.viewState,
+						currentTool: "pointer",
+					},
+				});
+			}, 0);
 		},
-		[setLocalMapData, setProjectModified],
+		[setLocalMapData, setProjectModified, updateTabData, tab.id, tab.viewState],
 	);
 
 	// Handle moving a point
@@ -1571,6 +1580,7 @@ export const MapEditorView = ({
 						onDuplicateEntity={handleDuplicateEntity}
 						onPlacePoint={handlePlacePoint}
 						onMovePoint={handleMovePoint}
+						selectedPointId={selectedPointId}
 						onPointSelected={setSelectedPointId}
 						onPointDragging={handlePointDragging}
 						onDeletePoint={handleDeletePoint}

@@ -39,6 +39,7 @@ interface MapCanvasProps {
 	onPointSelected?: (pointId: string | null) => void;
 	onPointDragging?: (pointId: string, newX: number, newY: number) => void;
 	onDeletePoint?: (pointId: string) => void;
+	selectedPointId?: string | null;
 	onAddCollider?: (points: Array<{ x: number; y: number }>) => void;
 	onUpdateColliderPoint?: (
 		colliderId: string,
@@ -87,6 +88,7 @@ export const MapCanvas = ({
 	onPointSelected,
 	onPointDragging,
 	onDeletePoint,
+	selectedPointId: selectedPointIdProp,
 	onAddCollider,
 	onUpdateColliderPoint,
 	onUpdateCollider,
@@ -156,6 +158,14 @@ export const MapCanvas = ({
 	// Point selection state (for selecting and moving points)
 	const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
 	const selectedPointIdRef = useRef<string | null>(null); // Ref for immediate access
+
+	// Sync selectedPointId from prop (controlled component)
+	useEffect(() => {
+		if (selectedPointIdProp !== undefined) {
+			setSelectedPointId(selectedPointIdProp);
+			selectedPointIdRef.current = selectedPointIdProp;
+		}
+	}, [selectedPointIdProp]);
 	const [isDraggingPoint, setIsDraggingPoint] = useState(false);
 	const [pointDragStart, setPointDragStart] = useState<{
 		x: number;
@@ -651,15 +661,21 @@ export const MapCanvas = ({
 								}
 							: point;
 
+					const isSelected = selectedPointId === point.id;
+
 					// Draw outer circle
-					ctx.strokeStyle = "rgba(255, 100, 100, 0.8)";
-					ctx.lineWidth = 2 / zoom;
+					ctx.strokeStyle = isSelected
+						? "rgba(0, 150, 255, 0.9)"
+						: "rgba(255, 100, 100, 0.8)";
+					ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
 					ctx.beginPath();
 					ctx.arc(pointToRender.x, pointToRender.y, 8 / zoom, 0, Math.PI * 2);
 					ctx.stroke();
 
 					// Draw inner circle (filled)
-					ctx.fillStyle = "rgba(255, 100, 100, 0.7)";
+					ctx.fillStyle = isSelected
+						? "rgba(0, 150, 255, 0.8)"
+						: "rgba(255, 100, 100, 0.7)";
 					ctx.beginPath();
 					ctx.arc(pointToRender.x, pointToRender.y, 4 / zoom, 0, Math.PI * 2);
 					ctx.fill();
@@ -1247,7 +1263,6 @@ export const MapCanvas = ({
 	// Trigger render when dependencies change
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to redraw when these values change
 	useEffect(() => {
-		console.log("MapCanvas re-rendering due to dependency change");
 		renderMap.current();
 	}, [
 		mapData,
@@ -1272,6 +1287,7 @@ export const MapCanvas = ({
 		selectedColliderPointIndex,
 		isDraggingColliderPoint,
 		tempColliderPointPosition,
+		currentTool,
 	]);
 
 	const screenToWorld = (screenX: number, screenY: number) => {
@@ -1627,13 +1643,9 @@ export const MapCanvas = ({
 					// Place entity at pixel coordinates
 					onPlaceEntity(Math.floor(worldX), Math.floor(worldY));
 				} else if (currentTool === "point") {
-					// Clear any point selection when using point tool
-					setSelectedPointId(null);
-					selectedPointIdRef.current = null;
-					setPointDragStart(null);
-					onPointSelected?.(null); // Clear parent's selection state too
 					// Place point at pixel coordinates
 					onPlacePoint?.(Math.floor(worldX), Math.floor(worldY));
+					// Parent will handle selection via selectedPointId prop
 				}
 			}
 		}
