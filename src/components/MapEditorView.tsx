@@ -193,6 +193,7 @@ export const MapEditorView = ({
 			startBatch,
 			endBatch,
 			reset: resetMapHistory,
+			getHistory,
 		},
 	] = useUndoableReducer<MapData>(
 		mapData || {
@@ -207,6 +208,7 @@ export const MapEditorView = ({
 			points: [],
 			colliders: [],
 		},
+		tab.undoHistory,
 	);
 
 	// Register undo/redo keyboard shortcuts
@@ -315,6 +317,15 @@ export const MapEditorView = ({
 			}, 0);
 		}
 	}, [localMapData, tab.mapId, updateMap, tab.id, updateTabData]);
+
+	// Persist undo history to tab state on unmount (when switching tabs)
+	useEffect(() => {
+		return () => {
+			// Save history when component unmounts
+			const history = getHistory();
+			updateTabData(tab.id, { undoHistory: history });
+		};
+	}, [tab.id, updateTabData, getHistory]);
 
 	// Update edited name when local map data changes
 	useEffect(() => {

@@ -285,10 +285,16 @@ export const EntityEditorViewStateSchema = z.object({
 	selectedChildId: z.string().nullable(),
 });
 
+const EntityUndoStateSchema = z.object({
+	sprites: z.array(SpriteLayerSchema),
+	colliders: z.array(PolygonColliderSchema),
+	properties: z.record(z.string(), z.string()),
+});
+
 export const EntityUndoHistorySchema = z.object({
-	past: z.array(EntityDefinitionSchema),
-	present: EntityDefinitionSchema,
-	future: z.array(EntityDefinitionSchema),
+	past: z.array(EntityUndoStateSchema),
+	present: EntityUndoStateSchema,
+	future: z.array(EntityUndoStateSchema),
 });
 
 export const EntityEditorTabSchema = BaseTabSchema.extend({

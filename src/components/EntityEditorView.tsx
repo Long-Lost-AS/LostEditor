@@ -45,12 +45,16 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			startBatch,
 			endBatch,
 			reset: resetEntityHistory,
+			getHistory,
 		},
-	] = useUndoableReducer<EntityUndoState>({
-		sprites: entityData.sprites || [],
-		colliders: entityData.colliders,
-		properties: entityData.properties,
-	});
+	] = useUndoableReducer<EntityUndoState>(
+		{
+			sprites: entityData.sprites || [],
+			colliders: entityData.colliders,
+			properties: entityData.properties,
+		},
+		tab.undoHistory,
+	);
 
 	// Extract individual parts for convenience
 	const localSprites = localEntityState.sprites;
@@ -111,6 +115,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}, 0);
 		}
 	}, [tab.id, updateTabData, localColliders, localProperties, localSprites]);
+
+	// Persist undo history to tab state on unmount (when switching tabs)
+	useEffect(() => {
+		return () => {
+			// Save history when component unmounts
+			const history = getHistory();
+			updateTabData(tab.id, { undoHistory: history });
+		};
+	}, [tab.id, updateTabData, getHistory]);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
