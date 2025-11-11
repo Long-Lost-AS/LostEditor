@@ -273,7 +273,7 @@ export const MapEditorView = ({
 	);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
-	// const isFirstRun = useRef(true);
+	const isFirstRun = useRef(true);
 
 	// Track previous tab ID to detect tab switches
 	const prevTabIdRef = useRef<string | null>(null);
@@ -305,14 +305,15 @@ export const MapEditorView = ({
 		updateMap(tab.mapId, localMapData);
 
 		// Only mark dirty after first run (i.e., on actual user changes)
-		// if (!isFirstRun.current) {
-		updateTabData(tab.id, { isDirty: true });
-		// } else {
-		// 	// Clear the flag after skipping
-		// 	setTimeout(() => {
-		// 		isFirstRun.current = false;
-		// 	}, 0);
-		// }
+		if (!isFirstRun.current) {
+			updateTabData(tab.id, { isDirty: true });
+		} else {
+			// Clear the flag after skipping, but use setTimeout to ensure
+			// this happens AFTER any other effects (like reset) have run
+			setTimeout(() => {
+				isFirstRun.current = false;
+			}, 0);
+		}
 	}, [localMapData, tab.mapId, updateMap, tab.id, updateTabData]);
 
 	// Update edited name when local map data changes
