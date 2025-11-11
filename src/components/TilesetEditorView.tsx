@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
+import { useCanvasZoomPan } from "../hooks/useCanvasZoomPan";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { TerrainLayer, TileDefinition, TilesetTab } from "../types";
 import { generateId } from "../utils/id";
@@ -24,14 +25,34 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		setSelectedTileId,
 		openCollisionEditor,
 	} = useEditor();
-	const { viewState } = tab;
 
 	// Look up the tileset data by ID
 	const tilesetData = getTilesetById(tab.tilesetId);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [pan, setPan] = useState({ x: 0, y: 0 });
+
+	// Zoom and pan using shared hook (local state only)
+	const {
+		scale,
+		pan,
+		setPan,
+		containerRef: zoomPanContainerRef,
+	} = useCanvasZoomPan({
+		initialScale: 1,
+		initialPan: { x: 0, y: 0 },
+		minScale: 0.5,
+		maxScale: 8,
+		zoomSpeed: 0.01,
+	});
+
+	// Local state for tile selection (not synced with tab)
+	const [selectedTileRegion, setSelectedTileRegion] = useState<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null);
+
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 	const [isSelecting, setIsSelecting] = useState(false);
@@ -95,15 +116,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	// Register unified undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
-
-	// Refs to track current pan and zoom values for wheel event
-	const panRef = useRef(pan);
-	const scaleRef = useRef(viewState.scale);
-
-	useEffect(() => {
-		panRef.current = pan;
-		scaleRef.current = viewState.scale;
-	}, [pan, viewState.scale]);
 
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
@@ -178,7 +190,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Draw tileset image on canvas
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		const container = containerRef.current;
+		const container = zoomPanContainerRef.current;
 		if (!canvas || !container || !tilesetData?.imageData) return;
 
 		const ctx = canvas.getContext("2d");
@@ -195,7 +207,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Apply transforms for pan and zoom
 			ctx.save();
 			ctx.translate(pan.x, pan.y);
-			ctx.scale(viewState.scale, viewState.scale);
+			ctx.scale(scale, scale);
 
 			if (tilesetData.imageData === undefined) return;
 
@@ -204,7 +216,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Draw grid overlay (skip segments inside compound tiles)
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-			ctx.lineWidth = 1 / viewState.scale;
+			ctx.lineWidth = 1 / scale;
 
 			// Draw vertical lines
 			for (
@@ -314,7 +326,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Draw borders around compound tiles
 			ctx.strokeStyle = "rgba(34, 197, 94, 0.8)"; // Green color
-			ctx.lineWidth = 2 / viewState.scale;
+			ctx.lineWidth = 2 / scale;
 			for (const tile of tilesetData.tiles) {
 				// Check the isCompound flag
 				if (tile.isCompound && tile.width && tile.height) {
@@ -330,12 +342,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					if (tile.id === selectedCompoundTileId && tile.origin) {
 						const originX = tileX + tile.origin.x * tileWidth;
 						const originY = tileY + tile.origin.y * tileHeight;
-						const markerSize = 8 / viewState.scale;
+						const markerSize = 8 / scale;
 
 						ctx.save();
 						// Draw crosshair
 						ctx.strokeStyle = "rgba(255, 165, 0, 1)"; // Orange
-						ctx.lineWidth = 2 / viewState.scale;
+						ctx.lineWidth = 2 / scale;
 						ctx.beginPath();
 						ctx.moveTo(originX - markerSize, originY);
 						ctx.lineTo(originX + markerSize, originY);
@@ -346,7 +358,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						// Draw center dot
 						ctx.fillStyle = "rgba(255, 165, 0, 1)";
 						ctx.beginPath();
-						ctx.arc(originX, originY, 3 / viewState.scale, 0, Math.PI * 2);
+						ctx.arc(originX, originY, 3 / scale, 0, Math.PI * 2);
 						ctx.fill();
 						ctx.restore();
 					}
@@ -355,19 +367,19 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					if (tile.name !== "") {
 						ctx.save();
 						ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
-						ctx.font = `${Math.max(10, 12 / viewState.scale)}px sans-serif`;
+						ctx.font = `${Math.max(10, 12 / scale)}px sans-serif`;
 						const metrics = ctx.measureText(tile.name);
-						const padding = 4 / viewState.scale;
+						const padding = 4 / scale;
 						const textX = tileX + padding;
-						const textY = tileY + 12 / viewState.scale + padding;
+						const textY = tileY + 12 / scale + padding;
 
 						// Draw background for text
 						ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
 						ctx.fillRect(
 							textX - padding,
-							textY - 12 / viewState.scale,
+							textY - 12 / scale,
 							metrics.width + padding * 2,
-							14 / viewState.scale,
+							14 / scale,
 						);
 
 						// Draw text
@@ -381,7 +393,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Draw collision polygons
 			ctx.strokeStyle = "rgba(255, 0, 255, 0.8)"; // Magenta
 			ctx.fillStyle = "rgba(255, 0, 255, 0.2)";
-			ctx.lineWidth = 2 / viewState.scale;
+			ctx.lineWidth = 2 / scale;
 			for (const tile of tilesetData.tiles) {
 				if (tile.colliders.length === 0) continue;
 
@@ -407,8 +419,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			}
 
 			// Draw tile selection
-			if (viewState.selectedTileRegion) {
-				const { x, y, width, height } = viewState.selectedTileRegion;
+			if (selectedTileRegion) {
+				const { x, y, width, height } = selectedTileRegion;
 				ctx.fillStyle = "rgba(100, 150, 255, 0.3)";
 				ctx.fillRect(
 					x * tilesetData.tileWidth,
@@ -417,7 +429,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					height * tilesetData.tileHeight,
 				);
 				ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
-				ctx.lineWidth = 2 / viewState.scale;
+				ctx.lineWidth = 2 / scale;
 				ctx.strokeRect(
 					x * tilesetData.tileWidth,
 					y * tilesetData.tileHeight,
@@ -442,10 +454,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					);
 
 					// OPTIMIZATION: Calculate visible tile bounds (viewport culling)
-					const viewportLeft = -pan.x / viewState.scale;
-					const viewportTop = -pan.y / viewState.scale;
-					const viewportRight = viewportLeft + canvas.width / viewState.scale;
-					const viewportBottom = viewportTop + canvas.height / viewState.scale;
+					const viewportLeft = -pan.x / scale;
+					const viewportTop = -pan.y / scale;
+					const viewportRight = viewportLeft + canvas.width / scale;
+					const viewportBottom = viewportTop + canvas.height / scale;
 
 					const startCol = Math.max(
 						0,
@@ -524,7 +536,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					ctx.fillStyle = "rgba(17, 119, 187, 0.5)";
 					ctx.fill(fillPathCenter);
 					ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-					ctx.lineWidth = 1 / viewState.scale;
+					ctx.lineWidth = 1 / scale;
 					ctx.stroke(gridPath);
 				}
 			}
@@ -545,60 +557,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		};
 	}, [
 		tilesetData,
-		viewState.selectedTileRegion,
+		selectedTileRegion,
 		pan,
-		viewState.scale,
+		scale,
 		selectedTerrainLayer,
 		selectedCompoundTileId,
 		localTiles,
 		getTerrainLayers,
+		zoomPanContainerRef,
 	]);
-
-	// Setup wheel event listener for zoom and pan
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		const handleWheel = (e: WheelEvent) => {
-			e.preventDefault();
-
-			if (e.ctrlKey) {
-				// Zoom towards mouse position
-				const rect = container.getBoundingClientRect();
-				const mouseX = e.clientX - rect.left;
-				const mouseY = e.clientY - rect.top;
-
-				// Calculate world position at mouse before zoom
-				const worldX = (mouseX - panRef.current.x) / scaleRef.current;
-				const worldY = (mouseY - panRef.current.y) / scaleRef.current;
-
-				// Calculate new scale
-				const delta = -e.deltaY * 0.01;
-				const newScale = Math.max(0.5, Math.min(8, scaleRef.current + delta));
-
-				// Adjust pan to keep world position under mouse
-				const newPanX = mouseX - worldX * newScale;
-				const newPanY = mouseY - worldY * newScale;
-
-				setPan({ x: newPanX, y: newPanY });
-				updateTabData(tab.id, {
-					viewState: { ...viewState, scale: newScale },
-				});
-			} else {
-				// Wheel = Pan
-				setPan({
-					x: panRef.current.x - e.deltaX,
-					y: panRef.current.y - e.deltaY,
-				});
-			}
-		};
-
-		container.addEventListener("wheel", handleWheel, { passive: false });
-
-		return () => {
-			container.removeEventListener("wheel", handleWheel);
-		};
-	}, [tab.id, viewState, updateTabData]);
 
 	// Helper to convert screen coordinates to canvas coordinates
 	const screenToCanvas = (screenX: number, screenY: number) => {
@@ -610,8 +577,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const y = screenY - rect.top;
 
 		// Account for pan and zoom transforms
-		const canvasX = (x - pan.x) / viewState.scale;
-		const canvasY = (y - pan.y) / viewState.scale;
+		const canvasX = (x - pan.x) / scale;
+		const canvasY = (y - pan.y) / scale;
 
 		return { canvasX, canvasY };
 	};
@@ -752,12 +719,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				canvasY >= (tilesetData.imageData?.height ?? 0)
 			) {
 				// Clicked outside the tileset, clear selection
-				updateTabData(tab.id, {
-					viewState: {
-						...viewState,
-						selectedTileRegion: null,
-					},
-				});
+				setSelectedTileRegion(null);
 				setSelectedCompoundTileId(null);
 				setSelectedTileId(null);
 				return;
@@ -788,18 +750,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							tile.height / tilesetData.tileHeight,
 						);
 
-						updateTabData(tab.id, {
-							viewState: {
-								...viewState,
-								selectedTileRegion: {
-									x: regionX,
-									y: regionY,
-									width: regionWidth,
-									height: regionHeight,
-								},
-							},
+						setSelectedTileRegion({
+							x: regionX,
+							y: regionY,
+							width: regionWidth,
+							height: regionHeight,
 						});
-
 						// Set the selected tile ID for the sidebar
 						setSelectedCompoundTileId(tile.id);
 
@@ -854,12 +810,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				}
 
 				// Set initial single-tile selection
-				updateTabData(tab.id, {
-					viewState: {
-						...viewState,
-						selectedTileRegion: { x: tileX, y: tileY, width: 1, height: 1 },
-					},
-				});
+				setSelectedTileRegion({ x: tileX, y: tileY, width: 1, height: 1 });
 			}
 		}
 	};
@@ -885,12 +836,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			const width = Math.abs(tileX - selectionStart.x) + 1;
 			const height = Math.abs(tileY - selectionStart.y) + 1;
 
-			updateTabData(tab.id, {
-				viewState: {
-					...viewState,
-					selectedTileRegion: { x, y, width, height },
-				},
-			});
+			setSelectedTileRegion({ x, y, width, height });
 		}
 	};
 
@@ -933,7 +879,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// If we clicked on a compound tile, show delete option
 		// Otherwise, only allow right-click if there's a selection for creating compound tile
-		if (clickedCompoundTile || viewState.selectedTileRegion) {
+		if (clickedCompoundTile || selectedTileRegion) {
 			const position = calculateMenuPosition(e.clientX, e.clientY, 200, 80);
 			setContextMenu({
 				x: position.x,
@@ -946,9 +892,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleMarkAsCompoundTile = () => {
 		setContextMenu(null);
 
-		if (!viewState.selectedTileRegion || !tilesetData) return;
+		if (!selectedTileRegion || !tilesetData) return;
 
-		const { x, y, width, height } = viewState.selectedTileRegion;
+		const { x, y, width, height } = selectedTileRegion;
 
 		// Create new tile definition - mark as compound tile
 		const tileX = x * tilesetData.tileWidth;
@@ -988,9 +934,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	const handleClearSelection = () => {
 		setContextMenu(null);
-		updateTabData(tab.id, {
-			viewState: { ...viewState, selectedTileRegion: null },
-		});
+		setSelectedTileRegion(null);
 	};
 
 	const handleNameClick = () => {
@@ -1795,7 +1739,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			{/* Center - Canvas Area */}
 			<div
-				ref={containerRef}
+				ref={zoomPanContainerRef}
 				className="flex-1 overflow-hidden bg-gray-900 relative"
 				onMouseDown={handleMouseDown}
 				onMouseMove={handleMouseMove}
@@ -1852,19 +1796,17 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									</div>
 								</>
 							)}
-							{viewState.selectedTileRegion && (
+							{selectedTileRegion && (
 								<>
 									<div className="w-px h-4 bg-gray-700" />
 									<div className="flex items-center gap-2">
 										<span className="text-gray-500">Selection:</span>
 										<span className="font-mono">
-											{viewState.selectedTileRegion.x},{" "}
-											{viewState.selectedTileRegion.y}
+											{selectedTileRegion.x}, {selectedTileRegion.y}
 										</span>
 										<span className="text-gray-600">•</span>
 										<span className="font-mono">
-											{viewState.selectedTileRegion.width}×
-											{viewState.selectedTileRegion.height}
+											{selectedTileRegion.width}×{selectedTileRegion.height}
 										</span>
 									</div>
 								</>
@@ -1872,9 +1814,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							<div className="flex-1" />
 							<div className="flex items-center gap-2">
 								<span className="text-gray-500">Zoom:</span>
-								<span className="font-mono">
-									{Math.round(viewState.scale * 100)}%
-								</span>
+								<span className="font-mono">{Math.round(scale * 100)}%</span>
 							</div>
 						</div>
 					</>
