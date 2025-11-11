@@ -37,6 +37,7 @@ describe("MapManager", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -63,6 +64,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -87,6 +89,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -156,6 +159,7 @@ describe("MapManager", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -305,6 +309,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -332,6 +337,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -360,6 +366,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const mockMap2: SerializedMapData = {
@@ -372,6 +379,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile)
@@ -400,6 +408,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -427,6 +436,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -450,6 +460,7 @@ describe("MapManager", () => {
 					layers: [],
 					entities: [],
 					points: [],
+					colliders: [],
 				};
 
 				vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -474,6 +485,7 @@ describe("MapManager", () => {
 					layers: [],
 					entities: [],
 					points: [],
+					colliders: [],
 				};
 
 				vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -511,6 +523,7 @@ describe("MapManager", () => {
 					layers: [],
 					entities: [],
 					points: [],
+					colliders: [],
 				};
 
 				vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -537,6 +550,7 @@ describe("MapManager", () => {
 					layers: [],
 					entities: [],
 					points: [],
+					colliders: [],
 				};
 
 				vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -572,6 +586,7 @@ describe("MapManager", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -607,6 +622,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const mockMap2: SerializedMapData = {
@@ -619,6 +635,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile)
@@ -646,6 +663,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
@@ -737,6 +755,7 @@ describe("MapManager", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));

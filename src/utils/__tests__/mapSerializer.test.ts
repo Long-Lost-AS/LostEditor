@@ -14,6 +14,7 @@ describe("mapSerializer", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -53,6 +54,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -101,6 +103,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -120,6 +123,7 @@ describe("mapSerializer", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -146,6 +150,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -179,6 +184,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = serializeMapData(mapData);
@@ -200,6 +206,7 @@ describe("mapSerializer", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -230,6 +237,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -257,6 +265,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -290,6 +299,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -322,6 +332,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -366,6 +377,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -396,6 +408,7 @@ describe("mapSerializer", () => {
 				],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const result = deserializeMapData(serialized);
@@ -424,6 +437,7 @@ describe("mapSerializer", () => {
 					},
 				],
 				points: [],
+				colliders: [],
 				entities: [
 					{
 						id: "entity-1",
@@ -459,6 +473,7 @@ describe("mapSerializer", () => {
 				layers: [],
 				entities: [],
 				points: [],
+				colliders: [],
 			};
 
 			const serialized = serializeMapData(original);

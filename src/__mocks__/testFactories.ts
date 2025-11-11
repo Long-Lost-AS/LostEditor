@@ -50,6 +50,7 @@ export function createMockMap(overrides?: Partial<MapData>): MapData {
 		layers: [createMockLayer()],
 		entities: [],
 		points: [],
+		colliders: [],
 		...overrides,
 	};
 }

@@ -166,6 +166,7 @@ export const MapDataSchema = z.object({
 	layers: z.array(LayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]),
 	points: z.array(PointInstanceSchema).default([]),
+	colliders: z.array(PolygonColliderSchema).default([]),
 });
 
 // Schemas for serialized format (version 4.0 - dense array with regular numbers)
@@ -187,6 +188,7 @@ export const SerializedMapDataSchema = z.object({
 	layers: z.array(SerializedLayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]), // Entities at map level (required, can be empty)
 	points: z.array(PointInstanceSchema).default([]), // Points at map level (required, can be empty)
+	colliders: z.array(PolygonColliderSchema).default([]), // Colliders at map level (required, can be empty)
 });
 
 // Map file schema (for .lostmap files) - version 4.0 only
@@ -354,5 +356,6 @@ export function createDefaultMapData(
 		],
 		entities: [], // Map-level entities
 		points: [], // Map-level points
+		colliders: [], // Map-level colliders
 	});
 }

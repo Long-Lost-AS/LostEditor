@@ -36,6 +36,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		layers: serializedLayers,
 		entities: mapData.entities, // Entities at map level
 		points: mapData.points, // Points at map level
+		colliders: mapData.colliders, // Colliders at map level
 	};
 }
 
@@ -75,5 +76,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		layers,
 		entities: serialized.entities || [], // Entities at map level
 		points: serialized.points || [], // Points at map level
+		colliders: serialized.colliders || [], // Colliders at map level
 	};
 }

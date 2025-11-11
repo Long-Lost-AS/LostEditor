@@ -1057,6 +1057,7 @@ describe("schemas", () => {
 					layers: [],
 					entities: [],
 					points: [],
+					colliders: [],
 				};
 				const result = ensureValidMapData(validData);
 				expect(result).toEqual(validData);
