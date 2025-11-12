@@ -575,7 +575,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						);
 					});
 
-					if (tile && tile.colliders && tile.colliders.length > 0) {
+					if (tile?.colliders && tile.colliders.length > 0) {
 						const { x: tileX, y: tileY } = unpackTileId(tile.id);
 						for (const collider of tile.colliders) {
 							if (collider.points.length < 2) continue;
