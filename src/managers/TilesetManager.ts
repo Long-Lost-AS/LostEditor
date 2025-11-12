@@ -52,7 +52,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 
 					// For regular tiles, only save if they have properties
 					return (
-						tile.colliders.length > 0 ||
+						tile.colliders?.length > 0 ||
 						tile.name !== "" ||
 						tile.type !== "" ||
 						Object.keys(tile.properties).length > 0
@@ -72,10 +72,10 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 					}
 
 					// Save non-default properties
-					if (tile.colliders.length > 0) saved.colliders = tile.colliders;
+					if (tile.colliders?.length > 0) saved.colliders = tile.colliders;
 					if (tile.name !== "") saved.name = tile.name;
 					if (tile.type !== "") saved.type = tile.type;
-					if (tile.origin.x !== 0 || tile.origin.y !== 0)
+					if (tile.origin?.x !== 0 || tile.origin?.y !== 0)
 						saved.origin = tile.origin;
 					if (Object.keys(tile.properties).length > 0)
 						saved.properties = tile.properties;
@@ -122,6 +122,9 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 				x: geometry.x,
 				y: geometry.y,
 				// width/height are preserved from tile if present (for compound tiles)
+				// Add default values for properties that may not exist in older files
+				colliders: tile.colliders || [],
+				origin: tile.origin || { x: 0, y: 0 },
 			};
 		});
 

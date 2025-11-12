@@ -38,7 +38,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				tile,
 				width: tile.width !== 0 ? tile.width : tileset.tileWidth,
 				height: tile.height !== 0 ? tile.height : tileset.tileHeight,
-				colliders: tile.colliders,
+				colliders: tile.colliders || [],
 				backgroundImage: tileset.imageData,
 				backgroundRect: {
 					x,

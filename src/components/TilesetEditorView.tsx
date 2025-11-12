@@ -421,7 +421,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.fillStyle = "rgba(255, 0, 255, 0.2)";
 			ctx.lineWidth = 2 / scale;
 			for (const tile of tilesetData.tiles) {
-				if (tile.colliders.length === 0) continue;
+				if (!tile.colliders || tile.colliders.length === 0) continue;
 
 				const { x: tileX, y: tileY } = unpackTileId(tile.id);
 				for (const collider of tile.colliders) {
@@ -838,6 +838,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						type: "",
 						properties: {},
 						colliders: [],
+						origin: { x: 0, y: 0 },
 					};
 					setLocalTilesetState({
 						tiles: [...localTiles, newTile],
