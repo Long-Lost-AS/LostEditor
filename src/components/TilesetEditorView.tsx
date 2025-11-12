@@ -77,8 +77,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<
 		number | null
 	>(null);
-	const [isEditingTileName, setIsEditingTileName] = useState(false);
-	const [isEditingTileType, setIsEditingTileType] = useState(false);
 	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<
 		string | null
 	>(null);
@@ -1763,58 +1761,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										>
 											Name
 										</div>
-										{isEditingTileName ? (
-											<input
-												type="text"
-												defaultValue={selectedTile?.name || ""}
-												onBlur={(e) => {
-													handleUpdateTileName(e.target.value);
-													setIsEditingTileName(false);
-												}}
-												onKeyDown={(e) => {
-													if (e.key === "Enter") {
-														handleUpdateTileName(e.currentTarget.value);
-														setIsEditingTileName(false);
-													} else if (e.key === "Escape") {
-														setIsEditingTileName(false);
-													}
-												}}
-												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-												style={{
-													background: "#3e3e42",
-													color: "#cccccc",
-													border: "1px solid #1177bb",
-												}}
-												spellCheck={false}
-											/>
-										) : (
-											<div
-												onClick={() => setIsEditingTileName(true)}
-												onKeyDown={(e) => {
-													if (e.key === "Enter" || e.key === " ") {
-														e.preventDefault();
-														setIsEditingTileName(true);
-													}
-												}}
-												role="button"
-												tabIndex={0}
-												aria-label="Edit tile name"
-												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-												style={{
-													background: "#3e3e42",
-													color: "#cccccc",
-													border: "1px solid transparent",
-												}}
-												onMouseEnter={(e) => {
-													e.currentTarget.style.borderColor = "#555";
-												}}
-												onMouseLeave={(e) => {
-													e.currentTarget.style.borderColor = "transparent";
-												}}
-											>
-												{selectedTile?.name || "(none)"}
-											</div>
-										)}
+										<input
+											type="text"
+											value={selectedTile?.name || ""}
+											onChange={(e) => {
+												handleUpdateTileName(e.target.value);
+											}}
+											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+											style={{
+												background: "#3e3e42",
+												color: "#cccccc",
+												border: "1px solid #3e3e42",
+											}}
+											spellCheck={false}
+										/>
 									</div>
 									<div>
 										<div
@@ -1823,58 +1783,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										>
 											Type
 										</div>
-										{isEditingTileType ? (
-											<input
-												type="text"
-												defaultValue={selectedTile?.type || ""}
-												onBlur={(e) => {
-													handleUpdateTileType(e.target.value);
-													setIsEditingTileType(false);
-												}}
-												onKeyDown={(e) => {
-													if (e.key === "Enter") {
-														handleUpdateTileType(e.currentTarget.value);
-														setIsEditingTileType(false);
-													} else if (e.key === "Escape") {
-														setIsEditingTileType(false);
-													}
-												}}
-												className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-												style={{
-													background: "#3e3e42",
-													color: "#cccccc",
-													border: "1px solid #1177bb",
-												}}
-												spellCheck={false}
-											/>
-										) : (
-											<div
-												onClick={() => setIsEditingTileType(true)}
-												onKeyDown={(e) => {
-													if (e.key === "Enter" || e.key === " ") {
-														e.preventDefault();
-														setIsEditingTileType(true);
-													}
-												}}
-												role="button"
-												tabIndex={0}
-												aria-label="Edit tile type"
-												className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-												style={{
-													background: "#3e3e42",
-													color: "#cccccc",
-													border: "1px solid transparent",
-												}}
-												onMouseEnter={(e) => {
-													e.currentTarget.style.borderColor = "#555";
-												}}
-												onMouseLeave={(e) => {
-													e.currentTarget.style.borderColor = "transparent";
-												}}
-											>
-												{selectedTile?.type || "(none)"}
-											</div>
-										)}
+										<input
+											type="text"
+											value={selectedTile?.type || ""}
+											onChange={(e) => {
+												handleUpdateTileType(e.target.value);
+											}}
+											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+											style={{
+												background: "#3e3e42",
+												color: "#cccccc",
+												border: "1px solid #3e3e42",
+											}}
+											spellCheck={false}
+										/>
 									</div>
 								</div>
 							</div>
@@ -1992,58 +1914,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								>
 									Name
 								</div>
-								{isEditingTileName ? (
-									<input
-										type="text"
-										defaultValue={selectedTile?.name || ""}
-										onBlur={(e) => {
-											handleUpdateTileName(e.target.value);
-											setIsEditingTileName(false);
-										}}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleUpdateTileName(e.currentTarget.value);
-												setIsEditingTileName(false);
-											} else if (e.key === "Escape") {
-												setIsEditingTileName(false);
-											}
-										}}
-										className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-										style={{
-											background: "#3e3e42",
-											color: "#cccccc",
-											border: "1px solid #1177bb",
-										}}
-										spellCheck={false}
-									/>
-								) : (
-									<div
-										onClick={() => setIsEditingTileName(true)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												setIsEditingTileName(true);
-											}
-										}}
-										role="button"
-										tabIndex={0}
-										aria-label="Edit tile name"
-										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-										style={{
-											background: "#3e3e42",
-											color: "#cccccc",
-											border: "1px solid transparent",
-										}}
-										onMouseEnter={(e) => {
-											e.currentTarget.style.borderColor = "#555";
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.borderColor = "transparent";
-										}}
-									>
-										{selectedTile?.name || "(none)"}
-									</div>
-								)}
+								<input
+									type="text"
+									value={selectedTile?.name || ""}
+									onChange={(e) => {
+										handleUpdateTileName(e.target.value);
+									}}
+									className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+									style={{
+										background: "#3e3e42",
+										color: "#cccccc",
+										border: "1px solid #3e3e42",
+									}}
+									spellCheck={false}
+								/>
 							</div>
 							<div>
 								<div
@@ -2052,58 +1936,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								>
 									Type
 								</div>
-								{isEditingTileType ? (
-									<input
-										type="text"
-										defaultValue={selectedTile?.type || ""}
-										onBlur={(e) => {
-											handleUpdateTileType(e.target.value);
-											setIsEditingTileType(false);
-										}}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleUpdateTileType(e.currentTarget.value);
-												setIsEditingTileType(false);
-											} else if (e.key === "Escape") {
-												setIsEditingTileType(false);
-											}
-										}}
-										className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-										style={{
-											background: "#3e3e42",
-											color: "#cccccc",
-											border: "1px solid #1177bb",
-										}}
-										spellCheck={false}
-									/>
-								) : (
-									<div
-										onClick={() => setIsEditingTileType(true)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												setIsEditingTileType(true);
-											}
-										}}
-										role="button"
-										tabIndex={0}
-										aria-label="Edit tile type"
-										className="px-2.5 py-1.5 text-xs rounded cursor-pointer transition-colors"
-										style={{
-											background: "#3e3e42",
-											color: "#cccccc",
-											border: "1px solid transparent",
-										}}
-										onMouseEnter={(e) => {
-											e.currentTarget.style.borderColor = "#555";
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.borderColor = "transparent";
-										}}
-									>
-										{selectedTile?.type || "(none)"}
-									</div>
-								)}
+								<input
+									type="text"
+									value={selectedTile?.type || ""}
+									onChange={(e) => {
+										handleUpdateTileType(e.target.value);
+									}}
+									className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
+									style={{
+										background: "#3e3e42",
+										color: "#cccccc",
+										border: "1px solid #3e3e42",
+									}}
+									spellCheck={false}
+								/>
 							</div>
 							{/* Only show origin for compound tiles */}
 							{selectedTile?.isCompound && (
