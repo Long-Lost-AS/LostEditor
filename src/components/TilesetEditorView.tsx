@@ -123,6 +123,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Register unified undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
 
+	// Track if this is the first run to avoid marking dirty on initial mount
+	const isFirstRun = useRef(true);
+
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
@@ -131,11 +134,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			prevTilesetIdRef.current !== null &&
 			prevTilesetIdRef.current !== tilesetData.id
 		) {
-			// Switching to a different tileset, reset unified history
+			// Switching to a different tileset, reset unified history and first run flag
 			resetTilesetHistory({
 				tiles: tilesetData.tiles || [],
 				terrainLayers: tilesetData.terrainLayers || [],
 			});
+			isFirstRun.current = true;
 		}
 		prevTilesetIdRef.current = tilesetData.id;
 	}, [
@@ -145,9 +149,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		tilesetData?.tiles,
 		resetTilesetHistory,
 	]);
-
-	// Track if this is the first run to avoid marking dirty on initial mount
-	const isFirstRun = useRef(true);
 
 	// One-way sync: local tileset state → global context
 	// This updates the global state whenever local state changes (from any operation or undo/redo)
