@@ -1356,9 +1356,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
+											onInput={(value) => {
+												updateTileset(tab.tilesetId, {
+													tileWidth: Math.round(value),
+												});
+											}}
 											min={1}
 											step={1}
 											precision={0}
+											dragSpeed={1}
 										/>
 									</div>
 									<div>
@@ -1376,9 +1382,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
+											onInput={(value) => {
+												updateTileset(tab.tilesetId, {
+													tileHeight: Math.round(value),
+												});
+											}}
 											min={1}
 											step={1}
 											precision={0}
+											dragSpeed={1}
 										/>
 									</div>
 								</div>
