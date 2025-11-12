@@ -909,7 +909,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								viewState: (tab as MapTab).viewState,
 							} as MapTab;
 						}
-						return tab;
+						// Remove undoHistory from all tab types (memory-only)
+						const { undoHistory: _undoHistory, ...tabWithoutHistory } =
+							tab as AnyTab;
+						return { ...tabWithoutHistory, isDirty: false };
 					}),
 					activeTabId,
 				},
