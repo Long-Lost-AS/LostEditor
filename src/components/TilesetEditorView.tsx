@@ -64,6 +64,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		x: number;
 		y: number;
 		compoundTileId?: number; // Track if we're on a compound tile
+		terrainLayerId?: string; // Track if we're on a terrain layer
 	} | null>(null);
 	const [mousePos, setMousePos] = useState<{
 		tileX: number;
@@ -1202,6 +1203,50 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 	};
 
+	const handleTerrainLayerContextMenu = (
+		e: React.MouseEvent,
+		layerId: string,
+	) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const menuWidth = 160;
+		const menuHeight = 80;
+
+		const position = calculateMenuPosition(
+			e.clientX,
+			e.clientY,
+			menuWidth,
+			menuHeight,
+		);
+
+		setContextMenu({
+			x: position.x,
+			y: position.y,
+			terrainLayerId: layerId,
+		});
+	};
+
+	const handleRenameTerrainLayer = () => {
+		if (contextMenu?.terrainLayerId) {
+			const layer = getTerrainLayers().find(
+				(l) => l.id === contextMenu.terrainLayerId,
+			);
+			if (layer) {
+				setEditingTerrainLayerId(layer.id);
+				setEditingTerrainLayerName(layer.name);
+			}
+		}
+		setContextMenu(null);
+	};
+
+	const handleDeleteTerrainLayerFromMenu = () => {
+		if (contextMenu?.terrainLayerId) {
+			handleDeleteTerrainLayer(contextMenu.terrainLayerId);
+		}
+		setContextMenu(null);
+	};
+
 	const selectedTile = localTiles.find((t) => t.id === selectedCompoundTileId);
 
 	// If tileset not found, show error (after all hooks)
@@ -1372,14 +1417,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								className="text-[10px] mb-3 px-1"
 								style={{ color: "#858585" }}
 							>
-								Click to select, double-click to rename
+								Click to select, right-click for options
 							</div>
 
-							<div className="space-y-1.5">
+							<div className="space-y-0.5">
 								{getTerrainLayers().map((layer) => (
 									<div
 										key={layer.id}
-										className="rounded transition-all cursor-pointer relative group select-none"
+										className="rounded transition-all cursor-pointer relative group"
 										style={{
 											background:
 												selectedTerrainLayer === layer.id
@@ -1389,16 +1434,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												"1px solid " +
 												(selectedTerrainLayer === layer.id
 													? "#1177bb"
-													: "#3e3e42"),
-											WebkitUserSelect: "none",
-											MozUserSelect: "none",
-											msUserSelect: "none",
-											userSelect: "none",
-										}}
-										onMouseDown={(e) => {
-											if (e.detail > 1) {
-												e.preventDefault();
-											}
+													: "transparent"),
 										}}
 										onClick={() => {
 											if (editingTerrainLayerId !== layer.id) {
@@ -1407,6 +1443,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												);
 											}
 										}}
+										onContextMenu={(e) =>
+											handleTerrainLayerContextMenu(e, layer.id)
+										}
 										onKeyDown={(e) => {
 											if (e.key === "Enter" || e.key === " ") {
 												e.preventDefault();
@@ -1417,16 +1456,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 												}
 											}
 										}}
-										onDoubleClick={(e) => {
-											e.preventDefault();
-											setEditingTerrainLayerId(layer.id);
-											setEditingTerrainLayerName(layer.name);
-										}}
 										role="button"
 										tabIndex={0}
 										aria-label={`Terrain layer: ${layer.name}`}
 									>
-										<div className="flex items-center justify-between px-2.5 py-2">
+										<div className="flex items-center justify-between px-2 py-1.5">
 											{editingTerrainLayerId === layer.id ? (
 												<input
 													type="text"
@@ -1483,18 +1517,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 													</span>
 												</div>
 											)}
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													handleDeleteTerrainLayer(layer.id);
-												}}
-												className="p-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-												style={{ color: "#ef4444" }}
-												title="Delete layer"
-											>
-												<TrashIcon />
-											</button>
 										</div>
 									</div>
 								))}
@@ -2242,6 +2264,84 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								</div>
 							</>
 						)}
+					</div>
+				</>
+			)}
+
+			{/* Terrain Layer Context Menu */}
+			{contextMenu?.terrainLayerId && (
+				<>
+					{/* Backdrop to close menu */}
+					<div
+						className="fixed inset-0 z-40"
+						onClick={() => setContextMenu(null)}
+						onKeyDown={(e) => {
+							if (e.key === "Escape") {
+								e.preventDefault();
+								setContextMenu(null);
+							}
+						}}
+						role="button"
+						tabIndex={0}
+						aria-label="Close context menu"
+					/>
+					{/* Menu */}
+					<div
+						className="fixed z-50 min-w-[160px] py-1 rounded shadow-lg"
+						style={{
+							left: `${contextMenu.x}px`,
+							top: `${contextMenu.y}px`,
+							background: "#252526",
+							border: "1px solid #3e3e42",
+						}}
+					>
+						{/* Rename */}
+						<div
+							onClick={handleRenameTerrainLayer}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									handleRenameTerrainLayer();
+								}
+							}}
+							className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+							style={{ color: "#cccccc" }}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = "#3e3e42";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = "transparent";
+							}}
+							role="menuitem"
+							tabIndex={0}
+						>
+							<PencilIcon size={16} />
+							<span>Rename</span>
+						</div>
+
+						{/* Delete */}
+						<div
+							onClick={handleDeleteTerrainLayerFromMenu}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									handleDeleteTerrainLayerFromMenu();
+								}
+							}}
+							className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+							style={{ color: "#f48771" }}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.background = "#3e3e42";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.background = "transparent";
+							}}
+							role="menuitem"
+							tabIndex={0}
+						>
+							<TrashIcon size={16} />
+							<span>Delete</span>
+						</div>
 					</div>
 				</>
 			)}
