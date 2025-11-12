@@ -1044,11 +1044,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 			// Wait for state to propagate before opening collision editor
 			setTimeout(() => {
-				openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
-			}, 0);
+				openCollisionEditor("tile", tab.tilesetId, tileId, tab.id);
+			}, 100);
 		} else {
 			// Tile already exists, open immediately
-			openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
+			openCollisionEditor("tile", tab.tilesetId, tileId, tab.id);
 		}
 	};
 
