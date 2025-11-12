@@ -183,6 +183,16 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		}
 	};
 
+	const handleOpenCurrentFolder = async () => {
+		try {
+			await openPath(currentDir);
+			setContextMenu(null);
+		} catch (err) {
+			console.error("Failed to open current folder:", err);
+			setError("Failed to open current folder");
+		}
+	};
+
 	const handleRenameItem = (item: FileItem) => {
 		setRenameModal({ visible: true, item, newName: item.name });
 		setContextMenu(null);
@@ -1254,6 +1264,37 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 								>
 									Create Tileset
 								</div>
+
+								{/* Open in Finder (only when clicking on empty space) */}
+								{!contextMenu.item && (
+									<>
+										<div
+											className="h-px mx-2 my-1"
+											style={{ background: "#3e3e42" }}
+										/>
+										<div
+											className="px-4 py-2 text-sm cursor-pointer transition-colors"
+											style={{ color: "#cccccc" }}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = "#3e3e42";
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = "transparent";
+											}}
+											onClick={handleOpenCurrentFolder}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleOpenCurrentFolder();
+												}
+											}}
+											role="menuitem"
+											tabIndex={0}
+										>
+											Open in Finder
+										</div>
+									</>
+								)}
 
 								{/* Open Containing Folder (only for files/folders) */}
 								{contextMenu.item && (
