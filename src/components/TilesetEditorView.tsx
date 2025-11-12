@@ -1023,6 +1023,26 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			return;
 		}
 
+		// Ensure tile definition exists for regular tiles
+		const existingTile = localTiles.find((t) => t.id === tileId);
+		if (!existingTile) {
+			const newTile: TileDefinition = {
+				id: tileId,
+				name: "",
+				type: "",
+				properties: {},
+				colliders: [],
+				origin: { x: 0, y: 0 },
+			};
+			const updatedTiles = [...localTiles, newTile];
+			setLocalTilesetState({
+				tiles: updatedTiles,
+				terrainLayers: localTerrainLayers,
+			});
+			// Also update the global tileset immediately so the collision editor can find it
+			updateTileset(tab.tilesetId, { tiles: updatedTiles });
+		}
+
 		// Open collision editor tab for this tile
 		openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
 	};
