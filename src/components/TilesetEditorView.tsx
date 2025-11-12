@@ -1041,10 +1041,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			});
 			// Also update the global tileset immediately so the collision editor can find it
 			updateTileset(tab.tilesetId, { tiles: updatedTiles });
-		}
 
-		// Open collision editor tab for this tile
-		openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
+			// Wait for state to propagate before opening collision editor
+			setTimeout(() => {
+				openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
+			}, 0);
+		} else {
+			// Tile already exists, open immediately
+			openCollisionEditor("tile", tilesetData.id, tileId, tab.id);
+		}
 	};
 
 	const handleUpdateTileName = (name: string) => {
