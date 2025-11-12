@@ -146,19 +146,10 @@ export const DragNumberInput: React.FC<DragNumberInputProps> = ({
 			className={`relative ${className}`}
 			onMouseDown={handleMouseDown}
 			onDoubleClick={handleDoubleClick}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					handleDoubleClick();
-				}
-			}}
 			style={{
 				cursor: isEditing ? "text" : isDragging ? "ew-resize" : "ew-resize",
 			}}
-			role="spinbutton"
-			aria-valuenow={value ?? 0}
-			tabIndex={isEditing ? -1 : 0}
-			aria-label="Drag to adjust number"
+			role="group"
 		>
 			{isEditing ? (
 				<input
