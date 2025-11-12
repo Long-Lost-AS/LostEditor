@@ -64,9 +64,7 @@
             "opener:default",
             {
               "identifier": "opener:allow-open-path",
-              "allow": [
-                { "path": "$HOME/Programming/LostEditor/**" }
-              ]
+              "allow": [{ "path": "**" }]
             },
             "updater:default",
             "process:default"
