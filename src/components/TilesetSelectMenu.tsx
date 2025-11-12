@@ -2,7 +2,6 @@ import Fuse from "fuse.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
-import { tilesetManager } from "../managers/TilesetManager";
 import type { TilesetData } from "../types";
 import { packTileId, unpackTileId } from "../utils/tileId";
 
@@ -22,6 +21,7 @@ export const TilesetSelectMenu = ({
 		setSelectedTile,
 		getActiveMapTab,
 		updateTabData,
+		tilesets: projectTilesets,
 	} = useEditor();
 	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -38,8 +38,8 @@ export const TilesetSelectMenu = ({
 			setSearchQuery("");
 			setSelectedIndex(0);
 
-			// Get all loaded tilesets from TilesetManager
-			const loadedTilesets = tilesetManager.getAllTilesets();
+			// Get tilesets from current project only
+			const loadedTilesets = [...projectTilesets];
 
 			// Sort alphabetically by name
 			loadedTilesets.sort((a, b) => {
@@ -54,7 +54,7 @@ export const TilesetSelectMenu = ({
 			// Focus input when opened
 			setTimeout(() => inputRef.current?.focus(), 100);
 		}
-	}, [isOpen]);
+	}, [isOpen, projectTilesets]);
 
 	// Fuzzy search using Fuse.js
 	const fuse = new Fuse(tilesets, {
