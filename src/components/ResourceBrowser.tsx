@@ -185,7 +185,7 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 
 	const handleOpenCurrentFolder = async () => {
 		try {
-			await openPath(currentDir);
+			await openPath(currentPath);
 			setContextMenu(null);
 		} catch (err) {
 			console.error("Failed to open current folder:", err);
