@@ -9,7 +9,7 @@ import { calculateMenuPosition } from "../utils/menuPositioning";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
-import { ShieldIcon, TrashIcon } from "./Icons";
+import { PencilIcon, ShieldIcon, TrashIcon } from "./Icons";
 
 interface TilesetEditorViewProps {
 	tab: TilesetTab;
