@@ -837,6 +837,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						name: "",
 						type: "",
 						properties: {},
+						colliders: [],
 					};
 					setLocalTilesetState({
 						tiles: [...localTiles, newTile],
