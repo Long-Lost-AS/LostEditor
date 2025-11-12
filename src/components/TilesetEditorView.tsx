@@ -1909,7 +1909,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			</div>
 
 			{/* Right Sidebar - Tile Properties */}
-			{selectedCompoundTileId && (
+			{selectedCompoundTileId !== null && (
 				<div
 					className="w-64 flex flex-col overflow-auto"
 					style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
