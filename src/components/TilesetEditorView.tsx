@@ -1767,6 +1767,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											onChange={(e) => {
 												handleUpdateTileName(e.target.value);
 											}}
+											placeholder="Enter tile name..."
 											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
 											style={{
 												background: "#3e3e42",
@@ -1789,6 +1790,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											onChange={(e) => {
 												handleUpdateTileType(e.target.value);
 											}}
+											placeholder="Enter tile type..."
 											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
 											style={{
 												background: "#3e3e42",
@@ -1920,6 +1922,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onChange={(e) => {
 										handleUpdateTileName(e.target.value);
 									}}
+									placeholder="Enter tile name..."
 									className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
 									style={{
 										background: "#3e3e42",
@@ -1942,6 +1945,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onChange={(e) => {
 										handleUpdateTileType(e.target.value);
 									}}
+									placeholder="Enter tile type..."
 									className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
 									style={{
 										background: "#3e3e42",
