@@ -149,20 +149,23 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	// Detect when tab becomes active again and refresh local state from global
 	// (e.g., from collision editor updating the tileset while we were on another tab)
-	const prevActiveRef = useRef(false);
+	const prevActiveRef = useRef<boolean | null>(null);
 	useEffect(() => {
 		if (!tilesetData) return;
 
 		const isActive = activeTabId === tab.id;
 		const wasInactive = prevActiveRef.current === false;
 
-		// If tab just became active, refresh local state from global
-		if (isActive && wasInactive) {
-			skipNextDirtyMark.current = true;
-			resetTilesetHistory({
-				tiles: tilesetData.tiles || [],
-				terrainLayers: tilesetData.terrainLayers || [],
-			});
+		// Skip the check on first render (prevActiveRef is null)
+		if (prevActiveRef.current !== null) {
+			// If tab just became active, refresh local state from global
+			if (isActive && wasInactive) {
+				skipNextDirtyMark.current = true;
+				resetTilesetHistory({
+					tiles: tilesetData.tiles || [],
+					terrainLayers: tilesetData.terrainLayers || [],
+				});
+			}
 		}
 
 		prevActiveRef.current = isActive;
