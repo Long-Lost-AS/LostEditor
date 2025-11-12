@@ -1351,11 +1351,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										<DragNumberInput
 											value={tilesetData.tileWidth}
 											onChange={(value) => {
-												updateTileset(tab.tilesetId, { tileWidth: value });
+												updateTileset(tab.tilesetId, {
+													tileWidth: Math.round(value),
+												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											min={1}
 											step={1}
+											precision={0}
 										/>
 									</div>
 									<div>
@@ -1368,11 +1371,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										<DragNumberInput
 											value={tilesetData.tileHeight}
 											onChange={(value) => {
-												updateTileset(tab.tilesetId, { tileHeight: value });
+												updateTileset(tab.tilesetId, {
+													tileHeight: Math.round(value),
+												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											min={1}
 											step={1}
+											precision={0}
 										/>
 									</div>
 								</div>
