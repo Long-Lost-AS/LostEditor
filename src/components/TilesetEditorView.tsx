@@ -1429,21 +1429,26 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								Click to select, right-click for options
 							</div>
 
-							<div className="space-y-0.5">
-								{getTerrainLayers().map((layer) => (
+							<div
+								className="space-y-0 rounded overflow-hidden"
+								style={{
+									border: "1px solid #454545",
+									background: "#3e3e42",
+								}}
+							>
+								{getTerrainLayers().map((layer, index) => (
 									<div
 										key={layer.id}
-										className="rounded transition-all cursor-pointer relative group"
+										className="transition-all cursor-pointer relative"
 										style={{
 											background:
 												selectedTerrainLayer === layer.id
 													? "#0e639c"
-													: "#2d2d2d",
-											border:
-												"1px solid " +
-												(selectedTerrainLayer === layer.id
-													? "#1177bb"
-													: "transparent"),
+													: "transparent",
+											borderBottom:
+												index < getTerrainLayers().length - 1
+													? "1px solid #555555"
+													: "none",
 										}}
 										onClick={() => {
 											if (editingTerrainLayerId !== layer.id) {
@@ -1469,7 +1474,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										tabIndex={0}
 										aria-label={`Terrain layer: ${layer.name}`}
 									>
-										<div className="flex items-center justify-between px-2 py-1.5">
+										<div
+											className="flex items-center justify-between"
+											style={{
+												padding:
+													editingTerrainLayerId === layer.id
+														? "0"
+														: "0.5rem 0.75rem",
+											}}
+										>
 											{editingTerrainLayerId === layer.id ? (
 												<input
 													ref={terrainLayerInputRef}
@@ -1501,11 +1514,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 														}
 													}}
 													onClick={(e) => e.stopPropagation()}
-													className="flex-1 px-2 py-1 text-xs rounded focus:outline-none mr-2"
+													className="flex-1 text-xs focus:outline-none"
 													style={{
-														background: "#3e3e42",
+														background: "transparent",
 														color: "#cccccc",
-														border: "1px solid #1177bb",
+														border: "none",
+														padding: "0.5rem 0.75rem",
 													}}
 													spellCheck={false}
 												/>
