@@ -125,6 +125,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
+	const skipNextDirtyMark = useRef(false);
 
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
@@ -135,6 +136,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			prevTilesetIdRef.current !== tilesetData.id
 		) {
 			// Switching to a different tileset, reset unified history and first run flag
+			skipNextDirtyMark.current = true;
 			resetTilesetHistory({
 				tiles: tilesetData.tiles || [],
 				terrainLayers: tilesetData.terrainLayers || [],
@@ -142,13 +144,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			isFirstRun.current = true;
 		}
 		prevTilesetIdRef.current = tilesetData.id;
-	}, [
-		tilesetData,
-		tilesetData?.id,
-		tilesetData?.terrainLayers,
-		tilesetData?.tiles,
-		resetTilesetHistory,
-	]);
+	}, [tilesetData, resetTilesetHistory]);
 
 	// One-way sync: local tileset state → global context
 	// This updates the global state whenever local state changes (from any operation or undo/redo)
@@ -157,6 +153,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			tiles: localTiles,
 			terrainLayers: localTerrainLayers,
 		});
+
+		// Skip marking dirty if we're in a reset operation
+		if (skipNextDirtyMark.current) {
+			skipNextDirtyMark.current = false;
+			return;
+		}
 
 		// Only mark dirty after first run (i.e., on actual user changes)
 		if (!isFirstRun.current) {
