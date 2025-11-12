@@ -838,7 +838,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						type: "",
 						properties: {},
 					};
-					dispatch({
+					setLocalTilesetState({
 						tiles: [...localTiles, newTile],
 						terrainLayers: localTerrainLayers,
 					});
