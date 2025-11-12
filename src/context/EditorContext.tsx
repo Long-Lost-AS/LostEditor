@@ -1497,6 +1497,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					title: tileset.name,
 					isDirty: false,
 					tilesetId: tileset.id,
+					tilesetData: tileset,
 					viewState: {
 						scale: 2,
 						selectedTileRegion: null,
@@ -1715,6 +1716,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			title: tilesetName,
 			isDirty: true, // Mark as dirty since it's not saved yet
 			tilesetId: tilesetId,
+			tilesetData: newTilesetData,
 			viewState: {
 				scale: 2,
 				selectedTileRegion: null,
@@ -1833,8 +1835,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			return;
 		}
 
-		// Get the tileset data from the tilesets array
-		const tileset = tilesets.find((t) => t.id === activeTilesetTab.tilesetId);
+		// Get the tileset data from the tab
+		const tileset = activeTilesetTab.tilesetData;
 		if (!tileset) {
 			console.error(`Tileset ${activeTilesetTab.tilesetId} not found`);
 			alert(`Cannot save: tileset not found`);
@@ -1865,15 +1867,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		try {
 			await tilesetManager.saveTileset(tileset, targetPath);
 
-			// Update the tileset in the tilesets array with the new file path
+			// Update the tileset in the global tilesets array cache with the saved data
 			setTilesets((prev) =>
 				prev.map((t) =>
-					t.id === tileset.id ? { ...t, filePath: targetPath } : t,
+					t.id === tileset.id ? { ...tileset, filePath: targetPath } : t,
 				),
 			);
 
-			// Mark the tab as not dirty and update title
+			// Update the tab with the saved data and mark as not dirty
 			updateTabData(activeTilesetTab.id, {
+				tilesetData: { ...tileset, filePath: targetPath },
 				isDirty: false,
 				title: fileManager.basename(targetPath, ".lostset"),
 			});
@@ -1881,7 +1884,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			console.error("Failed to save tileset:", error);
 			alert(`Failed to save tileset: ${error}`);
 		}
-	}, [getActiveTilesetTab, tilesets, updateTabData]);
+	}, [getActiveTilesetTab, updateTabData]);
 
 	const saveTilesetByTabId = useCallback(
 		async (tilesetTabId: string) => {
@@ -1894,11 +1897,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			const tilesetTab = foundTab as TilesetTab;
 
-			// Get the tileset data from the tilesets array
-			const tileset = tilesets.find((t) => t.id === tilesetTab.tilesetId);
+			// Get the tileset data from the tab
+			const tileset = tilesetTab.tilesetData;
 			if (!tileset) {
-				console.error(`Tileset ${tilesetTab.tilesetId} not found`);
-				alert(`Cannot save: tileset not found`);
+				console.error(`Tileset data not found in tab ${tilesetTabId}`);
+				alert(`Cannot save: tileset data not found`);
 				return;
 			}
 
@@ -1928,15 +1931,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			try {
 				await tilesetManager.saveTileset(tileset, targetPath);
 
-				// Update the tileset in the tilesets array with the new file path
+				// Update the tileset in the global tilesets array cache with the saved data
 				setTilesets((prev) =>
 					prev.map((t) =>
-						t.id === tileset.id ? { ...t, filePath: targetPath } : t,
+						t.id === tileset.id ? { ...tileset, filePath: targetPath } : t,
 					),
 				);
 
-				// Mark the tab as not dirty and update title
+				// Update the tab with the saved data and mark as not dirty
 				updateTabData(tilesetTab.id, {
+					tilesetData: { ...tileset, filePath: targetPath },
 					isDirty: false,
 					title: fileManager.basename(targetPath, ".lostset"),
 				});
@@ -1945,7 +1949,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to save tileset: ${error}`);
 			}
 		},
-		[tabs, tilesets, updateTabData],
+		[tabs, updateTabData],
 	);
 
 	const saveAll = useCallback(async () => {

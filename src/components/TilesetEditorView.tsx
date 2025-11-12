@@ -18,17 +18,24 @@ interface TilesetEditorViewProps {
 export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const {
 		updateTabData,
-		updateTileset,
-		getTilesetById,
 		getActiveMapTab,
 		setSelectedTilesetId,
 		setSelectedTileId,
 		openCollisionEditor,
-		activeTabId,
 	} = useEditor();
 
-	// Look up the tileset data by ID
-	const tilesetData = getTilesetById(tab.tilesetId);
+	// Use tileset data from tab (single source of truth)
+	const tilesetData = tab.tilesetData;
+
+	// Helper to update tileset data in the tab
+	const updateTilesetData = useCallback(
+		(updates: Partial<typeof tilesetData>) => {
+			updateTabData(tab.id, {
+				tilesetData: { ...tilesetData, ...updates },
+			});
+		},
+		[updateTabData, tab.id, tilesetData],
+	);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const terrainLayerInputRef = useRef<HTMLInputElement>(null);
@@ -145,36 +152,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		prevTilesetIdRef.current = tilesetData.id;
 	}, [tilesetData, resetTilesetHistory]);
 
-	// Detect when tab becomes active again and refresh local state from global
-	// (e.g., from collision editor updating the tileset while we were on another tab)
-	const prevActiveRef = useRef<boolean | null>(null);
+	// One-way sync: local tileset state → tab data
+	// This updates the tab's tilesetData whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
-		if (!tilesetData) return;
-
-		const isActive = activeTabId === tab.id;
-		const wasInactive = prevActiveRef.current === false;
-
-		// Skip the check on first render (prevActiveRef is null)
-		if (prevActiveRef.current !== null) {
-			// If tab just became active, refresh local state from global
-			if (isActive && wasInactive) {
-				skipNextDirtyMark.current = true;
-				resetTilesetHistory({
-					tiles: tilesetData.tiles || [],
-					terrainLayers: tilesetData.terrainLayers || [],
-				});
-			}
-		}
-
-		prevActiveRef.current = isActive;
-	}, [activeTabId, tab.id, tilesetData, resetTilesetHistory]);
-
-	// One-way sync: local tileset state → global context
-	// This updates the global state whenever local state changes (from any operation or undo/redo)
-	useEffect(() => {
-		updateTileset(tab.tilesetId, {
-			tiles: localTiles,
-			terrainLayers: localTerrainLayers,
+		updateTabData(tab.id, {
+			tilesetData: {
+				...tilesetData,
+				tiles: localTiles,
+				terrainLayers: localTerrainLayers,
+			},
+			undoHistory: getHistory(),
 		});
 
 		// Skip marking dirty if we're in a reset operation
@@ -194,12 +181,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			}, 0);
 		}
 	}, [
-		tab.tilesetId,
 		tab.id,
-		updateTileset,
 		updateTabData,
 		localTerrainLayers,
 		localTiles,
+		tilesetData,
+		getHistory,
 	]);
 
 	// Persist undo history to tab state on unmount (when switching tabs)
@@ -1010,7 +997,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleNameSave = () => {
 		if (!tilesetData) return;
 		if (editedName.trim() && editedName !== tilesetData.name) {
-			updateTileset(tab.tilesetId, { name: editedName.trim() });
+			updateTilesetData({ name: editedName.trim() });
 			updateTabData(tab.id, { title: editedName.trim(), isDirty: true });
 		}
 		setIsEditingName(false);
@@ -1068,8 +1055,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				tiles: updatedTiles,
 				terrainLayers: localTerrainLayers,
 			});
-			// Update the global tileset so the collision editor can find it
-			updateTileset(tab.tilesetId, { tiles: updatedTiles });
 		}
 
 		// Open collision editor - it will show loading state until tile appears
@@ -1415,13 +1400,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										<DragNumberInput
 											value={tilesetData.tileWidth}
 											onChange={(value) => {
-												updateTileset(tab.tilesetId, {
+												updateTilesetData({
 													tileWidth: Math.round(value),
 												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											onInput={(value) => {
-												updateTileset(tab.tilesetId, {
+												updateTilesetData({
 													tileWidth: Math.round(value),
 												});
 											}}
@@ -1441,13 +1426,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										<DragNumberInput
 											value={tilesetData.tileHeight}
 											onChange={(value) => {
-												updateTileset(tab.tilesetId, {
+												updateTilesetData({
 													tileHeight: Math.round(value),
 												});
 												updateTabData(tab.id, { isDirty: true });
 											}}
 											onInput={(value) => {
-												updateTileset(tab.tilesetId, {
+												updateTilesetData({
 													tileHeight: Math.round(value),
 												});
 											}}

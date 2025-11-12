@@ -4,6 +4,7 @@ import type {
 	CollisionEditorTab,
 	EntityEditorTab,
 	PolygonCollider,
+	TilesetTab,
 } from "../types";
 import { isEditableElementFocused } from "../utils/keyboardUtils";
 import { unpackTileId } from "../utils/tileId";
@@ -14,37 +15,40 @@ interface CollisionEditorViewProps {
 }
 
 export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
-	const {
-		getTilesetById,
-		updateTileset,
-		updateTabData,
-		tabs,
-		saveTilesetByTabId,
-	} = useEditor();
+	const { updateTabData, tabs, saveTilesetByTabId } = useEditor();
 
 	// Fetch the source data based on sourceType
 	const sourceData = useMemo(() => {
 		if (tab.sourceType === "tile") {
-			const tileset = getTilesetById(tab.sourceId);
-			if (!tileset) return null;
+			// Find the source tileset tab
+			const tilesetTab = tab.sourceTabId
+				? (tabs.find((t) => t.id === tab.sourceTabId) as TilesetTab | undefined)
+				: null;
 
+			if (!tilesetTab || tilesetTab.type !== "tileset-editor") return null;
+
+			const tileset = tilesetTab.tilesetData;
 			const tile = tileset.tiles.find((t) => t.id === tab.tileId);
 			if (!tile) return null;
 
 			const { x, y } = unpackTileId(tile.id);
 			return {
 				type: "tile" as const,
+				tilesetTab,
 				tileset,
 				tile,
-				width: tile.width !== 0 ? tile.width : tileset.tileWidth,
-				height: tile.height !== 0 ? tile.height : tileset.tileHeight,
+				width: tile.width && tile.width !== 0 ? tile.width : tileset.tileWidth,
+				height:
+					tile.height && tile.height !== 0 ? tile.height : tileset.tileHeight,
 				colliders: tile.colliders || [],
 				backgroundImage: tileset.imageData,
 				backgroundRect: {
 					x,
 					y,
-					width: tile.width !== 0 ? tile.width : tileset.tileWidth,
-					height: tile.height !== 0 ? tile.height : tileset.tileHeight,
+					width:
+						tile.width && tile.width !== 0 ? tile.width : tileset.tileWidth,
+					height:
+						tile.height && tile.height !== 0 ? tile.height : tileset.tileHeight,
 				},
 			};
 		} else {
@@ -81,29 +85,25 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 				backgroundRect: bbox,
 			};
 		}
-	}, [
-		tab.sourceType,
-		tab.sourceId,
-		tab.sourceTabId,
-		tab.tileId,
-		getTilesetById,
-		tabs,
-	]);
+	}, [tab.sourceType, tab.sourceTabId, tab.tileId, tabs]);
 
 	// Handle collision updates
 	const handleCollisionUpdate = useCallback(
 		(colliders: PolygonCollider[]) => {
 			if (sourceData?.type === "tile") {
-				const { tileset, tile } = sourceData;
+				const { tilesetTab, tileset, tile } = sourceData;
 				const updatedTiles = tileset.tiles.map((t) =>
 					t.id === tile.id ? { ...t, colliders } : t,
 				);
-				updateTileset(tileset.id, { tiles: updatedTiles });
 
-				// Mark the source tileset tab as dirty if it exists
-				if (tab.sourceTabId) {
-					updateTabData(tab.sourceTabId, { isDirty: true });
-				}
+				// Update the source tab's tilesetData
+				updateTabData(tilesetTab.id, {
+					tilesetData: {
+						...tileset,
+						tiles: updatedTiles,
+					},
+					isDirty: true,
+				});
 			} else if (sourceData?.type === "entity") {
 				const { entityTab, entity } = sourceData;
 				updateTabData(entityTab.id, {
@@ -111,10 +111,11 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 						...entity,
 						colliders,
 					},
+					isDirty: true,
 				});
 			}
 		},
-		[sourceData, tab.sourceTabId, updateTileset, updateTabData],
+		[sourceData, updateTabData],
 	);
 
 	// Handle Cmd+S to save the source tileset

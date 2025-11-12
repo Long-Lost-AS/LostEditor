@@ -114,6 +114,12 @@ export const TilesetDataSchema = z.object({
 	terrainLayers: z.array(TerrainLayerSchema).default([]),
 });
 
+// Tileset data with runtime-only fields (for tabs)
+export const TilesetDataWithRuntimeSchema = TilesetDataSchema.extend({
+	imageData: z.any().optional(), // HTMLImageElement (not serializable)
+	filePath: z.string().optional(),
+});
+
 // ===========================
 // Map Schemas
 // ===========================
@@ -273,6 +279,7 @@ export const TilesetUndoHistorySchema = z.object({
 export const TilesetTabSchema = BaseTabSchema.extend({
 	type: z.literal("tileset-editor"),
 	tilesetId: z.string(),
+	tilesetData: TilesetDataWithRuntimeSchema,
 	viewState: TilesetViewStateSchema,
 	undoHistory: TilesetUndoHistorySchema.optional(),
 });
