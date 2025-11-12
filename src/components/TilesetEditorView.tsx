@@ -30,6 +30,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const tilesetData = getTilesetById(tab.tilesetId);
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const terrainLayerInputRef = useRef<HTMLInputElement>(null);
 
 	// Zoom and pan using shared hook (local state only)
 	const {
@@ -183,6 +184,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			updateTabData(tab.id, { undoHistory: history });
 		};
 	}, [tab.id, updateTabData, getHistory]);
+
+	// Auto-focus terrain layer input when editing starts
+	useEffect(() => {
+		if (editingTerrainLayerId && terrainLayerInputRef.current) {
+			terrainLayerInputRef.current.focus();
+			terrainLayerInputRef.current.select();
+		}
+	}, [editingTerrainLayerId]);
 
 	// Memoized tile position map for O(1) lookups
 	// Note: Currently unused but may be useful for future optimizations
@@ -1463,6 +1472,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										<div className="flex items-center justify-between px-2 py-1.5">
 											{editingTerrainLayerId === layer.id ? (
 												<input
+													ref={terrainLayerInputRef}
 													type="text"
 													value={editingTerrainLayerName}
 													onChange={(e) =>
@@ -2085,7 +2095,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			)}
 
 			{/* Context Menu */}
-			{contextMenu && (
+			{contextMenu && !contextMenu.terrainLayerId && (
 				<>
 					{/* Backdrop to close menu */}
 					<div
