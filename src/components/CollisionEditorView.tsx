@@ -148,12 +148,12 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [sourceData, tab.sourceTabId, tabs, saveTilesetByTabId]);
 
-	// Show error if source not found
+	// Show loading state if source not found (it may be loading)
 	if (!sourceData) {
 		return (
 			<div className="flex h-full w-full items-center justify-center">
-				<div className="text-red-400">
-					{tab.sourceType === "tile" ? "Tile not found" : "Entity not found"}
+				<div className="text-gray-400">
+					Loading {tab.sourceType === "tile" ? "tile" : "entity"}...
 				</div>
 			</div>
 		);

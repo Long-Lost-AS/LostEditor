@@ -834,6 +834,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					);
 					const newTile: TileDefinition = {
 						id: tileId,
+						isCompound: false,
+						width: 0,
+						height: 0,
 						name: "",
 						type: "",
 						properties: {},
@@ -1028,6 +1031,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (!existingTile) {
 			const newTile: TileDefinition = {
 				id: tileId,
+				isCompound: false,
+				width: 0,
+				height: 0,
 				name: "",
 				type: "",
 				properties: {},
@@ -1039,17 +1045,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				tiles: updatedTiles,
 				terrainLayers: localTerrainLayers,
 			});
-			// Also update the global tileset immediately so the collision editor can find it
+			// Update the global tileset so the collision editor can find it
 			updateTileset(tab.tilesetId, { tiles: updatedTiles });
-
-			// Wait for state to propagate before opening collision editor
-			setTimeout(() => {
-				openCollisionEditor("tile", tab.tilesetId, tileId, tab.id);
-			}, 100);
-		} else {
-			// Tile already exists, open immediately
-			openCollisionEditor("tile", tab.tilesetId, tileId, tab.id);
 		}
+
+		// Open collision editor - it will show loading state until tile appears
+		openCollisionEditor("tile", tab.tilesetId, tileId, tab.id);
 	};
 
 	const handleUpdateTileName = (name: string) => {
