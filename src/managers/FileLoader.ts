@@ -13,10 +13,24 @@ import { fileManager } from "./FileManager";
  *
  * TData: Runtime data type (e.g., TilesetData with HTMLImageElement)
  * TJson: Serializable JSON type (e.g., TilesetDataJson without HTMLImageElement)
+ *
+ * ARCHITECTURE NOTE:
+ * This cache represents "what's on disk" and should NOT be used directly by UI components.
+ * UI components should use EditorContext state (the "working copy") instead.
+ *
+ * Cache purposes:
+ * 1. Prevents duplicate disk I/O - returns cached data without re-reading files
+ * 2. Prevents concurrent loads - if a file is loading, returns the same promise
+ * 3. Provides a baseline for detecting unsaved changes
+ *
+ * EditorContext maintains the working state that can be modified without immediately
+ * writing to disk. When saving, EditorContext writes through this manager to update
+ * both the cache and the disk file.
  */
 export abstract class FileLoader<TData, TJson> {
 	/**
 	 * Cache of loaded data keyed by file path
+	 * This is "what's on disk" - do not use directly for UI state
 	 */
 	protected cache: Map<string, TData> = new Map();
 

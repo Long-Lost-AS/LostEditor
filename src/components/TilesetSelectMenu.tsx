@@ -38,7 +38,10 @@ export const TilesetSelectMenu = ({
 			setSearchQuery("");
 			setSelectedIndex(0);
 
-			// Get tilesets from current project only
+			// Get tilesets from current project only (from EditorContext)
+			// IMPORTANT: Use projectTilesets from EditorContext (the "working copy"),
+			// NOT tilesetManager.getAllTilesets() (the "disk cache").
+			// The manager cache may contain stale data from previous projects.
 			const loadedTilesets = [...projectTilesets];
 
 			// Sort alphabetically by name

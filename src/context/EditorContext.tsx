@@ -282,7 +282,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	const selectedTileX = selection.type === "tile" ? selection.tileX : 0;
 	const selectedTileY = selection.type === "tile" ? selection.tileY : 0;
 
-	// Multi-tileset state
+	// Multi-tileset state - "working copy" for the current project
+	// This is the single source of truth for UI components. It can be modified
+	// without immediately writing to disk. TilesetManager cache represents "what's on disk"
+	// and should not be queried directly by UI components.
 	const [tilesets, setTilesets] = useState<TilesetData[]>([]);
 	const [currentTileset, setCurrentTileset] = useState<TilesetData | null>(
 		null,
