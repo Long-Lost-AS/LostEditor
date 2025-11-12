@@ -1348,23 +1348,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										>
 											Tile Width
 										</div>
-										<input
-											type="number"
+										<DragNumberInput
 											value={tilesetData.tileWidth}
-											onChange={(e) => {
-												const value = parseInt(e.target.value, 10) || 1;
+											onChange={(value) => {
 												updateTileset(tab.tilesetId, { tileWidth: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1.5 rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #555",
-												fontSize: "13px",
-											}}
-											min="1"
-											spellCheck={false}
+											min={1}
+											step={1}
 										/>
 									</div>
 									<div>
@@ -1374,23 +1365,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 										>
 											Tile Height
 										</div>
-										<input
-											type="number"
+										<DragNumberInput
 											value={tilesetData.tileHeight}
-											onChange={(e) => {
-												const value = parseInt(e.target.value, 10) || 1;
+											onChange={(value) => {
 												updateTileset(tab.tilesetId, { tileHeight: value });
 												updateTabData(tab.id, { isDirty: true });
 											}}
-											className="w-full px-2 py-1.5 rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #555",
-												fontSize: "13px",
-											}}
-											min="1"
-											spellCheck={false}
+											min={1}
+											step={1}
 										/>
 									</div>
 								</div>
