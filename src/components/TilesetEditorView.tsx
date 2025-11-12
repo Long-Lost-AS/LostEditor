@@ -825,13 +825,23 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				if (existingTile) {
 					setSelectedCompoundTileId(existingTile.id);
 				} else {
-					// No tile entry exists yet, generate an ID for potential property editing
+					// No tile entry exists yet, create one for property editing
 					// Use 0 for tileset index - will be replaced when placed on map
 					const tileId = packTileId(
 						tilePosX,
 						tilePosY,
 						0, // tileset index
 					);
+					const newTile: TileDefinition = {
+						id: tileId,
+						name: "",
+						type: "",
+						properties: {},
+					};
+					dispatch({
+						tiles: [...localTiles, newTile],
+						terrainLayers: localTerrainLayers,
+					});
 					setSelectedCompoundTileId(tileId);
 				}
 
