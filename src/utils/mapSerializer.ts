@@ -27,6 +27,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 
 	return {
 		version: "4.0",
+		id: mapData.id,
 		name: mapData.name,
 		width: mapData.width,
 		height: mapData.height,
@@ -66,6 +67,7 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 	});
 
 	return {
+		id: serialized.id,
 		name: serialized.name,
 		width: serialized.width,
 		height: serialized.height,

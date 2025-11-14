@@ -120,9 +120,9 @@ export type PointInstance = z.infer<typeof PointInstanceSchema>;
 
 export type Layer = z.infer<typeof LayerSchema>;
 
-// MapData inferred from schema, with runtime-only id field
+// MapData inferred from schema, with runtime-only filePath field
 export type MapData = z.infer<typeof MapDataSchema> & {
-	id?: string; // Runtime-only field added by EditorContext for tracking loaded maps
+	filePath?: string; // Runtime-only field for tracking where map was loaded from
 };
 
 // ===========================

@@ -161,6 +161,7 @@ export const LayerSchema = z.object({
 });
 
 export const MapDataSchema = z.object({
+	id: z.string(),
 	name: z.string(),
 	width: z.number().positive(),
 	height: z.number().positive(),
@@ -182,6 +183,7 @@ export const SerializedLayerSchema = z.object({
 
 export const SerializedMapDataSchema = z.object({
 	version: z.literal("4.0"), // New version
+	id: z.string(),
 	name: z.string(),
 	width: z.number().positive(),
 	height: z.number().positive(),
@@ -249,7 +251,7 @@ export const MapUndoHistorySchema = z.object({
 export const SerializedMapTabSchema = z.object({
 	type: z.literal("map-editor"),
 	id: z.string(),
-	filePath: z.string(),
+	mapId: z.string(),
 	viewState: MapViewStateSchema,
 });
 
@@ -373,8 +375,6 @@ export const AnyTabSchema = z.discriminatedUnion("type", [
 export const ProjectDataSchema = z.object({
 	version: z.string().default("1.0"),
 	name: z.string(),
-	tilesets: z.array(z.string()).default([]), // Array of tileset file paths
-	maps: z.array(z.string()).default([]), // Array of map file paths
 	projectDir: z.string().optional(),
 	lastModified: z.string(),
 	openTabs: z
@@ -415,6 +415,7 @@ export function createDefaultMapData(
 	height: number = 32,
 ): z.infer<typeof MapDataSchema> {
 	return MapDataSchema.parse({
+		id: generateId(),
 		name,
 		width,
 		height,
