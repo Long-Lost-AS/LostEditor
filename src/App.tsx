@@ -426,6 +426,7 @@ const AppContent = () => {
 					<div className="editor-top-section">
 						<UndoRedoProvider>
 							<MapEditorView
+								key={activeMapTab.id}
 								tab={activeMapTab}
 								onOpenEntitySelect={() => setIsEntitySelectMenuOpen(true)}
 								onOpenTilesetSelect={() => setIsTilesetSelectMenuOpen(true)}
@@ -440,7 +441,10 @@ const AppContent = () => {
 				{activeTilesetTab && (
 					<div className="editor-top-section">
 						<UndoRedoProvider>
-							<TilesetEditorView tab={activeTilesetTab} />
+							<TilesetEditorView
+								key={activeTilesetTab.id}
+								tab={activeTilesetTab}
+							/>
 						</UndoRedoProvider>
 					</div>
 				)}
@@ -449,7 +453,10 @@ const AppContent = () => {
 				{activeEntityTab && (
 					<div className="editor-top-section">
 						<UndoRedoProvider>
-							<EntityEditorView tab={activeEntityTab} />
+							<EntityEditorView
+								key={activeEntityTab.id}
+								tab={activeEntityTab}
+							/>
 						</UndoRedoProvider>
 					</div>
 				)}
@@ -458,7 +465,10 @@ const AppContent = () => {
 				{activeCollisionTab && (
 					<div className="editor-top-section">
 						<UndoRedoProvider>
-							<CollisionEditorView tab={activeCollisionTab} />
+							<CollisionEditorView
+								key={activeCollisionTab.id}
+								tab={activeCollisionTab}
+							/>
 						</UndoRedoProvider>
 					</div>
 				)}
