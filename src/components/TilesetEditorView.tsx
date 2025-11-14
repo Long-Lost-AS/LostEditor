@@ -2010,17 +2010,27 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											<div className="flex-1">
 												<DragNumberInput
 													value={selectedTile?.origin.x ?? 0}
-													onChange={(value) =>
+													onChange={(value) => {
+														const clamped = Math.max(0, Math.min(1, value));
 														handleUpdateTileOrigin(
-															value,
-															selectedTile?.origin?.y ?? 0,
-														)
-													}
+															clamped,
+															selectedTile?.origin.y ?? 0,
+														);
+													}}
+													onInput={(value) => {
+														const clamped = Math.max(0, Math.min(1, value));
+														handleUpdateTileOrigin(
+															clamped,
+															selectedTile?.origin.y ?? 0,
+														);
+													}}
+													onDragStart={startBatch}
+													onDragEnd={endBatch}
+													step={0.1}
 													min={0}
 													max={1}
-													step={0.01}
-													dragSpeed={0.01}
 													precision={2}
+													dragSpeed={0.01}
 													roundedLeft={false}
 												/>
 											</div>
@@ -2032,17 +2042,27 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											<div className="flex-1">
 												<DragNumberInput
 													value={selectedTile?.origin.y ?? 0}
-													onChange={(value) =>
+													onChange={(value) => {
+														const clamped = Math.max(0, Math.min(1, value));
 														handleUpdateTileOrigin(
-															selectedTile?.origin?.x ?? 0,
-															value,
-														)
-													}
+															selectedTile?.origin.x ?? 0,
+															clamped,
+														);
+													}}
+													onInput={(value) => {
+														const clamped = Math.max(0, Math.min(1, value));
+														handleUpdateTileOrigin(
+															selectedTile?.origin.x ?? 0,
+															clamped,
+														);
+													}}
+													onDragStart={startBatch}
+													onDragEnd={endBatch}
+													step={0.1}
 													min={0}
 													max={1}
-													step={0.01}
-													dragSpeed={0.01}
 													precision={2}
+													dragSpeed={0.01}
 													roundedLeft={false}
 												/>
 											</div>
