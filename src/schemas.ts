@@ -279,6 +279,8 @@ export const TilesetViewStateSchema = z.object({
 const TilesetUndoStateSchema = z.object({
 	tiles: z.array(TileDefinitionSchema),
 	terrainLayers: z.array(TerrainLayerSchema),
+	tileWidth: z.number(),
+	tileHeight: z.number(),
 });
 
 export const TilesetUndoHistorySchema = z.object({

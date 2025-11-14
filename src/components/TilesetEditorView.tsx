@@ -94,11 +94,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	>(null);
 	const [editingTerrainLayerName, setEditingTerrainLayerName] = useState("");
 
-	// Unified undo/redo state for the entire tileset (tiles + terrainLayers)
+	// Unified undo/redo state for the entire tileset (tiles + terrainLayers + dimensions)
 	// This ensures all operations share a single chronological history
 	type TilesetUndoState = {
 		tiles: TileDefinition[];
 		terrainLayers: TerrainLayer[];
+		tileWidth: number;
+		tileHeight: number;
 	};
 
 	const [
@@ -118,6 +120,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		{
 			tiles: tilesetData?.tiles || [],
 			terrainLayers: tilesetData?.terrainLayers || [],
+			tileWidth: tilesetData?.tileWidth || 16,
+			tileHeight: tilesetData?.tileHeight || 16,
 		},
 		tab.undoHistory,
 	);
@@ -125,6 +129,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Extract individual parts for convenience
 	const localTiles = localTilesetState.tiles;
 	const localTerrainLayers = localTilesetState.terrainLayers;
+	const localTileWidth = localTilesetState.tileWidth;
+	const localTileHeight = localTilesetState.tileHeight;
 
 	// Register unified undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
@@ -150,6 +156,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			resetTilesetHistory({
 				tiles: tilesetData.tiles || [],
 				terrainLayers: tilesetData.terrainLayers || [],
+				tileWidth: tilesetData.tileWidth,
+				tileHeight: tilesetData.tileHeight,
 			});
 			isFirstRun.current = true;
 		}
@@ -164,6 +172,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				...tilesetDataRef.current,
 				tiles: localTiles,
 				terrainLayers: localTerrainLayers,
+				tileWidth: localTileWidth,
+				tileHeight: localTileHeight,
 			},
 			undoHistory: getHistory(),
 		});
@@ -184,7 +194,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				isFirstRun.current = false;
 			}, 0);
 		}
-	}, [tab.id, updateTabData, localTerrainLayers, localTiles, getHistory]);
+	}, [
+		tab.id,
+		updateTabData,
+		localTerrainLayers,
+		localTiles,
+		localTileWidth,
+		localTileHeight,
+		getHistory,
+	]);
 
 	// Persist undo history to tab state on unmount (when switching tabs)
 	useEffect(() => {
@@ -851,8 +869,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						origin: { x: 0, y: 0 },
 					};
 					setLocalTilesetState({
+						...localTilesetState,
 						tiles: [...localTiles, newTile],
-						terrainLayers: localTerrainLayers,
 					});
 					setSelectedCompoundTileId(tileId);
 				}
@@ -963,8 +981,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
+			...localTilesetState,
 			tiles: [...localTiles, newTile],
-			terrainLayers: localTerrainLayers,
 		});
 	};
 
@@ -975,8 +993,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
+			...localTilesetState,
 			tiles: localTiles.filter((t) => t.id !== contextMenu.compoundTileId),
-			terrainLayers: localTerrainLayers,
 		});
 	};
 
@@ -1049,8 +1067,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			};
 			const updatedTiles = [...localTiles, newTile];
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: updatedTiles,
-				terrainLayers: localTerrainLayers,
 			});
 		}
 
@@ -1068,10 +1086,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (existingTile) {
 			// Update existing tile with undo/redo support
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, name } : t,
 				),
-				terrainLayers: localTerrainLayers,
 			});
 		} else {
 			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
@@ -1087,8 +1105,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				properties: {},
 			};
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: [...localTiles, newTile],
-				terrainLayers: localTerrainLayers,
 			});
 		}
 	};
@@ -1103,10 +1121,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (existingTile) {
 			// Update existing tile with undo/redo support
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, type } : t,
 				),
-				terrainLayers: localTerrainLayers,
 			});
 		} else {
 			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
@@ -1122,8 +1140,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				properties: {},
 			};
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: [...localTiles, newTile],
-				terrainLayers: localTerrainLayers,
 			});
 		}
 	};
@@ -1138,10 +1156,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (existingTile) {
 			// Update existing tile with undo/redo support
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: localTiles.map((t) =>
 					t.id === selectedCompoundTileId ? { ...t, origin: { x, y } } : t,
 				),
-				terrainLayers: localTerrainLayers,
 			});
 		} else {
 			// Create new tile entry from packed ID with undo/redo support (x and y coords are in the id)
@@ -1157,8 +1175,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				properties: {},
 			};
 			setLocalTilesetState({
+				...localTilesetState,
 				tiles: [...localTiles, newTile],
-				terrainLayers: localTerrainLayers,
 			});
 		}
 	};
@@ -1168,10 +1186,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		if (!selectedCompoundTileId) return;
 
 		setLocalTilesetState({
+			...localTilesetState,
 			tiles: localTiles.map((t) =>
 				t.id === selectedCompoundTileId ? { ...t, properties } : t,
 			),
-			terrainLayers: localTerrainLayers,
 		});
 	};
 
@@ -1209,7 +1227,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// This is used for PAINTING operations
 	const updateTerrainLayers = (layers: TerrainLayer[]) => {
 		setLocalTilesetState({
-			tiles: localTiles,
+			...localTilesetState,
 			terrainLayers: layers,
 		});
 		// The useEffect above syncs to global state automatically
@@ -1221,6 +1239,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		resetTilesetHistory({
 			tiles: localTiles,
 			terrainLayers: layers,
+			tileWidth: localTileWidth,
+			tileHeight: localTileHeight,
 		});
 		// The useEffect above syncs to global state automatically
 	};
@@ -1395,18 +1415,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											Tile Width
 										</div>
 										<DragNumberInput
-											value={tilesetData.tileWidth}
+											value={localTileWidth}
 											onChange={(value) => {
-												updateTilesetData({
+												setLocalTilesetState({
+													...localTilesetState,
 													tileWidth: Math.round(value),
 												});
-												updateTabData(tab.id, { isDirty: true });
 											}}
 											onInput={(value) => {
-												updateTilesetData({
+												setLocalTilesetState({
+													...localTilesetState,
 													tileWidth: Math.round(value),
 												});
 											}}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											step={1}
 											precision={0}
@@ -1421,18 +1444,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											Tile Height
 										</div>
 										<DragNumberInput
-											value={tilesetData.tileHeight}
+											value={localTileHeight}
 											onChange={(value) => {
-												updateTilesetData({
+												setLocalTilesetState({
+													...localTilesetState,
 													tileHeight: Math.round(value),
 												});
-												updateTabData(tab.id, { isDirty: true });
 											}}
 											onInput={(value) => {
-												updateTilesetData({
+												setLocalTilesetState({
+													...localTilesetState,
 													tileHeight: Math.round(value),
 												});
 											}}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											step={1}
 											precision={0}
