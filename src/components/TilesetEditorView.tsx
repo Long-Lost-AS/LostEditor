@@ -144,6 +144,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const tilesetDataRef = useRef(tilesetData);
 	tilesetDataRef.current = tilesetData;
 
+	// Track the last synced tiles array to detect external changes
+	const lastSyncedTilesRef = useRef(tilesetData?.tiles || []);
+
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
@@ -165,6 +168,28 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		prevTilesetIdRef.current = tilesetData.id;
 	}, [tilesetData, resetTilesetHistory]);
 
+	// Detect external changes to tileset data (e.g., from CollisionEditor)
+	// and re-sync local state to prevent data loss
+	useEffect(() => {
+		if (!tilesetData) return;
+
+		// Check if the tiles array reference has changed (external modification)
+		if (
+			tilesetData.tiles !== lastSyncedTilesRef.current &&
+			tilesetData.tiles !== localTiles
+		) {
+			// External change detected - reset local state to match tab data
+			skipNextDirtyMark.current = true;
+			resetTilesetHistory({
+				tiles: tilesetData.tiles || [],
+				terrainLayers: tilesetData.terrainLayers || [],
+				tileWidth: tilesetData.tileWidth,
+				tileHeight: tilesetData.tileHeight,
+			});
+			lastSyncedTilesRef.current = tilesetData.tiles || [];
+		}
+	}, [tilesetData, localTiles, resetTilesetHistory]);
+
 	// One-way sync: local tileset state → tab data
 	// This updates the tab's tilesetData whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
@@ -178,6 +203,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			},
 			undoHistory: getHistory(),
 		});
+
+		// Update ref to track what we just synced
+		lastSyncedTilesRef.current = localTiles;
 
 		// Skip marking dirty if we're in a reset operation
 		if (skipNextDirtyMark.current) {
