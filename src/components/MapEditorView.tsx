@@ -41,6 +41,7 @@ import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
+import { PencilIcon, TrashIcon } from "./Icons";
 import { MapCanvas } from "./MapCanvas";
 import { PointPropertiesPanel } from "./PointPropertiesPanel";
 import { Toolbar } from "./Toolbar";
@@ -525,7 +526,7 @@ export const MapEditorView = ({
 
 		// Estimate menu dimensions
 		const menuWidth = 160;
-		const menuHeight = 40; // Single item menu
+		const menuHeight = 80; // Two item menu (Rename + Delete)
 
 		const position = calculateMenuPosition(
 			e.clientX,
@@ -539,6 +540,26 @@ export const MapEditorView = ({
 			y: position.y,
 			layerId,
 		});
+	};
+
+	const handleRenameLayer = () => {
+		if (contextMenu?.layerId) {
+			const layer = localMapData?.layers.find(
+				(l) => l.id === contextMenu.layerId,
+			);
+			if (layer) {
+				setEditingLayerId(layer.id);
+				setEditingLayerName(layer.name);
+			}
+		}
+		setContextMenu(null);
+	};
+
+	const handleDeleteLayerFromMenu = () => {
+		if (contextMenu?.layerId) {
+			handleRemoveLayer(contextMenu.layerId);
+		}
+		setContextMenu(null);
 	};
 
 	// Drag-and-drop handlers for layer reordering
@@ -1839,40 +1860,55 @@ export const MapEditorView = ({
 								</>
 							) : contextMenu.layerId ? (
 								// Right-clicked on layer
-								<div
-									onClick={() => {
-										if (contextMenu.layerId) {
-											handleRemoveLayer(contextMenu.layerId);
-										}
-										setContextMenu(null);
-									}}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											if (contextMenu.layerId) {
-												handleRemoveLayer(contextMenu.layerId);
+								<>
+									{/* Rename */}
+									<div
+										onClick={handleRenameLayer}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleRenameLayer();
 											}
-											setContextMenu(null);
-										}
-									}}
-									role="menuitem"
-									tabIndex={0}
-									style={{
-										padding: "8px 12px",
-										fontSize: "13px",
-										color: "#cccccc",
-										cursor: "pointer",
-										transition: "background 0.1s",
-									}}
-									onMouseEnter={(e) => {
-										e.currentTarget.style.background = "#2a2d2e";
-									}}
-									onMouseLeave={(e) => {
-										e.currentTarget.style.background = "transparent";
-									}}
-								>
-									Delete Layer
-								</div>
+										}}
+										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+										style={{ color: "#cccccc" }}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
+										role="menuitem"
+										tabIndex={0}
+									>
+										<PencilIcon size={16} />
+										<span>Rename</span>
+									</div>
+
+									{/* Delete */}
+									<div
+										onClick={handleDeleteLayerFromMenu}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleDeleteLayerFromMenu();
+											}
+										}}
+										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+										style={{ color: "#f48771" }}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
+										role="menuitem"
+										tabIndex={0}
+									>
+										<TrashIcon size={16} />
+										<span>Delete</span>
+									</div>
+								</>
 							) : null}
 						</div>
 					</>,
