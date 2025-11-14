@@ -1993,7 +1993,9 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		) as TilesetTab[];
 
 		for (const tab of tilesetTabs) {
-			const tileset = tilesets.find((t) => t.id === tab.tilesetId);
+			// Get tileset data from the tab, not from global tilesets array
+			// The tab has the most up-to-date data including unsaved changes
+			const tileset = tab.tilesetData;
 			if (!tileset) continue;
 
 			// Skip tilesets without a file path (need manual save with dialog)
@@ -2006,6 +2008,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			try {
 				await tilesetManager.saveTileset(tileset, tileset.filePath);
+
+				// Update the global tilesets array with the saved data
+				setTilesets((prev) =>
+					prev.map((t) => (t.id === tileset.id ? tileset : t)),
+				);
 
 				// Mark the tab as not dirty
 				updateTabData(tab.id, { isDirty: false });
@@ -2044,7 +2051,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Save the project (which now also saves all map tabs to separate files)
 		await saveProject();
-	}, [tabs, tilesets, updateTabData, saveProject]);
+	}, [tabs, updateTabData, saveProject]);
 
 	// Initialize with settings
 	useEffect(() => {
