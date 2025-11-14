@@ -138,6 +138,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
 	const skipNextDirtyMark = useRef(false);
+	const isUpdatingViewStateOnly = useRef(false);
 
 	// Use ref to avoid infinite loop with tilesetData
 	const tilesetDataRef = useRef(tilesetData);
@@ -184,6 +185,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			return;
 		}
 
+		// Skip marking dirty if we're only updating viewState (zoom, pan, selection)
+		if (isUpdatingViewStateOnly.current) {
+			isUpdatingViewStateOnly.current = false;
+			return;
+		}
+
 		// Only mark dirty after first run (i.e., on actual user changes)
 		if (!isFirstRun.current) {
 			updateTabData(tab.id, { isDirty: true });
@@ -214,7 +221,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	}, [tab.id, updateTabData, getHistory]);
 
 	// Sync view state (zoom, pan, selection) to tab (persisted across tab switches)
+	// Track if this is the first viewState sync to avoid unnecessary updates on mount
+	const isFirstViewStateSync = useRef(true);
 	useEffect(() => {
+		// Skip the first sync on mount to avoid marking tab as dirty
+		if (isFirstViewStateSync.current) {
+			isFirstViewStateSync.current = false;
+			return;
+		}
+
+		// Set flag to prevent data sync effect from marking dirty
+		isUpdatingViewStateOnly.current = true;
+
 		updateTabData(tab.id, {
 			viewState: {
 				scale,

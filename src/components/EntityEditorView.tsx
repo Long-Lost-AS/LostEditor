@@ -205,7 +205,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const drawRef = useRef<() => void>(() => {});
 
 	// Sync view state (zoom, pan, selections) to tab (persisted across tab switches)
+	// Track if this is the first viewState sync to avoid unnecessary updates on mount
+	const isFirstViewStateSync = useRef(true);
 	useEffect(() => {
+		// Skip the first sync on mount to avoid marking tab as dirty
+		if (isFirstViewStateSync.current) {
+			isFirstViewStateSync.current = false;
+			return;
+		}
+
 		updateTabData(tab.id, {
 			viewState: {
 				scale,
