@@ -145,11 +145,12 @@ const SortableLayerItem = ({
 					onBlur={onNameSubmit}
 					onKeyDown={onKeyDown}
 					onClick={(e) => e.stopPropagation()}
-					className="flex-1 px-1 py-0.5 text-xs rounded"
+					className="flex-1 text-xs focus:outline-none"
 					style={{
-						background: "#3e3e42",
+						background: "transparent",
 						color: "#cccccc",
-						border: "1px solid #1177bb",
+						border: "none",
+						padding: 0,
 					}}
 					spellCheck={false}
 				/>
@@ -1358,9 +1359,10 @@ export const MapEditorView = ({
 							onKeyDown={handleNameKeyDown}
 							className="w-full px-2 py-1 text-sm font-medium rounded focus:outline-none"
 							style={{
-								background: "#3e3e42",
+								background: "transparent",
 								color: "#cccccc",
-								border: "1px solid #1177bb",
+								border: "none",
+								padding: 0,
 							}}
 							spellCheck={false}
 						/>
@@ -1547,7 +1549,8 @@ export const MapEditorView = ({
 											<div
 												className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
 												style={{
-													border: "1px solid #1177bb",
+													border: "none",
+													padding: 0,
 													cursor: "grabbing",
 												}}
 											>
