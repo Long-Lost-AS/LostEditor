@@ -304,7 +304,6 @@ export const MapEditorView = ({
 
 	// One-way sync: local map data → global maps array (source of truth)
 	useEffect(() => {
-		console.log("Syncing localMapData to global maps", { mapId: tab.mapId });
 		// Update the global maps array with local changes
 		updateMap(tab.mapId, localMapData);
 
@@ -1065,33 +1064,18 @@ export const MapEditorView = ({
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
-			console.log("handlePlaceTilesBatch called", {
-				tiles,
-				currentLayerId: currentLayer?.id,
-				tilesArrayLength: currentLayer?.tiles?.length,
-				selectedTilesetId,
-				selectedTileId,
-				selectedTerrainLayerId,
-			});
-			if (!currentLayer) {
-				console.log("Early return: no tile layer");
-				return;
-			}
-			if (tiles.length === 0) {
-				console.log("Early return: no tiles");
+			if (!currentLayer || tiles.length === 0) {
 				return;
 			}
 
 			// Check if we're in terrain painting mode
 			if (selectedTerrainLayerId) {
-				console.log("Terrain painting mode");
 				// For terrain tiles, we need to place each one and update neighbors
 				// But we can batch the entire operation into one state update
 				const selectedTileset = selectedTilesetId
 					? tilesets.find((ts) => ts.id === selectedTilesetId)
 					: null;
 				if (!selectedTileset?.terrainLayers) {
-					console.log("Early return: no terrain layers in tileset");
 					return;
 				}
 
@@ -1099,15 +1083,10 @@ export const MapEditorView = ({
 					(l) => l.id === selectedTerrainLayerId,
 				);
 				if (!terrainLayer) {
-					console.log("Early return: terrain layer not found");
 					return;
 				}
 
 				const tilesetHash = hashTilesetId(selectedTileset.id);
-				console.log("Terrain painting proceeding", {
-					terrainLayer,
-					tilesetHash,
-				});
 
 				setLocalMapData((prev) => ({
 					...prev,
@@ -1161,10 +1140,6 @@ export const MapEditorView = ({
 				: null;
 
 			if (!selectedTileset || !selectedTileId) {
-				console.log("Early return: invalid tileset or no tile selected", {
-					selectedTilesetId,
-					selectedTileId,
-				});
 				return;
 			}
 
@@ -1178,25 +1153,12 @@ export const MapEditorView = ({
 				geometry.flipX,
 				geometry.flipY,
 			);
-			console.log("Regular tile painting", {
-				geometry,
-				globalTileId,
-				tilesetHash,
-			});
 
 			setLocalMapData((prev) => {
-				console.log("Updating layers", {
-					prevLayersCount: prev.layers.length,
-					currentLayerId: currentLayer.id,
-					layerIds: prev.layers.map((l) => l.id),
-				});
 				return {
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							console.log("Found matching layer to update", {
-								layerId: layer.id,
-							});
 							// Ensure tiles array is properly sized
 							const totalSize = prev.width * prev.height;
 							const newTiles =
@@ -1212,7 +1174,6 @@ export const MapEditorView = ({
 								if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
 									const index = y * mapWidth + x;
 									newTiles[index] = globalTileId;
-									console.log("Placing tile at", { x, y, index, globalTileId });
 								}
 							});
 
@@ -1222,7 +1183,6 @@ export const MapEditorView = ({
 					}),
 				};
 			});
-			console.log("State update completed - tile painting");
 			setProjectModified(true);
 		},
 		[
