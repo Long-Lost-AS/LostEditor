@@ -892,9 +892,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			const projectData: ProjectData = {
 				version: "1.0",
 				name: projectName,
-				tilesets: [],
-				maps: [],
-				projectDir,
 				lastModified: new Date().toISOString(),
 				openTabs: {
 					tabs: tabs.map((tab) => {
@@ -903,7 +900,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							return {
 								type: "map-editor" as const,
 								id: mapTab.id,
-								filePath: mapTab.filePath || "",
+								mapId: mapTab.mapId,
 								viewState: mapTab.viewState,
 							};
 						} else if (tab.type === "tileset-editor") {
@@ -1147,10 +1144,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Convert relative path to absolute path
 						const absolutePath = fileManager.join(projectDir, mapPath);
 						const mapData = await mapManager.loadMap(absolutePath);
-						// Create unique map ID based on absolute file path
-						const mapId = `map-${absolutePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
-						const mapWithId = { ...mapData, id: mapId };
-						loadedMaps.push(mapWithId);
+
+						// Use stable ID from file, or generate one for migration of old files
+						if (!mapData.id) {
+							console.warn(
+								`Map ${mapPath} missing stable ID, generating one (old format)`,
+							);
+							mapData.id = `map-${absolutePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+						}
+
+						// Store file path for tab restoration (runtime only, not serialized)
+						const mapWithPath = { ...mapData, filePath: absolutePath };
+						loadedMaps.push(mapWithPath);
 					} catch (error) {
 						console.error(`Failed to load map ${mapPath}:`, error);
 					}
@@ -1177,9 +1182,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				for (const tab of projectData.openTabs.tabs) {
 					if (tab.type === "map-editor") {
-						// Hydrate map tab from serialized format
-						const mapId = `map-${tab.filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
-						const existingMap = loadedMaps.find((m) => m.id === mapId);
+						// Hydrate map tab from serialized format using stable map ID
+						const existingMap = loadedMaps.find((m) => m.id === tab.mapId);
 
 						if (existingMap) {
 							const fullMapTab: MapTab = {
@@ -1187,18 +1191,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 								type: "map-editor",
 								title:
 									existingMap.name ||
-									fileManager.basename(tab.filePath, ".lostmap"),
+									fileManager.basename(existingMap.filePath || "", ".lostmap"),
 								isDirty: false,
-								filePath: tab.filePath,
-								mapId: mapId,
-								mapFilePath: tab.filePath,
+								filePath: existingMap.filePath,
+								mapId: tab.mapId,
+								mapFilePath: existingMap.filePath,
 								viewState: tab.viewState,
 							};
 
 							restoredTabs.push(fullMapTab);
 						} else {
 							console.warn(
-								`Map ${tab.filePath} not found in loaded maps, skipping tab`,
+								`Map with ID ${tab.mapId} not found in loaded maps, skipping tab`,
 							);
 						}
 					} else if (tab.type === "tileset-editor") {
@@ -1332,8 +1336,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const projectData: ProjectData = {
 			version: "1.0",
 			name: projectName,
-			tilesets: [],
-			maps: [],
 			projectDir: projectDir,
 			lastModified: new Date().toISOString(),
 			openTabs: { tabs: [], activeTabId: null },
@@ -1395,7 +1397,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 			// Then create the tab
 			const newMapTab: MapTab = {
-				id: mapId,
+				id: generateId(),
 				type: "map-editor",
 				title: title,
 				isDirty: true, // Mark as dirty since it's unsaved
@@ -1452,7 +1454,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				setMaps((prevMaps) => [...prevMaps, mapWithId]);
 
 				const newMapTab: MapTab = {
-					id: mapId,
+					id: generateId(),
 					type: "map-editor",
 					title: mapName,
 					isDirty: false,
@@ -1518,7 +1520,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				// Create a new TilesetTab
 				const tilesetTab: TilesetTab = {
-					id: `tileset-${tileset.id}`,
+					id: generateId(),
 					type: "tileset-editor",
 					title: tileset.name,
 					isDirty: false,
