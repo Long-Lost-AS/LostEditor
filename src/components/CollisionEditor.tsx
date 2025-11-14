@@ -22,7 +22,6 @@ import { calculateMenuPosition } from "../utils/menuPositioning";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { LightbulbIcon, PlusIcon, TrashIcon } from "./Icons";
-import { InlineEdit } from "./InlineEdit";
 
 interface CollisionEditorProps {
 	width: number;
@@ -710,10 +709,17 @@ export const CollisionEditor = ({
 								>
 									Name
 								</div>
-								<InlineEdit
+								<input
+									type="text"
 									value={selectedCollider.name || ""}
-									onChange={handleUpdateColliderName}
-									placeholder="(none)"
+									onChange={(e) => handleUpdateColliderName(e.target.value)}
+									placeholder="Unnamed Collider"
+									className="w-full text-sm px-2.5 py-1.5 rounded border-none outline-none"
+									style={{
+										background: "#3e3e42",
+										color: "#cccccc",
+									}}
+									spellCheck={false}
 								/>
 							</div>
 							<div className="mb-3">
@@ -723,10 +729,17 @@ export const CollisionEditor = ({
 								>
 									Type
 								</div>
-								<InlineEdit
+								<input
+									type="text"
 									value={selectedCollider.type || ""}
-									onChange={handleUpdateColliderType}
-									placeholder="(none)"
+									onChange={(e) => handleUpdateColliderType(e.target.value)}
+									placeholder="wall, trigger, damage, etc."
+									className="w-full text-sm px-2.5 py-1.5 rounded border-none outline-none"
+									style={{
+										background: "#3e3e42",
+										color: "#cccccc",
+									}}
+									spellCheck={false}
 								/>
 							</div>
 

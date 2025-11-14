@@ -143,10 +143,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-	const [isEditingName, setIsEditingName] = useState(false);
-	const [isEditingType, setIsEditingType] = useState(false);
-	const [editedName, setEditedName] = useState(entityData.name);
-	const [editedType, setEditedType] = useState(entityData.type);
 	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
 		string | null
 	>(tab.viewState.selectedSpriteLayerId);
@@ -229,14 +225,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		selectedSpriteLayerId,
 		selectedColliderId,
 	]);
-
-	// Reset editing state when switching tabs to prevent showing stale data
-	useEffect(() => {
-		setEditedName(entityData.name);
-		setEditedType(entityData.type);
-		setIsEditingName(false);
-		setIsEditingType(false);
-	}, [entityData.name, entityData.type]);
 
 	// Draw sprite picker canvas
 	useEffect(() => {
@@ -1354,31 +1342,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		setSelectedRegion(null);
 	};
 
-	// Save name changes
-	const handleNameSave = () => {
-		updateTabData(tab.id, {
-			title: editedName,
-			entityData: {
-				...entityData,
-				name: editedName,
-			},
-			isDirty: true,
-		});
-		setIsEditingName(false);
-	};
-
-	// Save type changes
-	const handleTypeSave = () => {
-		updateTabData(tab.id, {
-			entityData: {
-				...entityData,
-				type: editedType,
-			},
-			isDirty: true,
-		});
-		setIsEditingType(false);
-	};
-
 	// Handle property changes
 	const handlePropertiesChange = (properties: Record<string, string>) => {
 		setLocalEntityState({
@@ -1589,46 +1552,27 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							>
 								Name
 							</div>
-							{isEditingName ? (
-								<input
-									type="text"
-									value={editedName}
-									onChange={(e) => setEditedName(e.target.value)}
-									onBlur={handleNameSave}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") handleNameSave();
-										if (e.key === "Escape") {
-											setEditedName(entityData.name);
-											setIsEditingName(false);
-										}
-									}}
-									className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
-									style={{ background: "#3e3e42", border: "1px solid #007acc" }}
-								/>
-							) : (
-								<div
-									onClick={() => setIsEditingName(true)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											setIsEditingName(true);
-										}
-									}}
-									role="button"
-									tabIndex={0}
-									aria-label="Edit entity name"
-									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
-									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
-									onMouseEnter={(e) => {
-										e.currentTarget.style.borderColor = "#555555";
-									}}
-									onMouseLeave={(e) => {
-										e.currentTarget.style.borderColor = "#3e3e42";
-									}}
-								>
-									{entityData.name || "(unnamed)"}
-								</div>
-							)}
+							<input
+								type="text"
+								value={entityData.name}
+								onChange={(e) => {
+									updateTabData(tab.id, {
+										title: e.target.value,
+										entityData: {
+											...entityData,
+											name: e.target.value,
+										},
+										isDirty: true,
+									});
+								}}
+								placeholder="Unnamed Entity"
+								className="w-full text-sm px-2.5 py-1.5 rounded border-none outline-none"
+								style={{
+									background: "#3e3e42",
+									color: "#cccccc",
+								}}
+								spellCheck={false}
+							/>
 						</div>
 
 						{/* Entity Type */}
@@ -1639,46 +1583,26 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							>
 								Type
 							</div>
-							{isEditingType ? (
-								<input
-									type="text"
-									value={editedType}
-									onChange={(e) => setEditedType(e.target.value)}
-									onBlur={handleTypeSave}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") handleTypeSave();
-										if (e.key === "Escape") {
-											setEditedType(entityData.type);
-											setIsEditingType(false);
-										}
-									}}
-									className="w-full px-2 py-1 text-sm rounded text-gray-200 focus:outline-none"
-									style={{ background: "#3e3e42", border: "1px solid #007acc" }}
-								/>
-							) : (
-								<div
-									onClick={() => setIsEditingType(true)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											setIsEditingType(true);
-										}
-									}}
-									role="button"
-									tabIndex={0}
-									aria-label="Edit entity type"
-									className="px-2 py-1 text-sm rounded text-gray-200 cursor-text"
-									style={{ background: "#3e3e42", border: "1px solid #3e3e42" }}
-									onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-										e.currentTarget.style.borderColor = "#555555";
-									}}
-									onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-										e.currentTarget.style.borderColor = "#3e3e42";
-									}}
-								>
-									{entityData.type || "(none)"}
-								</div>
-							)}
+							<input
+								type="text"
+								value={entityData.type}
+								onChange={(e) => {
+									updateTabData(tab.id, {
+										entityData: {
+											...entityData,
+											type: e.target.value,
+										},
+										isDirty: true,
+									});
+								}}
+								placeholder="entity, character, item, etc."
+								className="w-full text-sm px-2.5 py-1.5 rounded border-none outline-none"
+								style={{
+									background: "#3e3e42",
+									color: "#cccccc",
+								}}
+								spellCheck={false}
+							/>
 						</div>
 					</div>
 
