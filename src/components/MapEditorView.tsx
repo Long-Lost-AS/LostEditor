@@ -59,6 +59,7 @@ interface SortableLayerItemProps {
 	isActive: boolean;
 	isEditing: boolean;
 	editingName: string;
+	inputRef?: React.RefObject<HTMLInputElement>;
 	onClick: () => void;
 	onDoubleClick: () => void;
 	onContextMenu: (e: React.MouseEvent) => void;
@@ -73,6 +74,7 @@ const SortableLayerItem = ({
 	isActive,
 	isEditing,
 	editingName,
+	inputRef,
 	onClick,
 	onDoubleClick,
 	onContextMenu,
@@ -139,6 +141,7 @@ const SortableLayerItem = ({
 			/>
 			{isEditing ? (
 				<input
+					ref={inputRef}
 					type="text"
 					value={editingName}
 					onChange={(e) => onNameChange(e.target.value)}
@@ -151,6 +154,7 @@ const SortableLayerItem = ({
 						color: "#cccccc",
 						border: "none",
 						padding: 0,
+						minWidth: 0,
 					}}
 					spellCheck={false}
 				/>
@@ -255,6 +259,15 @@ export const MapEditorView = ({
 	}, [currentLayerId, localMapData?.layers]);
 	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 	const [editingLayerName, setEditingLayerName] = useState("");
+	const layerInputRef = useRef<HTMLInputElement>(null);
+
+	// Auto-focus layer input when editing starts
+	useEffect(() => {
+		if (editingLayerId && layerInputRef.current) {
+			layerInputRef.current.focus();
+			layerInputRef.current.select();
+		}
+	}, [editingLayerId]);
 
 	// Context menu state
 	const [contextMenu, setContextMenu] = useState<{
@@ -1363,6 +1376,7 @@ export const MapEditorView = ({
 								color: "#cccccc",
 								border: "none",
 								padding: 0,
+								minWidth: 0,
 							}}
 							spellCheck={false}
 						/>
@@ -1527,6 +1541,7 @@ export const MapEditorView = ({
 														isActive={currentLayer?.id === layer.id}
 														isEditing={editingLayerId === layer.id}
 														editingName={editingLayerName}
+														inputRef={layerInputRef}
 														onClick={() => setCurrentLayerId(layer.id)}
 														onDoubleClick={() => handleLayerDoubleClick(layer)}
 														onContextMenu={(e) =>
@@ -1551,6 +1566,7 @@ export const MapEditorView = ({
 												style={{
 													border: "none",
 													padding: 0,
+													minWidth: 0,
 													cursor: "grabbing",
 												}}
 											>
