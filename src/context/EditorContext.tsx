@@ -1421,7 +1421,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			setTabs((prevTabs) => [...prevTabs, newMapTab]);
 
 			// Make the new map tab active
-			setActiveTabId(mapId);
+			setActiveTabId(newMapTab.id);
 		},
 		[tabs],
 	);
