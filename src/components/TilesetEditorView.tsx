@@ -133,6 +133,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const isFirstRun = useRef(true);
 	const skipNextDirtyMark = useRef(false);
 
+	// Use ref to avoid infinite loop with tilesetData
+	const tilesetDataRef = useRef(tilesetData);
+	tilesetDataRef.current = tilesetData;
+
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
@@ -157,7 +161,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	useEffect(() => {
 		updateTabData(tab.id, {
 			tilesetData: {
-				...tilesetData,
+				...tilesetDataRef.current,
 				tiles: localTiles,
 				terrainLayers: localTerrainLayers,
 			},
@@ -180,14 +184,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				isFirstRun.current = false;
 			}, 0);
 		}
-	}, [
-		tab.id,
-		updateTabData,
-		localTerrainLayers,
-		localTiles,
-		tilesetData,
-		getHistory,
-	]);
+	}, [tab.id, updateTabData, localTerrainLayers, localTiles, getHistory]);
 
 	// Persist undo history to tab state on unmount (when switching tabs)
 	useEffect(() => {
