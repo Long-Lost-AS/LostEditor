@@ -367,11 +367,61 @@ export const MapEditorView = ({
 		}
 	};
 
+	// Utility function to remap tile arrays when map dimensions change
+	const remapTilesForResize = (
+		tiles: number[],
+		oldWidth: number,
+		oldHeight: number,
+		newWidth: number,
+		newHeight: number,
+	): number[] => {
+		const newSize = newWidth * newHeight;
+		const newTiles = new Array(newSize).fill(0);
+
+		const rowsToCopy = Math.min(oldHeight, newHeight);
+		const tilesPerRowToCopy = Math.min(oldWidth, newWidth);
+
+		for (let y = 0; y < rowsToCopy; y++) {
+			const oldRowStart = y * oldWidth;
+			const newRowStart = y * newWidth;
+
+			for (let x = 0; x < tilesPerRowToCopy; x++) {
+				newTiles[newRowStart + x] = tiles[oldRowStart + x];
+			}
+		}
+
+		return newTiles;
+	};
+
 	const handleMapSizeChange = (field: "width" | "height", value: number) => {
 		if (!localMapData) return;
+
+		const newValue = Math.max(1, Math.min(200, Math.round(value)));
+		const oldWidth = localMapData.width;
+		const oldHeight = localMapData.height;
+		const newWidth = field === "width" ? newValue : oldWidth;
+		const newHeight = field === "height" ? newValue : oldHeight;
+
+		// If dimensions haven't changed, do nothing
+		if (newWidth === oldWidth && newHeight === oldHeight) return;
+
+		// Remap all layers' tile arrays to preserve tile positions
+		const remappedLayers = localMapData.layers.map((layer) => ({
+			...layer,
+			tiles: remapTilesForResize(
+				layer.tiles,
+				oldWidth,
+				oldHeight,
+				newWidth,
+				newHeight,
+			),
+		}));
+
 		setLocalMapData({
 			...localMapData,
-			[field]: Math.max(1, Math.min(200, Math.round(value))),
+			width: newWidth,
+			height: newHeight,
+			layers: remappedLayers,
 		});
 	};
 
@@ -1385,20 +1435,28 @@ export const MapEditorView = ({
 										<DragNumberInput
 											value={localMapData?.width ?? 10}
 											onChange={(value) => handleMapSizeChange("width", value)}
+											onInput={(value) => handleMapSizeChange("width", value)}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											max={200}
 											step={1}
 											precision={0}
+											dragSpeed={0.1}
 											className="flex-1"
 										/>
 										<span style={{ color: "#858585" }}>×</span>
 										<DragNumberInput
 											value={localMapData?.height ?? 10}
 											onChange={(value) => handleMapSizeChange("height", value)}
+											onInput={(value) => handleMapSizeChange("height", value)}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											max={200}
 											step={1}
 											precision={0}
+											dragSpeed={0.1}
 											className="flex-1"
 										/>
 									</div>
@@ -1418,10 +1476,16 @@ export const MapEditorView = ({
 											onChange={(value) =>
 												handleTileSizeChange("tileWidth", value)
 											}
+											onInput={(value) =>
+												handleTileSizeChange("tileWidth", value)
+											}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											max={256}
 											step={1}
 											precision={0}
+											dragSpeed={0.1}
 											className="flex-1"
 										/>
 										<span style={{ color: "#858585" }}>×</span>
@@ -1430,10 +1494,16 @@ export const MapEditorView = ({
 											onChange={(value) =>
 												handleTileSizeChange("tileHeight", value)
 											}
+											onInput={(value) =>
+												handleTileSizeChange("tileHeight", value)
+											}
+											onDragStart={startBatch}
+											onDragEnd={endBatch}
 											min={1}
 											max={256}
 											step={1}
 											precision={0}
+											dragSpeed={0.1}
 											className="flex-1"
 										/>
 									</div>
