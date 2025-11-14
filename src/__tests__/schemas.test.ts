@@ -340,6 +340,7 @@ describe("schemas", () => {
 	describe("MapDataSchema", () => {
 		it("should validate minimal map", () => {
 			const valid = {
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -351,6 +352,7 @@ describe("schemas", () => {
 
 		it("should default layers to empty array", () => {
 			const input = {
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -363,6 +365,7 @@ describe("schemas", () => {
 
 		it("should default entities to empty array", () => {
 			const input = {
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -375,6 +378,7 @@ describe("schemas", () => {
 
 		it("should reject zero width", () => {
 			const invalid = {
+				id: generateId(),
 				name: "Test Map",
 				width: 0,
 				height: 10,
@@ -386,6 +390,7 @@ describe("schemas", () => {
 
 		it("should reject negative dimensions", () => {
 			const invalid = {
+				id: generateId(),
 				name: "Test Map",
 				width: -10,
 				height: 10,
@@ -397,6 +402,7 @@ describe("schemas", () => {
 
 		it("should validate complete map", () => {
 			const valid = {
+				id: generateId(),
 				name: "Complete Map",
 				width: 20,
 				height: 15,
@@ -421,6 +427,7 @@ describe("schemas", () => {
 		it("should validate v4.0 map format", () => {
 			const valid = {
 				version: "4.0" as const,
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -433,6 +440,7 @@ describe("schemas", () => {
 		it("should reject non-4.0 version", () => {
 			const invalid = {
 				version: "3.0",
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -444,6 +452,7 @@ describe("schemas", () => {
 
 		it("should require version field", () => {
 			const invalid = {
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -456,6 +465,7 @@ describe("schemas", () => {
 		it("should validate serialized map with layers", () => {
 			const valid = {
 				version: "4.0" as const,
+				id: generateId(),
 				name: "Complete",
 				width: 10,
 				height: 10,
@@ -480,6 +490,7 @@ describe("schemas", () => {
 		it("should be equivalent to SerializedMapDataSchema", () => {
 			const valid = {
 				version: "4.0" as const,
+				id: generateId(),
 				name: "File Map",
 				width: 10,
 				height: 10,
@@ -492,6 +503,7 @@ describe("schemas", () => {
 		it("should validate .lostmap file format", () => {
 			const fileContent = {
 				version: "4.0" as const,
+				id: generateId(),
 				name: "Saved Map",
 				width: 32,
 				height: 32,
@@ -745,7 +757,7 @@ describe("schemas", () => {
 						{
 							id: "tab-1",
 							type: "map-editor",
-							filePath: "maps/test.lostmap",
+							mapId: generateId(),
 							viewState: {
 								zoom: 1,
 								panX: 0,
@@ -1007,6 +1019,7 @@ describe("schemas", () => {
 		describe("ensureValidMapData", () => {
 			it("should accept valid map data", () => {
 				const validData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					height: 10,
@@ -1023,6 +1036,7 @@ describe("schemas", () => {
 
 			it("should throw on invalid data", () => {
 				const invalidData = {
+					id: generateId(),
 					name: "Test",
 					width: -10, // Invalid negative width
 					height: 10,
@@ -1034,6 +1048,7 @@ describe("schemas", () => {
 
 			it("should throw on missing required fields", () => {
 				const invalidData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					// missing height, tileWidth, tileHeight
@@ -1043,6 +1058,7 @@ describe("schemas", () => {
 
 			it("should apply default values for optional fields", () => {
 				const minimalData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					height: 10,
@@ -1063,6 +1079,7 @@ describe("schemas", () => {
 
 			it("should preserve valid layers and entities", () => {
 				const validData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					height: 10,
@@ -1099,6 +1116,7 @@ describe("schemas", () => {
 
 			it("should return true for valid map data", () => {
 				const validData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					height: 10,
@@ -1110,6 +1128,7 @@ describe("schemas", () => {
 
 			it("should return false for invalid data", () => {
 				const invalidData = {
+					id: generateId(),
 					name: "Test",
 					width: -10,
 					height: 10,
@@ -1121,6 +1140,7 @@ describe("schemas", () => {
 
 			it("should return false for missing required fields", () => {
 				const invalidData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 				};
@@ -1140,6 +1160,7 @@ describe("schemas", () => {
 
 			it("should return true for map with optional fields", () => {
 				const validData = {
+					id: generateId(),
 					name: "Test",
 					width: 10,
 					height: 10,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockMap } from "../../__mocks__/testFactories";
 import { FileOperationError, ValidationError } from "../../errors/FileErrors";
 import type { SerializedMapData } from "../../types";
+import { generateId } from "../../utils/id";
 import { fileManager } from "../FileManager";
 import { mapManager } from "../MapManager";
 
@@ -21,6 +22,7 @@ describe("MapManager", () => {
 		it("should load and deserialize valid map file", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Test Map",
 				width: 32,
 				height: 24,
@@ -55,6 +57,7 @@ describe("MapManager", () => {
 		it("should cache loaded map", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Cached Map",
 				width: 16,
 				height: 16,
@@ -80,6 +83,7 @@ describe("MapManager", () => {
 		it("should handle concurrent load requests", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Concurrent Map",
 				width: 16,
 				height: 16,
@@ -142,6 +146,7 @@ describe("MapManager", () => {
 		it("should deserialize tile layers with BigInt tile IDs", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "BigInt Map",
 				width: 2,
 				height: 2,
@@ -294,6 +299,7 @@ describe("MapManager", () => {
 		it("should return cached map by path", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Get Test",
 				width: 16,
 				height: 16,
@@ -322,6 +328,7 @@ describe("MapManager", () => {
 		it("should resolve relative paths", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Relative Path",
 				width: 16,
 				height: 16,
@@ -351,6 +358,7 @@ describe("MapManager", () => {
 		it("should return all loaded maps", async () => {
 			const mockMap1: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map 1",
 				width: 16,
 				height: 16,
@@ -364,6 +372,7 @@ describe("MapManager", () => {
 
 			const mockMap2: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map 2",
 				width: 32,
 				height: 32,
@@ -393,6 +402,7 @@ describe("MapManager", () => {
 		it("should clear all cached maps", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Clear Test",
 				width: 16,
 				height: 16,
@@ -421,6 +431,7 @@ describe("MapManager", () => {
 		it("should call load method", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Legacy Test",
 				width: 16,
 				height: 16,
@@ -445,6 +456,7 @@ describe("MapManager", () => {
 			it("should remove map from cache", async () => {
 				const mockMapData: SerializedMapData = {
 					version: "4.0",
+					id: generateId(),
 					name: "Invalidate Test",
 					width: 16,
 					height: 16,
@@ -470,6 +482,7 @@ describe("MapManager", () => {
 			it("should update cached path", async () => {
 				const mockMapData: SerializedMapData = {
 					version: "4.0",
+					id: generateId(),
 					name: "Update Path Test",
 					width: 16,
 					height: 16,
@@ -508,6 +521,7 @@ describe("MapManager", () => {
 			it("should return all cached paths", async () => {
 				const mockMapData: SerializedMapData = {
 					version: "4.0",
+					id: generateId(),
 					name: "Paths Test",
 					width: 16,
 					height: 16,
@@ -535,6 +549,7 @@ describe("MapManager", () => {
 			it("should clear all cached data", async () => {
 				const mockMapData: SerializedMapData = {
 					version: "4.0",
+					id: generateId(),
 					name: "Clear Cache Test",
 					width: 16,
 					height: 16,
@@ -563,6 +578,7 @@ describe("MapManager", () => {
 		it("should handle load-modify-save workflow", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Original Map",
 				width: 16,
 				height: 16,
@@ -604,6 +620,7 @@ describe("MapManager", () => {
 		it("should handle multiple maps in cache", async () => {
 			const mockMap1: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map 1",
 				width: 16,
 				height: 16,
@@ -617,6 +634,7 @@ describe("MapManager", () => {
 
 			const mockMap2: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map 2",
 				width: 32,
 				height: 32,
@@ -645,6 +663,7 @@ describe("MapManager", () => {
 		it("should handle reload after invalidation", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Reload Test",
 				width: 16,
 				height: 16,
@@ -731,6 +750,7 @@ describe("MapManager", () => {
 		it("should share cache across singleton references", async () => {
 			const mockMapData: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Singleton Test",
 				width: 16,
 				height: 16,

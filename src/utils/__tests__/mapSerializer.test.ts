@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { MapData, SerializedLayer, SerializedMapData } from "../../types";
+import { generateId } from "../id";
 import { deserializeMapData, serializeMapData } from "../mapSerializer";
 
 describe("mapSerializer", () => {
 	describe("serializeMapData", () => {
 		it("should serialize minimal map data", () => {
 			const mapData: MapData = {
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -31,6 +33,7 @@ describe("mapSerializer", () => {
 
 		it("should serialize map with layers", () => {
 			const mapData: MapData = {
+				id: generateId(),
 				name: "Map with Layers",
 				width: 2,
 				height: 2,
@@ -69,6 +72,7 @@ describe("mapSerializer", () => {
 
 		it("should handle map with entities", () => {
 			const mapData: MapData = {
+				id: generateId(),
 				name: "Map with Entities",
 				width: 5,
 				height: 5,
@@ -112,6 +116,7 @@ describe("mapSerializer", () => {
 
 		it("should handle map with undefined entities", () => {
 			const mapData: MapData = {
+				id: generateId(),
 				name: "Map",
 				width: 10,
 				height: 10,
@@ -131,6 +136,7 @@ describe("mapSerializer", () => {
 		it("should preserve layer tile arrays", () => {
 			const tiles = new Array(100).fill(0).map((_, i) => i);
 			const mapData: MapData = {
+				id: generateId(),
 				name: "Large Map",
 				width: 10,
 				height: 10,
@@ -160,6 +166,7 @@ describe("mapSerializer", () => {
 		it("should deserialize minimal map data", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Test Map",
 				width: 10,
 				height: 10,
@@ -183,6 +190,7 @@ describe("mapSerializer", () => {
 		it("should deserialize map with layers", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map",
 				width: 2,
 				height: 2,
@@ -210,6 +218,7 @@ describe("mapSerializer", () => {
 		it("should pad tiles array if too small", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map",
 				width: 5,
 				height: 5,
@@ -243,6 +252,7 @@ describe("mapSerializer", () => {
 		it("should handle layer with undefined tiles", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map",
 				width: 3,
 				height: 3,
@@ -271,6 +281,7 @@ describe("mapSerializer", () => {
 		it("should handle map with entities", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map",
 				width: 10,
 				height: 10,
@@ -320,6 +331,7 @@ describe("mapSerializer", () => {
 		it("should preserve layer properties", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Map",
 				width: 2,
 				height: 2,
@@ -349,6 +361,7 @@ describe("mapSerializer", () => {
 			const largeTiles = new Array(10000).fill(42);
 			const serialized: SerializedMapData = {
 				version: "4.0",
+				id: generateId(),
 				name: "Large Map",
 				width: 100,
 				height: 100,
@@ -378,6 +391,7 @@ describe("mapSerializer", () => {
 	describe("round-trip serialization", () => {
 		it("should preserve data through serialize/deserialize cycle", () => {
 			const original: MapData = {
+				id: generateId(),
 				name: "Round Trip Test",
 				width: 4,
 				height: 4,
@@ -420,6 +434,7 @@ describe("mapSerializer", () => {
 
 		it("should handle empty map through round-trip", () => {
 			const original: MapData = {
+				id: generateId(),
 				name: "Empty",
 				width: 1,
 				height: 1,
