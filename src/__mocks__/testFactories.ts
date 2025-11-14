@@ -7,6 +7,7 @@ import type {
 	TileDefinition,
 	TilesetData,
 } from "../types";
+import { generateId } from "../utils/id";
 
 /**
  * Factory functions for creating test data objects
@@ -41,6 +42,7 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 
 export function createMockMap(overrides?: Partial<MapData>): MapData {
 	return {
+		id: generateId(),
 		name: "Test Map",
 		width: 32,
 		height: 24,
@@ -77,8 +79,6 @@ export function createMockProject(
 	return {
 		version: "1.0.0",
 		name: "test-project",
-		tilesets: [],
-		maps: [],
 		lastModified: new Date().toISOString(),
 		openTabs: { tabs: [], activeTabId: null },
 		...overrides,
