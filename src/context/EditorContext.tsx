@@ -1528,6 +1528,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					tilesetData: tileset,
 					viewState: {
 						scale: 2,
+						panX: 0,
+						panY: 0,
 						selectedTileRegion: null,
 					},
 				};
@@ -1649,6 +1651,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						panY: 300,
 						selectedSpriteLayerId: null,
 						selectedChildId: null,
+						selectedColliderId: null,
 					},
 				};
 
@@ -1747,6 +1750,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			tilesetData: newTilesetData,
 			viewState: {
 				scale: 2,
+				panX: 0,
+				panY: 0,
 				selectedTileRegion: null,
 			},
 		};
@@ -1809,6 +1814,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				panY: 300,
 				selectedSpriteLayerId: null,
 				selectedChildId: null,
+				selectedColliderId: null,
 			},
 		};
 

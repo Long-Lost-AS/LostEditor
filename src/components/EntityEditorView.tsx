@@ -127,15 +127,15 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
-	// Zoom and pan using shared hook (local state only)
+	// Zoom and pan using shared hook (persisted to viewState)
 	const {
 		scale,
 		pan,
 		setPan,
 		containerRef: zoomPanContainerRef,
 	} = useCanvasZoomPan({
-		initialScale: 2,
-		initialPan: { x: 100, y: 100 },
+		initialScale: tab.viewState.scale,
+		initialPan: { x: tab.viewState.panX, y: tab.viewState.panY },
 		minScale: 0.1,
 		maxScale: 10,
 		zoomSpeed: 0.01,
@@ -149,7 +149,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [editedType, setEditedType] = useState(entityData.type);
 	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
 		string | null
-	>(null);
+	>(tab.viewState.selectedSpriteLayerId);
 
 	// Sprite dragging state
 	const [isDraggingSprite, setIsDraggingSprite] = useState(false);
@@ -166,7 +166,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		Array<{ x: number; y: number }>
 	>([]);
 	const [selectedColliderId, setSelectedColliderId] = useState<string | null>(
-		null,
+		tab.viewState.selectedColliderId,
 	);
 	const [selectedColliderPointIndex, setSelectedColliderPointIndex] = useState<
 		number | null
@@ -207,6 +207,28 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const pickerCanvasRef = useRef<HTMLCanvasElement>(null);
 
 	const drawRef = useRef<() => void>(() => {});
+
+	// Sync view state (zoom, pan, selections) to tab (persisted across tab switches)
+	useEffect(() => {
+		updateTabData(tab.id, {
+			viewState: {
+				scale,
+				panX: pan.x,
+				panY: pan.y,
+				selectedSpriteLayerId,
+				selectedChildId: null, // Not implemented yet
+				selectedColliderId,
+			},
+		});
+	}, [
+		tab.id,
+		updateTabData,
+		scale,
+		pan.x,
+		pan.y,
+		selectedSpriteLayerId,
+		selectedColliderId,
+	]);
 
 	// Reset editing state when switching tabs to prevent showing stale data
 	useEffect(() => {

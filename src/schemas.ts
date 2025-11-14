@@ -266,6 +266,8 @@ export const MapTabSchema = BaseTabSchema.extend({
 
 export const TilesetViewStateSchema = z.object({
 	scale: z.number(),
+	panX: z.number(),
+	panY: z.number(),
 	selectedTileRegion: z
 		.object({
 			x: z.number(),
@@ -310,6 +312,7 @@ export const EntityEditorViewStateSchema = z.object({
 	panY: z.number(),
 	selectedSpriteLayerId: z.string().nullable(),
 	selectedChildId: z.string().nullable(),
+	selectedColliderId: z.string().nullable(),
 });
 
 const EntityUndoStateSchema = z.object({

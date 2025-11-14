@@ -40,27 +40,27 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const terrainLayerInputRef = useRef<HTMLInputElement>(null);
 
-	// Zoom and pan using shared hook (local state only)
+	// Zoom and pan using shared hook (persisted to viewState)
 	const {
 		scale,
 		pan,
 		setPan,
 		containerRef: zoomPanContainerRef,
 	} = useCanvasZoomPan({
-		initialScale: 1,
-		initialPan: { x: 0, y: 0 },
+		initialScale: tab.viewState.scale,
+		initialPan: { x: tab.viewState.panX, y: tab.viewState.panY },
 		minScale: 0.5,
 		maxScale: 8,
 		zoomSpeed: 0.01,
 	});
 
-	// Local state for tile selection (not synced with tab)
+	// Tile selection state (persisted to viewState)
 	const [selectedTileRegion, setSelectedTileRegion] = useState<{
 		x: number;
 		y: number;
 		width: number;
 		height: number;
-	} | null>(null);
+	} | null>(tab.viewState.selectedTileRegion);
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -212,6 +212,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			updateTabData(tab.id, { undoHistory: history });
 		};
 	}, [tab.id, updateTabData, getHistory]);
+
+	// Sync view state (zoom, pan, selection) to tab (persisted across tab switches)
+	useEffect(() => {
+		updateTabData(tab.id, {
+			viewState: {
+				scale,
+				panX: pan.x,
+				panY: pan.y,
+				selectedTileRegion,
+			},
+		});
+	}, [tab.id, updateTabData, scale, pan.x, pan.y, selectedTileRegion]);
 
 	// Auto-focus terrain layer input when editing starts
 	useEffect(() => {
