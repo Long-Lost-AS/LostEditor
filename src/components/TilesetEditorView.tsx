@@ -146,6 +146,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// Track the last synced tiles array to detect external changes
 	const lastSyncedTilesRef = useRef(tilesetData?.tiles || []);
 
+	// Track previous state to detect meaningful changes (not just empty tile additions)
+	const prevStateRef = useRef({
+		tiles: localTiles,
+		terrainLayers: localTerrainLayers,
+		tileWidth: localTileWidth,
+		tileHeight: localTileHeight,
+	});
+
 	// Reset undo history when switching to a different tileset
 	const prevTilesetIdRef = useRef<string | null>(null);
 	useEffect(() => {
@@ -189,6 +197,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 	}, [tilesetData, localTiles, resetTilesetHistory]);
 
+	// Helper to check if a tile is "empty" (has no meaningful data that would be saved)
+	// This matches the filtering logic in TilesetManager.prepareForSave
+	const isTileEmpty = useCallback((tile: TileDefinition): boolean => {
+		// Compound tiles are always meaningful
+		if (tile.isCompound) return false;
+
+		// Check if tile has any meaningful properties
+		return (
+			tile.name === "" &&
+			tile.type === "" &&
+			(tile.colliders?.length || 0) === 0 &&
+			Object.keys(tile.properties || {}).length === 0
+		);
+	}, []);
+
 	// One-way sync: local tileset state → tab data
 	// This updates the tab's tilesetData whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
@@ -212,13 +235,57 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			return;
 		}
 
-		// Only mark dirty after first run (i.e., on actual user changes)
+		// Determine if this change is "meaningful" (should mark tab dirty)
+		let hasMeaningfulChange = false;
+
 		if (!isFirstRun.current) {
-			updateTabData(tab.id, { isDirty: true });
+			const prevState = prevStateRef.current;
+
+			// Check if terrain layers, tileWidth, or tileHeight changed (always meaningful)
+			if (
+				localTerrainLayers !== prevState.terrainLayers ||
+				localTileWidth !== prevState.tileWidth ||
+				localTileHeight !== prevState.tileHeight
+			) {
+				hasMeaningfulChange = true;
+			}
+			// Check tiles changes
+			else if (localTiles.length !== prevState.tiles.length) {
+				// Tiles count changed
+				if (localTiles.length < prevState.tiles.length) {
+					// Tiles were removed - always meaningful
+					hasMeaningfulChange = true;
+				} else {
+					// Tiles were added - check if any are non-empty
+					const addedTiles = localTiles.slice(prevState.tiles.length);
+					hasMeaningfulChange = addedTiles.some((tile) => !isTileEmpty(tile));
+				}
+			} else {
+				// Same count - check if any existing tile was modified
+				for (let i = 0; i < localTiles.length; i++) {
+					if (localTiles[i] !== prevState.tiles[i]) {
+						hasMeaningfulChange = true;
+						break;
+					}
+				}
+			}
+
+			// Mark dirty if meaningful change detected
+			if (hasMeaningfulChange) {
+				updateTabData(tab.id, { isDirty: true });
+			}
 		} else {
 			// Clear the flag after initial sync
 			isFirstRun.current = false;
 		}
+
+		// Update the previous state ref for next comparison
+		prevStateRef.current = {
+			tiles: localTiles,
+			terrainLayers: localTerrainLayers,
+			tileWidth: localTileWidth,
+			tileHeight: localTileHeight,
+		};
 	}, [
 		tab.id,
 		updateTabData,
@@ -227,6 +294,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		localTileWidth,
 		localTileHeight,
 		getHistory,
+		isTileEmpty,
 	]);
 
 	// Persist undo history to tab state on unmount (when switching tabs)
