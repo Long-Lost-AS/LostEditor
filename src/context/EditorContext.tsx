@@ -21,6 +21,7 @@ import { createDefaultMapData, ProjectDataSchema } from "../schemas";
 import { SettingsManager } from "../settings";
 import type {
 	AnyTab,
+	CollisionEditorTab,
 	EntityDefinition,
 	EntityEditorTab,
 	Layer,
@@ -898,21 +899,41 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				openTabs: {
 					tabs: tabs.map((tab) => {
 						if (tab.type === "map-editor") {
-							// Don't store map data in tabs, just references
+							const mapTab = tab as MapTab;
 							return {
-								id: tab.id,
-								type: tab.type,
-								title: tab.title,
-								isDirty: false, // Mark as clean after save
-								filePath: tab.filePath,
-								mapId: (tab as MapTab).mapId,
-								viewState: (tab as MapTab).viewState,
-							} as MapTab;
+								type: "map-editor" as const,
+								id: mapTab.id,
+								filePath: mapTab.filePath || "",
+								viewState: mapTab.viewState,
+							};
+						} else if (tab.type === "tileset-editor") {
+							const tilesetTab = tab as TilesetTab;
+							return {
+								type: "tileset-editor" as const,
+								id: tilesetTab.id,
+								tilesetId: tilesetTab.tilesetId,
+								viewState: tilesetTab.viewState,
+							};
+						} else if (tab.type === "entity-editor") {
+							const entityTab = tab as EntityEditorTab;
+							return {
+								type: "entity-editor" as const,
+								id: entityTab.id,
+								entityId: entityTab.entityId,
+								viewState: entityTab.viewState,
+							};
+						} else if (tab.type === "collision-editor") {
+							const collisionTab = tab as CollisionEditorTab;
+							return {
+								type: "collision-editor" as const,
+								id: collisionTab.id,
+								sourceType: collisionTab.sourceType,
+								sourceId: collisionTab.sourceId,
+								sourceTabId: collisionTab.sourceTabId,
+								tileId: collisionTab.tileId,
+							};
 						}
-						// Remove undoHistory from all tab types (memory-only)
-						const { undoHistory: _undoHistory, ...tabWithoutHistory } =
-							tab as AnyTab;
-						return { ...tabWithoutHistory, isDirty: false };
+						throw new Error(`Unknown tab type: ${(tab as AnyTab).type}`);
 					}),
 					activeTabId,
 				},
@@ -1156,88 +1177,90 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 				for (const tab of projectData.openTabs.tabs) {
 					if (tab.type === "map-editor") {
-						const mapTab = tab as MapTab;
+						// Hydrate map tab from serialized format
+						const mapId = `map-${tab.filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+						const existingMap = loadedMaps.find((m) => m.id === mapId);
 
-						// Find the already-loaded map by file path
-						if (mapTab.filePath) {
-							const mapId = `map-${mapTab.filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
-							const existingMap = loadedMaps.find((m) => m.id === mapId);
+						if (existingMap) {
+							const fullMapTab: MapTab = {
+								id: tab.id,
+								type: "map-editor",
+								title:
+									existingMap.name ||
+									fileManager.basename(tab.filePath, ".lostmap"),
+								isDirty: false,
+								filePath: tab.filePath,
+								mapId: mapId,
+								mapFilePath: tab.filePath,
+								viewState: tab.viewState,
+							};
 
-							if (existingMap) {
-								// Create MapTab with reference to loaded map
-								const fullMapTab: MapTab = {
-									id: mapTab.id,
-									type: "map-editor",
-									title: mapTab.title,
-									isDirty: false,
-									filePath: mapTab.filePath,
-									mapId: mapId,
-									mapFilePath: mapTab.filePath,
-									viewState: mapTab.viewState || {
-										zoom: 2,
-										panX: 0,
-										panY: 0,
-										currentLayerId: null,
-										gridVisible: true,
-										selectedTilesetId: null,
-										selectedTileId: null,
-										selectedEntityDefId: null,
-										currentTool: "pencil",
-									},
-								};
-
-								restoredTabs.push(fullMapTab);
-							} else {
-								console.warn(
-									`Map ${mapTab.filePath} not found in loaded maps, skipping tab`,
-								);
-							}
-						}
-					} else if (tab.type === "tileset-editor") {
-						const tilesetTab = tab as TilesetTab;
-						const tilesetExists = tilesetManager.getTilesetById(
-							tilesetTab.tilesetId,
-						);
-						if (tilesetExists) {
-							// Mark as clean since we're loading from saved project
-							restoredTabs.push({ ...tab, isDirty: false });
+							restoredTabs.push(fullMapTab);
 						} else {
 							console.warn(
-								`Skipping tileset tab: tileset ${tilesetTab.tilesetId} not found`,
+								`Map ${tab.filePath} not found in loaded maps, skipping tab`,
+							);
+						}
+					} else if (tab.type === "tileset-editor") {
+						// Hydrate tileset tab from serialized format
+						const tileset = tilesetManager.getTilesetById(tab.tilesetId);
+						if (tileset) {
+							const fullTilesetTab: TilesetTab = {
+								id: tab.id,
+								type: "tileset-editor",
+								title: tileset.name || "Untitled Tileset",
+								isDirty: false,
+								filePath: tileset.filePath,
+								tilesetId: tab.tilesetId,
+								tilesetData: tileset,
+								viewState: tab.viewState,
+							};
+
+							restoredTabs.push(fullTilesetTab);
+						} else {
+							console.warn(
+								`Skipping tileset tab: tileset ${tab.tilesetId} not found`,
 							);
 						}
 					} else if (tab.type === "entity-editor") {
-						const entityTab = tab as EntityEditorTab;
+						// Hydrate entity tab from serialized format
+						const entityData = entityManager.getEntityDefinition(
+							"",
+							tab.entityId,
+						);
 
-						if (entityTab.filePath) {
-							// Entity should already be loaded, just retrieve it
-							const entityData = entityManager.getEntity(entityTab.filePath);
+						if (entityData) {
+							const fullEntityTab: EntityEditorTab = {
+								id: tab.id,
+								type: "entity-editor",
+								title: entityData.name || "Untitled Entity",
+								isDirty: false,
+								filePath: entityData.filePath,
+								entityId: tab.entityId,
+								entityData: entityData,
+								viewState: tab.viewState,
+							};
 
-							if (entityData) {
-								const fullEntityTab: EntityEditorTab = {
-									id: entityTab.id,
-									type: "entity-editor",
-									title: entityTab.title,
-									isDirty: false,
-									filePath: entityTab.filePath,
-									entityId: entityTab.entityId || entityTab.id,
-									entityData: entityData,
-									viewState: entityTab.viewState || {
-										scale: 1,
-										panX: 0,
-										panY: 0,
-										selectedSpriteLayerId: null,
-										selectedChildId: null,
-									},
-								};
-
-								restoredTabs.push(fullEntityTab);
-							} else {
-								console.warn(
-									`Entity ${entityTab.filePath} not found in loaded entities, skipping tab`,
-								);
-							}
+							restoredTabs.push(fullEntityTab);
+						} else {
+							console.warn(
+								`Entity ${tab.entityId} not found in loaded entities, skipping tab`,
+							);
 						}
+					} else if (tab.type === "collision-editor") {
+						// Hydrate collision tab from serialized format
+						const fullCollisionTab: CollisionEditorTab = {
+							id: tab.id,
+							type: "collision-editor",
+							title: `Collision Editor (${tab.sourceType})`,
+							isDirty: false,
+							sourceType: tab.sourceType,
+							sourceId: tab.sourceId,
+							sourceTabId: tab.sourceTabId,
+							tileId: tab.tileId,
+						};
+
+						restoredTabs.push(fullCollisionTab);
 					}
 				}
 

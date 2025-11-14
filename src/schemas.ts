@@ -245,6 +245,15 @@ export const MapUndoHistorySchema = z.object({
 	future: z.array(MapDataSchema),
 });
 
+// Serialized tab schemas (what goes in .lostproj files)
+export const SerializedMapTabSchema = z.object({
+	type: z.literal("map-editor"),
+	id: z.string(),
+	filePath: z.string(),
+	viewState: MapViewStateSchema,
+});
+
+// Runtime tab schema (in-memory, includes loaded data)
 export const MapTabSchema = BaseTabSchema.extend({
 	type: z.literal("map-editor"),
 	mapId: z.string(),
@@ -276,6 +285,13 @@ export const TilesetUndoHistorySchema = z.object({
 	future: z.array(TilesetUndoStateSchema),
 });
 
+export const SerializedTilesetTabSchema = z.object({
+	type: z.literal("tileset-editor"),
+	id: z.string(),
+	tilesetId: z.string(),
+	viewState: TilesetViewStateSchema,
+});
+
 export const TilesetTabSchema = BaseTabSchema.extend({
 	type: z.literal("tileset-editor"),
 	tilesetId: z.string(),
@@ -304,12 +320,28 @@ export const EntityUndoHistorySchema = z.object({
 	future: z.array(EntityUndoStateSchema),
 });
 
+export const SerializedEntityEditorTabSchema = z.object({
+	type: z.literal("entity-editor"),
+	id: z.string(),
+	entityId: z.string(),
+	viewState: EntityEditorViewStateSchema,
+});
+
 export const EntityEditorTabSchema = BaseTabSchema.extend({
 	type: z.literal("entity-editor"),
 	entityId: z.string(),
 	entityData: EntityDefinitionSchema,
 	viewState: EntityEditorViewStateSchema,
 	undoHistory: EntityUndoHistorySchema.optional(),
+});
+
+export const SerializedCollisionEditorTabSchema = z.object({
+	type: z.literal("collision-editor"),
+	id: z.string(),
+	sourceType: z.enum(["tile", "entity"]),
+	sourceId: z.string(),
+	sourceTabId: z.string().optional(),
+	tileId: z.number().optional(),
 });
 
 export const CollisionEditorTabSchema = BaseTabSchema.extend({
@@ -319,6 +351,13 @@ export const CollisionEditorTabSchema = BaseTabSchema.extend({
 	sourceTabId: z.string().optional(),
 	tileId: z.number().optional(),
 });
+
+export const SerializedAnyTabSchema = z.discriminatedUnion("type", [
+	SerializedMapTabSchema,
+	SerializedTilesetTabSchema,
+	SerializedEntityEditorTabSchema,
+	SerializedCollisionEditorTabSchema,
+]);
 
 export const AnyTabSchema = z.discriminatedUnion("type", [
 	MapTabSchema,
@@ -340,7 +379,7 @@ export const ProjectDataSchema = z.object({
 	lastModified: z.string(),
 	openTabs: z
 		.object({
-			tabs: z.array(AnyTabSchema),
+			tabs: z.array(SerializedAnyTabSchema),
 			activeTabId: z.string().nullable(),
 		})
 		.default({ tabs: [], activeTabId: null }),

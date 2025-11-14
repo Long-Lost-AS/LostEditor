@@ -745,9 +745,7 @@ describe("schemas", () => {
 						{
 							id: "tab-1",
 							type: "map-editor",
-							title: "Map",
-							isDirty: false,
-							mapId: "map-1",
+							filePath: "maps/test.lostmap",
 							viewState: {
 								zoom: 1,
 								panX: 0,
