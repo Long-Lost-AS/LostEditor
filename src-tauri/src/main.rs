@@ -4,7 +4,10 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
+use notify::{Watcher, RecursiveMode, Event};
+use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct FileResult {
@@ -276,6 +279,87 @@ async fn copy_file(source: String, destination: String) -> FileResult {
     }
 }
 
+// File watcher state
+struct FileWatcherState {
+    watcher: Option<Box<dyn Watcher + Send>>,
+}
+
+impl FileWatcherState {
+    fn new() -> Self {
+        FileWatcherState { watcher: None }
+    }
+}
+
+#[tauri::command]
+async fn start_watch_directory(
+    path: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<Mutex<FileWatcherState>>>,
+) -> FileResult {
+    let mut watcher_state = state.lock().unwrap();
+
+    // Stop existing watcher if any
+    if watcher_state.watcher.is_some() {
+        watcher_state.watcher = None;
+    }
+
+    // Create new watcher
+    let app_handle = app.clone();
+    let watch_path = path.clone();
+
+    match notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
+        match res {
+            Ok(event) => {
+                // Emit event to frontend
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.emit("directory-changed", event.paths);
+                }
+            }
+            Err(e) => {
+                eprintln!("Watch error: {:?}", e);
+            }
+        }
+    }) {
+        Ok(mut watcher) => {
+            // Watch the directory
+            match watcher.watch(std::path::Path::new(&watch_path), RecursiveMode::NonRecursive) {
+                Ok(_) => {
+                    watcher_state.watcher = Some(Box::new(watcher));
+                    FileResult {
+                        success: true,
+                        data: Some(format!("Watching directory: {}", path)),
+                        error: None,
+                    }
+                }
+                Err(e) => FileResult {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to watch directory: {}", e)),
+                },
+            }
+        }
+        Err(e) => FileResult {
+            success: false,
+            data: None,
+            error: Some(format!("Failed to create watcher: {}", e)),
+        },
+    }
+}
+
+#[tauri::command]
+async fn stop_watch_directory(
+    state: tauri::State<'_, Arc<Mutex<FileWatcherState>>>,
+) -> FileResult {
+    let mut watcher_state = state.lock().unwrap();
+    watcher_state.watcher = None;
+
+    FileResult {
+        success: true,
+        data: Some("Stopped watching directory".to_string()),
+        error: None,
+    }
+}
+
 fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 
@@ -357,6 +441,7 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
 
 fn main() {
     tauri::Builder::default()
+        .manage(Arc::new(Mutex::new(FileWatcherState::new())))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_fs::init())
@@ -455,7 +540,9 @@ fn main() {
             show_save_dialog,
             rebuild_menu,
             create_dir,
-            copy_file
+            copy_file,
+            start_watch_directory,
+            stop_watch_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

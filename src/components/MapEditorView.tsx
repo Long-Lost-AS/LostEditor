@@ -59,7 +59,7 @@ interface SortableLayerItemProps {
 	isActive: boolean;
 	isEditing: boolean;
 	editingName: string;
-	inputRef?: React.RefObject<HTMLInputElement>;
+	inputRef?: React.RefObject<HTMLInputElement | null>;
 	onClick: () => void;
 	onDoubleClick: () => void;
 	onContextMenu: (e: React.MouseEvent) => void;

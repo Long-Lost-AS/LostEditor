@@ -442,6 +442,54 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 		}
 	}, [projectDirectory, loadDirectory]);
 
+	// Set up file watching for current directory
+	useEffect(() => {
+		if (!currentPath) return;
+
+		let unlisten: (() => void) | undefined;
+
+		const setupFileWatcher = async () => {
+			try {
+				const { invoke } = await import("@tauri-apps/api/core");
+				const { getCurrentWebviewWindow } = await import(
+					"@tauri-apps/api/webviewWindow"
+				);
+
+				// Start watching the current directory
+				await invoke("start_watch_directory", { path: currentPath });
+
+				// Listen for directory changes
+				const webviewWindow = getCurrentWebviewWindow();
+				unlisten = await webviewWindow.listen(
+					"directory-changed",
+					async (_event) => {
+						// Reload directory when changes are detected
+						await loadDirectory(currentPath);
+					},
+				);
+			} catch (err) {
+				console.error("Failed to set up file watcher:", err);
+			}
+		};
+
+		setupFileWatcher();
+
+		return () => {
+			if (unlisten) {
+				unlisten();
+			}
+			// Stop watching when path changes or component unmounts
+			(async () => {
+				try {
+					const { invoke } = await import("@tauri-apps/api/core");
+					await invoke("stop_watch_directory");
+				} catch (err) {
+					console.error("Failed to stop file watcher:", err);
+				}
+			})();
+		};
+	}, [currentPath, loadDirectory]);
+
 	const handleItemClick = (
 		item: FileItem,
 		index: number,
