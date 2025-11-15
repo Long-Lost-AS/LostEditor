@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager};
 use notify::{Watcher, RecursiveMode, Event};
-use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct FileResult {
@@ -295,7 +294,7 @@ async fn start_watch_directory(
     path: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, Arc<Mutex<FileWatcherState>>>,
-) -> FileResult {
+) -> Result<FileResult, String> {
     let mut watcher_state = state.lock().unwrap();
 
     // Stop existing watcher if any
@@ -325,39 +324,39 @@ async fn start_watch_directory(
             match watcher.watch(std::path::Path::new(&watch_path), RecursiveMode::NonRecursive) {
                 Ok(_) => {
                     watcher_state.watcher = Some(Box::new(watcher));
-                    FileResult {
+                    Ok(FileResult {
                         success: true,
                         data: Some(format!("Watching directory: {}", path)),
                         error: None,
-                    }
+                    })
                 }
-                Err(e) => FileResult {
+                Err(e) => Ok(FileResult {
                     success: false,
                     data: None,
                     error: Some(format!("Failed to watch directory: {}", e)),
-                },
+                }),
             }
         }
-        Err(e) => FileResult {
+        Err(e) => Ok(FileResult {
             success: false,
             data: None,
             error: Some(format!("Failed to create watcher: {}", e)),
-        },
+        }),
     }
 }
 
 #[tauri::command]
 async fn stop_watch_directory(
     state: tauri::State<'_, Arc<Mutex<FileWatcherState>>>,
-) -> FileResult {
+) -> Result<FileResult, String> {
     let mut watcher_state = state.lock().unwrap();
     watcher_state.watcher = None;
 
-    FileResult {
+    Ok(FileResult {
         success: true,
         data: Some("Stopped watching directory".to_string()),
         error: None,
-    }
+    })
 }
 
 fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
