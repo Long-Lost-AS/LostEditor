@@ -18,6 +18,11 @@ import {
 	isPointInPolygon as pointInPolygon,
 } from "../utils/collisionGeometry";
 import { getArrowKeyDelta, isArrowKey } from "../utils/keyboardMovement";
+import {
+	getTerrainLayerForTile,
+	placeTerrainTile,
+	updateNeighborsAround,
+} from "../utils/terrainDrawing";
 import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
 
 // Map canvas props interface
@@ -113,6 +118,7 @@ export const MapCanvas = ({
 		// autotilingOverride,
 		selectedTilesetId,
 		selectedTileId,
+		selectedTerrainLayerId,
 		selectedEntityDefId,
 		openEntityFromFile,
 	} = useEditor();
@@ -282,71 +288,194 @@ export const MapCanvas = ({
 			return;
 		}
 
-		// Get the target tile ID (what we're replacing)
-		const startIndex = startY * mapData.width + startX;
-		const targetTileId = activeLayer.tiles[startIndex] || 0; // Treat undefined as 0 (empty)
+		// Check if we're in terrain mode
+		const isTerrainMode = selectedTerrainLayerId !== null;
 
-		// Get the replacement tile ID and convert to global tile ID
-		if (!selectedTileId || !selectedTilesetId) {
-			return;
-		}
+		if (isTerrainMode) {
+			// TERRAIN MODE: Fill with terrain layer
+			if (!selectedTilesetId) {
+				return;
+			}
 
-		const selectedTileset = tilesets.find((ts) => ts.id === selectedTilesetId);
-		if (!selectedTileset) {
-			return;
-		}
+			const selectedTileset = tilesets.find(
+				(ts) => ts.id === selectedTilesetId,
+			);
+			if (!selectedTileset || !selectedTileset.terrainLayers) {
+				return;
+			}
 
-		const tilesetHash = hashTilesetId(selectedTileset.id);
+			// Get the target terrain layer ID at the start position
+			const startIndex = startY * mapData.width + startX;
+			const startTileId = activeLayer.tiles[startIndex] || 0;
+			const targetTerrainLayerId = getTerrainLayerForTile(
+				startTileId,
+				selectedTileset,
+			);
 
-		const geometry = unpackTileId(selectedTileId);
-		const globalTileId = packTileId(
-			geometry.x,
-			geometry.y,
-			tilesetHash,
-			geometry.flipX,
-			geometry.flipY,
-		);
+			// Collect all tiles to fill
+			const tilesToFill: Array<{ x: number; y: number }> = [];
+			const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
+			const visited = new Set<number>();
 
-		// Don't fill if clicking on the same tile
-		if (targetTileId === globalTileId) {
-			return;
-		}
+			while (queue.length > 0) {
+				const pos = queue.shift();
+				if (!pos) continue;
+				const { x, y } = pos;
+				const index = y * mapData.width + x;
 
-		// Collect all tiles to fill in a single batch
-		const tilesToFill: Array<{ x: number; y: number }> = [];
-		const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
-		const visited = new Set<number>();
+				// Skip if out of bounds
+				if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height)
+					continue;
 
-		while (queue.length > 0) {
-			const pos = queue.shift();
-			if (!pos) continue;
-			const { x, y } = pos;
-			const index = y * mapData.width + x;
+				// Skip if already visited
+				if (visited.has(index)) continue;
+				visited.add(index);
 
-			// Skip if out of bounds
-			if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height) continue;
+				// Skip if not the target terrain layer
+				const currentTileId = activeLayer.tiles[index] || 0;
+				const currentTerrainLayerId = getTerrainLayerForTile(
+					currentTileId,
+					selectedTileset,
+				);
 
-			// Skip if already visited
-			if (visited.has(index)) continue;
-			visited.add(index);
+				if (currentTerrainLayerId !== targetTerrainLayerId) continue;
 
-			// Skip if not the target tile (treat undefined as 0)
-			const currentTileId = activeLayer.tiles[index] || 0;
-			if (currentTileId !== targetTileId) continue;
+				// Add to batch
+				tilesToFill.push({ x, y });
 
-			// Add to batch
-			tilesToFill.push({ x, y });
+				// Add neighbors to queue
+				queue.push({ x: x + 1, y });
+				queue.push({ x: x - 1, y });
+				queue.push({ x, y: y + 1 });
+				queue.push({ x, y: y - 1 });
+			}
 
-			// Add neighbors to queue
-			queue.push({ x: x + 1, y });
-			queue.push({ x: x - 1, y });
-			queue.push({ x, y: y + 1 });
-			queue.push({ x, y: y - 1 });
-		}
+			// Place all terrain tiles
+			if (tilesToFill.length > 0 && selectedTerrainLayerId !== null) {
+				// Create a mutable copy of the layer tiles
+				const newTiles = [...activeLayer.tiles];
 
-		// Place all tiles in a single batch operation
-		if (tilesToFill.length > 0) {
-			onPlaceTilesBatch(tilesToFill);
+				// Place each terrain tile with autotiling
+				for (const { x, y } of tilesToFill) {
+					placeTerrainTile(
+						newTiles,
+						x,
+						y,
+						selectedTerrainLayerId,
+						mapData.width,
+						mapData.height,
+						selectedTileset,
+					);
+				}
+
+				// Update neighbors around the filled area
+				const allPositions = new Set<string>();
+				for (const { x, y } of tilesToFill) {
+					allPositions.add(`${x},${y}`);
+					// Add neighbors
+					for (let dy = -1; dy <= 1; dy++) {
+						for (let dx = -1; dx <= 1; dx++) {
+							const nx = x + dx;
+							const ny = y + dy;
+							if (
+								nx >= 0 &&
+								nx < mapData.width &&
+								ny >= 0 &&
+								ny < mapData.height
+							) {
+								allPositions.add(`${nx},${ny}`);
+							}
+						}
+					}
+				}
+
+				// Update all affected positions
+				for (const posStr of allPositions) {
+					const [x, y] = posStr.split(",").map(Number);
+					updateNeighborsAround(
+						newTiles,
+						x,
+						y,
+						mapData.width,
+						mapData.height,
+						selectedTileset,
+					);
+				}
+
+				// Place all tiles in one batch
+				onPlaceTilesBatch(tilesToFill);
+			}
+		} else {
+			// TILE MODE: Fill with regular tiles
+			// Get the target tile ID (what we're replacing)
+			const startIndex = startY * mapData.width + startX;
+			const targetTileId = activeLayer.tiles[startIndex] || 0; // Treat undefined as 0 (empty)
+
+			// Get the replacement tile ID and convert to global tile ID
+			if (!selectedTileId || !selectedTilesetId) {
+				return;
+			}
+
+			const selectedTileset = tilesets.find(
+				(ts) => ts.id === selectedTilesetId,
+			);
+			if (!selectedTileset) {
+				return;
+			}
+
+			const tilesetHash = hashTilesetId(selectedTileset.id);
+
+			const geometry = unpackTileId(selectedTileId);
+			const globalTileId = packTileId(
+				geometry.x,
+				geometry.y,
+				tilesetHash,
+				geometry.flipX,
+				geometry.flipY,
+			);
+
+			// Don't fill if clicking on the same tile
+			if (targetTileId === globalTileId) {
+				return;
+			}
+
+			// Collect all tiles to fill in a single batch
+			const tilesToFill: Array<{ x: number; y: number }> = [];
+			const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }];
+			const visited = new Set<number>();
+
+			while (queue.length > 0) {
+				const pos = queue.shift();
+				if (!pos) continue;
+				const { x, y } = pos;
+				const index = y * mapData.width + x;
+
+				// Skip if out of bounds
+				if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height)
+					continue;
+
+				// Skip if already visited
+				if (visited.has(index)) continue;
+				visited.add(index);
+
+				// Skip if not the target tile (treat undefined as 0)
+				const currentTileId = activeLayer.tiles[index] || 0;
+				if (currentTileId !== targetTileId) continue;
+
+				// Add to batch
+				tilesToFill.push({ x, y });
+
+				// Add neighbors to queue
+				queue.push({ x: x + 1, y });
+				queue.push({ x: x - 1, y });
+				queue.push({ x, y: y + 1 });
+				queue.push({ x, y: y - 1 });
+			}
+
+			// Place all tiles in a single batch operation
+			if (tilesToFill.length > 0) {
+				onPlaceTilesBatch(tilesToFill);
+			}
 		}
 	};
 
