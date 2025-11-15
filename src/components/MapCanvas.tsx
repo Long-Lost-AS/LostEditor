@@ -309,7 +309,7 @@ export const MapCanvas = ({
 			const startTileId = activeLayer.tiles[startIndex] || 0;
 			const targetTerrainLayerId = getTerrainLayerForTile(
 				startTileId,
-				selectedTileset,
+				tilesets,
 			);
 
 			// Collect all tiles to fill
@@ -335,7 +335,7 @@ export const MapCanvas = ({
 				const currentTileId = activeLayer.tiles[index] || 0;
 				const currentTerrainLayerId = getTerrainLayerForTile(
 					currentTileId,
-					selectedTileset,
+					tilesets,
 				);
 
 				if (currentTerrainLayerId !== targetTerrainLayerId) continue;
@@ -352,19 +352,35 @@ export const MapCanvas = ({
 
 			// Place all terrain tiles
 			if (tilesToFill.length > 0 && selectedTerrainLayerId !== null) {
-				// Create a mutable copy of the layer tiles
-				const newTiles = [...activeLayer.tiles];
+				// Get the terrain layer object
+				const terrainLayer = selectedTileset.terrainLayers?.find(
+					(l) => l.id === selectedTerrainLayerId,
+				);
+				if (!terrainLayer) {
+					return;
+				}
+
+				// Calculate tileset hash
+				const tilesetHash = hashTilesetId(selectedTileset.id);
+
+				// Create a mutable copy of the layer tiles and wrap in a temporary layer object
+				const tempLayer = {
+					...activeLayer,
+					tiles: [...activeLayer.tiles],
+				};
 
 				// Place each terrain tile with autotiling
 				for (const { x, y } of tilesToFill) {
 					placeTerrainTile(
-						newTiles,
+						tempLayer,
 						x,
 						y,
-						selectedTerrainLayerId,
 						mapData.width,
 						mapData.height,
+						terrainLayer,
 						selectedTileset,
+						tilesetHash,
+						tilesets,
 					);
 				}
 
@@ -393,12 +409,15 @@ export const MapCanvas = ({
 				for (const posStr of allPositions) {
 					const [x, y] = posStr.split(",").map(Number);
 					updateNeighborsAround(
-						newTiles,
+						tempLayer,
 						x,
 						y,
 						mapData.width,
 						mapData.height,
+						selectedTerrainLayerId,
 						selectedTileset,
+						tilesetHash,
+						tilesets,
 					);
 				}
 
