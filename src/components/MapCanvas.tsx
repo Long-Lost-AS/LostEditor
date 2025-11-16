@@ -392,13 +392,22 @@ const MapCanvasComponent = ({
 					);
 				}
 
-				// Update neighbors around the filled area
-				const allPositions = new Set<string>();
+				// Optimize: Only update boundary tiles to avoid redundant neighbor updates
+				// Each filled tile already recalculates based on neighbors when placed
+				// We just need to update tiles on the edge of the filled region
+				const filledSet = new Set<string>();
 				for (const { x, y } of tilesToFill) {
-					allPositions.add(`${x},${y}`);
-					// Add neighbors
+					filledSet.add(`${x},${y}`);
+				}
+
+				// Find boundary tiles (tiles with at least one non-filled neighbor)
+				const boundaryTiles: Array<{ x: number; y: number }> = [];
+				for (const { x, y } of tilesToFill) {
+					let isBoundary = false;
+					// Check if any of the 8 neighbors is NOT in the filled set
 					for (let dy = -1; dy <= 1; dy++) {
 						for (let dx = -1; dx <= 1; dx++) {
+							if (dx === 0 && dy === 0) continue;
 							const nx = x + dx;
 							const ny = y + dy;
 							if (
@@ -407,15 +416,25 @@ const MapCanvasComponent = ({
 								ny >= 0 &&
 								ny < mapData.height
 							) {
-								allPositions.add(`${nx},${ny}`);
+								if (!filledSet.has(`${nx},${ny}`)) {
+									isBoundary = true;
+									break;
+								}
+							} else {
+								// Out of bounds counts as boundary
+								isBoundary = true;
+								break;
 							}
 						}
+						if (isBoundary) break;
+					}
+					if (isBoundary) {
+						boundaryTiles.push({ x, y });
 					}
 				}
 
-				// Update all affected positions
-				for (const posStr of allPositions) {
-					const [x, y] = posStr.split(",").map(Number);
+				// Update only boundary tiles - dramatically reduces updates on large fills
+				for (const { x, y } of boundaryTiles) {
 					updateNeighborsAround(
 						tempLayer,
 						x,
@@ -532,18 +551,37 @@ const MapCanvasComponent = ({
 		return cache;
 	}, [tilesets]);
 
+	// Chunk size for spatial grid (64x64 tiles per chunk)
+	const CHUNK_SIZE = 64;
+
 	// Offscreen canvas cache for layer rendering optimization
-	// Each layer is rendered to an offscreen canvas, then that canvas is drawn to the main canvas
-	// This reduces 24,000+ drawImage calls per frame to just 1 per layer
+	// Each layer is divided into chunks (64x64 tiles), and each chunk is rendered to its own offscreen canvas
+	// This allows for granular dirty tracking - only re-render chunks that changed
 	const layerCanvasCache = useRef<
 		Map<
-			string,
-			{
-				canvas: HTMLCanvasElement;
-				dirty: boolean;
-			}
+			string, // layerId
+			Map<
+				string, // chunkKey (e.g., "0,0", "0,1")
+				{
+					canvas: HTMLCanvasElement;
+					dirty: boolean;
+				}
+			>
 		>
 	>(new Map());
+
+	// Helper function to get chunk coordinates from tile coordinates
+	const getChunkCoordinates = useCallback((tileX: number, tileY: number) => {
+		return {
+			chunkX: Math.floor(tileX / CHUNK_SIZE),
+			chunkY: Math.floor(tileY / CHUNK_SIZE),
+		};
+	}, []);
+
+	// Helper function to create chunk key string
+	const getChunkKey = useCallback((chunkX: number, chunkY: number) => {
+		return `${chunkX},${chunkY}`;
+	}, []);
 
 	// Track map data version to invalidate cache when tiles change
 	const mapDataVersionRef = useRef(0);
@@ -582,9 +620,11 @@ const MapCanvasComponent = ({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to invalidate cache when mapData changes
 	useEffect(() => {
 		mapDataVersionRef.current++;
-		// Mark all cached layers as dirty
-		layerCanvasCache.current.forEach((cache) => {
-			cache.dirty = true;
+		// Mark all cached chunks in all layers as dirty
+		layerCanvasCache.current.forEach((layerChunks) => {
+			layerChunks.forEach((chunkCache) => {
+				chunkCache.dirty = true;
+			});
 		});
 	}, [mapData]);
 
@@ -600,36 +640,32 @@ const MapCanvasComponent = ({
 		};
 	}, []);
 
-	// Render a layer to an offscreen canvas for caching
-	const renderLayerToCache = useCallback(
-		(layer: (typeof mapData.layers)[0]) => {
+	// Render a specific chunk of a layer to an offscreen canvas for caching
+	const renderChunkToCache = useCallback(
+		(layer: (typeof mapData.layers)[0], chunkX: number, chunkY: number) => {
 			if (!mapData) return null;
 
-			// Get or create offscreen canvas for this layer
-			let cacheEntry = layerCanvasCache.current.get(layer.id);
+			// Get or create chunk map for this layer
+			let layerChunks = layerCanvasCache.current.get(layer.id);
+			if (!layerChunks) {
+				layerChunks = new Map();
+				layerCanvasCache.current.set(layer.id, layerChunks);
+			}
+
+			// Get or create offscreen canvas for this chunk
+			const chunkKey = getChunkKey(chunkX, chunkY);
+			let cacheEntry = layerChunks.get(chunkKey);
 
 			if (!cacheEntry) {
-				// Create new offscreen canvas
+				// Create new offscreen canvas for this chunk
 				const offscreenCanvas = document.createElement("canvas");
-				offscreenCanvas.width = mapData.width * mapData.tileWidth;
-				offscreenCanvas.height = mapData.height * mapData.tileHeight;
+				offscreenCanvas.width = CHUNK_SIZE * mapData.tileWidth;
+				offscreenCanvas.height = CHUNK_SIZE * mapData.tileHeight;
 				cacheEntry = {
 					canvas: offscreenCanvas,
 					dirty: true,
 				};
-				layerCanvasCache.current.set(layer.id, cacheEntry);
-			}
-
-			// Check if canvas size needs to be updated
-			const expectedWidth = mapData.width * mapData.tileWidth;
-			const expectedHeight = mapData.height * mapData.tileHeight;
-			if (
-				cacheEntry.canvas.width !== expectedWidth ||
-				cacheEntry.canvas.height !== expectedHeight
-			) {
-				cacheEntry.canvas.width = expectedWidth;
-				cacheEntry.canvas.height = expectedHeight;
-				cacheEntry.dirty = true;
+				layerChunks.set(chunkKey, cacheEntry);
 			}
 
 			// Only re-render if dirty
@@ -638,19 +674,27 @@ const MapCanvasComponent = ({
 				return cacheEntry.canvas;
 			}
 
-			// Layer is dirty - re-rendering to cache
-			console.log(`[Layer Cache] Re-rendering layer "${layer.name}" to cache`);
+			// Chunk is dirty - re-rendering to cache
+			console.log(
+				`[Chunk Cache] Re-rendering layer "${layer.name}" chunk (${chunkX}, ${chunkY}) to cache`,
+			);
 
-			// Render the layer to the offscreen canvas
+			// Render the chunk to the offscreen canvas
 			const ctx = cacheEntry.canvas.getContext("2d");
 			if (!ctx) return null;
 
 			// Clear the offscreen canvas
 			ctx.clearRect(0, 0, cacheEntry.canvas.width, cacheEntry.canvas.height);
 
-			// Render all tiles in the layer
-			for (let y = 0; y < mapData.height; y++) {
-				for (let x = 0; x < mapData.width; x++) {
+			// Calculate tile bounds for this chunk
+			const startX = chunkX * CHUNK_SIZE;
+			const startY = chunkY * CHUNK_SIZE;
+			const endX = Math.min(startX + CHUNK_SIZE, mapData.width);
+			const endY = Math.min(startY + CHUNK_SIZE, mapData.height);
+
+			// Render all tiles in this chunk
+			for (let y = startY; y < endY; y++) {
+				for (let x = startX; x < endX; x++) {
 					const index = y * mapData.width + x;
 					const tileId = layer.tiles[index];
 					if (tileId === 0) continue; // Skip empty tiles
@@ -698,15 +742,15 @@ const MapCanvasComponent = ({
 						}
 					}
 
-					// Draw the tile
+					// Draw the tile at position relative to chunk origin
 					ctx.drawImage(
 						tileset.imageData,
 						geometry.x,
 						geometry.y,
 						sourceWidth,
 						sourceHeight,
-						x * mapData.tileWidth - originOffsetX,
-						y * mapData.tileHeight - originOffsetY,
+						(x - startX) * mapData.tileWidth - originOffsetX,
+						(y - startY) * mapData.tileHeight - originOffsetY,
 						sourceWidth,
 						sourceHeight,
 					);
@@ -718,7 +762,7 @@ const MapCanvasComponent = ({
 
 			return cacheEntry.canvas;
 		},
-		[mapData, tilesetByHash, tileDefinitionCache],
+		[mapData, tilesetByHash, tileDefinitionCache, getChunkKey],
 	);
 
 	// Render an entity with its hierarchy
@@ -854,19 +898,41 @@ const MapCanvasComponent = ({
 			// Performance tracking
 			const layersStart = performance.now();
 			let tilesRendered = 0;
+			let chunksRendered = 0;
 
-			// Render each layer bottom-to-top using offscreen canvas caching
-			// This dramatically improves performance by reducing 24,000+ drawImage calls to just 1 per layer
+			// Calculate which chunks are visible in the viewport
+			const { chunkX: minChunkX, chunkY: minChunkY } = getChunkCoordinates(
+				startX,
+				startY,
+			);
+			const { chunkX: maxChunkX, chunkY: maxChunkY } = getChunkCoordinates(
+				endX - 1,
+				endY - 1,
+			);
+
+			// Render each layer bottom-to-top using chunked offscreen canvas caching
+			// Each chunk is 64x64 tiles, allowing granular dirty tracking when painting tiles
+
 			mapData.layers.forEach((layer) => {
 				if (!layer.visible) return;
 
-				// Render layer to offscreen canvas (or use cached version if not dirty)
-				const cachedCanvas = renderLayerToCache(layer);
-				if (!cachedCanvas) return;
+				// Render all visible chunks for this layer
+				for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+					for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+						// Render chunk to offscreen canvas (or use cached version if not dirty)
+						const cachedChunk = renderChunkToCache(layer, cx, cy);
+						if (!cachedChunk) continue;
 
-				// Draw the cached offscreen canvas to the main canvas
-				// This is a single drawImage call instead of thousands of individual tile draws
-				ctx.drawImage(cachedCanvas, 0, 0);
+						// Calculate world position for this chunk
+						const worldX = cx * CHUNK_SIZE * mapData.tileWidth;
+						const worldY = cy * CHUNK_SIZE * mapData.tileHeight;
+
+						// Draw the cached chunk canvas at the correct position
+						ctx.drawImage(cachedChunk, worldX, worldY);
+
+						chunksRendered++;
+					}
+				}
 
 				// Count tiles for profiling (estimate based on visible area)
 				tilesRendered += (endX - startX) * (endY - startY);
@@ -1256,7 +1322,7 @@ const MapCanvasComponent = ({
 				totalTime: `${totalRenderTime.toFixed(2)}ms`,
 				breakdown: {
 					clear: `${clearTime.toFixed(2)}ms`,
-					layers: `${layersTime.toFixed(2)}ms (${tilesRendered} tiles)`,
+					layers: `${layersTime.toFixed(2)}ms (${tilesRendered} tiles, ${chunksRendered} chunks)`,
 					entities: `${entitiesTime.toFixed(2)}ms (${entitiesRendered} entities)`,
 					points: `${pointsTime.toFixed(2)}ms (${pointsRendered} points)`,
 					colliders: `${collidersTime.toFixed(2)}ms (${collidersRendered} colliders)`,
@@ -1686,7 +1752,8 @@ const MapCanvasComponent = ({
 		currentTool,
 		getPan,
 		getZoom,
-		renderLayerToCache,
+		renderChunkToCache,
+		getChunkCoordinates,
 		tilesetByHash,
 		tileDefinitionCache,
 	]);
