@@ -127,7 +127,8 @@ interface EditorContextType {
 
 	// View state
 	zoom: number;
-	setZoom: (zoom: number) => void;
+	setZoom: (zoom: number, isZooming?: boolean) => void;
+	getZoom: () => number;
 	panX: number;
 	panY: number;
 	setPan: (x: number, y: number, isDragging?: boolean) => void;
@@ -315,9 +316,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		onCancel: () => void;
 	} | null>(null);
 
-	// Refs for pan values during active dragging (performance optimization)
+	// Refs for pan/zoom values during active dragging/zooming (performance optimization)
 	const panXRef = useRef(0);
 	const panYRef = useRef(0);
+	const zoomRef = useRef(2);
 
 	const setPan = useCallback(
 		(x: number, y: number, isDragging = false) => {
@@ -362,8 +364,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	}, []);
 
 	const setZoomAndUpdateTab = useCallback(
-		(newZoom: number) => {
+		(newZoom: number, isZooming = false) => {
+			// During zoom, only update ref to avoid React re-renders
+			if (isZooming) {
+				zoomRef.current = newZoom;
+				return;
+			}
+
+			// On zoom end or direct calls, update state
 			setZoom(newZoom);
+			zoomRef.current = newZoom;
 
 			// Also update the active map tab's viewState
 			setTabs((prev) => {
@@ -385,6 +395,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		},
 		[activeTabId],
 	);
+
+	// Getter for current zoom value (reads from ref for immediate value)
+	const getZoom = useCallback(() => {
+		return zoomRef.current;
+	}, []);
 
 	// Map helper functions - must be defined before functions that use them
 	const getActiveMapTab = useCallback((): MapTab | null => {
@@ -2200,6 +2215,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		getTilesetById,
 		zoom,
 		setZoom: setZoomAndUpdateTab,
+		getZoom,
 		panX,
 		panY,
 		setPan,
