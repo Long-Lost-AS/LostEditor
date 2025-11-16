@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import {
@@ -75,7 +75,7 @@ interface MapCanvasProps {
 	onEndBatch?: () => void;
 }
 
-export const MapCanvas = ({
+const MapCanvasComponent = ({
 	mapData,
 	currentTool,
 	currentLayerId,
@@ -114,6 +114,7 @@ export const MapCanvas = ({
 		panX,
 		panY,
 		setPan,
+		getPan,
 		gridVisible,
 		// autotilingOverride,
 		selectedTilesetId,
@@ -122,6 +123,9 @@ export const MapCanvas = ({
 		selectedEntityDefId,
 		openEntityFromFile,
 	} = useEditor();
+
+	// RAF handle for throttling renders during pan
+	const rafHandle = useRef<number | null>(null);
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [isDrawing, setIsDrawing] = useState(false);
@@ -528,6 +532,15 @@ export const MapCanvas = ({
 		currentTool,
 	]);
 
+	// Cleanup RAF on unmount
+	useEffect(() => {
+		return () => {
+			if (rafHandle.current !== null) {
+				cancelAnimationFrame(rafHandle.current);
+			}
+		};
+	}, []);
+
 	// Render an entity with its hierarchy
 	const renderEntity = useCallback(
 		(
@@ -626,90 +639,108 @@ export const MapCanvas = ({
 			ctx.fillStyle = "#2a2a2a";
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+			// Get current pan values from refs (for smooth panning without re-renders)
+			const currentPan = getPan();
+
 			ctx.save();
-			ctx.translate(panX, panY);
+			ctx.translate(currentPan.x, currentPan.y);
 			ctx.scale(zoom, zoom);
+
+			// Calculate visible tile range for viewport culling (performance optimization)
+			const visibleMinX =
+				Math.floor(-currentPan.x / zoom / mapData.tileWidth) - 1;
+			const visibleMinY =
+				Math.floor(-currentPan.y / zoom / mapData.tileHeight) - 1;
+			const visibleMaxX =
+				Math.ceil((canvas.width - currentPan.x) / zoom / mapData.tileWidth) + 1;
+			const visibleMaxY =
+				Math.ceil((canvas.height - currentPan.y) / zoom / mapData.tileHeight) +
+				1;
+
+			// Clamp to map bounds
+			const startX = Math.max(0, visibleMinX);
+			const startY = Math.max(0, visibleMinY);
+			const endX = Math.min(mapData.width, visibleMaxX);
+			const endY = Math.min(mapData.height, visibleMaxY);
 
 			// Render each layer bottom-to-top
 			mapData.layers.forEach((layer) => {
 				if (!layer.visible) return;
 
-				// Render tile layer - iterate dense array
+				// Render tile layer - iterate only visible tiles (viewport culling)
 				// Collect compound tile positions to draw indicators after all tiles
 				const compoundTilePositions: Array<{ x: number; y: number }> = [];
-				let _tileCount = 0;
 
-				for (let index = 0; index < layer.tiles.length; index++) {
-					const tileId = layer.tiles[index];
-					if (tileId === 0) continue; // Skip empty tiles
+				// Only iterate through visible tile range
+				for (let y = startY; y < endY; y++) {
+					for (let x = startX; x < endX; x++) {
+						const index = y * mapData.width + x;
+						const tileId = layer.tiles[index];
+						if (tileId === 0) continue; // Skip empty tiles
 
-					_tileCount++;
-					// Calculate x, y position from array index
-					const x = index % mapData.width;
-					const y = Math.floor(index / mapData.width);
+						// Unpack tile geometry from the packed ID (includes tileset hash)
+						const geometry = unpackTileId(tileId);
 
-					// Unpack tile geometry from the packed ID (includes tileset hash)
-					const geometry = unpackTileId(tileId);
-
-					// Get tileset by hash
-					const tileset = tilesets.find(
-						(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
-					);
-					if (!tileset?.imageData) {
-						continue;
-					}
-
-					// Create local tile ID to find definition
-					const localTileId = packTileId(
-						geometry.x,
-						geometry.y,
-						0,
-						geometry.flipX,
-						geometry.flipY,
-					);
-
-					// Find tile definition
-					const tileDefinition = tileset.tiles.find(
-						(t) => t.id === localTileId,
-					);
-
-					// Determine dimensions
-					let sourceWidth = tileset.tileWidth;
-					let sourceHeight = tileset.tileHeight;
-					let originOffsetX = 0;
-					let originOffsetY = 0;
-
-					if (
-						tileDefinition?.isCompound &&
-						tileDefinition.width &&
-						tileDefinition.height
-					) {
-						// Compound tile - use full dimensions
-						sourceWidth = tileDefinition.width;
-						sourceHeight = tileDefinition.height;
-
-						// Apply origin offset if specified
-						if (tileDefinition.origin) {
-							originOffsetX = tileDefinition.origin.x * sourceWidth;
-							originOffsetY = tileDefinition.origin.y * sourceHeight;
+						// Get tileset by hash
+						const tileset = tilesets.find(
+							(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
+						);
+						if (!tileset?.imageData) {
+							continue;
 						}
 
-						// Store position for indicator drawing later
-						compoundTilePositions.push({ x, y });
-					}
+						// Create local tile ID to find definition
+						const localTileId = packTileId(
+							geometry.x,
+							geometry.y,
+							0,
+							geometry.flipX,
+							geometry.flipY,
+						);
 
-					// Draw the tile with origin offset
-					ctx.drawImage(
-						tileset.imageData,
-						geometry.x,
-						geometry.y,
-						sourceWidth,
-						sourceHeight,
-						x * mapData.tileWidth - originOffsetX,
-						y * mapData.tileHeight - originOffsetY,
-						sourceWidth,
-						sourceHeight,
-					);
+						// Find tile definition
+						const tileDefinition = tileset.tiles.find(
+							(t) => t.id === localTileId,
+						);
+
+						// Determine dimensions
+						let sourceWidth = tileset.tileWidth;
+						let sourceHeight = tileset.tileHeight;
+						let originOffsetX = 0;
+						let originOffsetY = 0;
+
+						if (
+							tileDefinition?.isCompound &&
+							tileDefinition.width &&
+							tileDefinition.height
+						) {
+							// Compound tile - use full dimensions
+							sourceWidth = tileDefinition.width;
+							sourceHeight = tileDefinition.height;
+
+							// Apply origin offset if specified
+							if (tileDefinition.origin) {
+								originOffsetX = tileDefinition.origin.x * sourceWidth;
+								originOffsetY = tileDefinition.origin.y * sourceHeight;
+							}
+
+							// Store position for indicator drawing later
+							compoundTilePositions.push({ x, y });
+						}
+
+						// Draw the tile with origin offset
+						ctx.drawImage(
+							tileset.imageData,
+							geometry.x,
+							geometry.y,
+							sourceWidth,
+							sourceHeight,
+							x * mapData.tileWidth - originOffsetX,
+							y * mapData.tileHeight - originOffsetY,
+							sourceWidth,
+							sourceHeight,
+						);
+					}
 				}
 
 				// Draw compound tile indicators on top of all tiles
@@ -1406,6 +1437,7 @@ export const MapCanvas = ({
 		isDraggingColliderPoint,
 		tempColliderPointPosition,
 		currentTool,
+		getPan,
 	]);
 
 	// Trigger render when dependencies change
@@ -1446,8 +1478,10 @@ export const MapCanvas = ({
 		const x = screenX - rect.left;
 		const y = screenY - rect.top;
 
-		const worldX = (x - panX) / zoom;
-		const worldY = (y - panY) / zoom;
+		// Use getPan() to get current values (may be from refs during drag)
+		const currentPan = getPan();
+		const worldX = (x - currentPan.x) / zoom;
+		const worldY = (y - currentPan.y) / zoom;
 
 		return { worldX, worldY };
 	};
@@ -1860,11 +1894,17 @@ export const MapCanvas = ({
 			setIsHoveringSelectedEntity(false);
 		}
 
-		// Trigger a render to show the hover preview
-		renderMap.current();
-
 		if (isDragging) {
-			setPan(e.clientX - dragStartX, e.clientY - dragStartY);
+			// Update pan using refs during drag (no React re-render)
+			setPan(e.clientX - dragStartX, e.clientY - dragStartY, true);
+
+			// Use RAF to throttle renders during pan
+			if (rafHandle.current === null) {
+				rafHandle.current = requestAnimationFrame(() => {
+					renderMap.current();
+					rafHandle.current = null;
+				});
+			}
 		} else if (
 			entityDragStart &&
 			selectedEntityId &&
@@ -2123,6 +2163,18 @@ export const MapCanvas = ({
 		if (currentTool === "pencil" && pencilStrokeTiles.length > 0) {
 			onEndBatch?.();
 			setPencilStrokeTiles([]);
+		}
+
+		// Commit pan changes to state if we were dragging
+		if (isDragging) {
+			const currentPan = getPan();
+			setPan(currentPan.x, currentPan.y, false); // Commit to state
+
+			// Cancel any pending RAF
+			if (rafHandle.current !== null) {
+				cancelAnimationFrame(rafHandle.current);
+				rafHandle.current = null;
+			}
 		}
 
 		setIsDragging(false);
@@ -2818,3 +2870,15 @@ export const MapCanvas = ({
 		</div>
 	);
 };
+
+// Memoize the component to prevent unnecessary re-renders
+// Only re-render when mapData, currentTool, currentLayerId, or selectedPointId change
+export const MapCanvas = memo(MapCanvasComponent, (prevProps, nextProps) => {
+	// Return true if props are equal (skip re-render)
+	return (
+		prevProps.mapData === nextProps.mapData &&
+		prevProps.currentTool === nextProps.currentTool &&
+		prevProps.currentLayerId === nextProps.currentLayerId &&
+		prevProps.selectedPointId === nextProps.selectedPointId
+	);
+});

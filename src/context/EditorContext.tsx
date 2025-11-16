@@ -130,7 +130,8 @@ interface EditorContextType {
 	setZoom: (zoom: number) => void;
 	panX: number;
 	panY: number;
-	setPan: (x: number, y: number) => void;
+	setPan: (x: number, y: number, isDragging?: boolean) => void;
+	getPan: () => { x: number; y: number };
 
 	// Project state
 	currentProjectPath: string | null;
@@ -314,10 +315,24 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		onCancel: () => void;
 	} | null>(null);
 
+	// Refs for pan values during active dragging (performance optimization)
+	const panXRef = useRef(0);
+	const panYRef = useRef(0);
+
 	const setPan = useCallback(
-		(x: number, y: number) => {
+		(x: number, y: number, isDragging = false) => {
+			// During drag, only update refs to avoid React re-renders
+			if (isDragging) {
+				panXRef.current = x;
+				panYRef.current = y;
+				return;
+			}
+
+			// On drag end or direct calls, update state
 			setPanX(x);
 			setPanY(y);
+			panXRef.current = x;
+			panYRef.current = y;
 
 			// Also update the active map tab's viewState
 			setTabs((prev) => {
@@ -340,6 +355,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		},
 		[activeTabId],
 	);
+
+	// Getter for current pan values (reads from refs for immediate values)
+	const getPan = useCallback(() => {
+		return { x: panXRef.current, y: panYRef.current };
+	}, []);
 
 	const setZoomAndUpdateTab = useCallback(
 		(newZoom: number) => {
@@ -2183,6 +2203,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		panX,
 		panY,
 		setPan,
+		getPan,
 		currentProjectPath,
 		setCurrentProjectPath,
 		projectModified,
