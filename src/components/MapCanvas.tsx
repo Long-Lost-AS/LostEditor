@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import {
@@ -111,6 +111,7 @@ const MapCanvasComponent = ({
 		getTilesetById,
 		zoom,
 		setZoom,
+		getZoom,
 		panX,
 		panY,
 		setPan,
@@ -124,8 +125,11 @@ const MapCanvasComponent = ({
 		openEntityFromFile,
 	} = useEditor();
 
-	// RAF handle for throttling renders during pan
+	// RAF handle for throttling renders during pan and zoom
 	const rafHandle = useRef<number | null>(null);
+	// Track if we're actively zooming to throttle state updates
+	const isZooming = useRef(false);
+	const zoomTimeoutHandle = useRef<NodeJS.Timeout | null>(null);
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [isDrawing, setIsDrawing] = useState(false);
@@ -502,6 +506,48 @@ const MapCanvasComponent = ({
 		}
 	};
 
+	// Performance optimization: Cache tileset lookups by hash (Map provides O(1) lookup vs O(n) array.find)
+	const tilesetByHash = useMemo(() => {
+		const cache = new Map<number, (typeof tilesets)[0]>();
+		for (const tileset of tilesets) {
+			const hash = hashTilesetId(tileset.id);
+			cache.set(hash, tileset);
+		}
+		return cache;
+	}, [tilesets]);
+
+	// Performance optimization: Cache tile definitions by ID for each tileset
+	const tileDefinitionCache = useMemo(() => {
+		const cache = new Map<
+			string,
+			Map<number, (typeof tilesets)[0]["tiles"][0]>
+		>();
+		for (const tileset of tilesets) {
+			const tileMap = new Map<number, (typeof tilesets)[0]["tiles"][0]>();
+			for (const tile of tileset.tiles) {
+				tileMap.set(tile.id, tile);
+			}
+			cache.set(tileset.id, tileMap);
+		}
+		return cache;
+	}, [tilesets]);
+
+	// Offscreen canvas cache for layer rendering optimization
+	// Each layer is rendered to an offscreen canvas, then that canvas is drawn to the main canvas
+	// This reduces 24,000+ drawImage calls per frame to just 1 per layer
+	const layerCanvasCache = useRef<
+		Map<
+			string,
+			{
+				canvas: HTMLCanvasElement;
+				dirty: boolean;
+			}
+		>
+	>(new Map());
+
+	// Track map data version to invalidate cache when tiles change
+	const mapDataVersionRef = useRef(0);
+
 	// Refs to track current pan values for wheel event
 	const panXRef = useRef(panX);
 	const panYRef = useRef(panY);
@@ -532,14 +578,148 @@ const MapCanvasComponent = ({
 		currentTool,
 	]);
 
-	// Cleanup RAF on unmount
+	// Invalidate layer cache when map data changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to invalidate cache when mapData changes
+	useEffect(() => {
+		mapDataVersionRef.current++;
+		// Mark all cached layers as dirty
+		layerCanvasCache.current.forEach((cache) => {
+			cache.dirty = true;
+		});
+	}, [mapData]);
+
+	// Cleanup RAF and zoom timeout on unmount
 	useEffect(() => {
 		return () => {
 			if (rafHandle.current !== null) {
 				cancelAnimationFrame(rafHandle.current);
 			}
+			if (zoomTimeoutHandle.current !== null) {
+				clearTimeout(zoomTimeoutHandle.current);
+			}
 		};
 	}, []);
+
+	// Render a layer to an offscreen canvas for caching
+	const renderLayerToCache = useCallback(
+		(layer: (typeof mapData.layers)[0]) => {
+			if (!mapData) return null;
+
+			// Get or create offscreen canvas for this layer
+			let cacheEntry = layerCanvasCache.current.get(layer.id);
+
+			if (!cacheEntry) {
+				// Create new offscreen canvas
+				const offscreenCanvas = document.createElement("canvas");
+				offscreenCanvas.width = mapData.width * mapData.tileWidth;
+				offscreenCanvas.height = mapData.height * mapData.tileHeight;
+				cacheEntry = {
+					canvas: offscreenCanvas,
+					dirty: true,
+				};
+				layerCanvasCache.current.set(layer.id, cacheEntry);
+			}
+
+			// Check if canvas size needs to be updated
+			const expectedWidth = mapData.width * mapData.tileWidth;
+			const expectedHeight = mapData.height * mapData.tileHeight;
+			if (
+				cacheEntry.canvas.width !== expectedWidth ||
+				cacheEntry.canvas.height !== expectedHeight
+			) {
+				cacheEntry.canvas.width = expectedWidth;
+				cacheEntry.canvas.height = expectedHeight;
+				cacheEntry.dirty = true;
+			}
+
+			// Only re-render if dirty
+			if (!cacheEntry.dirty) {
+				// Using cached version - no re-render needed
+				return cacheEntry.canvas;
+			}
+
+			// Layer is dirty - re-rendering to cache
+			console.log(`[Layer Cache] Re-rendering layer "${layer.name}" to cache`);
+
+			// Render the layer to the offscreen canvas
+			const ctx = cacheEntry.canvas.getContext("2d");
+			if (!ctx) return null;
+
+			// Clear the offscreen canvas
+			ctx.clearRect(0, 0, cacheEntry.canvas.width, cacheEntry.canvas.height);
+
+			// Render all tiles in the layer
+			for (let y = 0; y < mapData.height; y++) {
+				for (let x = 0; x < mapData.width; x++) {
+					const index = y * mapData.width + x;
+					const tileId = layer.tiles[index];
+					if (tileId === 0) continue; // Skip empty tiles
+
+					// Unpack tile geometry
+					const geometry = unpackTileId(tileId);
+
+					// Get tileset by hash
+					const tileset = tilesetByHash.get(geometry.tilesetHash);
+					if (!tileset?.imageData) continue;
+
+					// Create local tile ID to find definition
+					const localTileId = packTileId(
+						geometry.x,
+						geometry.y,
+						0,
+						geometry.flipX,
+						geometry.flipY,
+					);
+
+					// Find tile definition
+					const tileDefinition = tileDefinitionCache
+						.get(tileset.id)
+						?.get(localTileId);
+
+					// Determine dimensions
+					let sourceWidth = tileset.tileWidth;
+					let sourceHeight = tileset.tileHeight;
+					let originOffsetX = 0;
+					let originOffsetY = 0;
+
+					if (
+						tileDefinition?.isCompound &&
+						tileDefinition.width &&
+						tileDefinition.height
+					) {
+						// Compound tile - use full dimensions
+						sourceWidth = tileDefinition.width;
+						sourceHeight = tileDefinition.height;
+
+						// Apply origin offset if specified
+						if (tileDefinition.origin) {
+							originOffsetX = tileDefinition.origin.x * sourceWidth;
+							originOffsetY = tileDefinition.origin.y * sourceHeight;
+						}
+					}
+
+					// Draw the tile
+					ctx.drawImage(
+						tileset.imageData,
+						geometry.x,
+						geometry.y,
+						sourceWidth,
+						sourceHeight,
+						x * mapData.tileWidth - originOffsetX,
+						y * mapData.tileHeight - originOffsetY,
+						sourceWidth,
+						sourceHeight,
+					);
+				}
+			}
+
+			// Mark as clean
+			cacheEntry.dirty = false;
+
+			return cacheEntry.canvas;
+		},
+		[mapData, tilesetByHash, tileDefinitionCache],
+	);
 
 	// Render an entity with its hierarchy
 	const renderEntity = useCallback(
@@ -622,8 +802,10 @@ const MapCanvasComponent = ({
 	const renderMap = useRef<() => void>(() => {});
 
 	// Update renderMap ref when dependencies change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: zoom/tilesetByHash/tileDefinitionCache are from useMemo
 	useEffect(() => {
 		renderMap.current = () => {
+			const renderStartTime = performance.now();
 			const canvas = canvasRef.current;
 			if (!canvas) return;
 
@@ -636,26 +818,32 @@ const MapCanvasComponent = ({
 			}
 
 			// Clear canvas
+			const clearStart = performance.now();
 			ctx.fillStyle = "#2a2a2a";
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			const clearTime = performance.now() - clearStart;
 
-			// Get current pan values from refs (for smooth panning without re-renders)
+			// Get current pan and zoom values from refs (for smooth panning/zooming without re-renders)
 			const currentPan = getPan();
+			const currentZoom = getZoom();
 
 			ctx.save();
 			ctx.translate(currentPan.x, currentPan.y);
-			ctx.scale(zoom, zoom);
+			ctx.scale(currentZoom, currentZoom);
 
 			// Calculate visible tile range for viewport culling (performance optimization)
 			const visibleMinX =
-				Math.floor(-currentPan.x / zoom / mapData.tileWidth) - 1;
+				Math.floor(-currentPan.x / currentZoom / mapData.tileWidth) - 1;
 			const visibleMinY =
-				Math.floor(-currentPan.y / zoom / mapData.tileHeight) - 1;
+				Math.floor(-currentPan.y / currentZoom / mapData.tileHeight) - 1;
 			const visibleMaxX =
-				Math.ceil((canvas.width - currentPan.x) / zoom / mapData.tileWidth) + 1;
+				Math.ceil(
+					(canvas.width - currentPan.x) / currentZoom / mapData.tileWidth,
+				) + 1;
 			const visibleMaxY =
-				Math.ceil((canvas.height - currentPan.y) / zoom / mapData.tileHeight) +
-				1;
+				Math.ceil(
+					(canvas.height - currentPan.y) / currentZoom / mapData.tileHeight,
+				) + 1;
 
 			// Clamp to map bounds
 			const startX = Math.max(0, visibleMinX);
@@ -663,111 +851,48 @@ const MapCanvasComponent = ({
 			const endX = Math.min(mapData.width, visibleMaxX);
 			const endY = Math.min(mapData.height, visibleMaxY);
 
-			// Render each layer bottom-to-top
+			// Performance tracking
+			const layersStart = performance.now();
+			let tilesRendered = 0;
+
+			// Render each layer bottom-to-top using offscreen canvas caching
+			// This dramatically improves performance by reducing 24,000+ drawImage calls to just 1 per layer
 			mapData.layers.forEach((layer) => {
 				if (!layer.visible) return;
 
-				// Render tile layer - iterate only visible tiles (viewport culling)
-				// Collect compound tile positions to draw indicators after all tiles
-				const compoundTilePositions: Array<{ x: number; y: number }> = [];
+				// Render layer to offscreen canvas (or use cached version if not dirty)
+				const cachedCanvas = renderLayerToCache(layer);
+				if (!cachedCanvas) return;
 
-				// Only iterate through visible tile range
-				for (let y = startY; y < endY; y++) {
-					for (let x = startX; x < endX; x++) {
-						const index = y * mapData.width + x;
-						const tileId = layer.tiles[index];
-						if (tileId === 0) continue; // Skip empty tiles
+				// Draw the cached offscreen canvas to the main canvas
+				// This is a single drawImage call instead of thousands of individual tile draws
+				ctx.drawImage(cachedCanvas, 0, 0);
 
-						// Unpack tile geometry from the packed ID (includes tileset hash)
-						const geometry = unpackTileId(tileId);
-
-						// Get tileset by hash
-						const tileset = tilesets.find(
-							(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
-						);
-						if (!tileset?.imageData) {
-							continue;
-						}
-
-						// Create local tile ID to find definition
-						const localTileId = packTileId(
-							geometry.x,
-							geometry.y,
-							0,
-							geometry.flipX,
-							geometry.flipY,
-						);
-
-						// Find tile definition
-						const tileDefinition = tileset.tiles.find(
-							(t) => t.id === localTileId,
-						);
-
-						// Determine dimensions
-						let sourceWidth = tileset.tileWidth;
-						let sourceHeight = tileset.tileHeight;
-						let originOffsetX = 0;
-						let originOffsetY = 0;
-
-						if (
-							tileDefinition?.isCompound &&
-							tileDefinition.width &&
-							tileDefinition.height
-						) {
-							// Compound tile - use full dimensions
-							sourceWidth = tileDefinition.width;
-							sourceHeight = tileDefinition.height;
-
-							// Apply origin offset if specified
-							if (tileDefinition.origin) {
-								originOffsetX = tileDefinition.origin.x * sourceWidth;
-								originOffsetY = tileDefinition.origin.y * sourceHeight;
-							}
-
-							// Store position for indicator drawing later
-							compoundTilePositions.push({ x, y });
-						}
-
-						// Draw the tile with origin offset
-						ctx.drawImage(
-							tileset.imageData,
-							geometry.x,
-							geometry.y,
-							sourceWidth,
-							sourceHeight,
-							x * mapData.tileWidth - originOffsetX,
-							y * mapData.tileHeight - originOffsetY,
-							sourceWidth,
-							sourceHeight,
-						);
-					}
-				}
-
-				// Draw compound tile indicators on top of all tiles
-				compoundTilePositions.forEach(({ x, y }) => {
-					// Draw a small dot at the center of the cell that stores this compound tile
-					const cellCenterX = x * mapData.tileWidth + mapData.tileWidth / 2;
-					const cellCenterY = y * mapData.tileHeight + mapData.tileHeight / 2;
-
-					ctx.fillStyle = "rgba(255, 165, 0, 0.7)";
-					ctx.beginPath();
-					ctx.arc(cellCenterX, cellCenterY, 3 / zoom, 0, Math.PI * 2);
-					ctx.fill();
-
-					// Draw a small outline around the origin cell
-					ctx.strokeStyle = "rgba(255, 165, 0, 0.5)";
-					ctx.lineWidth = 1 / zoom;
-					ctx.strokeRect(
-						x * mapData.tileWidth,
-						y * mapData.tileHeight,
-						mapData.tileWidth,
-						mapData.tileHeight,
-					);
-				});
+				// Count tiles for profiling (estimate based on visible area)
+				tilesRendered += (endX - startX) * (endY - startY);
 			});
 
+			const layersTime = performance.now() - layersStart;
+
 			// Render map-level entities (on top of all layers)
+			const entitiesStart = performance.now();
+			let entitiesRendered = 0;
 			if (mapData.entities && mapData.entities.length > 0) {
+				// Calculate visible world bounds for entity viewport culling
+				const entityCullingBuffer = 3; // Buffer in tiles to account for large entities
+				const visibleWorldMinX = Math.max(
+					0,
+					(startX - entityCullingBuffer) * mapData.tileWidth,
+				);
+				const visibleWorldMinY = Math.max(
+					0,
+					(startY - entityCullingBuffer) * mapData.tileHeight,
+				);
+				const visibleWorldMaxX =
+					(endX + entityCullingBuffer) * mapData.tileWidth;
+				const visibleWorldMaxY =
+					(endY + entityCullingBuffer) * mapData.tileHeight;
+
 				// Helper function to calculate Y-sort position for an entity
 				const getEntityYSortPosition = (instance: EntityInstance) => {
 					const entityDef = entityManager.getEntityDefinition(
@@ -792,8 +917,21 @@ const MapCanvasComponent = ({
 					return instance.y + minYSortOffset;
 				};
 
-				// Sort entities by Y position + ySortOffset for proper depth rendering
-				const sortedEntities = [...mapData.entities].sort((a, b) => {
+				// Filter entities to only those potentially visible (viewport culling)
+				const visibleEntities = mapData.entities.filter((entity) => {
+					// Simple AABB check with buffer for entity size
+					// Most entities are small (1-2 tiles), buffer accounts for larger ones
+					const entityMaxSize = 128; // Assume max entity size of 128px
+					return (
+						entity.x + entityMaxSize >= visibleWorldMinX &&
+						entity.x - entityMaxSize <= visibleWorldMaxX &&
+						entity.y + entityMaxSize >= visibleWorldMinY &&
+						entity.y - entityMaxSize <= visibleWorldMaxY
+					);
+				});
+
+				// Sort visible entities by Y position + ySortOffset for proper depth rendering
+				const sortedEntities = visibleEntities.sort((a, b) => {
 					const aY = getEntityYSortPosition(a);
 					const bY = getEntityYSortPosition(b);
 					return aY - bY;
@@ -824,12 +962,38 @@ const MapCanvasComponent = ({
 
 					// Render entity with hierarchy
 					renderEntity(ctx, entityDef, instanceToRender, tileset.imageData);
+					entitiesRendered++;
 				});
 			}
 
-			// Render map-level points (on top of entities)
+			const entitiesTime = performance.now() - entitiesStart;
+
+			// Render map-level points (on top of entities) with viewport culling
+			const pointsStart = performance.now();
+			let pointsRendered = 0;
 			if (mapData.points && mapData.points.length > 0) {
+				const pointBuffer = 50; // Buffer in pixels for point visibility
+				const visibleWorldMinX = Math.max(
+					0,
+					(startX - 1) * mapData.tileWidth - pointBuffer,
+				);
+				const visibleWorldMinY = Math.max(
+					0,
+					(startY - 1) * mapData.tileHeight - pointBuffer,
+				);
+				const visibleWorldMaxX = (endX + 1) * mapData.tileWidth + pointBuffer;
+				const visibleWorldMaxY = (endY + 1) * mapData.tileHeight + pointBuffer;
+
 				mapData.points.forEach((point) => {
+					// Skip points outside visible viewport
+					if (
+						point.x < visibleWorldMinX ||
+						point.x > visibleWorldMaxX ||
+						point.y < visibleWorldMinY ||
+						point.y > visibleWorldMaxY
+					) {
+						return;
+					}
 					// Use temp position if this point is being dragged
 					const pointToRender =
 						isDraggingPoint && selectedPointId === point.id && tempPointPosition
@@ -846,9 +1010,15 @@ const MapCanvasComponent = ({
 					ctx.strokeStyle = isSelected
 						? "rgba(0, 150, 255, 0.9)"
 						: "rgba(255, 100, 100, 0.8)";
-					ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
+					ctx.lineWidth = isSelected ? 3 / currentZoom : 2 / currentZoom;
 					ctx.beginPath();
-					ctx.arc(pointToRender.x, pointToRender.y, 8 / zoom, 0, Math.PI * 2);
+					ctx.arc(
+						pointToRender.x,
+						pointToRender.y,
+						8 / currentZoom,
+						0,
+						Math.PI * 2,
+					);
 					ctx.stroke();
 
 					// Draw inner circle (filled)
@@ -856,26 +1026,63 @@ const MapCanvasComponent = ({
 						? "rgba(0, 150, 255, 0.8)"
 						: "rgba(255, 100, 100, 0.7)";
 					ctx.beginPath();
-					ctx.arc(pointToRender.x, pointToRender.y, 4 / zoom, 0, Math.PI * 2);
+					ctx.arc(
+						pointToRender.x,
+						pointToRender.y,
+						4 / currentZoom,
+						0,
+						Math.PI * 2,
+					);
 					ctx.fill();
 
 					// Draw name if zoomed in enough and name exists
-					if (zoom > 0.5 && pointToRender.name) {
+					if (currentZoom > 0.5 && pointToRender.name) {
 						ctx.fillStyle = "#ffffff";
-						ctx.font = `${12 / zoom}px sans-serif`;
+						ctx.font = `${12 / currentZoom}px sans-serif`;
 						ctx.fillText(
 							pointToRender.name,
-							pointToRender.x + 10 / zoom,
-							pointToRender.y + 4 / zoom,
+							pointToRender.x + 10 / currentZoom,
+							pointToRender.y + 4 / currentZoom,
 						);
 					}
+					pointsRendered++;
 				});
 			}
 
-			// Render map-level colliders (on top of points)
+			const pointsTime = performance.now() - pointsStart;
+
+			// Render map-level colliders (on top of points) with viewport culling
+			const collidersStart = performance.now();
+			let collidersRendered = 0;
 			if (mapData.colliders && mapData.colliders.length > 0) {
+				const colliderBuffer = 100; // Buffer in pixels for collider visibility
+				const visibleWorldMinX = Math.max(
+					0,
+					(startX - 1) * mapData.tileWidth - colliderBuffer,
+				);
+				const visibleWorldMinY = Math.max(
+					0,
+					(startY - 1) * mapData.tileHeight - colliderBuffer,
+				);
+				const visibleWorldMaxX =
+					(endX + 1) * mapData.tileWidth + colliderBuffer;
+				const visibleWorldMaxY =
+					(endY + 1) * mapData.tileHeight + colliderBuffer;
+
 				mapData.colliders.forEach((collider) => {
 					if (collider.points.length < 2) return;
+
+					// Simple AABB check for collider visibility
+					// Check if any point of the collider is within visible bounds
+					const isVisible = collider.points.some(
+						(point) =>
+							point.x >= visibleWorldMinX &&
+							point.x <= visibleWorldMaxX &&
+							point.y >= visibleWorldMinY &&
+							point.y <= visibleWorldMaxY,
+					);
+
+					if (!isVisible) return;
 
 					// Determine if this collider is selected
 					const isSelected = selectedColliderId === collider.id;
@@ -884,7 +1091,7 @@ const MapCanvasComponent = ({
 					ctx.strokeStyle = isSelected
 						? "rgba(255, 165, 0, 0.9)"
 						: "rgba(255, 165, 0, 0.6)";
-					ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
+					ctx.lineWidth = isSelected ? 3 / currentZoom : 2 / currentZoom;
 					ctx.beginPath();
 
 					// Handle temp point position if dragging a point (for pointer tool)
@@ -935,9 +1142,9 @@ const MapCanvasComponent = ({
 						ctx.strokeStyle = isSelectedPoint
 							? "rgba(0, 150, 255, 0.9)"
 							: "rgba(255, 165, 0, 0.9)";
-						ctx.lineWidth = isSelectedPoint ? 3 / zoom : 2 / zoom;
+						ctx.lineWidth = isSelectedPoint ? 3 / currentZoom : 2 / currentZoom;
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 6 / currentZoom, 0, Math.PI * 2);
 						ctx.stroke();
 
 						// Inner circle (filled)
@@ -945,12 +1152,12 @@ const MapCanvasComponent = ({
 							? "rgba(0, 150, 255, 0.8)"
 							: "rgba(255, 165, 0, 0.7)";
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 3 / zoom, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 3 / currentZoom, 0, Math.PI * 2);
 						ctx.fill();
 					}
 
 					// Draw collider name if selected and zoomed in enough
-					if (isSelected && zoom > 0.5 && collider.name) {
+					if (isSelected && currentZoom > 0.5 && collider.name) {
 						// Calculate center point
 						const centerX =
 							collider.points.reduce((sum, p) => sum + p.x, 0) /
@@ -960,11 +1167,12 @@ const MapCanvasComponent = ({
 							collider.points.length;
 
 						ctx.fillStyle = "#ffffff";
-						ctx.font = `${12 / zoom}px sans-serif`;
+						ctx.font = `${12 / currentZoom}px sans-serif`;
 						ctx.textAlign = "center";
 						ctx.fillText(collider.name, centerX, centerY);
 						ctx.textAlign = "left"; // Reset
 					}
+					collidersRendered++;
 				});
 			}
 
@@ -972,7 +1180,7 @@ const MapCanvasComponent = ({
 			if (isDrawingCollider && drawingColliderPoints.length > 0) {
 				// Draw lines connecting points (like EntityEditorView)
 				ctx.strokeStyle = "rgba(100, 150, 255, 0.8)";
-				ctx.lineWidth = 2 / zoom;
+				ctx.lineWidth = 2 / currentZoom;
 				ctx.beginPath();
 
 				const firstPoint = drawingColliderPoints[0];
@@ -991,12 +1199,12 @@ const MapCanvasComponent = ({
 					if (index === 0) {
 						ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 6 / currentZoom, 0, Math.PI * 2);
 						ctx.fill();
 					} else {
 						ctx.fillStyle = "rgba(100, 150, 255, 0.9)";
 						ctx.beginPath();
-						ctx.arc(point.x, point.y, 4 / zoom, 0, Math.PI * 2);
+						ctx.arc(point.x, point.y, 4 / currentZoom, 0, Math.PI * 2);
 						ctx.fill();
 					}
 				});
@@ -1004,35 +1212,62 @@ const MapCanvasComponent = ({
 				// Draw red ring around first point when we have 3+ points (closure hint, like EntityEditorView)
 				if (drawingColliderPoints.length >= 3) {
 					ctx.strokeStyle = "rgba(255, 100, 100, 0.9)";
-					ctx.lineWidth = 3 / zoom;
+					ctx.lineWidth = 3 / currentZoom;
 					ctx.beginPath();
-					ctx.arc(firstPoint.x, firstPoint.y, 8 / zoom, 0, Math.PI * 2);
+					ctx.arc(firstPoint.x, firstPoint.y, 8 / currentZoom, 0, Math.PI * 2);
 					ctx.stroke();
 				}
 			}
 
-			// Draw grid
+			const collidersTime = performance.now() - collidersStart;
+
+			// Draw grid with viewport culling (performance optimization)
+			const gridStart = performance.now();
+			let gridLinesRendered = 0;
 			if (gridVisible) {
 				ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-				ctx.lineWidth = 1 / zoom;
+				ctx.lineWidth = 1 / currentZoom;
 
-				for (let x = 0; x <= mapData.width; x++) {
-					ctx.beginPath();
-					ctx.moveTo(x * mapData.tileWidth, 0);
-					ctx.lineTo(
-						x * mapData.tileWidth,
-						mapData.height * mapData.tileHeight,
-					);
-					ctx.stroke();
+				// Only draw grid lines within visible viewport
+				// Use single path for all vertical lines for better performance
+				ctx.beginPath();
+				for (let x = startX; x <= endX; x++) {
+					ctx.moveTo(x * mapData.tileWidth, startY * mapData.tileHeight);
+					ctx.lineTo(x * mapData.tileWidth, endY * mapData.tileHeight);
+					gridLinesRendered++;
 				}
+				ctx.stroke();
 
-				for (let y = 0; y <= mapData.height; y++) {
-					ctx.beginPath();
-					ctx.moveTo(0, y * mapData.tileHeight);
-					ctx.lineTo(mapData.width * mapData.tileWidth, y * mapData.tileHeight);
-					ctx.stroke();
+				// Use single path for all horizontal lines for better performance
+				ctx.beginPath();
+				for (let y = startY; y <= endY; y++) {
+					ctx.moveTo(startX * mapData.tileWidth, y * mapData.tileHeight);
+					ctx.lineTo(endX * mapData.tileWidth, y * mapData.tileHeight);
+					gridLinesRendered++;
 				}
+				ctx.stroke();
 			}
+
+			const gridTime = performance.now() - gridStart;
+			const totalRenderTime = performance.now() - renderStartTime;
+
+			// Performance profiling output
+			console.log("[MapCanvas Performance]", {
+				totalTime: `${totalRenderTime.toFixed(2)}ms`,
+				breakdown: {
+					clear: `${clearTime.toFixed(2)}ms`,
+					layers: `${layersTime.toFixed(2)}ms (${tilesRendered} tiles)`,
+					entities: `${entitiesTime.toFixed(2)}ms (${entitiesRendered} entities)`,
+					points: `${pointsTime.toFixed(2)}ms (${pointsRendered} points)`,
+					colliders: `${collidersTime.toFixed(2)}ms (${collidersRendered} colliders)`,
+					grid: `${gridTime.toFixed(2)}ms (${gridLinesRendered} lines)`,
+				},
+				viewport: {
+					zoom: currentZoom,
+					visibleTileRange: `${startX},${startY} to ${endX},${endY}`,
+					visibleTiles: `${(endX - startX) * (endY - startY)}`,
+				},
+			});
 
 			// Draw hover preview (for tile placement)
 			const mousePos = mouseScreenPosRef.current;
@@ -1045,8 +1280,8 @@ const MapCanvasComponent = ({
 				const rect = canvas.getBoundingClientRect();
 				const canvasX = mousePos.x - rect.left;
 				const canvasY = mousePos.y - rect.top;
-				const worldX = (canvasX - panX) / zoom;
-				const worldY = (canvasY - panY) / zoom;
+				const worldX = (canvasX - panX) / currentZoom;
+				const worldY = (canvasY - panY) / currentZoom;
 				const tileX = Math.floor(worldX / mapData.tileWidth);
 				const tileY = Math.floor(worldY / mapData.tileHeight);
 
@@ -1107,8 +1342,8 @@ const MapCanvasComponent = ({
 
 						// Draw crosshair
 						ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
-						ctx.lineWidth = 2 / zoom;
-						const markerSize = 6 / zoom;
+						ctx.lineWidth = 2 / currentZoom;
+						const markerSize = 6 / currentZoom;
 
 						ctx.beginPath();
 						ctx.moveTo(originWorldX - markerSize, originWorldY);
@@ -1120,7 +1355,13 @@ const MapCanvasComponent = ({
 						// Draw center dot
 						ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
 						ctx.beginPath();
-						ctx.arc(originWorldX, originWorldY, 2 / zoom, 0, Math.PI * 2);
+						ctx.arc(
+							originWorldX,
+							originWorldY,
+							2 / currentZoom,
+							0,
+							Math.PI * 2,
+						);
 						ctx.fill();
 					}
 				}
@@ -1153,8 +1394,8 @@ const MapCanvasComponent = ({
 						const rect = canvas.getBoundingClientRect();
 						const canvasX = mousePos.x - rect.left;
 						const canvasY = mousePos.y - rect.top;
-						const worldX = (canvasX - panX) / zoom;
-						const worldY = (canvasY - panY) / zoom;
+						const worldX = (canvasX - panX) / currentZoom;
+						const worldY = (canvasY - panY) / currentZoom;
 
 						// Draw entity with semi-transparency
 						ctx.globalAlpha = 0.5;
@@ -1192,8 +1433,8 @@ const MapCanvasComponent = ({
 
 						// Draw crosshair at cursor position to indicate placement point
 						ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
-						ctx.lineWidth = 2 / zoom;
-						const markerSize = 6 / zoom;
+						ctx.lineWidth = 2 / currentZoom;
+						const markerSize = 6 / currentZoom;
 
 						ctx.beginPath();
 						ctx.moveTo(worldX - markerSize, worldY);
@@ -1205,7 +1446,7 @@ const MapCanvasComponent = ({
 						// Draw center dot
 						ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
 						ctx.beginPath();
-						ctx.arc(worldX, worldY, 2 / zoom, 0, Math.PI * 2);
+						ctx.arc(worldX, worldY, 2 / currentZoom, 0, Math.PI * 2);
 						ctx.fill();
 					}
 				}
@@ -1217,27 +1458,27 @@ const MapCanvasComponent = ({
 				const rect = canvas.getBoundingClientRect();
 				const canvasX = mousePos.x - rect.left;
 				const canvasY = mousePos.y - rect.top;
-				const worldX = (canvasX - panX) / zoom;
-				const worldY = (canvasY - panY) / zoom;
+				const worldX = (canvasX - panX) / currentZoom;
+				const worldY = (canvasY - panY) / currentZoom;
 
 				// Draw preview circle with semi-transparency
 				ctx.globalAlpha = 0.5;
 				ctx.strokeStyle = "rgba(255, 100, 100, 0.8)";
-				ctx.lineWidth = 2 / zoom;
+				ctx.lineWidth = 2 / currentZoom;
 				ctx.beginPath();
-				ctx.arc(worldX, worldY, 8 / zoom, 0, Math.PI * 2);
+				ctx.arc(worldX, worldY, 8 / currentZoom, 0, Math.PI * 2);
 				ctx.stroke();
 
 				ctx.fillStyle = "rgba(255, 100, 100, 0.7)";
 				ctx.beginPath();
-				ctx.arc(worldX, worldY, 4 / zoom, 0, Math.PI * 2);
+				ctx.arc(worldX, worldY, 4 / currentZoom, 0, Math.PI * 2);
 				ctx.fill();
 				ctx.globalAlpha = 1.0;
 
 				// Draw crosshair at cursor position
 				ctx.strokeStyle = "rgba(255, 165, 0, 0.8)";
-				ctx.lineWidth = 2 / zoom;
-				const markerSize = 6 / zoom;
+				ctx.lineWidth = 2 / currentZoom;
+				const markerSize = 6 / currentZoom;
 
 				ctx.beginPath();
 				ctx.moveTo(worldX - markerSize, worldY);
@@ -1309,13 +1550,13 @@ const MapCanvasComponent = ({
 
 						// Draw selection box
 						ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
-						ctx.lineWidth = 2 / zoom;
-						ctx.setLineDash([5 / zoom, 5 / zoom]);
+						ctx.lineWidth = 2 / currentZoom;
+						ctx.setLineDash([5 / currentZoom, 5 / currentZoom]);
 						ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
 						ctx.setLineDash([]);
 
 						// Draw corner handles
-						const handleSize = 6 / zoom;
+						const handleSize = 6 / currentZoom;
 						ctx.fillStyle = "rgba(0, 150, 255, 1)";
 						ctx.fillRect(
 							minX - handleSize / 2,
@@ -1364,10 +1605,16 @@ const MapCanvasComponent = ({
 
 					// Draw selection circle
 					ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
-					ctx.lineWidth = 3 / zoom;
-					ctx.setLineDash([5 / zoom, 5 / zoom]);
+					ctx.lineWidth = 3 / currentZoom;
+					ctx.setLineDash([5 / currentZoom, 5 / currentZoom]);
 					ctx.beginPath();
-					ctx.arc(pointToRender.x, pointToRender.y, 12 / zoom, 0, Math.PI * 2);
+					ctx.arc(
+						pointToRender.x,
+						pointToRender.y,
+						12 / currentZoom,
+						0,
+						Math.PI * 2,
+					);
 					ctx.stroke();
 					ctx.setLineDash([]);
 				}
@@ -1378,8 +1625,8 @@ const MapCanvasComponent = ({
 				const rect = canvas.getBoundingClientRect();
 				const canvasX = mousePos.x - rect.left;
 				const canvasY = mousePos.y - rect.top;
-				const worldX = (canvasX - panX) / zoom;
-				const worldY = (canvasY - panY) / zoom;
+				const worldX = (canvasX - panX) / currentZoom;
+				const worldY = (canvasY - panY) / currentZoom;
 				const currentTileX = Math.floor(worldX / mapData.tileWidth);
 				const currentTileY = Math.floor(worldY / mapData.tileHeight);
 
@@ -1400,7 +1647,7 @@ const MapCanvasComponent = ({
 
 				// Draw rectangle outline
 				ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
-				ctx.lineWidth = 2 / zoom;
+				ctx.lineWidth = 2 / currentZoom;
 				ctx.strokeRect(
 					minX * mapData.tileWidth,
 					minY * mapData.tileHeight,
@@ -1438,6 +1685,10 @@ const MapCanvasComponent = ({
 		tempColliderPointPosition,
 		currentTool,
 		getPan,
+		getZoom,
+		renderLayerToCache,
+		tilesetByHash,
+		tileDefinitionCache,
 	]);
 
 	// Trigger render when dependencies change
@@ -2379,25 +2630,57 @@ const MapCanvasComponent = ({
 			e.preventDefault();
 
 			if (e.ctrlKey) {
-				// Zoom towards mouse position
+				// Zoom towards mouse position with RAF throttling (performance optimization)
 				const rect = canvas.getBoundingClientRect();
 				const mouseX = e.clientX - rect.left;
 				const mouseY = e.clientY - rect.top;
 
+				// Get current zoom/pan from context refs for immediate values
+				const currentZoom = getZoom();
+				const currentPan = getPan();
+
 				// Calculate world position at mouse before zoom
-				const worldX = (mouseX - panXRef.current) / zoomRef.current;
-				const worldY = (mouseY - panYRef.current) / zoomRef.current;
+				const worldX = (mouseX - currentPan.x) / currentZoom;
+				const worldY = (mouseY - currentPan.y) / currentZoom;
 
 				// Calculate new zoom
 				const delta = -e.deltaY * 0.01;
-				const newZoom = Math.max(0.1, Math.min(10, zoomRef.current + delta));
+				const newZoom = Math.max(0.1, Math.min(10, currentZoom + delta));
 
 				// Adjust pan to keep world position under mouse
 				const newPanX = mouseX - worldX * newZoom;
 				const newPanY = mouseY - worldY * newZoom;
 
-				setZoom(newZoom);
-				setPan(newPanX, newPanY);
+				// Update context refs during zoom (no React re-render)
+				isZooming.current = true;
+				setZoom(newZoom, true);
+				setPan(newPanX, newPanY, true);
+
+				// Also update local refs for immediate use in rendering
+				zoomRef.current = newZoom;
+				panXRef.current = newPanX;
+				panYRef.current = newPanY;
+
+				// Use RAF to throttle renders during zoom
+				if (rafHandle.current === null) {
+					rafHandle.current = requestAnimationFrame(() => {
+						renderMap.current();
+						rafHandle.current = null;
+					});
+				}
+
+				// Debounce: commit to state when zooming stops
+				if (zoomTimeoutHandle.current !== null) {
+					clearTimeout(zoomTimeoutHandle.current);
+				}
+				zoomTimeoutHandle.current = setTimeout(() => {
+					const finalZoom = getZoom();
+					const finalPan = getPan();
+					isZooming.current = false;
+					setZoom(finalZoom, false);
+					setPan(finalPan.x, finalPan.y, false);
+					zoomTimeoutHandle.current = null;
+				}, 100);
 			} else {
 				// Pan
 				setPan(panXRef.current - e.deltaX, panYRef.current - e.deltaY);
@@ -2418,11 +2701,7 @@ const MapCanvasComponent = ({
 			resizeObserver.disconnect();
 			canvas.removeEventListener("wheel", handleWheel);
 		};
-	}, [
-		// Pan
-		setPan,
-		setZoom,
-	]);
+	}, [setPan, setZoom, getPan, getZoom]);
 
 	// Handle keyboard arrow keys to move selected entity, point, or collider
 	useEffect(() => {
