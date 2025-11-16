@@ -410,7 +410,7 @@ export const MapEditorView = ({
 	const handleMapSizeChange = (field: "width" | "height", value: number) => {
 		if (!localMapData) return;
 
-		const newValue = Math.max(1, Math.min(200, Math.round(value)));
+		const newValue = Math.round(value);
 		const oldWidth = localMapData.width;
 		const oldHeight = localMapData.height;
 		const newWidth = field === "width" ? newValue : oldWidth;
@@ -460,11 +460,9 @@ export const MapEditorView = ({
 			id: generateId(),
 			name: `Layer ${localMapData.layers.length + 1}`,
 			visible: true,
-			type: "tile" as const,
 			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
-			entities: [],
 		};
-		if (!localMapData) return;
+
 		setLocalMapData({
 			...localMapData,
 			layers: [...(localMapData.layers || []), newLayer],
@@ -473,7 +471,6 @@ export const MapEditorView = ({
 	};
 
 	const handleRemoveLayer = (layerId: string) => {
-		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
 			layers: localMapData.layers.filter((l) => l.id !== layerId),
@@ -493,7 +490,6 @@ export const MapEditorView = ({
 	};
 
 	const handleUpdateLayerVisibility = (layerId: string, visible: boolean) => {
-		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
 			layers: localMapData.layers.map((l) =>
@@ -503,7 +499,6 @@ export const MapEditorView = ({
 	};
 
 	const handleUpdateLayerName = (layerId: string, name: string) => {
-		if (!localMapData?.layers) return;
 		setLocalMapData({
 			...localMapData,
 			layers: localMapData.layers.map((l) =>
@@ -1436,7 +1431,7 @@ export const MapEditorView = ({
 											onDragStart={startBatch}
 											onDragEnd={endBatch}
 											min={1}
-											max={200}
+											max={Number.MAX_SAFE_INTEGER}
 											step={1}
 											precision={0}
 											dragSpeed={0.1}
