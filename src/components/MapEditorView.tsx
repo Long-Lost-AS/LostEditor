@@ -19,12 +19,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
-import { useUndoableReducer } from "../hooks/useUndoableReducer";
+import { useChunkedMapUndo } from "../hooks/useChunkedMapUndo";
 import { entityManager } from "../managers/EntityManager";
 import type {
 	EntityInstance,
 	Layer,
-	MapData,
 	MapTab,
 	PointInstance,
 	PolygonCollider,
@@ -42,7 +41,7 @@ import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { PencilIcon, TrashIcon } from "./Icons";
-import { MapCanvas } from "./MapCanvas";
+import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PointPropertiesPanel } from "./PointPropertiesPanel";
 import { Toolbar } from "./Toolbar";
 
@@ -172,6 +171,7 @@ export const MapEditorView = ({
 	onOpenTilePicker,
 	onOpenTerrainPicker,
 }: MapEditorViewProps) => {
+	console.log("[MapEditorView] Component rendering");
 	const {
 		getMapById,
 		updateMap,
@@ -201,9 +201,9 @@ export const MapEditorView = ({
 			startBatch,
 			endBatch,
 			reset: resetMapHistory,
-			getHistory,
+			lastAffectedChunks,
 		},
-	] = useUndoableReducer<MapData>(
+	] = useChunkedMapUndo(
 		mapData || {
 			id: "",
 			name: "",
@@ -216,11 +216,33 @@ export const MapEditorView = ({
 			points: [],
 			colliders: [],
 		},
-		tab.undoHistory,
 	);
 
 	// Register undo/redo keyboard shortcuts
 	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
+
+	// Invalidate canvas chunks after undo/redo
+	useEffect(() => {
+		if (lastAffectedChunks && mapCanvasRef.current) {
+			console.log(
+				"[MapEditorView] Undo/redo detected, invalidating chunks:",
+				lastAffectedChunks,
+			);
+			// Group chunks by layer and invalidate
+			const chunksByLayer = new Map<string, Array<{ x: number; y: number }>>();
+			for (const { layerId, chunkX, chunkY } of lastAffectedChunks) {
+				if (!chunksByLayer.has(layerId)) {
+					chunksByLayer.set(layerId, []);
+				}
+				// Convert chunk coords to tile coords (any tile in the chunk will do)
+				chunksByLayer.get(layerId)?.push({ x: chunkX * 64, y: chunkY * 64 });
+			}
+			// Invalidate chunks for each layer
+			for (const [layerId, tiles] of chunksByLayer) {
+				mapCanvasRef.current.invalidateTiles(layerId, tiles);
+			}
+		}
+	}, [lastAffectedChunks]);
 
 	// Sync localMapData when mapData becomes available (e.g., after newMap creates it)
 	useEffect(() => {
@@ -239,6 +261,9 @@ export const MapEditorView = ({
 	const [dragStartWidth, setDragStartWidth] = useState(0);
 	const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 	const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+
+	// Ref to MapCanvas for imperative chunk invalidation
+	const mapCanvasRef = useRef<MapCanvasHandle>(null);
 
 	// Collider selection state
 	const [selectedColliderId, setSelectedColliderId] = useState<string | null>(
@@ -335,13 +360,14 @@ export const MapEditorView = ({
 	}, [localMapData, tab.mapId, updateMap, tab.id, updateTabData]);
 
 	// Persist undo history to tab state on unmount (when switching tabs)
-	useEffect(() => {
-		return () => {
-			// Save history when component unmounts
-			const history = getHistory();
-			updateTabData(tab.id, { undoHistory: history });
-		};
-	}, [tab.id, updateTabData, getHistory]);
+	// TODO: Re-enable undo history persistence with chunked format
+	// useEffect(() => {
+	// 	return () => {
+	// 		// Save history when component unmounts
+	// 		const history = getHistory();
+	// 		updateTabData(tab.id, { undoHistory: history });
+	// 	};
+	// }, [tab.id, updateTabData]);
 
 	// Update edited name when local map data changes
 	useEffect(() => {
@@ -624,60 +650,119 @@ export const MapEditorView = ({
 		(x: number, y: number) => {
 			if (!currentLayer) return;
 
-			setLocalMapData((prev) => ({
-				...prev,
-				layers: prev.layers.map((layer) => {
-					if (layer.id === currentLayer.id) {
-						const newTiles = [...layer.tiles]; // Copy the dense array
-						const mapWidth = prev.width;
-						const mapHeight = prev.height;
+			// Calculate affected chunks for undo system
+			const CHUNK_SIZE = 64;
+			const affectedChunksSet = new Set<string>();
 
-						// Check if the tile being erased is a terrain tile
-						const index = y * mapWidth + x;
-						const tileId = newTiles[index];
-						const terrainLayerId = getTerrainLayerForTile(tileId, tilesets);
+			// Check if it's a terrain tile
+			const tileIndex = y * localMapData.width + x;
+			const erasedTileId = currentLayer.tiles[tileIndex];
+			const isTerrainTile = getTerrainLayerForTile(erasedTileId, tilesets);
 
-						// Erase the tile by setting it to 0
-						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-							newTiles[index] = 0;
-						}
-
-						let updatedLayer = { ...layer, tiles: newTiles };
-
-						// If it was a terrain tile, update neighbors
-						if (terrainLayerId) {
-							const tileset = tilesets.find((ts) =>
-								ts.terrainLayers?.some((l) => l.id === terrainLayerId),
-							);
-							if (tileset) {
-								const tilesetHash = hashTilesetId(tileset.id);
-								const mutableLayer = { ...layer, tiles: newTiles };
-								updateNeighborsAround(
-									mutableLayer,
-									x,
-									y,
-									mapWidth,
-									mapHeight,
-									terrainLayerId,
-									tileset,
-									tilesetHash,
-									tilesets,
-								);
-								updatedLayer = { ...layer, tiles: mutableLayer.tiles };
-							}
-						}
-
-						updatedLayer = { ...layer, tiles: newTiles };
-
-						// No need to setCurrentLayer - it's component-local only
-						return updatedLayer;
+			if (isTerrainTile) {
+				// Add erased tile + neighbors (terrain updates neighbors)
+				for (let dy = -1; dy <= 1; dy++) {
+					for (let dx = -1; dx <= 1; dx++) {
+						const tileX = x + dx;
+						const tileY = y + dy;
+						const chunkX = Math.floor(tileX / CHUNK_SIZE);
+						const chunkY = Math.floor(tileY / CHUNK_SIZE);
+						affectedChunksSet.add(`${chunkX},${chunkY}`);
 					}
-					return layer;
+				}
+			} else {
+				// Only add erased tile chunk
+				const chunkX = Math.floor(x / CHUNK_SIZE);
+				const chunkY = Math.floor(y / CHUNK_SIZE);
+				affectedChunksSet.add(`${chunkX},${chunkY}`);
+			}
+
+			const affectedChunks = Array.from(affectedChunksSet).map((key) => {
+				const [chunkX, chunkY] = key.split(",").map(Number);
+				return { layerId: currentLayer.id, chunkX, chunkY };
+			});
+			setLocalMapData(
+				(prev) => ({
+					...prev,
+					layers: prev.layers.map((layer) => {
+						if (layer.id === currentLayer.id) {
+							const mapWidth = prev.width;
+							const mapHeight = prev.height;
+
+							// Check if the tile being erased is a terrain tile
+							const index = y * mapWidth + x;
+							const tileId = layer.tiles[index];
+							const terrainLayerId = getTerrainLayerForTile(tileId, tilesets);
+
+							// Mutate in place - undo system captures chunks before/after
+							const newTiles = layer.tiles;
+
+							// Erase the tile by setting it to 0
+							if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
+								newTiles[index] = 0;
+							}
+
+							let updatedLayer = { ...layer, tiles: newTiles };
+
+							// If it was a terrain tile, update neighbors
+							if (terrainLayerId) {
+								const tileset = tilesets.find((ts) =>
+									ts.terrainLayers?.some((l) => l.id === terrainLayerId),
+								);
+								if (tileset) {
+									const tilesetHash = hashTilesetId(tileset.id);
+									const mutableLayer = { ...layer, tiles: newTiles };
+									updateNeighborsAround(
+										mutableLayer,
+										x,
+										y,
+										mapWidth,
+										mapHeight,
+										terrainLayerId,
+										tileset,
+										tilesetHash,
+										tilesets,
+									);
+									updatedLayer = { ...layer, tiles: mutableLayer.tiles };
+								}
+							}
+
+							updatedLayer = { ...layer, tiles: newTiles };
+
+							// No need to setCurrentLayer - it's component-local only
+							return updatedLayer;
+						}
+						return layer;
+					}),
 				}),
-			}));
+				affectedChunks,
+			);
+
+			// Invalidate chunks for erased tile (and neighbors if terrain)
+			const affectedTiles: Array<{ x: number; y: number }> = [{ x, y }];
+			// If terrain tile, neighbors were also updated
+			const index = y * localMapData.width + x;
+			const checkTileId = currentLayer.tiles[index];
+			if (getTerrainLayerForTile(checkTileId, tilesets)) {
+				// Add 8 neighbors
+				for (let dy = -1; dy <= 1; dy++) {
+					for (let dx = -1; dx <= 1; dx++) {
+						if (dx === 0 && dy === 0) continue;
+						affectedTiles.push({ x: x + dx, y: y + dy });
+					}
+				}
+			}
+			mapCanvasRef.current?.invalidateTiles(currentLayer.id, affectedTiles);
+
 			setProjectModified(true);
 		},
-		[currentLayer, tilesets, setProjectModified, setLocalMapData],
+		[
+			currentLayer,
+			tilesets,
+			setProjectModified,
+			setLocalMapData,
+			localMapData.width,
+		],
 	);
 
 	const handlePlaceEntity = useCallback(
@@ -1094,6 +1179,12 @@ export const MapEditorView = ({
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
+			const startTime = performance.now();
+			console.log(
+				`[handlePlaceTilesBatch] Called with ${tiles.length} tiles`,
+				tiles,
+			);
+
 			if (!currentLayer || tiles.length === 0) {
 				return;
 			}
@@ -1118,48 +1209,102 @@ export const MapEditorView = ({
 
 				const tilesetHash = hashTilesetId(selectedTileset.id);
 
-				setLocalMapData((prev) => ({
-					...prev,
-					layers: prev.layers.map((layer) => {
-						if (layer.id === currentLayer.id) {
-							const newTiles = [...layer.tiles];
-							const mutableLayer = { ...layer, tiles: newTiles };
-
-							// Place all tiles
-							tiles.forEach(({ x, y }) => {
-								placeTerrainTile(
-									mutableLayer,
-									x,
-									y,
-									prev.width,
-									prev.height,
-									terrainLayer,
-									selectedTileset,
-									tilesetHash,
-									tilesets,
-								);
-							});
-
-							// Update neighbors for all placed tiles
-							tiles.forEach(({ x, y }) => {
-								updateNeighborsAround(
-									mutableLayer,
-									x,
-									y,
-									prev.width,
-									prev.height,
-									terrainLayer.id,
-									selectedTileset,
-									tilesetHash,
-									tilesets,
-								);
-							});
-
-							return { ...layer, tiles: mutableLayer.tiles };
+				// Calculate affected chunks for undo system
+				const CHUNK_SIZE = 64;
+				const affectedChunksSet = new Set<string>();
+				tiles.forEach(({ x, y }) => {
+					// Add chunks for placed tiles + neighbors (terrain updates neighbors)
+					for (let dy = -1; dy <= 1; dy++) {
+						for (let dx = -1; dx <= 1; dx++) {
+							const tileX = x + dx;
+							const tileY = y + dy;
+							const chunkX = Math.floor(tileX / CHUNK_SIZE);
+							const chunkY = Math.floor(tileY / CHUNK_SIZE);
+							affectedChunksSet.add(`${chunkX},${chunkY}`);
 						}
-						return layer;
+					}
+				});
+				const affectedChunks = Array.from(affectedChunksSet).map((key) => {
+					const [chunkX, chunkY] = key.split(",").map(Number);
+					return { layerId: currentLayer.id, chunkX, chunkY };
+				});
+				setLocalMapData(
+					(prev) => ({
+						...prev,
+						layers: prev.layers.map((layer) => {
+							if (layer.id === currentLayer.id) {
+								const mutableLayer = { ...layer };
+
+								// Place all tiles
+								tiles.forEach(({ x, y }) => {
+									placeTerrainTile(
+										mutableLayer,
+										x,
+										y,
+										prev.width,
+										prev.height,
+										terrainLayer,
+										selectedTileset,
+										tilesetHash,
+										tilesets,
+									);
+								});
+
+								// Update neighbors for all placed tiles
+								tiles.forEach(({ x, y }) => {
+									updateNeighborsAround(
+										mutableLayer,
+										x,
+										y,
+										prev.width,
+										prev.height,
+										terrainLayer.id,
+										selectedTileset,
+										tilesetHash,
+										tilesets,
+									);
+								});
+
+								return { ...layer, tiles: mutableLayer.tiles };
+							}
+							return layer;
+						}),
 					}),
-				}));
+					affectedChunks,
+				);
+
+				const afterSetLocalMapData = performance.now();
+				console.log(
+					`[handlePlaceTilesBatch] setLocalMapData took ${(afterSetLocalMapData - startTime).toFixed(2)}ms`,
+				);
+
+				// Invalidate chunks for all affected tiles (placed tiles + neighbors)
+				const affectedTiles: Array<{ x: number; y: number }> = [];
+				tiles.forEach(({ x, y }) => {
+					// Add placed tile
+					affectedTiles.push({ x, y });
+					// Add 8 neighbors (terrain autotiling updates neighbors)
+					for (let dy = -1; dy <= 1; dy++) {
+						for (let dx = -1; dx <= 1; dx++) {
+							if (dx === 0 && dy === 0) continue;
+							affectedTiles.push({ x: x + dx, y: y + dy });
+						}
+					}
+				});
+				console.log(
+					`[handlePlaceTilesBatch] Invalidating ${affectedTiles.length} tiles (terrain)`,
+				);
+				mapCanvasRef.current?.invalidateTiles(currentLayer.id, affectedTiles);
+
+				const afterInvalidate = performance.now();
+				console.log(
+					`[handlePlaceTilesBatch] invalidateTiles took ${(afterInvalidate - afterSetLocalMapData).toFixed(2)}ms`,
+				);
+				console.log(
+					`[handlePlaceTilesBatch] Total: ${(afterInvalidate - startTime).toFixed(2)}ms`,
+				);
+
+				console.log("[handlePlaceTilesBatch] Handler returning (terrain path)");
 				setProjectModified(true);
 				return;
 			}
@@ -1184,16 +1329,29 @@ export const MapEditorView = ({
 				geometry.flipY,
 			);
 
+			// Calculate affected chunks for undo system
+			const CHUNK_SIZE = 64;
+			const affectedChunksSet = new Set<string>();
+			tiles.forEach(({ x, y }) => {
+				const chunkX = Math.floor(x / CHUNK_SIZE);
+				const chunkY = Math.floor(y / CHUNK_SIZE);
+				affectedChunksSet.add(`${chunkX},${chunkY}`);
+			});
+			const affectedChunks = Array.from(affectedChunksSet).map((key) => {
+				const [chunkX, chunkY] = key.split(",").map(Number);
+				return { layerId: currentLayer.id, chunkX, chunkY };
+			});
+
 			setLocalMapData((prev) => {
 				return {
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							// Ensure tiles array is properly sized
+							// Ensure tiles array is properly sized - mutate in place for performance
 							const totalSize = prev.width * prev.height;
 							const newTiles =
 								layer.tiles && layer.tiles.length === totalSize
-									? [...layer.tiles]
+									? layer.tiles
 									: new Array(totalSize).fill(0);
 
 							const mapWidth = prev.width;
@@ -1212,7 +1370,27 @@ export const MapEditorView = ({
 						return layer;
 					}),
 				};
-			});
+			}, affectedChunks);
+
+			const _afterSetLocalMapData2 = performance.now();
+			console.log(
+				`[handlePlaceTilesBatch] Regular tile setLocalMapData took ${"${"}(afterSetLocalMapData2 - startTime).toFixed(2)${"}"} ms`,
+			);
+
+			// Invalidate chunks for placed tiles
+			console.log(
+				`[handlePlaceTilesBatch] Invalidating ${"${"}tiles.length${"}"} tiles (regular)`,
+			);
+			mapCanvasRef.current?.invalidateTiles(currentLayer.id, tiles);
+
+			const _afterInvalidate2 = performance.now();
+			console.log(
+				`[handlePlaceTilesBatch] Regular invalidateTiles took ${"${"}(afterInvalidate2 - afterSetLocalMapData2).toFixed(2)${"}"} ms`,
+			);
+			console.log(
+				`[handlePlaceTilesBatch] Regular Total: ${"${"}(afterInvalidate2 - startTime).toFixed(2)${"}"} ms`,
+			);
+			console.log("[handlePlaceTilesBatch] Handler returning (regular path)");
 			setProjectModified(true);
 		},
 		[
@@ -1631,6 +1809,7 @@ export const MapEditorView = ({
 				{/* Map Canvas */}
 				<div className="flex-1 flex relative">
 					<MapCanvas
+						ref={mapCanvasRef}
 						mapData={localMapData}
 						currentTool={tab.viewState.currentTool || "pencil"}
 						onToolChange={handleToolChange}

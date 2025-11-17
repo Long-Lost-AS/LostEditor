@@ -1,5 +1,4 @@
 import { useCallback, useReducer, useRef } from "react";
-import { deepEqual } from "../utils/deepEqual";
 
 // Action types for undo/redo
 export type UndoableAction<T> =
@@ -26,8 +25,9 @@ function undoableReducer<T>(
 ): UndoableState<T> {
 	switch (action.type) {
 		case "SET": {
-			// Don't add to history if value hasn't changed
-			if (deepEqual(state.present, action.payload)) {
+			// PERFORMANCE: Skip deep equality check - too expensive for large maps (4M tiles)
+			// Reference equality is enough since we create new objects on every change
+			if (state.present === action.payload) {
 				return state;
 			}
 
@@ -90,7 +90,8 @@ function undoableReducer<T>(
 			}
 
 			// If nothing changed during batch, don't add to history
-			if (deepEqual(state.batchStart, state.present)) {
+			// PERFORMANCE: Use reference equality instead of deep comparison
+			if (state.batchStart === state.present) {
 				return {
 					...state,
 					isBatching: false,
