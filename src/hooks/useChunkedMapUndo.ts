@@ -268,7 +268,7 @@ function chunkedMapReducer(
 				console.log(
 					`[chunkedMapReducer] No patches created, not adding to history`,
 				);
-				return { ...state, present: action.payload };
+				return { ...state, present: action.payload, lastAffectedChunks: null };
 			}
 
 			// Add to history
@@ -282,6 +282,7 @@ function chunkedMapReducer(
 					-50,
 				),
 				future: [],
+				lastAffectedChunks: null,
 			};
 		}
 

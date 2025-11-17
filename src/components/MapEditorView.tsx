@@ -241,8 +241,11 @@ export const MapEditorView = ({
 			for (const [layerId, tiles] of chunksByLayer) {
 				mapCanvasRef.current.invalidateTiles(layerId, tiles);
 			}
+
+			// Force a re-render by creating a new map reference
+			setLocalMapData((prev) => ({ ...prev }));
 		}
-	}, [lastAffectedChunks]);
+	}, [lastAffectedChunks, setLocalMapData]);
 
 	// Sync localMapData when mapData becomes available (e.g., after newMap creates it)
 	useEffect(() => {
