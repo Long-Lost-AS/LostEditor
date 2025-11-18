@@ -1343,7 +1343,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const tilesetId = selectedTilesetIdRef.current;
 				const tileId = selectedTileIdRef.current;
 
-				if (mousePos && tool === "pencil" && tilesetId && tileId && canvas) {
+
+
+			if (mousePos && tool === "pencil" && tilesetId && tileId != null && canvas) {
 					// Calculate tile position from screen coordinates using current pan/zoom
 					const rect = canvas.getBoundingClientRect();
 					const canvasX = mousePos.x - rect.left;
@@ -1353,11 +1355,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const tileX = Math.floor(worldX / mapData.tileWidth);
 					const tileY = Math.floor(worldY / mapData.tileHeight);
 
-					// Unpack tileId to get tileset hash and geometry
+					// Unpack tileId to get geometry
 					const geometry = unpackTileId(tileId);
-					const tileset = tilesets.find(
-						(ts) => hashTilesetId(ts.id) === geometry.tilesetHash,
-					);
+					const tileset = getTilesetById(tilesetId);
 					if (tileset?.imageData) {
 						// Create local tile ID to find definition
 						const localTileId = packTileId(
@@ -1387,7 +1387,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 						// Semi-transparent preview
 						ctx.globalAlpha = 0.5;
-
 						ctx.drawImage(
 							tileset.imageData,
 							geometry.x,
@@ -1437,6 +1436,46 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					}
 				}
 
+
+// Draw terrain tile preview (when terrain mode is active)
+			if (mousePos && tool === "pencil" && selectedTerrainLayerId && tilesetId && canvas) {
+				const tileset = getTilesetById(tilesetId);
+				if (tileset?.imageData && tileset.terrainLayers) {
+					const terrainLayer = tileset.terrainLayers.find(
+						(l) => l.id === selectedTerrainLayerId,
+					);
+
+					if (terrainLayer && terrainLayer.tiles.length > 0) {
+						// Calculate tile position from screen coordinates
+						const rect = canvas.getBoundingClientRect();
+						const canvasX = mousePos.x - rect.left;
+						const canvasY = mousePos.y - rect.top;
+						const worldX = (canvasX - currentPan.x) / currentZoom;
+						const worldY = (canvasY - currentPan.y) / currentZoom;
+						const tileX = Math.floor(worldX / mapData.tileWidth);
+						const tileY = Math.floor(worldY / mapData.tileHeight);
+
+						// Find the "fully surrounded" tile (bitmask 255) for preview, or use first tile
+						const previewTile = terrainLayer.tiles.find(t => t.bitmask === 255) || terrainLayer.tiles[0];
+						const geometry = unpackTileId(previewTile.tileId);
+
+						// Draw semi-transparent preview
+						ctx.globalAlpha = 0.5;
+						ctx.drawImage(
+							tileset.imageData,
+							geometry.x,
+							geometry.y,
+							tileset.tileWidth,
+							tileset.tileHeight,
+							tileX * mapData.tileWidth,
+							tileY * mapData.tileHeight,
+							tileset.tileWidth,
+							tileset.tileHeight,
+						);
+						ctx.globalAlpha = 1.0;
+					}
+				}
+			}
 				// Draw entity preview (when entity tool is active)
 				if (
 					mousePos &&
