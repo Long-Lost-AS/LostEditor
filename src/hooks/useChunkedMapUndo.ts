@@ -254,12 +254,36 @@ function chunkedMapReducer(
 				action.oldChunkData,
 			);
 
-			// If batching, accumulate patches
+			// If batching, accumulate patches (merge patches for same chunks)
 			if (state.isBatching) {
+				// Merge new patches with existing batch patches
+				// For each chunk, keep the FIRST old state and the LAST new state
+				const mergedPatches = [...state.batchPatches];
+
+				for (const newPatch of patches) {
+					const existingIdx = mergedPatches.findIndex(
+						(p) =>
+							p.layerId === newPatch.layerId &&
+							p.chunkX === newPatch.chunkX &&
+							p.chunkY === newPatch.chunkY,
+					);
+
+					if (existingIdx >= 0) {
+						// Merge: keep old oldTiles, use new newTiles
+						mergedPatches[existingIdx] = {
+							...mergedPatches[existingIdx],
+							newTiles: newPatch.newTiles,
+						};
+					} else {
+						// Add new patch
+						mergedPatches.push(newPatch);
+					}
+				}
+
 				return {
 					...state,
 					present: action.payload,
-					batchPatches: [...state.batchPatches, ...patches],
+					batchPatches: mergedPatches,
 				};
 			}
 
