@@ -3345,13 +3345,5 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 );
 
 // Memoize the component to prevent unnecessary re-renders
-// Only re-render when mapData, currentTool, currentLayerId, or selectedPointId change
-export const MapCanvas = memo(MapCanvasComponent, (prevProps, nextProps) => {
-	// Return true if props are equal (skip re-render)
-	return (
-		prevProps.mapData === nextProps.mapData &&
-		prevProps.currentTool === nextProps.currentTool &&
-		prevProps.currentLayerId === nextProps.currentLayerId &&
-		prevProps.selectedPointId === nextProps.selectedPointId
-	);
-});
+// Uses default shallow prop comparison
+export const MapCanvas = memo(MapCanvasComponent);
