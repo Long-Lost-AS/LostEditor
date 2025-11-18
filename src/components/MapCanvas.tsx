@@ -1464,8 +1464,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							const rect = canvas.getBoundingClientRect();
 							const canvasX = mousePos.x - rect.left;
 							const canvasY = mousePos.y - rect.top;
-							const worldX = (canvasX - panX) / currentZoom;
-							const worldY = (canvasY - panY) / currentZoom;
+							const worldX = (canvasX - currentPan.x) / currentZoom;
+							const worldY = (canvasY - currentPan.y) / currentZoom;
 
 							// Draw entity with semi-transparency
 							ctx.globalAlpha = 0.5;
@@ -1478,10 +1478,15 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								const sprite = spriteLayer.sprite;
 								const offset = spriteLayer.offset || { x: 0, y: 0 };
 								const origin = spriteLayer.origin || { x: 0.5, y: 1 };
+								const scale = { x: 1, y: 1 }; // Default scale for preview
 
-								// Calculate position based on origin point
-								const originOffsetX = origin.x * sprite.width;
-								const originOffsetY = origin.y * sprite.height;
+								// Calculate scaled dimensions (like actual entity rendering)
+								const scaledWidth = sprite.width * scale.x;
+								const scaledHeight = sprite.height * scale.y;
+
+								// Calculate position based on origin point (using scaled dimensions)
+								const originOffsetX = origin.x * scaledWidth;
+								const originOffsetY = origin.y * scaledHeight;
 
 								const drawX = worldX - originOffsetX + offset.x;
 								const drawY = worldY - originOffsetY + offset.y;
@@ -1494,8 +1499,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									sprite.height,
 									drawX,
 									drawY,
-									sprite.width,
-									sprite.height,
+									scaledWidth,
+									scaledHeight,
 								);
 							});
 
