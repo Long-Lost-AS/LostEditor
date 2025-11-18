@@ -674,9 +674,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			if (prevMapData && mapData) {
 				// Check if layer count changed
 				if (prevMapData.layers.length !== mapData.layers.length) {
-					console.log(
-						"[MapCanvas] Layer count changed, invalidating all chunks",
-					);
 					chunkCacheRef.current.invalidateAll();
 					mapDataVersionRef.current++;
 					prevMapDataRef.current = mapData;
@@ -686,9 +683,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Check for layer ID changes (reordering or replacement)
 				for (let i = 0; i < mapData.layers.length; i++) {
 					if (prevMapData.layers[i]?.id !== mapData.layers[i]?.id) {
-						console.log(
-							"[MapCanvas] Layer IDs changed, invalidating all chunks",
-						);
 						chunkCacheRef.current.invalidateAll();
 						mapDataVersionRef.current++;
 						prevMapDataRef.current = mapData;
@@ -701,7 +695,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					prevMapData.width !== mapData.width ||
 					prevMapData.height !== mapData.height
 				) {
-					console.log("[MapCanvas] Map size changed, invalidating all chunks");
 					chunkCacheRef.current.invalidateAll();
 					mapDataVersionRef.current++;
 					prevMapDataRef.current = mapData;
@@ -742,18 +735,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					canvasWidth,
 					canvasHeight,
 					(_canvas, ctx) => {
-						// This render function is only called when chunk is dirty
-						console.log(
-							`[Chunk Cache] Re-rendering layer "${layer.name}" chunk (${chunkX}, ${chunkY}) to cache`,
-						);
-
 						// Calculate tile bounds for this chunk
 						const startX = chunkX * CHUNK_SIZE;
 						const startY = chunkY * CHUNK_SIZE;
 						const endX = Math.min(startX + CHUNK_SIZE, mapData.width);
 						const endY = Math.min(startY + CHUNK_SIZE, mapData.height);
-
-						console.log({ startX, startY, endX, endY });
 
 						// Render all tiles in this chunk
 						for (let y = startY; y < endY; y++) {
@@ -909,8 +895,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 		// biome-ignore lint/correctness/useExhaustiveDependencies: zoom/tilesetByHash/tileDefinitionCache are from useMemo
 		useEffect(() => {
 			renderMap.current = () => {
-				console.log("[renderMap] Starting render cycle");
-				const renderStartTime = performance.now();
 				const canvas = canvasRef.current;
 				if (!canvas) return;
 
@@ -923,10 +907,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				}
 
 				// Clear canvas
-				const clearStart = performance.now();
 				ctx.fillStyle = "#2a2a2a";
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				const clearTime = performance.now() - clearStart;
 
 				// Get current pan and zoom values from refs (for smooth panning/zooming without re-renders)
 				const currentPan = getPan();
@@ -955,11 +937,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const startY = Math.max(0, visibleMinY);
 				const endX = Math.min(mapData.width, visibleMaxX);
 				const endY = Math.min(mapData.height, visibleMaxY);
-
-				// Performance tracking
-				const layersStart = performance.now();
-				let tilesRendered = 0;
-				let chunksRendered = 0;
 
 				// Calculate which chunks are visible in the viewport
 				const { chunkX: minChunkX, chunkY: minChunkY } = getChunkCoordinates(
@@ -990,20 +967,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 							// Draw the cached chunk canvas at the correct position
 							ctx.drawImage(cachedChunk, worldX, worldY);
-
-							chunksRendered++;
 						}
 					}
-
-					// Count tiles for profiling (estimate based on visible area)
-					tilesRendered += (endX - startX) * (endY - startY);
 				});
 
-				const layersTime = performance.now() - layersStart;
-
 				// Render map-level entities (on top of all layers)
-				const entitiesStart = performance.now();
-				let entitiesRendered = 0;
 				if (mapData.entities && mapData.entities.length > 0) {
 					// Calculate visible world bounds for entity viewport culling
 					const entityCullingBuffer = 3; // Buffer in tiles to account for large entities
@@ -1089,15 +1057,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 						// Render entity with hierarchy
 						renderEntity(ctx, entityDef, instanceToRender, tileset.imageData);
-						entitiesRendered++;
 					});
 				}
 
-				const entitiesTime = performance.now() - entitiesStart;
-
 				// Render map-level points (on top of entities) with viewport culling
-				const pointsStart = performance.now();
-				let pointsRendered = 0;
 				if (mapData.points && mapData.points.length > 0) {
 					const pointBuffer = 50; // Buffer in pixels for point visibility
 					const visibleWorldMinX = Math.max(
@@ -1175,15 +1138,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								pointToRender.y + 4 / currentZoom,
 							);
 						}
-						pointsRendered++;
 					});
 				}
 
-				const pointsTime = performance.now() - pointsStart;
-
 				// Render map-level colliders (on top of points) with viewport culling
-				const collidersStart = performance.now();
-				let collidersRendered = 0;
 				if (mapData.colliders && mapData.colliders.length > 0) {
 					const colliderBuffer = 100; // Buffer in pixels for collider visibility
 					const visibleWorldMinX = Math.max(
@@ -1304,7 +1262,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							ctx.fillText(collider.name, centerX, centerY);
 							ctx.textAlign = "left"; // Reset
 						}
-						collidersRendered++;
 					});
 				}
 
@@ -1357,11 +1314,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					}
 				}
 
-				const collidersTime = performance.now() - collidersStart;
-
 				// Draw grid with viewport culling (performance optimization)
-				const gridStart = performance.now();
-				let gridLinesRendered = 0;
 				if (gridVisible) {
 					ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
 					ctx.lineWidth = 1 / currentZoom;
@@ -1372,7 +1325,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					for (let x = startX; x <= endX; x++) {
 						ctx.moveTo(x * mapData.tileWidth, startY * mapData.tileHeight);
 						ctx.lineTo(x * mapData.tileWidth, endY * mapData.tileHeight);
-						gridLinesRendered++;
 					}
 					ctx.stroke();
 
@@ -1381,31 +1333,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					for (let y = startY; y <= endY; y++) {
 						ctx.moveTo(startX * mapData.tileWidth, y * mapData.tileHeight);
 						ctx.lineTo(endX * mapData.tileWidth, y * mapData.tileHeight);
-						gridLinesRendered++;
 					}
 					ctx.stroke();
 				}
-
-				const gridTime = performance.now() - gridStart;
-				const totalRenderTime = performance.now() - renderStartTime;
-
-				// Performance profiling output
-				console.log("[MapCanvas Performance]", {
-					totalTime: `${totalRenderTime.toFixed(2)}ms`,
-					breakdown: {
-						clear: `${clearTime.toFixed(2)}ms`,
-						layers: `${layersTime.toFixed(2)}ms (${tilesRendered} tiles, ${chunksRendered} chunks)`,
-						entities: `${entitiesTime.toFixed(2)}ms (${entitiesRendered} entities)`,
-						points: `${pointsTime.toFixed(2)}ms (${pointsRendered} points)`,
-						colliders: `${collidersTime.toFixed(2)}ms (${collidersRendered} colliders)`,
-						grid: `${gridTime.toFixed(2)}ms (${gridLinesRendered} lines)`,
-					},
-					viewport: {
-						zoom: currentZoom,
-						visibleTileRange: `${startX},${startY} to ${endX},${endY}`,
-						visibleTiles: `${(endX - startX) * (endY - startY)}`,
-					},
-				});
 
 				// Draw hover preview (for tile placement)
 				const mousePos = mouseScreenPosRef.current;
@@ -1835,7 +1765,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 		// Trigger render when dependencies change
 		// biome-ignore lint/correctness/useExhaustiveDependencies: We want to redraw when these values change
 		useEffect(() => {
-			console.log("[MapCanvas] useEffect triggered, about to call renderMap");
 			renderMap.current();
 		}, [
 			mapData,
@@ -2236,6 +2165,21 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 		const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
 			// Store screen coordinates for hover preview (will be converted to world coords on render)
 			setMouseScreenPos({ x: e.clientX, y: e.clientY });
+
+			// Trigger render for tools that show cursor previews (entity, point)
+			// Use RAF to throttle renders during mouse movement
+			if (
+				(currentTool === "entity" || currentTool === "point") &&
+				!isDragging &&
+				!isDrawing
+			) {
+				if (rafHandle.current === null) {
+					rafHandle.current = requestAnimationFrame(() => {
+						renderMap.current();
+						rafHandle.current = null;
+					});
+				}
+			}
 
 			// Check if hovering over selected entity (for cursor change)
 			if (
