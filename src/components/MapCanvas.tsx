@@ -1348,8 +1348,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const rect = canvas.getBoundingClientRect();
 					const canvasX = mousePos.x - rect.left;
 					const canvasY = mousePos.y - rect.top;
-					const worldX = (canvasX - panX) / currentZoom;
-					const worldY = (canvasY - panY) / currentZoom;
+					const worldX = (canvasX - currentPan.x) / currentZoom;
+					const worldY = (canvasY - currentPan.y) / currentZoom;
 					const tileX = Math.floor(worldX / mapData.tileWidth);
 					const tileY = Math.floor(worldY / mapData.tileHeight);
 
@@ -2171,10 +2171,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			// Store screen coordinates for hover preview (will be converted to world coords on render)
 			setMouseScreenPos({ x: e.clientX, y: e.clientY });
 
-			// Trigger render for tools that show cursor previews (entity, point)
+			// Trigger render for tools that show cursor previews (pencil, entity, point)
 			// Use RAF to throttle renders during mouse movement
 			if (
-				(currentTool === "entity" || currentTool === "point") &&
+				(currentTool === "pencil" || currentTool === "entity" || currentTool === "point") &&
 				!isDragging &&
 				!isDrawing
 			) {
