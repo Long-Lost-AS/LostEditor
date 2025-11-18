@@ -171,7 +171,6 @@ export const MapEditorView = ({
 	onOpenTilePicker,
 	onOpenTerrainPicker,
 }: MapEditorViewProps) => {
-	console.log("[MapEditorView] Component rendering");
 	const {
 		getMapById,
 		updateMap,
@@ -224,10 +223,6 @@ export const MapEditorView = ({
 	// Invalidate canvas chunks after undo/redo
 	useEffect(() => {
 		if (lastAffectedChunks && mapCanvasRef.current) {
-			console.log(
-				"[MapEditorView] Undo/redo detected, invalidating chunks:",
-				lastAffectedChunks,
-			);
 			// Group chunks by layer and invalidate
 			const chunksByLayer = new Map<string, Array<{ x: number; y: number }>>();
 			for (const { layerId, chunkX, chunkY } of lastAffectedChunks) {
@@ -1180,12 +1175,6 @@ export const MapEditorView = ({
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
 		(tiles: Array<{ x: number; y: number }>) => {
-			const startTime = performance.now();
-			console.log(
-				`[handlePlaceTilesBatch] Called with ${tiles.length} tiles`,
-				tiles,
-			);
-
 			if (!currentLayer || tiles.length === 0) {
 				return;
 			}
@@ -1274,11 +1263,6 @@ export const MapEditorView = ({
 					affectedChunks,
 				);
 
-				const afterSetLocalMapData = performance.now();
-				console.log(
-					`[handlePlaceTilesBatch] setLocalMapData took ${(afterSetLocalMapData - startTime).toFixed(2)}ms`,
-				);
-
 				// Invalidate chunks for all affected tiles (placed tiles + neighbors)
 				const affectedTiles: Array<{ x: number; y: number }> = [];
 				tiles.forEach(({ x, y }) => {
@@ -1292,20 +1276,8 @@ export const MapEditorView = ({
 						}
 					}
 				});
-				console.log(
-					`[handlePlaceTilesBatch] Invalidating ${affectedTiles.length} tiles (terrain)`,
-				);
 				mapCanvasRef.current?.invalidateTiles(currentLayer.id, affectedTiles);
 
-				const afterInvalidate = performance.now();
-				console.log(
-					`[handlePlaceTilesBatch] invalidateTiles took ${(afterInvalidate - afterSetLocalMapData).toFixed(2)}ms`,
-				);
-				console.log(
-					`[handlePlaceTilesBatch] Total: ${(afterInvalidate - startTime).toFixed(2)}ms`,
-				);
-
-				console.log("[handlePlaceTilesBatch] Handler returning (terrain path)");
 				setProjectModified(true);
 				return;
 			}
@@ -1373,25 +1345,9 @@ export const MapEditorView = ({
 				};
 			}, affectedChunks);
 
-			const _afterSetLocalMapData2 = performance.now();
-			console.log(
-				`[handlePlaceTilesBatch] Regular tile setLocalMapData took ${"${"}(afterSetLocalMapData2 - startTime).toFixed(2)${"}"} ms`,
-			);
-
 			// Invalidate chunks for placed tiles
-			console.log(
-				`[handlePlaceTilesBatch] Invalidating ${"${"}tiles.length${"}"} tiles (regular)`,
-			);
 			mapCanvasRef.current?.invalidateTiles(currentLayer.id, tiles);
 
-			const _afterInvalidate2 = performance.now();
-			console.log(
-				`[handlePlaceTilesBatch] Regular invalidateTiles took ${"${"}(afterInvalidate2 - afterSetLocalMapData2).toFixed(2)${"}"} ms`,
-			);
-			console.log(
-				`[handlePlaceTilesBatch] Regular Total: ${"${"}(afterInvalidate2 - startTime).toFixed(2)${"}"} ms`,
-			);
-			console.log("[handlePlaceTilesBatch] Handler returning (regular path)");
 			setProjectModified(true);
 		},
 		[

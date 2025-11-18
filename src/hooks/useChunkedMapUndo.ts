@@ -141,11 +141,6 @@ function createPatches(
 		return [];
 	}
 
-	console.log(
-		`[useChunkedMapUndo] Creating patches for ${affectedChunks.length} affected chunks:`,
-		affectedChunks,
-	);
-
 	for (const { layerId, chunkX, chunkY } of affectedChunks) {
 		const newLayer = newMap.layers.find((l) => l.id === layerId);
 		const oldChunk = oldChunkData.find(
@@ -168,9 +163,6 @@ function createPatches(
 
 		// Only create patch if tiles actually changed
 		if (JSON.stringify(oldTiles) !== JSON.stringify(newTiles)) {
-			console.log(
-				`[useChunkedMapUndo] Chunk (${chunkX}, ${chunkY}) has changes, creating patch`,
-			);
 			patches.push({
 				layerId,
 				chunkX,
@@ -179,14 +171,9 @@ function createPatches(
 				oldTiles,
 				newTiles,
 			});
-		} else {
-			console.log(
-				`[useChunkedMapUndo] Chunk (${chunkX}, ${chunkY}) has no changes, skipping`,
-			);
 		}
 	}
 
-	console.log(`[useChunkedMapUndo] Created ${patches.length} patches`);
 	return patches;
 }
 
@@ -194,10 +181,6 @@ function createPatches(
  * Apply a patch to restore a previous state
  */
 function applyPatch(map: MapData, patch: MapPatch, reverse: boolean): MapData {
-	console.log(
-		`[applyPatch] Applying patch with ${patch.chunks.length} chunks, reverse=${reverse}`,
-	);
-
 	// Create new map structure (shallow copies for React change detection)
 	// but KEEP the same tiles arrays - we'll mutate them in place
 	const newMap: MapData = {
@@ -212,9 +195,6 @@ function applyPatch(map: MapData, patch: MapPatch, reverse: boolean): MapData {
 		// Apply old or new tiles depending on direction
 		// Mutate the tiles array IN PLACE (no cloning!)
 		const tilesToApply = reverse ? chunkPatch.oldTiles : chunkPatch.newTiles;
-		console.log(
-			`[applyPatch] Applying ${tilesToApply.length} tiles to chunk (${chunkPatch.chunkX}, ${chunkPatch.chunkY})`,
-		);
 		applyChunkTiles(
 			layer,
 			tilesToApply,
@@ -225,9 +205,6 @@ function applyPatch(map: MapData, patch: MapPatch, reverse: boolean): MapData {
 		);
 	}
 
-	console.log(
-		`[applyPatch] Done, returning new map reference (tiles mutated in place)`,
-	);
 	return newMap;
 }
 
@@ -237,13 +214,8 @@ function chunkedMapReducer(
 ): ChunkedMapState {
 	switch (action.type) {
 		case "SET": {
-			console.log(
-				`[chunkedMapReducer] SET action with affectedChunks:`,
-				action.affectedChunks,
-			);
 			// Reference equality check
 			if (state.present === action.payload) {
-				console.log(`[chunkedMapReducer] Same reference, skipping`);
 				return state;
 			}
 
@@ -289,16 +261,10 @@ function chunkedMapReducer(
 
 			// If no patches (nothing changed), don't add to history
 			if (patches.length === 0) {
-				console.log(
-					`[chunkedMapReducer] No patches created, not adding to history`,
-				);
 				return { ...state, present: action.payload, lastAffectedChunks: null };
 			}
 
 			// Add to history
-			console.log(
-				`[chunkedMapReducer] Adding ${patches.length} patches to history (past.length will be ${state.past.length + 1})`,
-			);
 			return {
 				...state,
 				present: action.payload,
@@ -311,25 +277,15 @@ function chunkedMapReducer(
 		}
 
 		case "UNDO": {
-			console.log(
-				`[chunkedMapReducer] UNDO action, past.length=${state.past.length}`,
-			);
 			if (state.past.length === 0) {
-				console.log(`[chunkedMapReducer] No past states, cannot undo`);
 				return state;
 			}
 
 			const patch = state.past[state.past.length - 1];
-			console.log(
-				`[chunkedMapReducer] Undoing patch with ${patch.chunks.length} chunks`,
-			);
 			const newPast = state.past.slice(0, -1);
 
 			// Apply patch in reverse
 			const restoredMap = applyPatch(state.present, patch, true);
-			console.log(
-				`[chunkedMapReducer] Undo complete, new past.length=${newPast.length}`,
-			);
 
 			// Extract affected chunks for cache invalidation
 			const affectedChunks = patch.chunks.map((c) => ({
@@ -473,10 +429,6 @@ export function useChunkedMapUndo(
 			if (typeof newState === "function") {
 				const updater = newState as (prev: MapData) => MapData;
 
-				console.log(
-					`[setState] Extracting old chunks BEFORE mutation, affectedChunks:`,
-					affectedChunks,
-				);
 				// CRITICAL: Extract old chunk data BEFORE calling updater (which may mutate in place)
 				const oldChunkData = affectedChunks
 					?.map(({ layerId, chunkX, chunkY }) => {
@@ -490,10 +442,6 @@ export function useChunkedMapUndo(
 							chunkY,
 							stateRef.current.present.width,
 							stateRef.current.present.height,
-						);
-						console.log(
-							`[setState] Extracted old chunk (${chunkX},${chunkY}) with ${tiles.length} tiles, first few:`,
-							tiles.slice(0, 5),
 						);
 						return {
 							layerId,
@@ -509,9 +457,7 @@ export function useChunkedMapUndo(
 					tiles: number[];
 				}>;
 
-				console.log(`[setState] Calling updater function...`);
 				const computed = updater(stateRef.current.present);
-				console.log(`[setState] Updater returned, dispatching SET`);
 				dispatch({
 					type: "SET",
 					payload: computed,
