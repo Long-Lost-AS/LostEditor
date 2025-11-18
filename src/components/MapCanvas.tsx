@@ -34,6 +34,10 @@ import {
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
 import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
+import {
+	calculateBitmaskFromNeighbors,
+	findTileByBitmask,
+} from "../utils/bitmaskAutotiling";
 
 // Imperative handle exposed by MapCanvas for direct chunk invalidation
 export interface MapCanvasHandle {
@@ -1455,8 +1459,31 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						const tileX = Math.floor(worldX / mapData.tileWidth);
 						const tileY = Math.floor(worldY / mapData.tileHeight);
 
-						// Find the "fully surrounded" tile (bitmask 255) for preview, or use first tile
-						const previewTile = terrainLayer.tiles.find(t => t.bitmask === 255) || terrainLayer.tiles[0];
+						// Calculate the bitmask based on surrounding tiles (same logic as actual placement)
+						const currentLayer = mapData.layers.find((l) => l.id === currentLayerId);
+						if (!currentLayer) return;
+
+						// Helper to check if a neighbor tile belongs to this terrain layer
+						const hasNeighbor = (dx: number, dy: number): boolean => {
+							const nx = tileX + dx;
+							const ny = tileY + dy;
+							if (nx < 0 || ny < 0 || nx >= mapData.width || ny >= mapData.height) {
+								return false;
+							}
+							const index = ny * mapData.width + nx;
+							const neighborTileId = currentLayer.tiles[index];
+							if (!neighborTileId) return false;
+
+							// Check if this tile belongs to the selected terrain layer
+							const neighborTerrainLayer = getTerrainLayerForTile(neighborTileId, tilesets);
+							return neighborTerrainLayer?.id === selectedTerrainLayerId;
+						};
+
+						// Calculate bitmask and find matching tile
+						const bitmask = calculateBitmaskFromNeighbors(hasNeighbor);
+						const previewTile = findTileByBitmask(tileset, terrainLayer, bitmask);
+						if (!previewTile) return;
+
 						const geometry = unpackTileId(previewTile.tileId);
 
 						// Draw semi-transparent preview
