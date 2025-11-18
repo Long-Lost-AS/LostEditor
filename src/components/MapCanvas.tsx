@@ -52,7 +52,7 @@ interface MapCanvasProps {
 	currentLayerId: string | null;
 	onToolChange?: (tool: Tool) => void;
 	onPlaceTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
-	onEraseTile: (x: number, y: number) => void;
+	onEraseTilesBatch: (tiles: Array<{ x: number; y: number }>) => void;
 	onPlaceEntity: (x: number, y: number) => void;
 	onMoveEntity: (entityId: string, newX: number, newY: number) => void;
 	onEntitySelected?: (entityId: string | null) => void;
@@ -103,7 +103,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			currentLayerId,
 			onToolChange,
 			onPlaceTilesBatch,
-			onEraseTile,
+			onEraseTilesBatch,
 			onPlaceEntity,
 			onMoveEntity,
 			onEntitySelected,
@@ -166,6 +166,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 		// Pencil stroke batching - collect all tiles drawn in one stroke
 		const [pencilStrokeTiles, setPencilStrokeTiles] = useState<
+			Array<{ x: number; y: number }>
+		>([]);
+
+		// Eraser stroke batching - collect all tiles erased in one stroke
+		const [eraserStrokeTiles, setEraserStrokeTiles] = useState<
 			Array<{ x: number; y: number }>
 		>([]);
 
@@ -2207,7 +2212,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						setPencilStrokeTiles([{ x: tileX, y: tileY }]);
 						onPlaceTilesBatch([{ x: tileX, y: tileY }]);
 					} else if (currentTool === "eraser") {
-						onEraseTile(tileX, tileY);
+						// Start a new eraser stroke batch
+						onStartBatch?.();
+						setEraserStrokeTiles([{ x: tileX, y: tileY }]);
+						onEraseTilesBatch([{ x: tileX, y: tileY }]);
 					} else if (currentTool === "entity") {
 						// Clear any entity selection when using entity tool
 						setSelectedEntityId(null);
@@ -2418,7 +2426,18 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						return prev;
 					});
 				} else if (currentTool === "eraser") {
-					onEraseTile(tileX, tileY);
+					// Only erase if we haven't erased this tile in the current stroke
+					setEraserStrokeTiles((prev) => {
+						const isDuplicate = prev.some(
+							(t) => t.x === tileX && t.y === tileY,
+						);
+						if (!isDuplicate) {
+							// Erase this tile immediately
+							onEraseTilesBatch([{ x: tileX, y: tileY }]);
+							return [...prev, { x: tileX, y: tileY }];
+						}
+						return prev;
+					});
 				}
 				// Entity tool doesn't drag-paint
 			}
@@ -2435,6 +2454,17 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			) {
 				onEndBatch?.();
 				setPencilStrokeTiles([]);
+				setIsDrawing(false);
+			}
+
+			// Finish eraser stroke if mouse leaves while drawing
+			if (
+				currentTool === "eraser" &&
+				isDrawing &&
+				eraserStrokeTiles.length > 0
+			) {
+				onEndBatch?.();
+				setEraserStrokeTiles([]);
 				setIsDrawing(false);
 			}
 		};
@@ -2569,6 +2599,12 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			if (currentTool === "pencil" && pencilStrokeTiles.length > 0) {
 				onEndBatch?.();
 				setPencilStrokeTiles([]);
+			}
+
+			// Finish eraser stroke - end batching to commit undo/redo entry
+			if (currentTool === "eraser" && eraserStrokeTiles.length > 0) {
+				onEndBatch?.();
+				setEraserStrokeTiles([]);
 			}
 
 			// Commit pan changes to state if we were dragging
