@@ -32,7 +32,6 @@ import type {
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
-	getTerrainLayerForTile,
 	placeTerrainTile,
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
@@ -655,27 +654,10 @@ export const MapEditorView = ({
 
 			// Process all tiles to determine affected chunks
 			for (const { x, y } of tiles) {
-				const tileIndex = y * localMapData.width + x;
-				const erasedTileId = currentLayer.tiles[tileIndex];
-				const isTerrainTile = getTerrainLayerForTile(erasedTileId, tilesets);
-
-				if (isTerrainTile) {
-					// Add erased tile + neighbors (terrain updates neighbors)
-					for (let dy = -1; dy <= 1; dy++) {
-						for (let dx = -1; dx <= 1; dx++) {
-							const tileX = x + dx;
-							const tileY = y + dy;
-							const chunkX = Math.floor(tileX / CHUNK_SIZE);
-							const chunkY = Math.floor(tileY / CHUNK_SIZE);
-							affectedChunksSet.add(`${chunkX},${chunkY}`);
-						}
-					}
-				} else {
-					// Only add erased tile chunk
-					const chunkX = Math.floor(x / CHUNK_SIZE);
-					const chunkY = Math.floor(y / CHUNK_SIZE);
-					affectedChunksSet.add(`${chunkX},${chunkY}`);
-				}
+				// Only add erased tile chunk (no neighbor updates)
+				const chunkX = Math.floor(x / CHUNK_SIZE);
+				const chunkY = Math.floor(y / CHUNK_SIZE);
+				affectedChunksSet.add(`${chunkX},${chunkY}`);
 			}
 
 			const affectedChunks = Array.from(affectedChunksSet).map((key) => {
@@ -692,52 +674,17 @@ export const MapEditorView = ({
 							const mapHeight = prev.height;
 							const newTiles = layer.tiles;
 
-							// Erase all tiles
+							// Erase all tiles (no terrain neighbor updating)
 							for (const { x, y } of tiles) {
 								const index = y * mapWidth + x;
-								const tileId = newTiles[index];
-								const terrainLayerId = getTerrainLayerForTile(tileId, tilesets);
 
 								// Erase the tile
 								if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
 									newTiles[index] = 0;
 								}
 
-								// If it was a terrain tile, update neighbors
-								if (terrainLayerId) {
-									const tileset = tilesets.find((ts) =>
-										ts.terrainLayers?.some((l) => l.id === terrainLayerId),
-									);
-									if (tileset) {
-										const tilesetHash = hashTilesetId(tileset.id);
-										const mutableLayer = { ...layer, tiles: newTiles };
-										updateNeighborsAround(
-											mutableLayer,
-											x,
-											y,
-											mapWidth,
-											mapHeight,
-											terrainLayerId,
-											tileset,
-											tilesetHash,
-											tilesets,
-										);
-									}
-								}
-
-								// Track affected tiles for invalidation
+								// Track affected tile for invalidation (just the erased tile)
 								affectedTiles.push({ x, y });
-								const index2 = y * mapWidth + x;
-								const checkTileId = newTiles[index2];
-								if (getTerrainLayerForTile(checkTileId, tilesets)) {
-									// Add 8 neighbors
-									for (let dy = -1; dy <= 1; dy++) {
-										for (let dx = -1; dx <= 1; dx++) {
-											if (dx === 0 && dy === 0) continue;
-											affectedTiles.push({ x: x + dx, y: y + dy });
-										}
-									}
-								}
 							}
 
 							return { ...layer, tiles: newTiles };
@@ -752,13 +699,7 @@ export const MapEditorView = ({
 			mapCanvasRef.current?.invalidateTiles(currentLayer.id, affectedTiles);
 			setProjectModified(true);
 		},
-		[
-			currentLayer,
-			tilesets,
-			setProjectModified,
-			setLocalMapData,
-			localMapData.width,
-		],
+		[currentLayer, setProjectModified, setLocalMapData],
 	);
 
 	const handlePlaceEntity = useCallback(
