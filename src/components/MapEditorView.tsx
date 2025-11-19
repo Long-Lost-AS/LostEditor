@@ -821,14 +821,19 @@ export const MapEditorView = ({
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							const newTiles = [...layer.tiles];
+							// Mutate tiles array in place for performance (avoid copying entire array)
+							const totalSize = prev.width * prev.height;
+							const tiles =
+								layer.tiles && layer.tiles.length === totalSize
+									? layer.tiles
+									: new Array(totalSize).fill(0);
 
 							for (const { x, y, tileId } of tilesToPlace) {
 								const index = y * prev.width + x;
-								newTiles[index] = tileId;
+								tiles[index] = tileId;
 							}
 
-							return { ...layer, tiles: newTiles };
+							return { ...layer, tiles };
 						}
 						return layer;
 					}),
