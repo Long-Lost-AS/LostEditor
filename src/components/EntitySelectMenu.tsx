@@ -19,6 +19,7 @@ export const EntitySelectMenu = ({
 		getTilesetById,
 		getActiveMapTab,
 		updateTabData,
+		tilesets,
 	} = useEditor();
 	const [entities, setEntities] = useState<EntityDefinition[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -85,6 +86,7 @@ export const EntitySelectMenu = ({
 	}, [selectedIndex]);
 
 	// Draw entity preview on canvas
+	// biome-ignore lint/correctness/useExhaustiveDependencies: tilesets needed to trigger re-render when new tilesets load
 	useEffect(() => {
 		const canvas = previewCanvasRef.current;
 		if (!canvas || filteredEntities.length === 0) return;
@@ -210,7 +212,7 @@ export const EntitySelectMenu = ({
 		ctx.moveTo(originScreenX, originScreenY - markerSize);
 		ctx.lineTo(originScreenX, originScreenY + markerSize);
 		ctx.stroke();
-	}, [selectedIndex, filteredEntities, getTilesetById]);
+	}, [selectedIndex, filteredEntities, getTilesetById, tilesets]);
 
 	// Handler to select an entity
 	const handleSelectEntity = useCallback(
