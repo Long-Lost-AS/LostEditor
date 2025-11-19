@@ -1324,7 +1324,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 		const newLayer: SpriteLayer = {
 			id: generateId(),
-			name: `Layer ${localSprites.length + 1}`,
+			name: "",
 			type: "",
 			tilesetId: selectedTilesetId,
 			sprite: {
@@ -2157,7 +2157,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											onBlur={(e) => {
 												e.currentTarget.style.borderColor = "#555";
 											}}
-											placeholder="Layer name"
+											placeholder="Name"
 										/>
 									</div>
 
@@ -2189,7 +2189,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											onBlur={(e) => {
 												e.currentTarget.style.borderColor = "#555";
 											}}
-											placeholder="Layer type"
+											placeholder="Type"
 										/>
 									</div>
 
