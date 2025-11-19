@@ -71,6 +71,18 @@ const SortableLayerItem = ({
 			tabIndex={0}
 			className={`layer-item ${isActive ? "active" : ""} ${isDragging ? "dragging" : ""}`}
 			onClick={() => onLayerClick(layer)}
+			onMouseDown={(e) => {
+				// Prevent text selection when dragging
+				e.preventDefault();
+			}}
+			onSelectStart={(e) => {
+				// Prevent text selection
+				e.preventDefault();
+			}}
+			onDragStart={(e) => {
+				// Prevent native browser drag
+				e.preventDefault();
+			}}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
