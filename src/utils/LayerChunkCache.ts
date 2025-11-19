@@ -59,13 +59,9 @@ export class LayerChunkCache {
 		layerId: string,
 		tiles: Array<{ x: number; y: number }>,
 	): void {
-		console.log(
-			`[LayerChunkCache] invalidateTiles called for layer "${layerId}" with ${tiles.length} tiles`,
-		);
 		const layerChunks = this.cache.get(layerId);
 		if (!layerChunks) {
 			// Layer not cached yet - nothing to invalidate
-			console.log(`[LayerChunkCache] Layer not cached yet, skipping`);
 			return;
 		}
 
@@ -77,11 +73,6 @@ export class LayerChunkCache {
 			const chunkKey = this.getChunkKey(chunkX, chunkY);
 			affectedChunks.add(chunkKey);
 		}
-
-		console.log(
-			`[LayerChunkCache] Invalidating ${affectedChunks.size} chunks:`,
-			Array.from(affectedChunks),
-		);
 
 		// Mark affected chunks as dirty
 		for (const chunkKey of affectedChunks) {

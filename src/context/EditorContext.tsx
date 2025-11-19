@@ -1128,12 +1128,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 
 				// Phase 1: Discover and load ALL tilesets
-				console.log("[loadProject] Phase 1: Discovering tilesets...");
 				const tilesetFiles = await discoverFiles(projectDir, ".lostset");
-				console.log(
-					`[loadProject] Found ${tilesetFiles.length} tileset(s):`,
-					tilesetFiles,
-				);
 
 				for (const tilesetPath of tilesetFiles) {
 					try {
@@ -1153,12 +1148,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 
 				// Phase 2: Discover and load ALL entity definitions
-				console.log("[loadProject] Phase 2: Discovering entities...");
 				const entityFiles = await discoverFiles(projectDir, ".lostentity");
-				console.log(
-					`[loadProject] Found ${entityFiles.length} entity definition(s):`,
-					entityFiles,
-				);
 
 				for (const entityPath of entityFiles) {
 					try {
@@ -1169,9 +1159,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				}
 
 				// Phase 3: Discover and load ALL maps
-				console.log("[loadProject] Phase 3: Discovering maps...");
 				const mapFiles = await discoverFiles(projectDir, ".lostmap");
-				console.log(`[loadProject] Found ${mapFiles.length} map(s):`, mapFiles);
 
 				const loadedMaps: MapData[] = [];
 				for (const mapPath of mapFiles) {

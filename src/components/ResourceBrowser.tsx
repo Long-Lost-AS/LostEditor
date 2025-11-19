@@ -360,9 +360,6 @@ export const ResourceBrowser = ({ onClose }: ResourceBrowserProps) => {
 				async (event) => {
 					setIsDragOver(false);
 
-					// Log payload for debugging
-					console.log("Drop event payload:", event.payload);
-
 					// The payload might be an object with a paths property, or directly an array
 					let paths: string[] = [];
 					if (Array.isArray(event.payload)) {

@@ -368,6 +368,7 @@ function chunkedMapReducer(
 				future: [],
 				isBatching: state.isBatching,
 				batchPatches: state.isBatching ? [] : [],
+				lastAffectedChunks: null,
 			};
 		}
 

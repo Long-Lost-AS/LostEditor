@@ -18,25 +18,17 @@ export async function checkForUpdates(
 			);
 
 			if (yes) {
-				console.log("Downloading update...");
-
 				await update.downloadAndInstall((event) => {
 					switch (event.event) {
 						case "Started":
-							console.log(
-								`Started downloading ${event.data.contentLength} bytes`,
-							);
 							break;
 						case "Progress":
-							console.log(`Downloaded ${event.data.chunkLength} bytes`);
 							break;
 						case "Finished":
-							console.log("Download finished");
 							break;
 					}
 				});
 
-				console.log("Update installed, relaunching...");
 				await relaunch();
 			}
 		} else if (showNoUpdateDialog) {

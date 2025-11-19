@@ -21,6 +21,10 @@ import {
 	type Tool,
 } from "../types";
 import {
+	calculateBitmaskFromNeighbors,
+	findTileByBitmask,
+} from "../utils/bitmaskAutotiling";
+import {
 	calculateDistance as calcDistance,
 	findEdgeAtPosition as findEdgeAtPos,
 	findPointAtPosition as findPointAtPos,
@@ -34,10 +38,6 @@ import {
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
 import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
-import {
-	calculateBitmaskFromNeighbors,
-	findTileByBitmask,
-} from "../utils/bitmaskAutotiling";
 
 // Imperative handle exposed by MapCanvas for direct chunk invalidation
 export interface MapCanvasHandle {
@@ -1347,9 +1347,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const tilesetId = selectedTilesetIdRef.current;
 				const tileId = selectedTileIdRef.current;
 
-
-
-			if (mousePos && tool === "pencil" && tilesetId && tileId != null && canvas) {
+				if (
+					mousePos &&
+					tool === "pencil" &&
+					tilesetId &&
+					tileId != null &&
+					canvas
+				) {
 					// Calculate tile position from screen coordinates using current pan/zoom
 					const rect = canvas.getBoundingClientRect();
 					const canvasX = mousePos.x - rect.left;
@@ -1440,69 +1444,89 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					}
 				}
 
-
-// Draw terrain tile preview (when terrain mode is active)
-			if (mousePos && tool === "pencil" && selectedTerrainLayerId && tilesetId && canvas) {
-				const tileset = getTilesetById(tilesetId);
-				if (tileset?.imageData && tileset.terrainLayers) {
-					const terrainLayer = tileset.terrainLayers.find(
-						(l) => l.id === selectedTerrainLayerId,
-					);
-
-					if (terrainLayer && terrainLayer.tiles.length > 0) {
-						// Calculate tile position from screen coordinates
-						const rect = canvas.getBoundingClientRect();
-						const canvasX = mousePos.x - rect.left;
-						const canvasY = mousePos.y - rect.top;
-						const worldX = (canvasX - currentPan.x) / currentZoom;
-						const worldY = (canvasY - currentPan.y) / currentZoom;
-						const tileX = Math.floor(worldX / mapData.tileWidth);
-						const tileY = Math.floor(worldY / mapData.tileHeight);
-
-						// Calculate the bitmask based on surrounding tiles (same logic as actual placement)
-						const currentLayer = mapData.layers.find((l) => l.id === currentLayerId);
-						if (!currentLayer) return;
-
-						// Helper to check if a neighbor tile belongs to this terrain layer
-						const hasNeighbor = (dx: number, dy: number): boolean => {
-							const nx = tileX + dx;
-							const ny = tileY + dy;
-							if (nx < 0 || ny < 0 || nx >= mapData.width || ny >= mapData.height) {
-								return false;
-							}
-							const index = ny * mapData.width + nx;
-							const neighborTileId = currentLayer.tiles[index];
-							if (!neighborTileId) return false;
-
-							// Check if this tile belongs to the selected terrain layer
-							const neighborTerrainLayer = getTerrainLayerForTile(neighborTileId, tilesets);
-							return neighborTerrainLayer?.id === selectedTerrainLayerId;
-						};
-
-						// Calculate bitmask and find matching tile
-						const bitmask = calculateBitmaskFromNeighbors(hasNeighbor);
-						const previewTile = findTileByBitmask(tileset, terrainLayer, bitmask);
-						if (!previewTile) return;
-
-						const geometry = unpackTileId(previewTile.tileId);
-
-						// Draw semi-transparent preview
-						ctx.globalAlpha = 0.5;
-						ctx.drawImage(
-							tileset.imageData,
-							geometry.x,
-							geometry.y,
-							tileset.tileWidth,
-							tileset.tileHeight,
-							tileX * mapData.tileWidth,
-							tileY * mapData.tileHeight,
-							tileset.tileWidth,
-							tileset.tileHeight,
+				// Draw terrain tile preview (when terrain mode is active)
+				if (
+					mousePos &&
+					tool === "pencil" &&
+					selectedTerrainLayerId &&
+					tilesetId &&
+					canvas
+				) {
+					const tileset = getTilesetById(tilesetId);
+					if (tileset?.imageData && tileset.terrainLayers) {
+						const terrainLayer = tileset.terrainLayers.find(
+							(l) => l.id === selectedTerrainLayerId,
 						);
-						ctx.globalAlpha = 1.0;
+
+						if (terrainLayer && terrainLayer.tiles.length > 0) {
+							// Calculate tile position from screen coordinates
+							const rect = canvas.getBoundingClientRect();
+							const canvasX = mousePos.x - rect.left;
+							const canvasY = mousePos.y - rect.top;
+							const worldX = (canvasX - currentPan.x) / currentZoom;
+							const worldY = (canvasY - currentPan.y) / currentZoom;
+							const tileX = Math.floor(worldX / mapData.tileWidth);
+							const tileY = Math.floor(worldY / mapData.tileHeight);
+
+							// Calculate the bitmask based on surrounding tiles (same logic as actual placement)
+							const currentLayer = mapData.layers.find(
+								(l) => l.id === currentLayerId,
+							);
+							if (!currentLayer) return;
+
+							// Helper to check if a neighbor tile belongs to this terrain layer
+							const hasNeighbor = (dx: number, dy: number): boolean => {
+								const nx = tileX + dx;
+								const ny = tileY + dy;
+								if (
+									nx < 0 ||
+									ny < 0 ||
+									nx >= mapData.width ||
+									ny >= mapData.height
+								) {
+									return false;
+								}
+								const index = ny * mapData.width + nx;
+								const neighborTileId = currentLayer.tiles[index];
+								if (!neighborTileId) return false;
+
+								// Check if this tile belongs to the selected terrain layer
+								const neighborTerrainLayer = getTerrainLayerForTile(
+									neighborTileId,
+									tilesets,
+								);
+
+								return neighborTerrainLayer === selectedTerrainLayerId;
+							};
+
+							// Calculate bitmask and find matching tile
+							const bitmask = calculateBitmaskFromNeighbors(hasNeighbor);
+							const previewTile = findTileByBitmask(
+								tileset,
+								terrainLayer,
+								bitmask,
+							);
+							if (!previewTile) return;
+
+							const geometry = unpackTileId(previewTile.tileId);
+
+							// Draw semi-transparent preview
+							ctx.globalAlpha = 0.5;
+							ctx.drawImage(
+								tileset.imageData,
+								geometry.x,
+								geometry.y,
+								tileset.tileWidth,
+								tileset.tileHeight,
+								tileX * mapData.tileWidth,
+								tileY * mapData.tileHeight,
+								tileset.tileWidth,
+								tileset.tileHeight,
+							);
+							ctx.globalAlpha = 1.0;
+						}
 					}
 				}
-			}
 				// Draw entity preview (when entity tool is active)
 				if (
 					mousePos &&
@@ -2240,7 +2264,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			// Trigger render for tools that show cursor previews (pencil, entity, point)
 			// Use RAF to throttle renders during mouse movement
 			if (
-				(currentTool === "pencil" || currentTool === "entity" || currentTool === "point") &&
+				(currentTool === "pencil" ||
+					currentTool === "entity" ||
+					currentTool === "point") &&
 				!isDragging &&
 				!isDrawing
 			) {
