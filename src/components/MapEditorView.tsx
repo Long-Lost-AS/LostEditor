@@ -278,6 +278,11 @@ export const MapEditorView = ({
 		sourceLayerId: string;
 	} | null>(null);
 
+	// Mouse position state for status bar
+	const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+		null,
+	);
+
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
 
@@ -873,6 +878,17 @@ export const MapEditorView = ({
 			handleEraseTilesBatch(tilesToErase);
 		},
 		[handleEraseTilesBatch],
+	);
+
+	const handleMousePositionChange = useCallback(
+		(x: number | null, y: number | null) => {
+			if (x === null || y === null) {
+				setMousePos(null);
+			} else {
+				setMousePos({ x, y });
+			}
+		},
+		[],
 	);
 
 	const handlePlaceEntity = useCallback(
@@ -1916,7 +1932,64 @@ export const MapEditorView = ({
 						onClearTileSelection={() => {
 							// Clear tile selection (will be called from keyboard shortcuts)
 						}}
+						onMousePositionChange={handleMousePositionChange}
 					/>
+
+					{/* Status bar */}
+					<div
+						className="absolute bottom-0 left-0 right-0 px-3 py-1.5 flex items-center gap-4 text-xs text-gray-300"
+						style={{
+							background: "rgba(37, 37, 38, 0.95)",
+							borderTop: "1px solid #3e3e42",
+						}}
+					>
+						{/* Map dimensions */}
+						<div className="flex items-center gap-2">
+							<span className="text-gray-500">Map:</span>
+							<span className="font-mono">
+								{localMapData.width}×{localMapData.height}
+							</span>
+						</div>
+
+						<div className="w-px h-4 bg-gray-700" />
+
+						{/* Current layer */}
+						<div className="flex items-center gap-2">
+							<span className="text-gray-500">Layer:</span>
+							<span className="font-mono">{currentLayer?.name || "None"}</span>
+						</div>
+
+						<div className="w-px h-4 bg-gray-700" />
+
+						{/* Current tool */}
+						<div className="flex items-center gap-2">
+							<span className="text-gray-500">Tool:</span>
+							<span className="font-mono capitalize">
+								{tab.viewState.currentTool || "Pencil"}
+							</span>
+						</div>
+
+						{/* Cursor position */}
+						{mousePos && (
+							<>
+								<div className="w-px h-4 bg-gray-700" />
+								<div className="flex items-center gap-2">
+									<span className="text-gray-500">Cursor:</span>
+									<span className="font-mono">
+										{mousePos.x}, {mousePos.y}
+									</span>
+								</div>
+							</>
+						)}
+
+						<div className="flex-1" />
+
+						{/* Zoom level */}
+						<div className="flex items-center gap-2">
+							<span className="text-gray-500">Zoom:</span>
+							<span className="font-mono">{Math.round(zoom * 100)}%</span>
+						</div>
+					</div>
 				</div>
 			</div>
 

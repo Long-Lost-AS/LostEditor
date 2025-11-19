@@ -121,6 +121,7 @@ interface MapCanvasProps {
 		layerId: string;
 	}) => void;
 	onClearTileSelection?: () => void;
+	onMousePositionChange?: (x: number | null, y: number | null) => void;
 }
 
 const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
@@ -159,6 +160,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			onPasteTiles: _onPasteTiles,
 			onDeleteSelectedTiles: _onDeleteSelectedTiles,
 			onClearTileSelection: _onClearTileSelection,
+			onMousePositionChange,
 		}: MapCanvasProps,
 		ref,
 	) => {
@@ -2385,6 +2387,22 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			// Store screen coordinates for hover preview (will be converted to world coords on render)
 			setMouseScreenPos({ x: e.clientX, y: e.clientY });
 
+			// Update mouse position in tile coordinates for status bar
+			if (onMousePositionChange) {
+				const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
+				// Only send if within map bounds
+				if (
+					tileX >= 0 &&
+					tileX < mapData.width &&
+					tileY >= 0 &&
+					tileY < mapData.height
+				) {
+					onMousePositionChange(tileX, tileY);
+				} else {
+					onMousePositionChange(null, null);
+				}
+			}
+
 			// Trigger render for tools that show cursor previews (pencil, entity, point)
 			// Use RAF to throttle renders during mouse movement
 			if (
@@ -2630,6 +2648,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 		const handleMouseLeave = () => {
 			setMouseScreenPos(null);
+			onMousePositionChange?.(null, null);
 
 			// Finish pencil stroke if mouse leaves while drawing
 			if (
