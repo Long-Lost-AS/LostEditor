@@ -3312,20 +3312,31 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Paste: Cmd/Ctrl+V
 				if (modKey && e.key === "v" && !e.shiftKey) {
 					e.preventDefault();
-					// Paste at current mouse position
-					const mousePos = mouseScreenPosRef.current;
-					if (!mousePos || !canvasRef.current) return;
 
-					const canvas = canvasRef.current;
-					const rect = canvas.getBoundingClientRect();
-					const canvasX = mousePos.x - rect.left;
-					const canvasY = mousePos.y - rect.top;
-					const currentPan = getPan();
-					const currentZoom = getZoom();
-					const worldX = (canvasX - currentPan.x) / currentZoom;
-					const worldY = (canvasY - currentPan.y) / currentZoom;
-					const tileX = Math.floor(worldX / mapData.tileWidth);
-					const tileY = Math.floor(worldY / mapData.tileHeight);
+					// If there's a selection, paste at the selection's start position
+					// Otherwise, paste at mouse cursor position
+					let tileX: number;
+					let tileY: number;
+
+					if (selectedTileRegion) {
+						tileX = selectedTileRegion.startX;
+						tileY = selectedTileRegion.startY;
+					} else {
+						// Paste at current mouse position
+						const mousePos = mouseScreenPosRef.current;
+						if (!mousePos || !canvasRef.current) return;
+
+						const canvas = canvasRef.current;
+						const rect = canvas.getBoundingClientRect();
+						const canvasX = mousePos.x - rect.left;
+						const canvasY = mousePos.y - rect.top;
+						const currentPan = getPan();
+						const currentZoom = getZoom();
+						const worldX = (canvasX - currentPan.x) / currentZoom;
+						const worldY = (canvasY - currentPan.y) / currentZoom;
+						tileX = Math.floor(worldX / mapData.tileWidth);
+						tileY = Math.floor(worldY / mapData.tileHeight);
+					}
 
 					_onPasteTiles?.(tileX, tileY);
 					return;
