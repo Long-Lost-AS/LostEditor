@@ -31,6 +31,7 @@ import {
 	isPointInPolygon as pointInPolygon,
 } from "../utils/collisionGeometry";
 import { getArrowKeyDelta, isArrowKey } from "../utils/keyboardMovement";
+import { isEditableElementFocused } from "../utils/keyboardUtils";
 import { LayerChunkCache } from "../utils/LayerChunkCache";
 import {
 	getTerrainLayerForTile,
@@ -3277,6 +3278,109 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				window.removeEventListener("mousedown", handleMouseDown);
 			};
 		}, [contextMenu.visible]);
+
+		// Handle keyboard events for tile selection clipboard operations
+		useEffect(() => {
+			if (currentTool !== "pointer") {
+				return;
+			}
+
+			const handleKeyDown = (e: KeyboardEvent) => {
+				// Don't handle if user is typing in an input field
+				if (isEditableElementFocused(e)) {
+					return;
+				}
+
+				const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+				const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+				// Copy: Cmd/Ctrl+C
+				if (modKey && e.key === "c" && selectedTileRegion && !e.shiftKey) {
+					e.preventDefault();
+					_onCopyTiles?.(selectedTileRegion);
+					return;
+				}
+
+				// Cut: Cmd/Ctrl+X
+				if (modKey && e.key === "x" && selectedTileRegion && !e.shiftKey) {
+					e.preventDefault();
+					_onCutTiles?.(selectedTileRegion);
+					return;
+				}
+
+				// Paste: Cmd/Ctrl+V
+				if (modKey && e.key === "v" && !e.shiftKey) {
+					e.preventDefault();
+					// Paste at current mouse position
+					const mousePos = mouseScreenPosRef.current;
+					if (!mousePos || !canvasRef.current) return;
+
+					const canvas = canvasRef.current;
+					const rect = canvas.getBoundingClientRect();
+					const canvasX = mousePos.x - rect.left;
+					const canvasY = mousePos.y - rect.top;
+					const currentPan = getPan();
+					const currentZoom = getZoom();
+					const worldX = (canvasX - currentPan.x) / currentZoom;
+					const worldY = (canvasY - currentPan.y) / currentZoom;
+					const tileX = Math.floor(worldX / mapData.tileWidth);
+					const tileY = Math.floor(worldY / mapData.tileHeight);
+
+					_onPasteTiles?.(tileX, tileY);
+					return;
+				}
+
+				// Delete: Delete or Backspace key
+				if (
+					(e.key === "Delete" || e.key === "Backspace") &&
+					selectedTileRegion
+				) {
+					e.preventDefault();
+					_onDeleteSelectedTiles?.(selectedTileRegion);
+					setSelectedTileRegion(null); // Clear selection after delete
+					return;
+				}
+
+				// Escape: Clear selection
+				if (e.key === "Escape" && selectedTileRegion) {
+					e.preventDefault();
+					setSelectedTileRegion(null);
+					_onClearTileSelection?.();
+					return;
+				}
+			};
+
+			window.addEventListener("keydown", handleKeyDown);
+			return () => window.removeEventListener("keydown", handleKeyDown);
+		}, [
+			currentTool,
+			selectedTileRegion,
+			_onCopyTiles,
+			_onCutTiles,
+			_onPasteTiles,
+			_onDeleteSelectedTiles,
+			_onClearTileSelection,
+			mapData,
+			getPan,
+			getZoom,
+		]);
+
+		// Clear tile selection when switching tools or layers
+		useEffect(() => {
+			if (currentTool !== "pointer") {
+				// Clear selection when switching away from pointer tool
+				setSelectedTileRegion(null);
+				setIsSelectingTiles(false);
+				setTileSelectionStart(null);
+			}
+		}, [currentTool]);
+
+		useEffect(() => {
+			// Clear selection when switching layers (only if selection exists and is for different layer)
+			if (selectedTileRegion && selectedTileRegion.layerId !== currentLayerId) {
+				setSelectedTileRegion(null);
+			}
+		}, [currentLayerId, selectedTileRegion]);
 
 		return (
 			<div className="canvas-container">
