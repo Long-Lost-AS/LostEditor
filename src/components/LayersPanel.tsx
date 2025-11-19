@@ -15,7 +15,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../context/EditorContext";
 import type { Layer } from "../types";
 
@@ -60,35 +60,20 @@ const SortableLayerItem = ({
 	return (
 		<div
 			ref={setNodeRef}
-			style={{
-				...style,
-				userSelect: "none",
-				WebkitUserSelect: "none",
-			}}
+			style={style}
 			{...attributes}
 			{...listeners}
 			role="button"
 			tabIndex={0}
 			className={`layer-item ${isActive ? "active" : ""} ${isDragging ? "dragging" : ""}`}
 			onClick={() => onLayerClick(layer)}
-			onMouseDown={(e) => {
-				// Prevent text selection when dragging
-				e.preventDefault();
-			}}
-			onSelectStart={(e) => {
-				// Prevent text selection
-				e.preventDefault();
-			}}
-			onDragStart={(e) => {
-				// Prevent native browser drag
-				e.preventDefault();
-			}}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
 					onLayerClick(layer);
 				}
 			}}
+			draggable={false}
 			aria-pressed={isActive}
 			aria-label={`Layer: ${layer.name}`}
 		>
@@ -115,7 +100,7 @@ const SortableLayerItem = ({
 					spellCheck={false}
 				/>
 			) : (
-				<span style={{ userSelect: "none" }}>{layer.name}</span>
+				<span>{layer.name}</span>
 			)}
 		</div>
 	);
@@ -138,15 +123,28 @@ export const LayersPanel = () => {
 	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 	const [editingName, setEditingName] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const layersListRef = useRef<HTMLDivElement>(null);
 
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				delay: 50, // 50ms delay to prevent browser selection
-				tolerance: 5, // Allow 5px movement during delay
-			},
-		}),
-	);
+	// Prevent text selection on the layers list
+	useEffect(() => {
+		const element = layersListRef.current;
+		if (!element) return;
+
+		const preventSelection = (e: Event) => {
+			e.preventDefault();
+			return false;
+		};
+
+		element.addEventListener("selectstart", preventSelection);
+		element.addEventListener("dragstart", preventSelection);
+
+		return () => {
+			element.removeEventListener("selectstart", preventSelection);
+			element.removeEventListener("dragstart", preventSelection);
+		};
+	}, []);
+
+	const sensors = useSensors(useSensor(PointerSensor));
 
 	const handleNameSubmit = (layerId: string) => {
 		if (editingName.trim()) {
@@ -228,10 +226,7 @@ export const LayersPanel = () => {
 					items={displayedLayers.map((l) => l.id)}
 					strategy={verticalListSortingStrategy}
 				>
-					<div
-						className="layers-list"
-						style={{ userSelect: "none", WebkitUserSelect: "none" }}
-					>
+					<div className="layers-list" ref={layersListRef}>
 						{displayedLayers.map((layer) => (
 							<SortableLayerItem
 								key={layer.id}
@@ -258,7 +253,7 @@ export const LayersPanel = () => {
 								title="Toggle visibility"
 								spellCheck={false}
 							/>
-							<span style={{ userSelect: "none" }}>{activeLayer.name}</span>
+							<span>{activeLayer.name}</span>
 						</div>
 					) : null}
 				</DragOverlay>

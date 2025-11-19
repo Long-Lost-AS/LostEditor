@@ -320,6 +320,10 @@ body {
 	gap: 4px;
 	margin-bottom: 8px;
 	min-height: 100px;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
 }
 
 .layer-item {
@@ -331,8 +335,22 @@ body {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	user-select: none;
-	-webkit-user-select: none;
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+	-webkit-touch-callout: none !important;
+}
+
+.layer-item * {
+	user-select: none !important;
+	-webkit-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+}
+
+.layer-item span {
+	pointer-events: none;
 }
 
 .layer-item:hover {
