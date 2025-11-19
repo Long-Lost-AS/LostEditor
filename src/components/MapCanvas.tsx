@@ -2780,7 +2780,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				setRectStartTile(null);
 			}
 
-			if (isSelectingTiles && tileSelectionStart) {
+			if (isSelectingTiles && tileSelectionStart && currentLayerId) {
 				// Finish tile selection - store the selected region
 				const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
 
@@ -3030,7 +3030,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			const handleWheel = (e: WheelEvent) => {
 				e.preventDefault();
 
-				if (e.ctrlKey) {
+				if (e.ctrlKey || e.metaKey) {
 					// Zoom towards mouse position with RAF throttling (performance optimization)
 					const rect = canvas.getBoundingClientRect();
 					const mouseX = e.clientX - rect.left;
@@ -3044,8 +3044,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const worldX = (mouseX - currentPan.x) / currentZoom;
 					const worldY = (mouseY - currentPan.y) / currentZoom;
 
+					// Normalize deltaY to handle both mouse wheels and trackpads
+					// Mouse wheels typically send ±100, trackpads send smaller values
+					// Clamp to ±20 to prevent extreme zoom jumps
+					const normalizedDelta = Math.max(-20, Math.min(20, e.deltaY));
+
 					// Calculate new zoom
-					const delta = -e.deltaY * 0.01;
+					const delta = -normalizedDelta * 0.01;
 					const newZoom = Math.max(0.1, Math.min(10, currentZoom + delta));
 
 					// Adjust pan to keep world position under mouse
