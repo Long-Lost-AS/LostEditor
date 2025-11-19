@@ -215,9 +215,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	// One-way sync: local tileset state → tab data
 	// This updates the tab's tilesetData whenever local state changes (from any operation or undo/redo)
 	useEffect(() => {
+		// Get the most up-to-date tileset data, preserving fields like filePath
+		const currentTilesetData = tilesetDataRef.current;
+		if (!currentTilesetData) return;
+
 		updateTabData(tab.id, {
 			tilesetData: {
-				...tilesetDataRef.current,
+				...currentTilesetData,
 				tiles: localTiles,
 				terrainLayers: localTerrainLayers,
 				tileWidth: localTileWidth,

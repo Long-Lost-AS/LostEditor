@@ -820,10 +820,16 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			const projectDir = fileManager.dirname(filePath);
 			fileManager.setProjectDir(projectDir);
 
-			// Save any unsaved tilesets
-			const unsavedTilesets = tilesets.filter((t) => !t.filePath);
-			if (unsavedTilesets.length > 0) {
-				for (const tileset of unsavedTilesets) {
+			// Save any unsaved tilesets (get data from tabs, not global array)
+			const unsavedTilesetTabs = tabs.filter(
+				(t) => t.type === "tileset-editor" && !t.tilesetData?.filePath,
+			) as TilesetTab[];
+
+			if (unsavedTilesetTabs.length > 0) {
+				for (const tab of unsavedTilesetTabs) {
+					const tileset = tab.tilesetData;
+					if (!tileset) continue;
+
 					const result = await invoke<{ canceled: boolean; filePath?: string }>(
 						"show_save_dialog",
 						{
@@ -850,19 +856,18 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						// Update the tileset in the tilesets array with the new file path
 						setTilesets((prev) =>
 							prev.map((t) =>
-								t.id === tileset.id ? { ...t, filePath: result.filePath } : t,
+								t.id === tileset.id
+									? { ...tileset, filePath: result.filePath }
+									: t,
 							),
 						);
 
-						// Mark tileset tab as clean
-						setTabs((prevTabs) =>
-							prevTabs.map((tab) =>
-								tab.type === "tileset-editor" &&
-								(tab as TilesetTab).tilesetId === tileset.id
-									? { ...tab, isDirty: false }
-									: tab,
-							),
-						);
+						// Update the tab with the new file path and mark as clean
+						updateTabData(tab.id, {
+							tilesetData: { ...tileset, filePath: result.filePath },
+							isDirty: false,
+							title: fileManager.basename(result.filePath, ".lostset"),
+						});
 					} catch (error) {
 						alert(`Failed to save tileset ${tileset.name}: ${error}`);
 						return;
@@ -991,7 +996,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to save project: ${error}`);
 			}
 		},
-		[projectName, tilesets, settingsManager, tabs, activeTabId, maps],
+		[projectName, settingsManager, tabs, activeTabId, maps, updateTabData],
 	);
 
 	const saveProject = useCallback(async () => {
