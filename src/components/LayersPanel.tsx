@@ -130,7 +130,8 @@ export const LayersPanel = () => {
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
-				distance: 5, // 5px distance before drag starts
+				delay: 50, // 50ms delay to prevent browser selection
+				tolerance: 5, // Allow 5px movement during delay
 			},
 		}),
 	);
