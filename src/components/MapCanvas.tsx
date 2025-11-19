@@ -1352,7 +1352,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					tool === "pencil" &&
 					tilesetId &&
 					tileId != null &&
-					!selectedTerrainLayerId && canvas
+					!selectedTerrainLayerId &&
+					canvas
 				) {
 					// Calculate tile position from screen coordinates using current pan/zoom
 					const rect = canvas.getBoundingClientRect();
@@ -1790,8 +1791,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const rect = canvas.getBoundingClientRect();
 					const canvasX = mousePos.x - rect.left;
 					const canvasY = mousePos.y - rect.top;
-					const worldX = (canvasX - panX) / currentZoom;
-					const worldY = (canvasY - panY) / currentZoom;
+					const worldX = (canvasX - currentPan.x) / currentZoom;
+					const worldY = (canvasY - currentPan.y) / currentZoom;
 					const currentTileX = Math.floor(worldX / mapData.tileWidth);
 					const currentTileY = Math.floor(worldY / mapData.tileHeight);
 
@@ -2270,6 +2271,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				!isDragging &&
 				!isDrawing
 			) {
+				if (rafHandle.current === null) {
+					rafHandle.current = requestAnimationFrame(() => {
+						renderMap.current();
+						rafHandle.current = null;
+					});
+				}
+			}
+
+			// Trigger render for rectangle tool preview during drag
+			if (isDrawingRect) {
 				if (rafHandle.current === null) {
 					rafHandle.current = requestAnimationFrame(() => {
 						renderMap.current();
