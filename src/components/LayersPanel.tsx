@@ -60,7 +60,11 @@ const SortableLayerItem = ({
 	return (
 		<div
 			ref={setNodeRef}
-			style={style}
+			style={{
+				...style,
+				userSelect: "none",
+				WebkitUserSelect: "none",
+			}}
 			{...attributes}
 			{...listeners}
 			role="button"
@@ -99,7 +103,7 @@ const SortableLayerItem = ({
 					spellCheck={false}
 				/>
 			) : (
-				<span>{layer.name}</span>
+				<span style={{ userSelect: "none" }}>{layer.name}</span>
 			)}
 		</div>
 	);
@@ -211,7 +215,10 @@ export const LayersPanel = () => {
 					items={displayedLayers.map((l) => l.id)}
 					strategy={verticalListSortingStrategy}
 				>
-					<div className="layers-list">
+					<div
+						className="layers-list"
+						style={{ userSelect: "none", WebkitUserSelect: "none" }}
+					>
 						{displayedLayers.map((layer) => (
 							<SortableLayerItem
 								key={layer.id}
@@ -238,7 +245,7 @@ export const LayersPanel = () => {
 								title="Toggle visibility"
 								spellCheck={false}
 							/>
-							<span>{activeLayer.name}</span>
+							<span style={{ userSelect: "none" }}>{activeLayer.name}</span>
 						</div>
 					) : null}
 				</DragOverlay>
