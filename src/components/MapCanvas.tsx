@@ -2234,6 +2234,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							onPointSelected?.(null);
 							setSelectedColliderId(null);
 							onColliderSelected?.(null);
+							setSelectedTileRegion(null);
 							// Always set drag start - allow dragging after selection
 							setEntityDragStart({ x: e.clientX, y: e.clientY });
 							setEntityDragOffset({
@@ -2253,6 +2254,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							setSelectedColliderId(null);
 							onColliderSelected?.(null);
 							// Update point selection
+							setSelectedTileRegion(null);
 							setSelectedPointId(foundPoint.id);
 							selectedPointIdRef.current = foundPoint.id;
 							// Always set drag start - allow dragging after selection
@@ -2276,6 +2278,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							selectedPointIdRef.current = null;
 							onPointSelected?.(null);
 							// Update collider selection
+							setSelectedTileRegion(null);
 							setSelectedColliderId(foundCollider.id);
 							// Trigger immediate render
 							renderMap.current();
@@ -2874,6 +2877,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					selectedEntityIdRef.current = null;
 					onEntitySelected?.(null);
 					renderMap.current();
+					setSelectedTileRegion(null);
 					onPointSelected?.(foundPoint.id);
 				}
 				return;
@@ -2938,6 +2942,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					selectedEntityIdRef.current = foundEntity.id;
 					// Clear point selection
 					setSelectedPointId(null);
+					setSelectedTileRegion(null);
 					selectedPointIdRef.current = null;
 					onPointSelected?.(null);
 					renderMap.current();
