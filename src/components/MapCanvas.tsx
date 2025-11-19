@@ -97,6 +97,29 @@ interface MapCanvasProps {
 	}) => void;
 	onStartBatch?: () => void;
 	onEndBatch?: () => void;
+	onCopyTiles?: (selection: {
+		startX: number;
+		startY: number;
+		endX: number;
+		endY: number;
+		layerId: string;
+	}) => void;
+	onCutTiles?: (selection: {
+		startX: number;
+		startY: number;
+		endX: number;
+		endY: number;
+		layerId: string;
+	}) => void;
+	onPasteTiles?: (targetX: number, targetY: number) => void;
+	onDeleteSelectedTiles?: (selection: {
+		startX: number;
+		startY: number;
+		endX: number;
+		endY: number;
+		layerId: string;
+	}) => void;
+	onClearTileSelection?: () => void;
 }
 
 const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
@@ -130,6 +153,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			onContextMenuRequest,
 			onStartBatch,
 			onEndBatch,
+			onCopyTiles: _onCopyTiles,
+			onCutTiles: _onCutTiles,
+			onPasteTiles: _onPasteTiles,
+			onDeleteSelectedTiles: _onDeleteSelectedTiles,
+			onClearTileSelection: _onClearTileSelection,
 		}: MapCanvasProps,
 		ref,
 	) => {
@@ -183,6 +211,20 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 		const [rectStartTile, setRectStartTile] = useState<{
 			x: number;
 			y: number;
+		} | null>(null);
+
+		// Tile selection state (for pointer tool)
+		const [isSelectingTiles, setIsSelectingTiles] = useState(false);
+		const [tileSelectionStart, setTileSelectionStart] = useState<{
+			x: number;
+			y: number;
+		} | null>(null);
+		const [selectedTileRegion, setSelectedTileRegion] = useState<{
+			startX: number;
+			startY: number;
+			endX: number;
+			endY: number;
+			layerId: string;
 		} | null>(null);
 
 		// Pointer tool state (for selecting and moving entities)
@@ -1822,6 +1864,76 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					);
 				}
 
+				// Draw tile selection preview (when dragging with pointer tool)
+				if (isSelectingTiles && tileSelectionStart && mousePos && canvas) {
+					const rect = canvas.getBoundingClientRect();
+					const canvasX = mousePos.x - rect.left;
+					const canvasY = mousePos.y - rect.top;
+					const worldX = (canvasX - currentPan.x) / currentZoom;
+					const worldY = (canvasY - currentPan.y) / currentZoom;
+					const currentTileX = Math.floor(worldX / mapData.tileWidth);
+					const currentTileY = Math.floor(worldY / mapData.tileHeight);
+
+					// Calculate selection bounds
+					const minX = Math.min(tileSelectionStart.x, currentTileX);
+					const maxX = Math.max(tileSelectionStart.x, currentTileX);
+					const minY = Math.min(tileSelectionStart.y, currentTileY);
+					const maxY = Math.max(tileSelectionStart.y, currentTileY);
+
+					// Draw semi-transparent fill
+					ctx.fillStyle = "rgba(0, 150, 255, 0.15)";
+					ctx.fillRect(
+						minX * mapData.tileWidth,
+						minY * mapData.tileHeight,
+						(maxX - minX + 1) * mapData.tileWidth,
+						(maxY - minY + 1) * mapData.tileHeight,
+					);
+
+					// Draw dashed rectangle outline
+					ctx.strokeStyle = "rgba(0, 150, 255, 0.9)";
+					ctx.lineWidth = 2 / currentZoom;
+					ctx.setLineDash([8 / currentZoom, 4 / currentZoom]);
+					ctx.strokeRect(
+						minX * mapData.tileWidth,
+						minY * mapData.tileHeight,
+						(maxX - minX + 1) * mapData.tileWidth,
+						(maxY - minY + 1) * mapData.tileHeight,
+					);
+					ctx.setLineDash([]); // Reset dash pattern
+				}
+
+				// Draw finalized tile selection (persists until cleared)
+				if (
+					selectedTileRegion &&
+					selectedTileRegion.layerId === currentLayerId
+				) {
+					const { startX, startY, endX, endY } = selectedTileRegion;
+
+					// Draw semi-transparent fill
+					ctx.fillStyle = "rgba(0, 150, 255, 0.1)";
+					ctx.fillRect(
+						startX * mapData.tileWidth,
+						startY * mapData.tileHeight,
+						(endX - startX + 1) * mapData.tileWidth,
+						(endY - startY + 1) * mapData.tileHeight,
+					);
+
+					// Draw animated dashed outline (marching ants effect)
+					const dashOffset = (Date.now() / 50) % 12; // Animate dash offset
+					ctx.strokeStyle = "rgba(0, 150, 255, 1)";
+					ctx.lineWidth = 2 / currentZoom;
+					ctx.setLineDash([6 / currentZoom, 6 / currentZoom]);
+					ctx.lineDashOffset = -dashOffset / currentZoom;
+					ctx.strokeRect(
+						startX * mapData.tileWidth,
+						startY * mapData.tileHeight,
+						(endX - startX + 1) * mapData.tileWidth,
+						(endY - startY + 1) * mapData.tileHeight,
+					);
+					ctx.setLineDash([]); // Reset dash pattern
+					ctx.lineDashOffset = 0;
+				}
+
 				ctx.restore();
 			};
 		}, [
@@ -1835,6 +1947,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			selectedTilesetId,
 			isDrawingRect,
 			rectStartTile,
+			isSelectingTiles,
+			tileSelectionStart,
+			selectedTileRegion,
 			isDraggingEntity,
 			renderEntity,
 			selectedEntityDefId,
@@ -2170,7 +2285,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							onColliderSelected?.(foundCollider.id);
 						}
 					} else {
-						// No objects found - clear all selections
+						// No objects found - start tile selection
 						setSelectedEntityId(null);
 						selectedEntityIdRef.current = null;
 						setSelectedPointId(null);
@@ -2179,6 +2294,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						onEntitySelected?.(null);
 						onPointSelected?.(null);
 						onColliderSelected?.(null);
+
+						// Start tile selection drag
+						const tileX = Math.floor(worldX / mapData.tileWidth);
+						const tileY = Math.floor(worldY / mapData.tileHeight);
+						setIsSelectingTiles(true);
+						setTileSelectionStart({ x: tileX, y: tileY });
+						setSelectedTileRegion(null); // Clear previous selection
 					}
 				} else if (currentTool === "collision") {
 					// Collision tool: Tiled-like click-to-place polygon drawing
@@ -2281,6 +2403,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 			// Trigger render for rectangle tool preview during drag
 			if (isDrawingRect) {
+				if (rafHandle.current === null) {
+					rafHandle.current = requestAnimationFrame(() => {
+						renderMap.current();
+						rafHandle.current = null;
+					});
+				}
+			}
+
+			// Trigger render for tile selection preview during drag
+			if (isSelectingTiles) {
 				if (rafHandle.current === null) {
 					rafHandle.current = requestAnimationFrame(() => {
 						renderMap.current();
@@ -2645,6 +2777,30 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				setIsDrawingRect(false);
 				setRectStartTile(null);
+			}
+
+			if (isSelectingTiles && tileSelectionStart) {
+				// Finish tile selection - store the selected region
+				const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
+
+				// Calculate selection bounds
+				const minX = Math.min(tileSelectionStart.x, tileX);
+				const maxX = Math.max(tileSelectionStart.x, tileX);
+				const minY = Math.min(tileSelectionStart.y, tileY);
+				const maxY = Math.max(tileSelectionStart.y, tileY);
+
+				// Store the selection
+				setSelectedTileRegion({
+					startX: minX,
+					startY: minY,
+					endX: maxX,
+					endY: maxY,
+					layerId: currentLayerId,
+				});
+
+				setIsSelectingTiles(false);
+				setTileSelectionStart(null);
+				renderMap.current();
 			}
 
 			// Finish pencil stroke - end batching to commit undo/redo entry

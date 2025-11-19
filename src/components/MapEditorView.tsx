@@ -270,6 +270,14 @@ export const MapEditorView = ({
 		number | null
 	>(null);
 
+	// Tile clipboard state (for copy/paste/cut operations)
+	const [tileClipboard, setTileClipboard] = useState<{
+		tiles: Map<string, number>; // key: "relativeX,relativeY", value: tileId
+		width: number;
+		height: number;
+		sourceLayerId: string;
+	} | null>(null);
+
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
 
@@ -700,6 +708,168 @@ export const MapEditorView = ({
 			setProjectModified(true);
 		},
 		[currentLayer, setProjectModified, setLocalMapData],
+	);
+
+	// Tile clipboard handlers
+	const handleCopyTiles = useCallback(
+		(selection: {
+			startX: number;
+			startY: number;
+			endX: number;
+			endY: number;
+			layerId: string;
+		}) => {
+			if (!localMapData) return;
+
+			const layer = localMapData.layers.find((l) => l.id === selection.layerId);
+			if (!layer) return;
+
+			const width = selection.endX - selection.startX + 1;
+			const height = selection.endY - selection.startY + 1;
+			const tiles = new Map<string, number>();
+
+			// Extract tiles from selection
+			for (let y = selection.startY; y <= selection.endY; y++) {
+				for (let x = selection.startX; x <= selection.endX; x++) {
+					const index = y * localMapData.width + x;
+					const tileId = layer.tiles[index];
+					if (tileId !== 0) {
+						const relativeX = x - selection.startX;
+						const relativeY = y - selection.startY;
+						tiles.set(`${relativeX},${relativeY}`, tileId);
+					}
+				}
+			}
+
+			setTileClipboard({
+				tiles,
+				width,
+				height,
+				sourceLayerId: selection.layerId,
+			});
+		},
+		[localMapData],
+	);
+
+	const handleCutTiles = useCallback(
+		(selection: {
+			startX: number;
+			startY: number;
+			endX: number;
+			endY: number;
+			layerId: string;
+		}) => {
+			// Copy first
+			handleCopyTiles(selection);
+
+			// Then erase
+			const tilesToErase: Array<{ x: number; y: number }> = [];
+			for (let y = selection.startY; y <= selection.endY; y++) {
+				for (let x = selection.startX; x <= selection.endX; x++) {
+					tilesToErase.push({ x, y });
+				}
+			}
+
+			handleEraseTilesBatch(tilesToErase);
+		},
+		[handleCopyTiles, handleEraseTilesBatch],
+	);
+
+	const handlePasteTiles = useCallback(
+		(targetX: number, targetY: number) => {
+			if (!tileClipboard || !currentLayer) return;
+
+			const tilesToPlace: Array<{ x: number; y: number; tileId: number }> = [];
+
+			// Convert clipboard tiles to absolute positions
+			for (const [key, tileId] of tileClipboard.tiles.entries()) {
+				const [relX, relY] = key.split(",").map(Number);
+				const absX = targetX + relX;
+				const absY = targetY + relY;
+
+				// Bounds check
+				if (
+					absX >= 0 &&
+					absX < localMapData.width &&
+					absY >= 0 &&
+					absY < localMapData.height
+				) {
+					tilesToPlace.push({ x: absX, y: absY, tileId });
+				}
+			}
+
+			// Use same logic as handlePlaceTilesBatch but with explicit tileIds
+			if (tilesToPlace.length === 0) return;
+
+			// Calculate affected chunks for undo system
+			const CHUNK_SIZE = 64;
+			const affectedChunksSet = new Set<string>();
+
+			for (const { x, y } of tilesToPlace) {
+				const chunkX = Math.floor(x / CHUNK_SIZE);
+				const chunkY = Math.floor(y / CHUNK_SIZE);
+				affectedChunksSet.add(`${chunkX},${chunkY}`);
+			}
+
+			const affectedChunks = Array.from(affectedChunksSet).map((key) => {
+				const [chunkX, chunkY] = key.split(",").map(Number);
+				return { layerId: currentLayer.id, chunkX, chunkY };
+			});
+
+			setLocalMapData(
+				(prev) => ({
+					...prev,
+					layers: prev.layers.map((layer) => {
+						if (layer.id === currentLayer.id) {
+							const newTiles = [...layer.tiles];
+
+							for (const { x, y, tileId } of tilesToPlace) {
+								const index = y * prev.width + x;
+								newTiles[index] = tileId;
+							}
+
+							return { ...layer, tiles: newTiles };
+						}
+						return layer;
+					}),
+				}),
+				affectedChunks,
+			);
+
+			// Invalidate affected tiles
+			mapCanvasRef.current?.invalidateTiles(
+				currentLayer.id,
+				tilesToPlace.map(({ x, y }) => ({ x, y })),
+			);
+			setProjectModified(true);
+		},
+		[
+			tileClipboard,
+			currentLayer,
+			localMapData,
+			setLocalMapData,
+			setProjectModified,
+		],
+	);
+
+	const handleDeleteSelectedTiles = useCallback(
+		(selection: {
+			startX: number;
+			startY: number;
+			endX: number;
+			endY: number;
+			layerId: string;
+		}) => {
+			const tilesToErase: Array<{ x: number; y: number }> = [];
+			for (let y = selection.startY; y <= selection.endY; y++) {
+				for (let x = selection.startX; x <= selection.endX; x++) {
+					tilesToErase.push({ x, y });
+				}
+			}
+
+			handleEraseTilesBatch(tilesToErase);
+		},
+		[handleEraseTilesBatch],
 	);
 
 	const handlePlaceEntity = useCallback(
@@ -1736,6 +1906,13 @@ export const MapEditorView = ({
 						onContextMenuRequest={setContextMenu}
 						onStartBatch={startBatch}
 						onEndBatch={endBatch}
+						onCopyTiles={handleCopyTiles}
+						onCutTiles={handleCutTiles}
+						onPasteTiles={handlePasteTiles}
+						onDeleteSelectedTiles={handleDeleteSelectedTiles}
+						onClearTileSelection={() => {
+							// Clear tile selection (will be called from keyboard shortcuts)
+						}}
 					/>
 				</div>
 			</div>
