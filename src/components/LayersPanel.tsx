@@ -25,7 +25,6 @@ interface SortableLayerItemProps {
 	isEditing: boolean;
 	editingName: string;
 	onLayerClick: (layer: Layer) => void;
-	onDoubleClick: (layer: Layer) => void;
 	onVisibilityChange: (layerId: string, visible: boolean) => void;
 	onNameChange: (name: string) => void;
 	onNameSubmit: (layerId: string) => void;
@@ -38,7 +37,6 @@ const SortableLayerItem = ({
 	isEditing,
 	editingName,
 	onLayerClick,
-	onDoubleClick,
 	onVisibilityChange,
 	onNameChange,
 	onNameSubmit,
@@ -69,7 +67,6 @@ const SortableLayerItem = ({
 			tabIndex={0}
 			className={`layer-item ${isActive ? "active" : ""} ${isDragging ? "dragging" : ""}`}
 			onClick={() => onLayerClick(layer)}
-			onDoubleClick={() => onDoubleClick(layer)}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
@@ -129,16 +126,10 @@ export const LayersPanel = () => {
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
-				delay: 150, // 150ms delay before drag starts
-				tolerance: 5, // 5px tolerance during delay
+				distance: 5, // 5px distance before drag starts
 			},
 		}),
 	);
-
-	const handleDoubleClick = (layer: Layer) => {
-		setEditingLayerId(layer.id);
-		setEditingName(layer.name);
-	};
 
 	const handleNameSubmit = (layerId: string) => {
 		if (editingName.trim()) {
@@ -229,7 +220,6 @@ export const LayersPanel = () => {
 								isEditing={editingLayerId === layer.id}
 								editingName={editingName}
 								onLayerClick={setCurrentLayer}
-								onDoubleClick={handleDoubleClick}
 								onVisibilityChange={updateLayerVisibility}
 								onNameChange={setEditingName}
 								onNameSubmit={handleNameSubmit}
