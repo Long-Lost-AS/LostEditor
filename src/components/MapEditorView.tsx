@@ -728,16 +728,14 @@ export const MapEditorView = ({
 			const height = selection.endY - selection.startY + 1;
 			const tiles = new Map<string, number>();
 
-			// Extract tiles from selection
+			// Extract tiles from selection (including empty tiles)
 			for (let y = selection.startY; y <= selection.endY; y++) {
 				for (let x = selection.startX; x <= selection.endX; x++) {
 					const index = y * localMapData.width + x;
 					const tileId = layer.tiles[index];
-					if (tileId !== 0) {
-						const relativeX = x - selection.startX;
-						const relativeY = y - selection.startY;
-						tiles.set(`${relativeX},${relativeY}`, tileId);
-					}
+					const relativeX = x - selection.startX;
+					const relativeY = y - selection.startY;
+					tiles.set(`${relativeX},${relativeY}`, tileId);
 				}
 			}
 
