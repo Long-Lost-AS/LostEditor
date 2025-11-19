@@ -182,6 +182,7 @@ export const MapEditorView = ({
 		tilesets,
 		setProjectModified,
 		reorderLayers,
+		zoom,
 	} = useEditor();
 
 	// Fetch map data by ID (following TilesetEditorView pattern)
