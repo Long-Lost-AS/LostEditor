@@ -125,8 +125,13 @@ export function useCanvasZoomPan(
 				const worldX = (mouseX - panRef.current.x) / scaleRef.current;
 				const worldY = (mouseY - panRef.current.y) / scaleRef.current;
 
+				// Normalize deltaY to handle both mouse wheels and trackpads
+				// Mouse wheels typically send ±100, trackpads send smaller values
+				// Clamp to ±20 to prevent extreme zoom jumps
+				const normalizedDelta = Math.max(-20, Math.min(20, e.deltaY));
+
 				// Calculate new scale
-				const delta = -e.deltaY * zoomSpeed;
+				const delta = -normalizedDelta * zoomSpeed;
 				const newScale = Math.max(
 					minScale,
 					Math.min(maxScale, scaleRef.current + delta),
