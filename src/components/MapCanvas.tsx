@@ -1919,12 +1919,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						(endY - startY + 1) * mapData.tileHeight,
 					);
 
-					// Draw animated dashed outline (marching ants effect)
-					const dashOffset = (Date.now() / 50) % 12; // Animate dash offset
+					// Draw dashed outline
 					ctx.strokeStyle = "rgba(0, 150, 255, 1)";
 					ctx.lineWidth = 2 / currentZoom;
 					ctx.setLineDash([6 / currentZoom, 6 / currentZoom]);
-					ctx.lineDashOffset = -dashOffset / currentZoom;
 					ctx.strokeRect(
 						startX * mapData.tileWidth,
 						startY * mapData.tileHeight,
@@ -1932,7 +1930,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						(endY - startY + 1) * mapData.tileHeight,
 					);
 					ctx.setLineDash([]); // Reset dash pattern
-					ctx.lineDashOffset = 0;
 				}
 
 				ctx.restore();
@@ -2801,7 +2798,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				setIsSelectingTiles(false);
 				setTileSelectionStart(null);
-				renderMap.current();
 			}
 
 			// Finish pencil stroke - end batching to commit undo/redo entry
@@ -3381,6 +3377,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				setSelectedTileRegion(null);
 			}
 		}, [currentLayerId, selectedTileRegion]);
+
+		// Trigger render when tile selection finalized
+		useEffect(() => {
+			if (selectedTileRegion) {
+				renderMap.current();
+			}
+		}, [selectedTileRegion]);
 
 		return (
 			<div className="canvas-container">
