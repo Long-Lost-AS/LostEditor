@@ -1352,7 +1352,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					tool === "pencil" &&
 					tilesetId &&
 					tileId != null &&
-					canvas
+					!selectedTerrainLayerId && canvas
 				) {
 					// Calculate tile position from screen coordinates using current pan/zoom
 					const rect = canvas.getBoundingClientRect();
