@@ -1,12 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { FileNotFoundError } from "../errors/FileErrors";
 import { TilesetDataSchema } from "../schemas";
-import type {
-	TileDefinition,
-	TileDefinitionJson,
-	TilesetData,
-	TilesetDataJson,
-} from "../types";
+import type { TileDefinition, TilesetData, TilesetDataJson } from "../types";
 import { unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 import { FileLoader } from "./FileLoader";
@@ -52,34 +47,19 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 
 					// For regular tiles, only save if they have properties
 					return (
-						tile.colliders?.length > 0 ||
+						tile.colliders.length > 0 ||
 						tile.name !== "" ||
 						tile.type !== "" ||
 						Object.keys(tile.properties).length > 0
 					);
 				})
 				.map((tile) => {
-					// Save id and properties (sprite position is in the packed ID)
-					const saved: Record<string, unknown> = {
-						id: tile.id,
-					};
-
-					// For compound tiles, save isCompound flag and dimensions
-					if (tile.isCompound) {
-						saved.isCompound = true;
-						saved.width = tile.width;
-						saved.height = tile.height;
+					if (!tile.isCompound) {
+						tile.width = data.tileWidth;
+						tile.height = data.tileHeight;
 					}
 
-					// Save non-default properties
-					if (tile.colliders?.length > 0) saved.colliders = tile.colliders;
-					if (tile.name !== "") saved.name = tile.name;
-					if (tile.type !== "") saved.type = tile.type;
-					if (tile.origin?.x !== 0 || tile.origin?.y !== 0)
-						saved.origin = tile.origin;
-					if (Object.keys(tile.properties).length > 0)
-						saved.properties = tile.properties;
-					return saved as TileDefinitionJson;
+					return tile;
 				}),
 			terrainLayers: data.terrainLayers?.map((layer) => ({
 				...layer,
