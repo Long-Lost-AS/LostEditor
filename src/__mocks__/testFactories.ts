@@ -67,7 +67,6 @@ export function createMockEntity(
 		offset: { x: 0, y: 0 },
 		rotation: 0,
 		colliders: [],
-		children: [],
 		properties: {},
 		...overrides,
 	};

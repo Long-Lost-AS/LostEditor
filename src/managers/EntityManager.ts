@@ -119,7 +119,6 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 			rotation: 0,
 			scale: { x: 1, y: 1 },
 			properties: {},
-			children: [],
 		};
 	}
 
@@ -147,11 +146,6 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 			rotation,
 			scale: { x: scaleX, y: scaleY },
 		};
-
-		// Apply to children
-		for (const child of entity.children) {
-			this.applyTransformRecursive(child, transform);
-		}
 
 		return transform;
 	}

@@ -140,7 +140,6 @@ export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 			})
 			.default({ x: 1, y: 1 }),
 		properties: z.record(z.string(), z.string()).default({}),
-		children: z.array(EntityInstanceSchema).default([]),
 	}),
 );
 

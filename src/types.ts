@@ -56,7 +56,6 @@ export interface EntityDefinition {
 	offset: { x: number; y: number };
 	rotation: number;
 	colliders: PolygonCollider[]; // Multiple colliders
-	children: EntityDefinition[];
 	properties: Record<string, string>; // Default custom properties
 	filePath?: string; // Path to .lostentity file (undefined for inline entities)
 }
@@ -112,7 +111,6 @@ export interface EntityInstance {
 	rotation: number;
 	scale: { x: number; y: number };
 	properties: Record<string, string>;
-	children: EntityInstance[];
 }
 
 // PointInstance - inferred from schema

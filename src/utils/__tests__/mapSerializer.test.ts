@@ -89,7 +89,6 @@ describe("mapSerializer", () => {
 						rotation: 0,
 						scale: { x: 1, y: 1 },
 						properties: {},
-						children: [],
 					},
 					{
 						id: "entity-2",
@@ -100,7 +99,6 @@ describe("mapSerializer", () => {
 						rotation: 45,
 						scale: { x: 2, y: 2 },
 						properties: {},
-						children: [],
 					},
 				],
 				points: [],
@@ -298,7 +296,6 @@ describe("mapSerializer", () => {
 						rotation: 0,
 						scale: { x: 1, y: 1 },
 						properties: {},
-						children: [],
 					},
 				],
 				points: [],
@@ -417,7 +414,6 @@ describe("mapSerializer", () => {
 						rotation: 0,
 						scale: { x: 1, y: 1 },
 						properties: {},
-						children: [],
 					},
 				],
 			};

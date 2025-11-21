@@ -1813,7 +1813,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			offset: { x: 0, y: 0 },
 			rotation: 0,
 			colliders: [],
-			children: [],
 			properties: {},
 			filePath: result.filePath,
 		};

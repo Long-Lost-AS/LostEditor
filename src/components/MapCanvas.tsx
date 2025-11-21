@@ -920,19 +920,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						ctx.restore();
 					});
 				}
-
-				// Render children (if entity definitions support hierarchical children)
-				for (const child of entityDef.children) {
-					renderEntity(
-						ctx,
-						child,
-						instance,
-						tilesetImage,
-						parentX,
-						parentY,
-						parentRotation,
-					);
-				}
 			},
 			[],
 		);
