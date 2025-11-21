@@ -1,6 +1,7 @@
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
 import type { EntityInstance, MapData } from "../types";
+import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 
 interface EntityPropertiesPanelProps {
@@ -45,6 +46,10 @@ export const EntityPropertiesPanel = ({
 
 	const handleUpdateScale = (x: number, y: number) => {
 		onUpdateEntity?.(entity.id, { scale: { x, y } });
+	};
+
+	const handlePropertiesChange = (properties: Record<string, string>) => {
+		onUpdateEntity?.(entity.id, { properties });
 	};
 
 	return (
@@ -224,28 +229,10 @@ export const EntityPropertiesPanel = ({
 					)}
 
 					{/* Custom Properties */}
-					{entity.properties && Object.keys(entity.properties).length > 0 && (
-						<div>
-							<div
-								className="text-xs font-medium block mb-1.5"
-								style={{ color: "#858585" }}
-							>
-								Custom Properties
-							</div>
-							<div className="space-y-1">
-								{Object.entries(entity.properties).map(([key, value]) => (
-									<div
-										key={key}
-										className="px-2.5 py-1.5 text-xs rounded"
-										style={{ background: "#3e3e42" }}
-									>
-										<span className="text-gray-400 font-mono">{key}:</span>
-										<span className="text-white ml-2">{String(value)}</span>
-									</div>
-								))}
-							</div>
-						</div>
-					)}
+					<CustomPropertiesEditor
+						properties={entity.properties || {}}
+						onChange={handlePropertiesChange}
+					/>
 				</div>
 			</div>
 		</div>

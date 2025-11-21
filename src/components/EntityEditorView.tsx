@@ -1698,12 +1698,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						<span className="font-mono">{localSprites.length}</span>
 					</div>
 					<div className="w-px h-4" style={{ background: "#3e3e42" }} />
-					<div className="flex items-center gap-2">
-						<span className="text-gray-500">Children:</span>
-						<span className="font-mono">
-							{entityData.children?.length || 0}
-						</span>
-					</div>
 					<div className="flex-1" />
 					<div className="flex items-center gap-2">
 						<span className="text-gray-500">Zoom:</span>
@@ -2086,6 +2080,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												</div>
 											</div>
 										)}
+
+									{/* Custom Properties */}
+									<CustomPropertiesEditor
+										properties={selectedCollider.properties || {}}
+										onChange={(properties) => {
+											handleUpdateCollider(selectedCollider.id, { properties });
+										}}
+									/>
 								</div>
 							</div>
 						</div>
