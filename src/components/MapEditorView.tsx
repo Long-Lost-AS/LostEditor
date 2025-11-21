@@ -2043,9 +2043,12 @@ export const MapEditorView = ({
 						/>
 					) : selectedColliderId ? (
 						<ColliderPropertiesPanel
-							selectedColliderId={selectedColliderId}
+							collider={
+								localMapData.colliders?.find(
+									(c) => c.id === selectedColliderId,
+								) || null
+							}
 							selectedPointIndex={selectedColliderPointIndex}
-							mapData={localMapData}
 							onUpdateCollider={handleUpdateCollider}
 							onUpdateColliderPoint={handleUpdateColliderPoint}
 							onDragStart={startBatch}

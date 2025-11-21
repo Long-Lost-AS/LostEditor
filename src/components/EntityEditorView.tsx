@@ -15,6 +15,7 @@ import {
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import { unpackTileId } from "../utils/tileId";
+import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { Dropdown } from "./Dropdown";
@@ -1707,392 +1708,36 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			</div>
 
 			{/* Right Side - Collider Properties Panel (only visible when collider selected) */}
-			{selectedColliderId &&
-				!selectedSpriteLayerId &&
-				(() => {
-					const selectedCollider = (localColliders || []).find(
-						(c) => c.id === selectedColliderId,
-					);
-					if (!selectedCollider) return null;
-
-					return (
-						<div
-							className="w-80 flex flex-col overflow-hidden"
-							style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
-						>
-							<div className="flex-1 overflow-y-auto">
-								{/* Header */}
-								<div
-									className="p-4 flex items-center justify-between"
-									style={{ borderBottom: "1px solid #3e3e42" }}
-								>
-									<div
-										className="text-sm font-semibold"
-										style={{ color: "#cccccc" }}
-									>
-										COLLIDER
-									</div>
-									<button
-										type="button"
-										onClick={() => setSelectedColliderId(null)}
-										className="text-gray-400 hover:text-gray-200 transition-colors"
-										title="Close"
-									>
-										✕
-									</button>
-								</div>
-
-								{/* Collider Properties */}
-								<div className="p-4 space-y-4">
-									{/* Name */}
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Name
-										</div>
-										<input
-											type="text"
-											value={selectedCollider.name || ""}
-											onChange={(e) => {
-												handleUpdateCollider(selectedCollider.id, {
-													name: e.target.value,
-												});
-											}}
-											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #555",
-											}}
-											onFocus={(e) => {
-												e.currentTarget.style.borderColor = "#007acc";
-											}}
-											onBlur={(e) => {
-												e.currentTarget.style.borderColor = "#555";
-											}}
-											placeholder="Collider name"
-										/>
-									</div>
-
-									{/* Type */}
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Type
-										</div>
-										<input
-											type="text"
-											value={selectedCollider.type || ""}
-											onChange={(e) => {
-												handleUpdateCollider(selectedCollider.id, {
-													type: e.target.value,
-												});
-											}}
-											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #555",
-											}}
-											onFocus={(e) => {
-												e.currentTarget.style.borderColor = "#007acc";
-											}}
-											onBlur={(e) => {
-												e.currentTarget.style.borderColor = "#555";
-											}}
-											placeholder="Collider type"
-										/>
-									</div>
-
-									{/* Position (center of all points) */}
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Collider Position
-										</div>
-										<div className="grid grid-cols-2 gap-2">
-											<div className="flex">
-												<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-													X
-												</div>
-												<div className="flex-1">
-													<DragNumberInput
-														value={(() => {
-															// Calculate center X
-															const sumX = selectedCollider.points.reduce(
-																(sum, p) => sum + p.x,
-																0,
-															);
-															return sumX / selectedCollider.points.length;
-														})()}
-														onChange={(newCenterX) => {
-															// Calculate current center
-															const sumX = selectedCollider.points.reduce(
-																(sum, p) => sum + p.x,
-																0,
-															);
-															const currentCenterX =
-																sumX / selectedCollider.points.length;
-
-															// Calculate delta
-															const deltaX = newCenterX - currentCenterX;
-
-															// Move all points by delta
-															const newPoints = selectedCollider.points.map(
-																(p) => ({
-																	x: Math.round(p.x + deltaX),
-																	y: p.y,
-																}),
-															);
-
-															handleUpdateCollider(selectedCollider.id, {
-																points: newPoints,
-															});
-														}}
-														onInput={(newCenterX) => {
-															// Calculate current center
-															const sumX = selectedCollider.points.reduce(
-																(sum, p) => sum + p.x,
-																0,
-															);
-															const currentCenterX =
-																sumX / selectedCollider.points.length;
-
-															// Calculate delta
-															const deltaX = newCenterX - currentCenterX;
-
-															// Move all points by delta
-															const newPoints = selectedCollider.points.map(
-																(p) => ({
-																	x: Math.round(p.x + deltaX),
-																	y: p.y,
-																}),
-															);
-
-															handleUpdateCollider(selectedCollider.id, {
-																points: newPoints,
-															});
-														}}
-														onDragStart={() => startBatch()}
-														onDragEnd={() => endBatch()}
-														dragSpeed={1}
-														precision={1}
-														roundedLeft={false}
-													/>
-												</div>
-											</div>
-											<div className="flex">
-												<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-													Y
-												</div>
-												<div className="flex-1">
-													<DragNumberInput
-														value={(() => {
-															// Calculate center Y
-															const sumY = selectedCollider.points.reduce(
-																(sum, p) => sum + p.y,
-																0,
-															);
-															return sumY / selectedCollider.points.length;
-														})()}
-														onChange={(newCenterY) => {
-															// Calculate current center
-															const sumY = selectedCollider.points.reduce(
-																(sum, p) => sum + p.y,
-																0,
-															);
-															const currentCenterY =
-																sumY / selectedCollider.points.length;
-
-															// Calculate delta
-															const deltaY = newCenterY - currentCenterY;
-
-															// Move all points by delta
-															const newPoints = selectedCollider.points.map(
-																(p) => ({
-																	x: p.x,
-																	y: Math.round(p.y + deltaY),
-																}),
-															);
-
-															handleUpdateCollider(selectedCollider.id, {
-																points: newPoints,
-															});
-														}}
-														onInput={(newCenterY) => {
-															// Calculate current center
-															const sumY = selectedCollider.points.reduce(
-																(sum, p) => sum + p.y,
-																0,
-															);
-															const currentCenterY =
-																sumY / selectedCollider.points.length;
-
-															// Calculate delta
-															const deltaY = newCenterY - currentCenterY;
-
-															// Move all points by delta
-															const newPoints = selectedCollider.points.map(
-																(p) => ({
-																	x: p.x,
-																	y: Math.round(p.y + deltaY),
-																}),
-															);
-
-															handleUpdateCollider(selectedCollider.id, {
-																points: newPoints,
-															});
-														}}
-														onDragStart={() => startBatch()}
-														onDragEnd={() => endBatch()}
-														dragSpeed={1}
-														precision={1}
-														roundedLeft={false}
-													/>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									{/* Point Count (read-only) */}
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Points
-										</div>
-										<div
-											className="px-2.5 py-1.5 text-xs rounded"
-											style={{
-												background: "#3e3e42",
-												color: "#858585",
-												border: "1px solid #555",
-											}}
-										>
-											{selectedCollider.points.length} points
-										</div>
-									</div>
-
-									{/* Selected Point Position */}
-									{selectedColliderPointIndex !== null &&
-										selectedCollider.points[selectedColliderPointIndex] && (
-											<div>
-												<div
-													className="text-xs font-medium block mb-1.5"
-													style={{ color: "#858585" }}
-												>
-													Point {selectedColliderPointIndex} Position
-												</div>
-												<div className="grid grid-cols-2 gap-2">
-													<div className="flex">
-														<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-															X
-														</div>
-														<div className="flex-1">
-															<DragNumberInput
-																value={
-																	selectedCollider.points[
-																		selectedColliderPointIndex
-																	].x
-																}
-																onChange={(x) => {
-																	const newPoints = [
-																		...selectedCollider.points,
-																	];
-																	newPoints[selectedColliderPointIndex] = {
-																		...newPoints[selectedColliderPointIndex],
-																		x: Math.round(x),
-																	};
-																	handleUpdateCollider(selectedCollider.id, {
-																		points: newPoints,
-																	});
-																}}
-																onInput={(x) => {
-																	const newPoints = [
-																		...selectedCollider.points,
-																	];
-																	newPoints[selectedColliderPointIndex] = {
-																		...newPoints[selectedColliderPointIndex],
-																		x: Math.round(x),
-																	};
-																	handleUpdateCollider(selectedCollider.id, {
-																		points: newPoints,
-																	});
-																}}
-																onDragStart={() => startBatch()}
-																onDragEnd={() => endBatch()}
-																dragSpeed={1}
-																precision={0}
-																roundedLeft={false}
-															/>
-														</div>
-													</div>
-													<div className="flex">
-														<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-															Y
-														</div>
-														<div className="flex-1">
-															<DragNumberInput
-																value={
-																	selectedCollider.points[
-																		selectedColliderPointIndex
-																	].y
-																}
-																onChange={(y) => {
-																	const newPoints = [
-																		...selectedCollider.points,
-																	];
-																	newPoints[selectedColliderPointIndex] = {
-																		...newPoints[selectedColliderPointIndex],
-																		y: Math.round(y),
-																	};
-																	handleUpdateCollider(selectedCollider.id, {
-																		points: newPoints,
-																	});
-																}}
-																onInput={(y) => {
-																	const newPoints = [
-																		...selectedCollider.points,
-																	];
-																	newPoints[selectedColliderPointIndex] = {
-																		...newPoints[selectedColliderPointIndex],
-																		y: Math.round(y),
-																	};
-																	handleUpdateCollider(selectedCollider.id, {
-																		points: newPoints,
-																	});
-																}}
-																onDragStart={() => startBatch()}
-																onDragEnd={() => endBatch()}
-																dragSpeed={1}
-																precision={0}
-																roundedLeft={false}
-															/>
-														</div>
-													</div>
-												</div>
-											</div>
-										)}
-
-									{/* Custom Properties */}
-									<CustomPropertiesEditor
-										properties={selectedCollider.properties || {}}
-										onChange={(properties) => {
-											handleUpdateCollider(selectedCollider.id, { properties });
-										}}
-									/>
-								</div>
-							</div>
-						</div>
-					);
-				})()}
+			{selectedColliderId && !selectedSpriteLayerId && (
+				<div
+					className="w-80 flex flex-col overflow-hidden"
+					style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
+				>
+					<ColliderPropertiesPanel
+						collider={
+							(localColliders || []).find((c) => c.id === selectedColliderId) ||
+							null
+						}
+						selectedPointIndex={selectedColliderPointIndex}
+						onUpdateCollider={handleUpdateCollider}
+						onUpdateColliderPoint={(colliderId, pointIndex, x, y) => {
+							const collider = (localColliders || []).find(
+								(c) => c.id === colliderId,
+							);
+							if (!collider) return;
+							const newPoints = [...collider.points];
+							newPoints[pointIndex] = { x: Math.round(x), y: Math.round(y) };
+							handleUpdateCollider(colliderId, { points: newPoints });
+						}}
+						onDragStart={() => startBatch()}
+						onDragEnd={() => endBatch()}
+						onClose={() => setSelectedColliderId(null)}
+						headerTitle="COLLIDER"
+						positionMode="editable"
+						inputBorderStyle="bordered"
+					/>
+				</div>
+			)}
 
 			{/* Right Side - Sprite Properties Panel (only visible when sprite selected) */}
 			{selectedSpriteLayerId &&
