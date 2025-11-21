@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useChunkedMapUndo } from "../hooks/useChunkedMapUndo";
+import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import { entityManager } from "../managers/EntityManager";
 import type {
 	EntityInstance,
@@ -217,8 +218,43 @@ export const MapEditorView = ({
 		},
 	);
 
-	// Register undo/redo keyboard shortcuts
-	useRegisterUndoRedo({ undo, redo, canUndo, canRedo });
+	// Separate undo/redo for entities, points, and colliders
+	const [
+		localMapMeta,
+		setLocalMapMeta,
+		{
+			undo: undoMeta,
+			redo: redoMeta,
+			canUndo: canUndoMeta,
+			canRedo: canRedoMeta,
+			startBatch: startMetaBatch,
+			endBatch: endMetaBatch,
+		},
+	] = useUndoableReducer({
+		entities: mapData?.entities || [],
+		points: mapData?.points || [],
+		colliders: mapData?.colliders || [],
+	});
+
+	// Register undo/redo keyboard shortcuts (combined tile + metadata)
+	useRegisterUndoRedo({
+		undo: () => {
+			if (canUndo) {
+				undo();
+			} else if (canUndoMeta) {
+				undoMeta();
+			}
+		},
+		redo: () => {
+			if (canRedo) {
+				redo();
+			} else if (canRedoMeta) {
+				redoMeta();
+			}
+		},
+		canUndo: canUndo || canUndoMeta,
+		canRedo: canRedo || canRedoMeta,
+	});
 
 	// Invalidate canvas chunks after undo/redo
 	useEffect(() => {
@@ -248,6 +284,27 @@ export const MapEditorView = ({
 			setLocalMapData(mapData);
 		}
 	}, [mapData, localMapData.id, setLocalMapData]);
+
+	// Sync localMapMeta changes back to localMapData
+	useEffect(() => {
+		setLocalMapData((prev) => ({
+			...prev,
+			entities: localMapMeta.entities,
+			points: localMapMeta.points,
+			colliders: localMapMeta.colliders,
+		}));
+	}, [localMapMeta, setLocalMapData]);
+
+	// Wrapper functions to batch both tile and metadata operations
+	const handleStartBatch = useCallback(() => {
+		startBatch(); // Tile batching
+		startMetaBatch(); // Metadata batching
+	}, [startBatch, startMetaBatch]);
+
+	const handleEndBatch = useCallback(() => {
+		endBatch(); // Tile batching
+		endMetaBatch(); // Metadata batching
+	}, [endBatch, endMetaBatch]);
 
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(
@@ -905,108 +962,87 @@ export const MapEditorView = ({
 
 			if (!entityInstance) return;
 
-			// Place entity at map level (not per-layer)
-			setLocalMapData((prev) => {
-				const newEntities = [...(prev.entities || []), entityInstance];
-				return {
-					...prev,
-					entities: newEntities,
-				};
-			});
+			// Batch the entity placement as a single undo action
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: [...prev.entities, entityInstance],
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 		},
 		[
 			selectedTilesetId,
 			selectedEntityDefId,
-			setProjectModified, // Place entity at map level (not per-layer)
-			setLocalMapData,
+			setProjectModified,
+			setLocalMapMeta,
+			startMetaBatch,
+			endMetaBatch,
 		],
 	);
 
 	// Handle moving an entity
 	const handleMoveEntity = useCallback(
 		(entityId: string, newX: number, newY: number) => {
-			if (!localMapData) return;
-
-			const newEntities = (localMapData.entities || []).map((entity) => {
-				return entity.id === entityId
-					? { ...entity, x: newX, y: newY }
-					: entity;
-			});
-
-			setLocalMapData({
-				...localMapData,
-				entities: newEntities,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: prev.entities.map((entity) =>
+					entity.id === entityId ? { ...entity, x: newX, y: newY } : entity,
+				),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setProjectModified, setLocalMapMeta],
 	);
 
 	// Handle entity dragging (live update without marking modified)
 	const handleEntityDragging = useCallback(
 		(entityId: string, newX: number, newY: number) => {
-			if (!localMapData) return;
-
-			const newEntities = (localMapData.entities || []).map((entity) => {
-				return entity.id === entityId
-					? { ...entity, x: newX, y: newY }
-					: entity;
-			});
-
-			setLocalMapData({
-				...localMapData,
-				entities: newEntities,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: prev.entities.map((entity) =>
+					entity.id === entityId ? { ...entity, x: newX, y: newY } : entity,
+				),
+			}));
 			// Don't mark as modified during drag - only on release
 		},
-		[localMapData, setLocalMapData],
+		[setLocalMapMeta],
 	);
 
 	// Handle updating entity properties
 	const handleUpdateEntity = useCallback(
 		(entityId: string, updates: Partial<EntityInstance>) => {
-			if (!localMapData) return;
-
-			const newEntities = (localMapData.entities || []).map((entity) =>
-				entity.id === entityId ? { ...entity, ...updates } : entity,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				entities: newEntities,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: prev.entities.map((entity) =>
+					entity.id === entityId ? { ...entity, ...updates } : entity,
+				),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setProjectModified, setLocalMapMeta],
 	);
 
 	// Handle deleting an entity
 	const handleDeleteEntity = useCallback(
 		(entityId: string) => {
-			if (!localMapData) return;
-
-			const newEntities = (localMapData.entities || []).filter(
-				(entity) => entity.id !== entityId,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				entities: newEntities,
-			});
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: prev.entities.filter((entity) => entity.id !== entityId),
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 			setSelectedEntityId(null); // Clear selection after delete
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setProjectModified, setLocalMapMeta, startMetaBatch, endMetaBatch],
 	);
 
 	// Handle duplicating an entity
 	const handleDuplicateEntity = useCallback(
 		(entityId: string) => {
-			if (!localMapData) return;
-
 			// Find the entity to duplicate
-			const entityToDuplicate = localMapData.entities?.find(
+			const entityToDuplicate = localMapMeta.entities.find(
 				(entity) => entity.id === entityId,
 			);
 			if (!entityToDuplicate) return;
@@ -1020,17 +1056,23 @@ export const MapEditorView = ({
 				y: entityToDuplicate.y + 16,
 			};
 
-			const newEntities = [...(localMapData.entities || []), newEntity];
-
-			setLocalMapData({
-				...localMapData,
-				entities: newEntities,
-			});
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				entities: [...prev.entities, newEntity],
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 			// Select the newly duplicated entity
 			setSelectedEntityId(newEntity.id);
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[
+			localMapMeta.entities,
+			setProjectModified,
+			setLocalMapMeta,
+			startMetaBatch,
+			endMetaBatch,
+		],
 	);
 
 	// Handle placing a point
@@ -1045,10 +1087,12 @@ export const MapEditorView = ({
 				properties: {},
 			};
 
-			setLocalMapData((prev) => ({
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
 				...prev,
-				points: [...(prev.points || []), pointInstance],
+				points: [...prev.points, pointInstance],
 			}));
+			endMetaBatch();
 			setProjectModified(true);
 			// Auto-select the newly placed point
 			setSelectedPointId(pointInstance.id);
@@ -1062,87 +1106,77 @@ export const MapEditorView = ({
 				});
 			}, 0);
 		},
-		[setLocalMapData, setProjectModified, updateTabData, tab.id, tab.viewState],
+		[
+			setLocalMapMeta,
+			setProjectModified,
+			updateTabData,
+			tab.id,
+			tab.viewState,
+			startMetaBatch,
+			endMetaBatch,
+		],
 	);
 
 	// Handle moving a point
 	const handleMovePoint = useCallback(
 		(pointId: string, newX: number, newY: number) => {
-			if (!localMapData) return;
-
-			const newPoints = (localMapData.points || []).map((point) =>
-				point.id === pointId ? { ...point, x: newX, y: newY } : point,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				points: newPoints,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				points: prev.points.map((point) =>
+					point.id === pointId ? { ...point, x: newX, y: newY } : point,
+				),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setLocalMapMeta, setProjectModified],
 	);
 
 	// Handle point dragging (live update without marking modified)
 	const handlePointDragging = useCallback(
 		(pointId: string, newX: number, newY: number) => {
-			if (!localMapData) return;
-
-			const newPoints = (localMapData.points || []).map((point) =>
-				point.id === pointId ? { ...point, x: newX, y: newY } : point,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				points: newPoints,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				points: prev.points.map((point) =>
+					point.id === pointId ? { ...point, x: newX, y: newY } : point,
+				),
+			}));
 			// Don't mark as modified during drag - only on release
 		},
-		[localMapData, setLocalMapData],
+		[setLocalMapMeta],
 	);
 
 	// Handle updating point properties
 	const handleUpdatePoint = useCallback(
 		(pointId: string, updates: Partial<PointInstance>) => {
-			if (!localMapData) return;
-
-			const newPoints = (localMapData.points || []).map((point) =>
-				point.id === pointId ? { ...point, ...updates } : point,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				points: newPoints,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				points: prev.points.map((point) =>
+					point.id === pointId ? { ...point, ...updates } : point,
+				),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setLocalMapMeta, setProjectModified],
 	);
 
 	// Handle deleting a point
 	const handleDeletePoint = useCallback(
 		(pointId: string) => {
-			if (!localMapData) return;
-
-			const newPoints = (localMapData.points || []).filter(
-				(point) => point.id !== pointId,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				points: newPoints,
-			});
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				points: prev.points.filter((point) => point.id !== pointId),
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 			setSelectedPointId(null); // Clear selection after delete
 		},
-		[localMapData, setProjectModified, setLocalMapData],
+		[setLocalMapMeta, setProjectModified, startMetaBatch, endMetaBatch],
 	);
 
 	// Handle adding a new collider
 	const handleAddCollider = useCallback(
 		(points: Array<{ x: number; y: number }>) => {
-			if (!localMapData) return;
-
 			const collider: PolygonCollider = {
 				id: generateId(),
 				name: "",
@@ -1151,103 +1185,90 @@ export const MapEditorView = ({
 				properties: {},
 			};
 
-			setLocalMapData({
-				...localMapData,
-				colliders: [...(localMapData.colliders || []), collider],
-			});
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				colliders: [...prev.colliders, collider],
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 			// Auto-select the newly created collider
 			setSelectedColliderId(collider.id);
 		},
-		[localMapData, setLocalMapData, setProjectModified],
+		[setLocalMapMeta, setProjectModified, startMetaBatch, endMetaBatch],
 	);
 
 	// Handle updating a collider point
 	const handleUpdateColliderPoint = useCallback(
 		(colliderId: string, pointIndex: number, x: number, y: number) => {
-			if (!localMapData) return;
-
-			const newColliders = (localMapData.colliders || []).map((collider) => {
-				if (collider.id === colliderId) {
-					const newPoints = [...collider.points];
-					newPoints[pointIndex] = { x: Math.floor(x), y: Math.floor(y) };
-					return { ...collider, points: newPoints };
-				}
-				return collider;
-			});
-
-			setLocalMapData({
-				...localMapData,
-				colliders: newColliders,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				colliders: prev.colliders.map((collider) => {
+					if (collider.id === colliderId) {
+						const newPoints = [...collider.points];
+						newPoints[pointIndex] = { x: Math.floor(x), y: Math.floor(y) };
+						return { ...collider, points: newPoints };
+					}
+					return collider;
+				}),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setLocalMapData, setProjectModified],
+		[setLocalMapMeta, setProjectModified],
 	);
 
 	// Handle updating collider properties
 	const handleUpdateCollider = useCallback(
 		(colliderId: string, updates: Partial<PolygonCollider>) => {
-			if (!localMapData) return;
-
-			const newColliders = (localMapData.colliders || []).map((collider) =>
-				collider.id === colliderId ? { ...collider, ...updates } : collider,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				colliders: newColliders,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				colliders: prev.colliders.map((collider) =>
+					collider.id === colliderId ? { ...collider, ...updates } : collider,
+				),
+			}));
 			setProjectModified(true);
 		},
-		[localMapData, setLocalMapData, setProjectModified],
+		[setLocalMapMeta, setProjectModified],
 	);
 
 	// Handle collider dragging (updates without marking as modified)
 	const handleColliderDragging = useCallback(
 		(colliderId: string, updates: Partial<PolygonCollider>) => {
-			if (!localMapData) return;
-
-			const newColliders = (localMapData.colliders || []).map((collider) =>
-				collider.id === colliderId ? { ...collider, ...updates } : collider,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				colliders: newColliders,
-			});
+			setLocalMapMeta((prev) => ({
+				...prev,
+				colliders: prev.colliders.map((collider) =>
+					collider.id === colliderId ? { ...collider, ...updates } : collider,
+				),
+			}));
 			// Don't mark as modified during drag - only on release
 		},
-		[localMapData, setLocalMapData],
+		[setLocalMapMeta],
 	);
 
 	// Handle deleting a collider
 	const handleDeleteCollider = useCallback(
 		(colliderId: string) => {
-			if (!localMapData) return;
-
-			const newColliders = (localMapData.colliders || []).filter(
-				(collider) => collider.id !== colliderId,
-			);
-
-			setLocalMapData({
-				...localMapData,
-				colliders: newColliders,
-			});
+			startMetaBatch();
+			setLocalMapMeta((prev) => ({
+				...prev,
+				colliders: prev.colliders.filter(
+					(collider) => collider.id !== colliderId,
+				),
+			}));
+			endMetaBatch();
 			setProjectModified(true);
 			setSelectedColliderId(null); // Clear selection after delete
 			setSelectedColliderPointIndex(null);
 		},
-		[localMapData, setLocalMapData, setProjectModified],
+		[setLocalMapMeta, setProjectModified, startMetaBatch, endMetaBatch],
 	);
 
 	// Handle deleting a collider point
 	const handleDeleteColliderPoint = useCallback(() => {
 		if (!contextMenu?.colliderId || contextMenu.pointIndex === undefined)
 			return;
-		if (!localMapData) return;
 
-		const collider = (localMapData.colliders || []).find(
+		const collider = localMapMeta.colliders.find(
 			(c) => c.id === contextMenu.colliderId,
 		);
 		if (!collider || collider.points.length <= 3) return;
@@ -1255,17 +1276,25 @@ export const MapEditorView = ({
 		const newPoints = collider.points.filter(
 			(_, i) => i !== contextMenu.pointIndex,
 		);
-		const newColliders = (localMapData.colliders || []).map((c) =>
-			c.id === contextMenu.colliderId ? { ...c, points: newPoints } : c,
-		);
 
-		setLocalMapData({
-			...localMapData,
-			colliders: newColliders,
-		});
+		startMetaBatch();
+		setLocalMapMeta((prev) => ({
+			...prev,
+			colliders: prev.colliders.map((c) =>
+				c.id === contextMenu.colliderId ? { ...c, points: newPoints } : c,
+			),
+		}));
+		endMetaBatch();
 		setProjectModified(true);
 		setContextMenu(null);
-	}, [contextMenu, localMapData, setLocalMapData, setProjectModified]);
+	}, [
+		contextMenu,
+		localMapMeta.colliders,
+		setLocalMapMeta,
+		setProjectModified,
+		startMetaBatch,
+		endMetaBatch,
+	]);
 
 	// Handle inserting a point on a collider edge
 	const handleInsertColliderPoint = useCallback(() => {
@@ -1275,33 +1304,38 @@ export const MapEditorView = ({
 			!contextMenu.insertPosition
 		)
 			return;
-		if (!localMapData) return;
 
 		const snappedX = Math.round(contextMenu.insertPosition.x);
 		const snappedY = Math.round(contextMenu.insertPosition.y);
 
-		const newColliders = (localMapData.colliders || []).map((c) => {
-			if (
-				c.id === contextMenu.colliderId &&
-				contextMenu.edgeIndex !== undefined
-			) {
-				const newPoints = [...c.points];
-				newPoints.splice(contextMenu.edgeIndex + 1, 0, {
-					x: snappedX,
-					y: snappedY,
-				});
-				return { ...c, points: newPoints };
-			}
-			return c;
-		});
-
-		setLocalMapData({
-			...localMapData,
-			colliders: newColliders,
-		});
+		startMetaBatch();
+		setLocalMapMeta((prev) => ({
+			...prev,
+			colliders: prev.colliders.map((c) => {
+				if (
+					c.id === contextMenu.colliderId &&
+					contextMenu.edgeIndex !== undefined
+				) {
+					const newPoints = [...c.points];
+					newPoints.splice(contextMenu.edgeIndex + 1, 0, {
+						x: snappedX,
+						y: snappedY,
+					});
+					return { ...c, points: newPoints };
+				}
+				return c;
+			}),
+		}));
+		endMetaBatch();
 		setProjectModified(true);
 		setContextMenu(null);
-	}, [contextMenu, localMapData, setLocalMapData, setProjectModified]);
+	}, [
+		contextMenu,
+		setLocalMapMeta,
+		setProjectModified,
+		startMetaBatch,
+		endMetaBatch,
+	]);
 
 	// Batch tile placement (for rectangle and fill tools) - single undo/redo action
 	const handlePlaceTilesBatch = useCallback(
@@ -1924,8 +1958,8 @@ export const MapEditorView = ({
 						onColliderPointSelected={setSelectedColliderPointIndex}
 						onDeleteCollider={handleDeleteCollider}
 						onContextMenuRequest={setContextMenu}
-						onStartBatch={startBatch}
-						onEndBatch={endBatch}
+						onStartBatch={handleStartBatch}
+						onEndBatch={handleEndBatch}
 						onCopyTiles={handleCopyTiles}
 						onCutTiles={handleCutTiles}
 						onPasteTiles={handlePasteTiles}
@@ -2030,16 +2064,16 @@ export const MapEditorView = ({
 							selectedEntityId={selectedEntityId}
 							mapData={localMapData}
 							onUpdateEntity={handleUpdateEntity}
-							onDragStart={startBatch}
-							onDragEnd={endBatch}
+							onDragStart={handleStartBatch}
+							onDragEnd={handleEndBatch}
 						/>
 					) : selectedPointId ? (
 						<PointPropertiesPanel
 							selectedPointId={selectedPointId}
 							mapData={localMapData}
 							onUpdatePoint={handleUpdatePoint}
-							onDragStart={startBatch}
-							onDragEnd={endBatch}
+							onDragStart={handleStartBatch}
+							onDragEnd={handleEndBatch}
 						/>
 					) : selectedColliderId ? (
 						<ColliderPropertiesPanel
@@ -2051,8 +2085,8 @@ export const MapEditorView = ({
 							selectedPointIndex={selectedColliderPointIndex}
 							onUpdateCollider={handleUpdateCollider}
 							onUpdateColliderPoint={handleUpdateColliderPoint}
-							onDragStart={startBatch}
-							onDragEnd={endBatch}
+							onDragStart={handleStartBatch}
+							onDragEnd={handleEndBatch}
 						/>
 					) : null}
 				</div>
