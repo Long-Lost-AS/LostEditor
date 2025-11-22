@@ -814,6 +814,65 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		[tilesets],
 	);
 
+	/**
+	 * Recursively discover files with a specific extension in a directory tree
+	 * @param dir - Directory to search (absolute path)
+	 * @param extension - File extension to match (e.g., '.lostset')
+	 * @param basePath - Base path for calculating relative paths (defaults to dir)
+	 * @returns Array of relative file paths matching the extension
+	 */
+	const discoverFiles = useCallback(
+		async (
+			dir: string,
+			extension: string,
+			basePath: string = dir,
+		): Promise<string[]> => {
+			const files: string[] = [];
+			try {
+				const entries = await readDir(dir);
+				for (const entry of entries) {
+					// Skip hidden files and folders (starting with .)
+					if (entry.name.startsWith(".")) {
+						continue;
+					}
+
+					const fullPath = fileManager.join(dir, entry.name);
+					if (entry.isDirectory) {
+						// Recursively search subdirectory
+						const subFiles = await discoverFiles(fullPath, extension, basePath);
+						files.push(...subFiles);
+					} else if (entry.name.endsWith(extension)) {
+						// Calculate relative path from base directory
+						const relativePath = fileManager.makeRelativeTo(basePath, fullPath);
+						files.push(relativePath);
+					}
+				}
+			} catch (error) {
+				// Silently skip directories that can't be read (permissions, etc.)
+				console.warn(`Failed to read directory ${dir}:`, error);
+			}
+			return files;
+		},
+		[],
+	);
+
+	const buildProjectResources = useCallback(
+		async (projectDir: string) => {
+			const [tilesets, maps, entities] = await Promise.all([
+				discoverFiles(projectDir, ".lostset"),
+				discoverFiles(projectDir, ".lostmap"),
+				discoverFiles(projectDir, ".lostentity"),
+			]);
+
+			return {
+				tilesets,
+				maps,
+				entities,
+			};
+		},
+		[discoverFiles],
+	);
+
 	const saveProjectAs = useCallback(
 		async (filePath: string) => {
 			// Set project directory for relative paths
@@ -933,6 +992,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				version: "1.0",
 				name: projectName,
 				lastModified: new Date().toISOString(),
+				resources: await buildProjectResources(projectDir),
 				openTabs: {
 					tabs: tabs.map((tab) => {
 						if (tab.type === "map-editor") {
@@ -996,7 +1056,15 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				alert(`Failed to save project: ${error}`);
 			}
 		},
-		[projectName, settingsManager, tabs, activeTabId, maps, updateTabData],
+		[
+			projectName,
+			settingsManager,
+			tabs,
+			activeTabId,
+			maps,
+			updateTabData,
+			buildProjectResources,
+		],
 	);
 
 	const saveProject = useCallback(async () => {
@@ -1021,48 +1089,6 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			await saveProjectAs(currentProjectPath);
 		}
 	}, [currentProjectPath, saveProjectAs]);
-
-	/**
-	 * Recursively discover files with a specific extension in a directory tree
-	 * @param dir - Directory to search (absolute path)
-	 * @param extension - File extension to match (e.g., '.lostset')
-	 * @param basePath - Base path for calculating relative paths (defaults to dir)
-	 * @returns Array of relative file paths matching the extension
-	 */
-	const discoverFiles = useCallback(
-		async (
-			dir: string,
-			extension: string,
-			basePath: string = dir,
-		): Promise<string[]> => {
-			const files: string[] = [];
-			try {
-				const entries = await readDir(dir);
-				for (const entry of entries) {
-					// Skip hidden files and folders (starting with .)
-					if (entry.name.startsWith(".")) {
-						continue;
-					}
-
-					const fullPath = fileManager.join(dir, entry.name);
-					if (entry.isDirectory) {
-						// Recursively search subdirectory
-						const subFiles = await discoverFiles(fullPath, extension, basePath);
-						files.push(...subFiles);
-					} else if (entry.name.endsWith(extension)) {
-						// Calculate relative path from base directory
-						const relativePath = fileManager.makeRelativeTo(basePath, fullPath);
-						files.push(relativePath);
-					}
-				}
-			} catch (error) {
-				// Silently skip directories that can't be read (permissions, etc.)
-				console.warn(`Failed to read directory ${dir}:`, error);
-			}
-			return files;
-		},
-		[],
-	);
 
 	const loadProject = useCallback(
 		async (filePath: string) => {
@@ -1366,6 +1392,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			name: projectName,
 			projectDir: projectDir,
 			lastModified: new Date().toISOString(),
+			resources: await buildProjectResources(projectDir),
 			openTabs: { tabs: [], activeTabId: null },
 		};
 
@@ -1390,7 +1417,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		} catch (error) {
 			alert(`Failed to create project: ${error}`);
 		}
-	}, [settingsManager]);
+	}, [settingsManager, buildProjectResources]);
 
 	const newMap = useCallback(
 		(directory?: string, fileName?: string) => {

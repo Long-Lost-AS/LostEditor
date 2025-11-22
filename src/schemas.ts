@@ -381,6 +381,13 @@ export const ProjectDataSchema = z.object({
 	name: z.string(),
 	projectDir: z.string().optional(),
 	lastModified: z.string(),
+	resources: z
+		.object({
+			tilesets: z.array(z.string()),
+			maps: z.array(z.string()),
+			entities: z.array(z.string()),
+		})
+		.optional(),
 	openTabs: z
 		.object({
 			tabs: z.array(SerializedAnyTabSchema),
