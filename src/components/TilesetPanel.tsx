@@ -84,7 +84,7 @@ export const TilesetPanel = () => {
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-						const { x: tileX } = unpackTileId(tile.id);
+						const tileX = tile.x;
 						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
 						return x > tileX && x < tileX + tileWidthPx;
 					}) || [];
@@ -99,7 +99,7 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
-						const { y: tileY } = unpackTileId(tile.id);
+						const tileY = tile.y;
 						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
 						// Draw from currentY to top of tile
 						if (currentY < tileY) {
@@ -126,7 +126,7 @@ export const TilesetPanel = () => {
 				const intersectingTiles =
 					currentTileset?.tiles.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-						const { y: tileY } = unpackTileId(tile.id);
+						const tileY = tile.y;
 						const tileHeightPx = tile.height !== 0 ? tile.height : tileHeight;
 						return y > tileY && y < tileY + tileHeightPx;
 					}) || [];
@@ -141,7 +141,7 @@ export const TilesetPanel = () => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
-						const { x: tileX } = unpackTileId(tile.id);
+						const tileX = tile.x;
 						const tileWidthPx = tile.width !== 0 ? tile.width : tileWidth;
 						// Draw from currentX to left of tile
 						if (currentX < tileX) {
@@ -169,7 +169,8 @@ export const TilesetPanel = () => {
 				currentTileset.tiles.forEach((tile) => {
 					if (tile.width && tile.height) {
 						// Only draw borders for compound tiles
-						const { x: tileX, y: tileY } = unpackTileId(tile.id);
+						const tileX = tile.x;
+						const tileY = tile.y;
 						const w = tile.width !== 0 ? tile.width : tileWidth;
 						const h = tile.height !== 0 ? tile.height : tileHeight;
 						ctx.strokeRect(tileX, tileY, w, h);
@@ -208,13 +209,20 @@ export const TilesetPanel = () => {
 
 			// Check if we have a selected compound tile by matching the selectedTileId
 			if (currentTileset && currentTileset.tiles.length > 0 && selectedTileId) {
+				const { x: selectedX, y: selectedY } = unpackTileId(selectedTileId);
 				const selectedCompoundTile = currentTileset.tiles.find((tile) => {
-					return tile.id === selectedTileId && tile.width && tile.height;
+					return (
+						tile.x === selectedX &&
+						tile.y === selectedY &&
+						tile.width &&
+						tile.height
+					);
 				});
 
 				if (selectedCompoundTile) {
 					// Highlight the entire compound tile
-					const { x, y } = unpackTileId(selectedCompoundTile.id);
+					const x = selectedCompoundTile.x;
+					const y = selectedCompoundTile.y;
 					ctx.strokeRect(
 						x,
 						y,
@@ -307,7 +315,8 @@ export const TilesetPanel = () => {
 
 			// First check if we clicked on a compound tile
 			const clickedTile = currentTileset.tiles.find((tile) => {
-				const { x: tileX, y: tileY } = unpackTileId(tile.id);
+				const tileX = tile.x;
+				const tileY = tile.y;
 				const w = tile.width !== 0 ? tile.width : tileWidth;
 				const h = tile.height !== 0 ? tile.height : tileHeight;
 				return x >= tileX && x < tileX + w && y >= tileY && y < tileY + h;
@@ -315,13 +324,18 @@ export const TilesetPanel = () => {
 
 			if (clickedTile) {
 				// For any tile in the tiles array, convert pixel coordinates to tile grid coordinates
-				const { x: clickedTileX, y: clickedTileY } = unpackTileId(
-					clickedTile.id,
-				);
+				const clickedTileX = clickedTile.x;
+				const clickedTileY = clickedTile.y;
+
 				const tileX = Math.floor(clickedTileX / tileWidth);
 				const tileY = Math.floor(clickedTileY / tileHeight);
 				// Use setSelectedTile to set everything atomically
-				setSelectedTile(tileX, tileY, currentTileset.id, clickedTile.id);
+				const clickedTileId = packTileId(
+					clickedTile.x,
+					clickedTile.y,
+					currentTileset.order,
+				);
+				setSelectedTile(tileX, tileY, currentTileset.id, clickedTileId);
 			} else {
 				// No compound tile found, create a tile ID for the regular tile at this position
 				const tileX = Math.floor(x / tileWidth);

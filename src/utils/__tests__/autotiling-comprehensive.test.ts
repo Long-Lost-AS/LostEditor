@@ -33,7 +33,7 @@ describe("autotiling - comprehensive coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+			tiles: [createSimpleTile(16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
@@ -77,7 +77,7 @@ describe("autotiling - comprehensive coverage", () => {
 				tileHeight: 16,
 				tiles: [
 					// Tile at (16,0) exists
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
+					createSimpleTile(16, 0, "grass"),
 				],
 				terrainLayers: [],
 			};
@@ -98,7 +98,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0)],
+				tiles: [createSimpleTile(16, 0)],
 				terrainLayers: [],
 			};
 
@@ -117,7 +117,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					// Has "dirt" but not "grass"
 					{ id: "dirt-layer", name: "dirt", tiles: [] },
@@ -151,7 +151,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -192,8 +192,8 @@ describe("autotiling - comprehensive coverage", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 1), 32, 0, "dirt"),
+					createSimpleTile(16, 0, "grass"),
+					createSimpleTile(32, 0, "dirt"),
 				],
 				terrainLayers: [
 					{
@@ -501,7 +501,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -540,7 +540,7 @@ describe("autotiling - comprehensive coverage", () => {
 				tileHeight: 16,
 				tiles: [
 					// Only has tile at (16,0)
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
+					createSimpleTile(16, 0, "grass"),
 				],
 				terrainLayers: [],
 			};
@@ -566,8 +566,8 @@ describe("autotiling - comprehensive coverage", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 1), 32, 0, "grass"),
+					createSimpleTile(16, 0, "grass"),
+					createSimpleTile(32, 0, "grass"),
 				],
 				terrainLayers: [
 					{
@@ -613,8 +613,8 @@ describe("autotiling - comprehensive coverage", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 1), 32, 0, "dirt"),
+					createSimpleTile(16, 0, "grass"),
+					createSimpleTile(32, 0, "dirt"),
 				],
 				terrainLayers: [
 					{
@@ -660,7 +660,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -689,7 +689,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -722,7 +722,7 @@ describe("autotiling - comprehensive coverage", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",

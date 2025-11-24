@@ -30,9 +30,9 @@ describe("autotiling", () => {
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [
-				createSimpleTile(packTileId(0, 0, 1, false, false), 0, 0, "grass"),
-				createSimpleTile(packTileId(16, 0, 1, false, false), 16, 0, "grass"),
-				createSimpleTile(packTileId(32, 0, 1, false, false), 32, 0, "dirt"),
+				createSimpleTile(0, 0, "grass"),
+				createSimpleTile(16, 0, "grass"),
+				createSimpleTile(32, 0, "dirt"),
 			],
 			terrainLayers: [
 				{
@@ -70,7 +70,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(0, 0, 1), 0, 0)],
+				tiles: [createSimpleTile(0, 0)],
 				terrainLayers: [],
 			};
 
@@ -97,7 +97,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(0, 0, 1), 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -200,7 +200,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(0, 0, 1), 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-terrain-4",
@@ -477,7 +477,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-terrain",
@@ -507,7 +507,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0)], // No type specified
+				tiles: [createSimpleTile(16, 0)], // No type specified
 				terrainLayers: [],
 			};
 
@@ -529,7 +529,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "water")], // Type "water"
+				tiles: [createSimpleTile(16, 0, "water")], // Type "water"
 				terrainLayers: [
 					{
 						id: "grass-terrain",
@@ -557,7 +557,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-terrain",
@@ -584,11 +584,7 @@ describe("autotiling", () => {
 			// Tileset order is 1 for test tileset
 
 			// Create a tile with type explicitly set to undefined
-			const tileWithUndefinedType = createSimpleTile(
-				packTileId(16, 0, 1),
-				16,
-				0,
-			);
+			const tileWithUndefinedType = createSimpleTile(16, 0);
 			// @ts-expect-error - Testing edge case where type is undefined
 			delete tileWithUndefinedType.type; // Ensure type is undefined
 
@@ -627,8 +623,8 @@ describe("autotiling", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 1), 32, 0, "grass"),
+					createSimpleTile(16, 0, "grass"),
+					createSimpleTile(32, 0, "grass"),
 				],
 				terrainLayers: [
 					{
@@ -664,7 +660,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
+				tiles: [createSimpleTile(16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-terrain-nodef",
@@ -696,7 +692,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")], // Use x=16 to avoid ID 0
+				tiles: [createSimpleTile(16, 0, "grass")], // Use x=16 to avoid ID 0
 				terrainLayers: [
 					{
 						id: "grass-terrain-coverage",
@@ -726,7 +722,7 @@ describe("autotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")], // Use x=16 to avoid ID 0
+				tiles: [createSimpleTile(16, 0, "grass")], // Use x=16 to avoid ID 0
 				terrainLayers: [
 					{
 						id: "grass-terrain-update",

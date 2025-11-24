@@ -1,4 +1,5 @@
 import type { TerrainLayer, TileDefinition, TilesetData } from "../types";
+import { unpackTileId } from "./tileId";
 
 /**
  * Godot-style bitmask autotiling utilities.
@@ -154,7 +155,10 @@ export function getTilesForTerrain(
 	terrainLayer: TerrainLayer,
 ): TileDefinition[] {
 	return terrainLayer.tiles
-		.map((tt) => tileset.tiles.find((t) => t.id === tt.tileId))
+		.map((tt) => {
+			const { x, y } = unpackTileId(tt.tileId);
+			return tileset.tiles.find((t) => t.x === x && t.y === y);
+		})
 		.filter((t): t is TileDefinition => t !== undefined);
 }
 

@@ -115,13 +115,12 @@ describe("schemas", () => {
 
 	describe("TileDefinitionSchema", () => {
 		it("should validate minimal tile definition", () => {
-			const valid = { id: 12345 };
+			const valid = { x: 0, y: 0 };
 			expect(() => TileDefinitionSchema.parse(valid)).not.toThrow();
 		});
 
 		it("should validate tile with all fields", () => {
 			const valid = {
-				id: 12345,
 				x: 0,
 				y: 0,
 				isCompound: true,
@@ -143,13 +142,18 @@ describe("schemas", () => {
 			expect(() => TileDefinitionSchema.parse(valid)).not.toThrow();
 		});
 
-		it("should reject missing id", () => {
-			const invalid = { name: "Test" };
+		it("should reject missing x coordinate", () => {
+			const invalid = { y: 0, name: "Test" };
 			expect(() => TileDefinitionSchema.parse(invalid)).toThrow();
 		});
 
-		it("should reject non-number id", () => {
-			const invalid = { id: "not-a-number" };
+		it("should reject missing y coordinate", () => {
+			const invalid = { x: 0, name: "Test" };
+			expect(() => TileDefinitionSchema.parse(invalid)).toThrow();
+		});
+
+		it("should reject non-number coordinates", () => {
+			const invalid = { x: "not-a-number", y: 0 };
 			expect(() => TileDefinitionSchema.parse(invalid)).toThrow();
 		});
 	});
@@ -293,7 +297,7 @@ describe("schemas", () => {
 				imagePath: "/complete.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [{ id: 123 }],
+				tiles: [{ x: 0, y: 0 }],
 				terrainLayers: [
 					{
 						id: "grass-1",
@@ -765,7 +769,7 @@ describe("schemas", () => {
 								currentLayerId: null,
 								gridVisible: true,
 								selectedTilesetId: null,
-								selectedTileId: null,
+								selectedTile: null,
 								selectedEntityDefId: null,
 								currentTool: "pointer",
 							},

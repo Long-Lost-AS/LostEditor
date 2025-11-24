@@ -22,7 +22,7 @@ describe("autotiling - debug coverage", () => {
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(grassTileIdLocal, 16, 0, "grass")],
+			tiles: [createSimpleTile(16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",

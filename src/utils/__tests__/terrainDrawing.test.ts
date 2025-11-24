@@ -502,7 +502,7 @@ describe("terrainDrawing", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(1, 1, 1), 1, 1), // Grass tile (in grass layer)
+					createSimpleTile(1, 1), // Grass tile (in grass layer)
 				],
 				terrainLayers: [
 					{

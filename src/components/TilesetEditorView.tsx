@@ -6,6 +6,7 @@ import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { TerrainLayer, TileDefinition, TilesetTab } from "../types";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
+import { isCompoundTile } from "../utils/tileHelpers";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
@@ -21,6 +22,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		getActiveMapTab,
 		setSelectedTilesetId,
 		setSelectedTileId,
+		setSelectedTile,
 		openCollisionEditor,
 	} = useEditor();
 
@@ -199,18 +201,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 	// Helper to check if a tile is "empty" (has no meaningful data that would be saved)
 	// This matches the filtering logic in TilesetManager.prepareForSave
-	const isTileEmpty = useCallback((tile: TileDefinition): boolean => {
-		// Compound tiles are always meaningful
-		if (tile.isCompound) return false;
+	const isTileEmpty = useCallback(
+		(tile: TileDefinition): boolean => {
+			// Compound tiles are always meaningful
+			if (isCompoundTile(tile, tilesetData)) return false;
 
-		// Check if tile has any meaningful properties
-		return (
-			tile.name === "" &&
-			tile.type === "" &&
-			(tile.colliders?.length || 0) === 0 &&
-			Object.keys(tile.properties || {}).length === 0
-		);
-	}, []);
+			// Check if tile has any meaningful properties
+			return (
+				tile.name === "" &&
+				tile.type === "" &&
+				(tile.colliders?.length || 0) === 0 &&
+				Object.keys(tile.properties || {}).length === 0
+			);
+		},
+		[tilesetData],
+	);
 
 	// One-way sync: local tileset state → tab data
 	// This updates the tab's tilesetData whenever local state changes (from any operation or undo/redo)
@@ -396,15 +401,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const intersectingTiles = localTiles
 					.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-						const { x: tileX } = unpackTileId(tile.id);
+						const tileX = tile.x;
 						const tileWidth =
 							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
 						return x > tileX && x < tileX + tileWidth;
 					})
 					.sort((a, b) => {
-						const { y: aY } = unpackTileId(a.id);
-						const { y: bY } = unpackTileId(b.id);
-						return aY - bY;
+						return a.y - b.y;
 					}); // Sort by Y position
 
 				if (intersectingTiles.length === 0) {
@@ -417,7 +420,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentY = 0;
 					for (const tile of intersectingTiles) {
-						const { y: tileY } = unpackTileId(tile.id);
+						const tileY = tile.y;
 						const tileHeight =
 							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
 						// Draw from currentY to top of tile
@@ -449,15 +452,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const intersectingTiles = tilesetData.tiles
 					.filter((tile) => {
 						if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-						const { y: tileY } = unpackTileId(tile.id);
+						const tileY = tile.y;
 						const tileHeight =
 							tile.height !== 0 ? tile.height : tilesetData.tileHeight;
 						return y > tileY && y < tileY + tileHeight;
 					})
 					.sort((a, b) => {
-						const { x: aX } = unpackTileId(a.id);
-						const { x: bX } = unpackTileId(b.id);
-						return aX - bX;
+						return a.x - b.x;
 					}); // Sort by X position
 
 				if (intersectingTiles.length === 0) {
@@ -470,7 +471,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					// Draw line segments, skipping parts inside compound tiles
 					let currentX = 0;
 					for (const tile of intersectingTiles) {
-						const { x: tileX } = unpackTileId(tile.id);
+						const tileX = tile.x;
 						const tileWidth =
 							tile.width !== 0 ? tile.width : tilesetData.tileWidth;
 						// Draw from currentX to left of tile
@@ -497,39 +498,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			ctx.lineWidth = 2 / scale;
 			for (const tile of tilesetData.tiles) {
 				// Check the isCompound flag
-				if (tile.isCompound && tile.width && tile.height) {
+				if (isCompoundTile(tile, tilesetData) && tile.width && tile.height) {
 					// This is a compound tile
-					const { x: tileX, y: tileY } = unpackTileId(tile.id);
+					const tileX = tile.x;
+					const tileY = tile.y;
 					const tileWidth = tile.width;
 					const tileHeight = tile.height;
 
 					// Draw border around it
 					ctx.strokeRect(tileX, tileY, tileWidth, tileHeight);
-
-					// Draw origin marker if this tile is selected
-					if (tile.id === selectedCompoundTileId && tile.origin) {
-						const originX = tileX + tile.origin.x * tileWidth;
-						const originY = tileY + tile.origin.y * tileHeight;
-						const markerSize = 8 / scale;
-
-						ctx.save();
-						// Draw crosshair
-						ctx.strokeStyle = "rgba(255, 165, 0, 1)"; // Orange
-						ctx.lineWidth = 2 / scale;
-						ctx.beginPath();
-						ctx.moveTo(originX - markerSize, originY);
-						ctx.lineTo(originX + markerSize, originY);
-						ctx.moveTo(originX, originY - markerSize);
-						ctx.lineTo(originX, originY + markerSize);
-						ctx.stroke();
-
-						// Draw center dot
-						ctx.fillStyle = "rgba(255, 165, 0, 1)";
-						ctx.beginPath();
-						ctx.arc(originX, originY, 3 / scale, 0, Math.PI * 2);
-						ctx.fill();
-						ctx.restore();
-					}
 
 					// Draw tile name if present
 					if (tile.name !== "") {
@@ -565,7 +542,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			for (const tile of tilesetData.tiles) {
 				if (!tile.colliders || tile.colliders.length === 0) continue;
 
-				const { x: tileX, y: tileY } = unpackTileId(tile.id);
+				const tileX = tile.x;
+				const tileY = tile.y;
 				for (const collider of tile.colliders) {
 					if (collider.points.length > 2) {
 						ctx.save();
@@ -729,7 +707,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		pan,
 		scale,
 		selectedTerrainLayer,
-		selectedCompoundTileId,
 		localTiles,
 		getTerrainLayers,
 		zoomPanContainerRef,
@@ -900,7 +877,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			for (const tile of localTiles) {
 				if (tile.width && tile.height) {
 					// Check if click is within this compound tile's bounds
-					const { x: tileX, y: tileY } = unpackTileId(tile.id);
+					const tileX = tile.x;
+					const tileY = tile.y;
 					const tileRight = tileX + tile.width;
 					const tileBottom = tileY + tile.height;
 
@@ -925,18 +903,31 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							height: regionHeight,
 						});
 						// Set the selected tile ID for the sidebar
-						setSelectedCompoundTileId(tile.id);
+						setSelectedCompoundTileId(packTileId(tile.x, tile.y, 1));
 
-						// Also set the selected tile ID for map drawing
+						// Also set the selected tile for map drawing
 						const activeMapTab = getActiveMapTab();
 						if (activeMapTab) {
+							const globalTileId = packTileId(
+								tile.x,
+								tile.y,
+								tilesetData.order,
+							);
 							setSelectedTilesetId(tab.tilesetId);
-							setSelectedTileId(tile.id);
+							setSelectedTileId(globalTileId);
+							setSelectedTile(tile.x, tile.y, tab.tilesetId, globalTileId);
 							updateTabData(activeMapTab.id, {
 								viewState: {
 									...activeMapTab.viewState,
 									selectedTilesetId: tab.tilesetId,
-									selectedTileId: tile.id,
+									selectedTile: {
+										x: tile.x,
+										y: tile.y,
+										width: tile.width,
+										height: tile.height,
+										tilesetId: tab.tilesetId,
+										tilesetOrder: tilesetData.order,
+									},
 								},
 							});
 						}
@@ -960,36 +951,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				const tilePosY = tileY * tilesetData.tileHeight;
 				const existingTile = localTiles.find((t) => {
 					if (t.width || t.height) return false; // Skip compound tiles
-					const { x, y } = unpackTileId(t.id);
-					return x === tilePosX && y === tilePosY;
+					return t.x === tilePosX && t.y === tilePosY;
 				});
 
 				if (existingTile) {
-					setSelectedCompoundTileId(existingTile.id);
+					// Use pseudo-ID for selection tracking
+					setSelectedCompoundTileId(
+						packTileId(existingTile.x, existingTile.y, 1),
+					);
 				} else {
 					// No tile entry exists yet, create one for property editing
-					// Use 0 for tileset index - will be replaced when placed on map
-					const tileId = packTileId(
-						tilePosX,
-						tilePosY,
-						tilesetData.order, // actual tileset order
-					);
 					const newTile: TileDefinition = {
-						id: tileId,
-						isCompound: false,
+						x: tilePosX,
+						y: tilePosY,
 						width: 0,
 						height: 0,
 						name: "",
 						type: "",
 						properties: {},
 						colliders: [],
-						origin: { x: 0, y: 0 },
 					};
 					setLocalTilesetState({
 						...localTilesetState,
 						tiles: [...localTiles, newTile],
 					});
-					setSelectedCompoundTileId(tileId);
+					// Use pseudo-ID for selection tracking
+					setSelectedCompoundTileId(packTileId(tilePosX, tilePosY, 1));
 				}
 
 				// Set initial single-tile selection
@@ -1044,7 +1031,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		for (const tile of localTiles) {
 			if (tile.width && tile.height) {
-				const { x: tileX, y: tileY } = unpackTileId(tile.id);
+				const tileX = tile.x;
+				const tileY = tile.y;
 				const tileRight = tileX + tile.width;
 				const tileBottom = tileY + tile.height;
 
@@ -1054,7 +1042,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					canvasY >= tileY &&
 					canvasY < tileBottom
 				) {
-					clickedCompoundTile = tile.id;
+					clickedCompoundTile = packTileId(tile.x, tile.y, 1);
 					break;
 				}
 			}
@@ -1085,11 +1073,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileWidth = width * tilesetData.tileWidth;
 		const tileHeight = height * tilesetData.tileHeight;
 		const newTile: TileDefinition = {
-			id: packTileId(tileX, tileY, tilesetData.order), // Pack with actual tileset order
-			isCompound: true,
+			x: tileX,
+			y: tileY,
 			width: tileWidth,
 			height: tileHeight,
-			origin: { x: 0, y: 0 },
 			colliders: [],
 			name: "",
 			type: "",
@@ -1108,10 +1095,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		if (contextMenu?.compoundTileId === undefined) return;
 
+		// Unpack compoundTileId to get x, y for comparison
+		const { x, y } = unpackTileId(contextMenu.compoundTileId);
+
 		// Update unified state with undo/redo support
 		setLocalTilesetState({
 			...localTilesetState,
-			tiles: localTiles.filter((t) => t.id !== contextMenu.compoundTileId),
+			tiles: localTiles.filter((t) => !(t.x === x && t.y === y)),
 		});
 	};
 
@@ -1169,18 +1159,20 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		}
 
 		// Ensure tile definition exists for regular tiles
-		const existingTile = localTiles.find((t) => t.id === tileId);
+		const geometry = unpackTileId(tileId);
+		const existingTile = localTiles.find(
+			(t) => t.x === geometry.x && t.y === geometry.y,
+		);
 		if (!existingTile) {
 			const newTile: TileDefinition = {
-				id: tileId,
-				isCompound: false,
+				x: geometry.x,
+				y: geometry.y,
 				width: 0,
 				height: 0,
 				name: "",
 				type: "",
 				properties: {},
 				colliders: [],
-				origin: { x: 0, y: 0 },
 			};
 			const updatedTiles = [...localTiles, newTile];
 			setLocalTilesetState({
@@ -1196,27 +1188,26 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleUpdateTileName = (name: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = localTiles.find(
-			(t) => t.id === selectedCompoundTileId,
-		);
+		// Unpack pseudo-ID to get x, y coordinates
+		const { x, y } = unpackTileId(selectedCompoundTileId);
+		const existingTile = localTiles.find((t) => t.x === x && t.y === y);
 
 		if (existingTile) {
 			// Update existing tile with undo/redo support
 			setLocalTilesetState({
 				...localTilesetState,
 				tiles: localTiles.map((t) =>
-					t.id === selectedCompoundTileId ? { ...t, name } : t,
+					t.x === x && t.y === y ? { ...t, name } : t,
 				),
 			});
 		} else {
-			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
+			// Create new tile entry with undo/redo support
 			const newTile: TileDefinition = {
-				id: selectedCompoundTileId,
+				x,
+				y,
 				name,
-				isCompound: false,
 				width: 0,
 				height: 0,
-				origin: { x: 0, y: 0 },
 				colliders: [],
 				type: "",
 				properties: {},
@@ -1231,64 +1222,28 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handleUpdateTileType = (type: string) => {
 		if (!selectedCompoundTileId) return;
 
-		const existingTile = localTiles.find(
-			(t) => t.id === selectedCompoundTileId,
-		);
+		// Unpack pseudo-ID to get x, y coordinates
+		const { x, y } = unpackTileId(selectedCompoundTileId);
+		const existingTile = localTiles.find((t) => t.x === x && t.y === y);
 
 		if (existingTile) {
 			// Update existing tile with undo/redo support
 			setLocalTilesetState({
 				...localTilesetState,
 				tiles: localTiles.map((t) =>
-					t.id === selectedCompoundTileId ? { ...t, type } : t,
+					t.x === x && t.y === y ? { ...t, type } : t,
 				),
 			});
 		} else {
-			// Create new tile entry from packed ID with undo/redo support (x and y are in the id)
+			// Create new tile entry with undo/redo support
 			const newTile: TileDefinition = {
-				id: selectedCompoundTileId,
+				x,
+				y,
 				type,
-				isCompound: false,
-				width: 0,
-				height: 0,
-				origin: { x: 0, y: 0 },
-				colliders: [],
-				name: "",
-				properties: {},
-			};
-			setLocalTilesetState({
-				...localTilesetState,
-				tiles: [...localTiles, newTile],
-			});
-		}
-	};
-
-	const handleUpdateTileOrigin = (x: number, y: number) => {
-		if (!selectedCompoundTileId) return;
-
-		const existingTile = localTiles.find(
-			(t) => t.id === selectedCompoundTileId,
-		);
-
-		if (existingTile) {
-			// Update existing tile with undo/redo support
-			setLocalTilesetState({
-				...localTilesetState,
-				tiles: localTiles.map((t) =>
-					t.id === selectedCompoundTileId ? { ...t, origin: { x, y } } : t,
-				),
-			});
-		} else {
-			// Create new tile entry from packed ID with undo/redo support (x and y coords are in the id)
-			const newTile: TileDefinition = {
-				id: selectedCompoundTileId,
-				origin: { x, y },
-				isCompound: false,
 				width: 0,
 				height: 0,
 				colliders: [],
 				name: "",
-				type: "",
 				properties: {},
 			};
 			setLocalTilesetState({
@@ -1302,10 +1257,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const handlePropertiesChange = (properties: Record<string, string>) => {
 		if (!selectedCompoundTileId) return;
 
+		// Unpack pseudo-ID to get x, y coordinates
+		const { x, y } = unpackTileId(selectedCompoundTileId);
+
 		setLocalTilesetState({
 			...localTilesetState,
 			tiles: localTiles.map((t) =>
-				t.id === selectedCompoundTileId ? { ...t, properties } : t,
+				t.x === x && t.y === y ? { ...t, properties } : t,
 			),
 		});
 	};
@@ -1439,7 +1397,11 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		setContextMenu(null);
 	};
 
-	const selectedTile = localTiles.find((t) => t.id === selectedCompoundTileId);
+	let selectedTile: TileDefinition | undefined;
+	if (selectedCompoundTileId) {
+		const { x, y } = unpackTileId(selectedCompoundTileId);
+		selectedTile = localTiles.find((t) => t.x === x && t.y === y);
+	}
 
 	// If tileset not found, show error (after all hooks)
 	if (!tilesetData) {
@@ -1744,190 +1706,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								)}
 							</div>
 						</div>
-
-						{/* Tile Properties moved to right sidebar */}
-						{false && selectedCompoundTileId && (
-							<div
-								className="mt-6 pt-4"
-								style={{ borderTop: "1px solid #3e3e42" }}
-							>
-								<div
-									className="text-xs font-semibold uppercase tracking-wide mb-2"
-									style={{ color: "#858585" }}
-								>
-									Tile Properties
-								</div>
-								<div className="space-y-3">
-									{/* Only show origin for compound tiles */}
-									{selectedTile?.isCompound && (
-										<div>
-											<div
-												className="text-xs font-medium block mb-1.5"
-												style={{ color: "#858585" }}
-											>
-												Origin (normalized 0-1)
-											</div>
-											<div className="grid grid-cols-2 gap-2">
-												<div>
-													<input
-														type="number"
-														value={selectedTile?.origin.x ?? 0}
-														onChange={(e) => {
-															const value = parseFloat(e.target.value) || 0;
-															const clamped = Math.max(0, Math.min(1, value));
-															handleUpdateTileOrigin(
-																clamped,
-																selectedTile?.origin.y ?? 0,
-															);
-														}}
-														step="0.1"
-														min="0"
-														max="1"
-														className="w-full px-2 py-1.5 rounded focus:outline-none text-xs"
-														style={{
-															background: "#3e3e42",
-															color: "#cccccc",
-															border: "1px solid #555",
-															fontSize: "13px",
-														}}
-														spellCheck={false}
-													/>
-													<div
-														className="text-[10px] mt-0.5"
-														style={{ color: "#858585" }}
-													>
-														X
-													</div>
-												</div>
-												<div>
-													<input
-														type="number"
-														value={selectedTile?.origin.y ?? 0}
-														onChange={(e) => {
-															const value = parseFloat(e.target.value) || 0;
-															const clamped = Math.max(0, Math.min(1, value));
-															handleUpdateTileOrigin(
-																selectedTile?.origin.x ?? 0,
-																clamped,
-															);
-														}}
-														step="0.1"
-														min="0"
-														max="1"
-														className="w-full px-2 py-1.5 rounded focus:outline-none text-xs"
-														style={{
-															background: "#3e3e42",
-															color: "#cccccc",
-															border: "1px solid #555",
-															fontSize: "13px",
-														}}
-														spellCheck={false}
-													/>
-													<div
-														className="text-[10px] mt-0.5"
-														style={{ color: "#858585" }}
-													>
-														Y
-													</div>
-												</div>
-											</div>
-											<div
-												className="mt-1 text-[10px]"
-												style={{ color: "#858585" }}
-											>
-												Quick:
-												<button
-													type="button"
-													onClick={() => handleUpdateTileOrigin(0, 0)}
-													className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
-													style={{ background: "#3e3e42", color: "#cccccc" }}
-												>
-													Top-Left
-												</button>
-												<button
-													type="button"
-													onClick={() => handleUpdateTileOrigin(0.5, 0)}
-													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
-													style={{ background: "#3e3e42", color: "#cccccc" }}
-												>
-													Top-Center
-												</button>
-												<button
-													type="button"
-													onClick={() => handleUpdateTileOrigin(0, 1)}
-													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
-													style={{ background: "#3e3e42", color: "#cccccc" }}
-												>
-													Bottom-Left
-												</button>
-												<button
-													type="button"
-													onClick={() => handleUpdateTileOrigin(0.5, 1)}
-													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
-													style={{ background: "#3e3e42", color: "#cccccc" }}
-												>
-													Bottom-Center
-												</button>
-												<button
-													type="button"
-													onClick={() => handleUpdateTileOrigin(0.5, 0.5)}
-													className="ml-1 px-1.5 py-0.5 rounded text-[10px]"
-													style={{ background: "#3e3e42", color: "#cccccc" }}
-												>
-													Center
-												</button>
-											</div>
-										</div>
-									)}
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Name
-										</div>
-										<input
-											type="text"
-											value={selectedTile?.name || ""}
-											onChange={(e) => {
-												handleUpdateTileName(e.target.value);
-											}}
-											placeholder="Enter tile name..."
-											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #3e3e42",
-											}}
-											spellCheck={false}
-										/>
-									</div>
-									<div>
-										<div
-											className="text-xs font-medium block mb-1.5"
-											style={{ color: "#858585" }}
-										>
-											Type
-										</div>
-										<input
-											type="text"
-											value={selectedTile?.type || ""}
-											onChange={(e) => {
-												handleUpdateTileType(e.target.value);
-											}}
-											placeholder="Enter tile type..."
-											className="w-full px-2.5 py-1.5 text-xs rounded focus:outline-none"
-											style={{
-												background: "#3e3e42",
-												color: "#cccccc",
-												border: "1px solid #3e3e42",
-											}}
-											spellCheck={false}
-										/>
-									</div>
-								</div>
-							</div>
-						)}
 					</div>
 				</div>
 			</div>
@@ -2080,83 +1858,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									spellCheck={false}
 								/>
 							</div>
-							{/* Only show origin for compound tiles */}
-							{selectedTile?.isCompound && (
-								<div>
-									<div
-										className="text-xs font-medium block mb-1.5"
-										style={{ color: "#858585" }}
-									>
-										Origin
-									</div>
-									<div className="grid grid-cols-2 gap-2">
-										<div className="flex">
-											<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-												X
-											</div>
-											<div className="flex-1">
-												<DragNumberInput
-													value={selectedTile?.origin.x ?? 0}
-													onChange={(value) => {
-														const clamped = Math.max(0, Math.min(1, value));
-														handleUpdateTileOrigin(
-															clamped,
-															selectedTile?.origin.y ?? 0,
-														);
-													}}
-													onInput={(value) => {
-														const clamped = Math.max(0, Math.min(1, value));
-														handleUpdateTileOrigin(
-															clamped,
-															selectedTile?.origin.y ?? 0,
-														);
-													}}
-													onDragStart={startBatch}
-													onDragEnd={endBatch}
-													step={0.1}
-													min={0}
-													max={1}
-													precision={2}
-													dragSpeed={0.01}
-													roundedLeft={false}
-												/>
-											</div>
-										</div>
-										<div className="flex">
-											<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-												Y
-											</div>
-											<div className="flex-1">
-												<DragNumberInput
-													value={selectedTile?.origin.y ?? 0}
-													onChange={(value) => {
-														const clamped = Math.max(0, Math.min(1, value));
-														handleUpdateTileOrigin(
-															selectedTile?.origin.x ?? 0,
-															clamped,
-														);
-													}}
-													onInput={(value) => {
-														const clamped = Math.max(0, Math.min(1, value));
-														handleUpdateTileOrigin(
-															selectedTile?.origin.x ?? 0,
-															clamped,
-														);
-													}}
-													onDragStart={startBatch}
-													onDragEnd={endBatch}
-													step={0.1}
-													min={0}
-													max={1}
-													precision={2}
-													dragSpeed={0.01}
-													roundedLeft={false}
-												/>
-											</div>
-										</div>
-									</div>
-								</div>
-							)}
 							{/* Custom Properties Section */}
 							{selectedTile && (
 								<CustomPropertiesEditor

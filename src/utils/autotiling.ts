@@ -41,10 +41,9 @@ function getTileTerrainType(
 	if (!tileset) return null;
 
 	// Find tile definition by matching geometry (x, y coords in sprite sheet)
-	const tileDef = tileset.tiles.find((t) => {
-		const tGeometry = unpackTileId(t.id);
-		return tGeometry.x === geometry.x && tGeometry.y === geometry.y;
-	});
+	const tileDef = tileset.tiles.find(
+		(t) => t.x === geometry.x && t.y === geometry.y,
+	);
 	if (!tileDef) return null;
 
 	return tileDef.type ?? null;
@@ -73,11 +72,9 @@ export function applyAutotiling(
 	if (!tileset) return null;
 
 	// Find tile definition by matching geometry (x, y coords in sprite sheet)
-	// Tile definitions store local IDs (tileset index 0)
-	const tileDef = tileset.tiles.find((t) => {
-		const tGeometry = unpackTileId(t.id);
-		return tGeometry.x === geometry.x && tGeometry.y === geometry.y;
-	});
+	const tileDef = tileset.tiles.find(
+		(t) => t.x === geometry.x && t.y === geometry.y,
+	);
 	if (!tileDef || !tileDef.type) return null;
 
 	const terrainType = tileDef.type;

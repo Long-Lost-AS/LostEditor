@@ -11,6 +11,7 @@ import {
 	isBitmaskCellSet,
 	toggleBitmaskCell,
 } from "../bitmaskAutotiling";
+import { packTileId } from "../tileId";
 
 describe("bitmaskAutotiling", () => {
 	describe("gridToBitmask", () => {
@@ -248,7 +249,7 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-1",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 },
+					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
 					{ tileId: 2, bitmask: 23 },
 					{ tileId: 3, bitmask: 511 },
 				],
@@ -263,7 +264,7 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-2",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 }, // Center-only tile
+					{ tileId: packTileId(0, 0, 1), bitmask: 16 }, // Center-only tile
 					{ tileId: 2, bitmask: 100 }, // Has more matching bits with 999
 				],
 			};
@@ -279,12 +280,12 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-3",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 }, // Center-only tile
+					{ tileId: packTileId(0, 0, 1), bitmask: 16 }, // Center-only tile
 				],
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 999);
-			expect(result).toEqual({ tileId: 1 });
+			expect(result).toEqual({ tileId: packTileId(0, 0, 1) });
 		});
 
 		it("should return best match when no exact match", () => {
@@ -535,9 +536,9 @@ describe("bitmaskAutotiling", () => {
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(1, 0, 0, "grass"),
-					createSimpleTile(2, 16, 0, "grass"),
-					createSimpleTile(3, 32, 0, "dirt"),
+					createSimpleTile(0, 0, "grass"),
+					createSimpleTile(16, 0, "grass"),
+					createSimpleTile(32, 0, "dirt"),
 				],
 				terrainLayers: [],
 			};
@@ -546,16 +547,16 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-layer",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 },
-					{ tileId: 2, bitmask: 31 },
+					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
+					{ tileId: packTileId(16, 0, 1), bitmask: 31 },
 				],
 			};
 
 			const result = getTilesForTerrain(tileset, terrainLayer);
 
 			expect(result).toHaveLength(2);
-			expect(result[0]).toEqual(createSimpleTile(1, 0, 0, "grass"));
-			expect(result[1]).toEqual(createSimpleTile(2, 16, 0, "grass"));
+			expect(result[0]).toEqual(createSimpleTile(0, 0, "grass"));
+			expect(result[1]).toEqual(createSimpleTile(16, 0, "grass"));
 		});
 
 		it("should filter out tiles that don't exist in tileset", () => {
@@ -567,7 +568,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(1, 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -575,7 +576,7 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-layer",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 },
+					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
 					{ tileId: 999, bitmask: 31 }, // Non-existent tile
 				],
 			};
@@ -583,7 +584,7 @@ describe("bitmaskAutotiling", () => {
 			const result = getTilesForTerrain(tileset, terrainLayer);
 
 			expect(result).toHaveLength(1);
-			expect(result[0]).toEqual(createSimpleTile(1, 0, 0, "grass"));
+			expect(result[0]).toEqual(createSimpleTile(0, 0, "grass"));
 		});
 
 		it("should return empty array when terrain layer has no tiles", () => {
@@ -595,7 +596,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(1, 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -619,7 +620,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(1, 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [],
 			};
 
@@ -644,7 +645,7 @@ describe("bitmaskAutotiling", () => {
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(1, 0, 0, "grass")],
+				tiles: [createSimpleTile(0, 0, "grass")],
 				terrainLayers: [],
 			};
 

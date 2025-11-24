@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import type { TilesetData } from "../types";
-import { packTileId, unpackTileId } from "../utils/tileId";
+import { isCompoundTile } from "../utils/tileHelpers";
+import { packTileId } from "../utils/tileId";
 
 interface TilesetSelectMenuProps {
 	isOpen: boolean;
@@ -146,9 +147,10 @@ export const TilesetSelectMenu = ({
 			ctx.lineWidth = 2;
 
 			for (const tile of tileset.tiles) {
-				if (tile.isCompound && tile.width && tile.height) {
+				if (isCompoundTile(tile, tileset) && tile.width && tile.height) {
 					// Draw compound tile border
-					const { x: tileX, y: tileY } = unpackTileId(tile.id);
+					const tileX = tile.x;
+					const tileY = tile.y;
 					const screenX = offsetX + tileX * scale;
 					const screenY = offsetY + tileY * scale;
 					const screenWidth = tile.width * scale;
@@ -174,18 +176,24 @@ export const TilesetSelectMenu = ({
 
 			// Select the first tile (0, 0) by default so user can start drawing immediately
 			// Check if there's a compound tile at (0,0), otherwise use regular tile
-			const firstCompoundTile = tileset.tiles?.find(
-				(tile: { isCompound?: boolean; id: number }) => {
-					if (!tile.isCompound) return false;
-					const { x, y } = unpackTileId(tile.id);
-					return x === 0 && y === 0;
-				},
-			);
+			const firstCompoundTile = tileset.tiles?.find((tile) => {
+				if (!isCompoundTile(tile, tileset)) return false;
+				const x = tile.x;
+				const y = tile.y;
+				return x === 0 && y === 0;
+			});
 
 			if (firstCompoundTile) {
 				// Select the compound tile
-				setSelectedTileId(firstCompoundTile.id);
-				setSelectedTile(0, 0, tileset.id, firstCompoundTile.id);
+				setSelectedTileId(
+					packTileId(firstCompoundTile.x, firstCompoundTile.y, tileset.order),
+				);
+				setSelectedTile(
+					0,
+					0,
+					tileset.id,
+					packTileId(firstCompoundTile.x, firstCompoundTile.y, tileset.order),
+				);
 			} else {
 				// Select regular tile at (0, 0)
 				const regularTileId = packTileId(0, 0, tileset.order, false, false);

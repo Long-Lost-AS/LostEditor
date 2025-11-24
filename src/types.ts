@@ -22,6 +22,7 @@ import type {
 	TerrainLayerSchema,
 	TerrainTileSchema,
 	TileDefinitionSchema,
+	TileReferenceSchema,
 	TilesetDataSchema,
 	TilesetTabSchema,
 	TilesetViewStateSchema,
@@ -43,8 +44,11 @@ export type SpriteRect = z.infer<typeof SpriteRectSchema>;
 export type SpriteLayer = z.infer<typeof SpriteLayerSchema>;
 
 // Tile definition - inferred from schema
-// Note: x and y coordinates are packed in the 'id' field and should be unpacked using unpackTileId()
+// Note: x and y are pixel coordinates identifying the sprite position in the tileset image
 export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
+
+// Tile reference - used for tile selection in the editor
+export type TileReference = z.infer<typeof TileReferenceSchema>;
 
 // EntityDefinition must be manually defined (not inferred) because it's recursive
 // The schema uses z.lazy() which prevents type inference with z.infer<>

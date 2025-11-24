@@ -54,16 +54,10 @@ export const SpriteLayerSchema = z.object({
 });
 
 export const TileDefinitionSchema = z.object({
-	id: z.number(), // Packed tile ID (contains x, y, tileset index, and flip flags)
-	isCompound: z.boolean().default(false), // True if this is a compound/multi-tile sprite
+	x: z.number(), // X coordinate in pixels (sprite position in tileset image)
+	y: z.number(), // Y coordinate in pixels (sprite position in tileset image)
 	width: z.number().default(0), // Width in pixels (0 = use tileset's tileWidth)
 	height: z.number().default(0), // Height in pixels (0 = use tileset's tileHeight)
-	origin: z
-		.object({
-			x: z.number(),
-			y: z.number(),
-		})
-		.default({ x: 0, y: 0 }),
 	colliders: z.array(PolygonColliderSchema).default([]),
 	name: z.string().default(""),
 	type: z.string().default(""),
@@ -227,6 +221,15 @@ export const BaseTabSchema = z.object({
 	filePath: z.string().optional(),
 });
 
+export const TileReferenceSchema = z.object({
+	x: z.number(),
+	y: z.number(),
+	width: z.number(),
+	height: z.number(),
+	tilesetId: z.string(),
+	tilesetOrder: z.number(),
+});
+
 export const MapViewStateSchema = z.object({
 	zoom: z.number(),
 	panX: z.number(),
@@ -234,7 +237,7 @@ export const MapViewStateSchema = z.object({
 	currentLayerId: z.string().nullable(),
 	gridVisible: z.boolean(),
 	selectedTilesetId: z.string().nullable(),
-	selectedTileId: z.number().nullable(),
+	selectedTile: TileReferenceSchema.nullable(),
 	selectedEntityDefId: z.string().nullable(),
 	currentTool: ToolSchema,
 });

@@ -28,10 +28,11 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 			if (!tilesetTab || tilesetTab.type !== "tileset-editor") return null;
 
 			const tileset = tilesetTab.tilesetData;
-			const tile = tileset.tiles.find((t) => t.id === tab.tileId);
+			// Unpack tileId to get x, y coordinates for lookup
+			if (!tab.tileId) return null;
+			const { x, y } = unpackTileId(tab.tileId);
+			const tile = tileset.tiles.find((t) => t.x === x && t.y === y);
 			if (!tile) return null;
-
-			const { x, y } = unpackTileId(tile.id);
 			return {
 				type: "tile" as const,
 				tilesetTab,
@@ -93,7 +94,7 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 			if (sourceData?.type === "tile") {
 				const { tilesetTab, tileset, tile } = sourceData;
 				const updatedTiles = tileset.tiles.map((t) =>
-					t.id === tile.id ? { ...t, colliders } : t,
+					t.x === tile.x && t.y === tile.y ? { ...t, colliders } : t,
 				);
 
 				// Update the source tab's tilesetData

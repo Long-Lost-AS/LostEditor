@@ -34,6 +34,7 @@ import type {
 	Tool,
 } from "../types";
 import { generateId } from "../utils/id";
+import { isCompoundTile } from "../utils/tileHelpers";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 
@@ -541,7 +542,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				: null;
 			const selectedTileDef =
 				selectedTileset && selectedTileId
-					? selectedTileset.tiles.find((t) => t.id === selectedTileId)
+					? (() => {
+							const { x, y } = unpackTileId(selectedTileId);
+							return selectedTileset.tiles.find((t) => t.x === x && t.y === y);
+						})()
 					: null;
 
 			// Get tileset order from the tileset itself (not from array position)
@@ -570,7 +574,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					const newTiles = [...layer.tiles]; // Copy the dense array
 
 					// Handle compound tiles
-					if (selectedTileDef?.isCompound) {
+					if (
+						selectedTileDef &&
+						selectedTileset &&
+						isCompoundTile(selectedTileDef, selectedTileset)
+					) {
 						// Calculate cells from width/height
 						const tileWidth = selectedTileset?.tileWidth || 16;
 						const tileHeight = selectedTileset?.tileHeight || 16;
@@ -1467,7 +1475,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 					currentLayerId: mapData.layers[0]?.id || null,
 					gridVisible: true,
 					selectedTilesetId: null,
-					selectedTileId: null,
+					selectedTile: null,
 					selectedEntityDefId: null,
 					currentTool: "pencil",
 				},
@@ -1524,7 +1532,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						currentLayerId: mapData.layers[0]?.id || null,
 						gridVisible: true,
 						selectedTilesetId: null,
-						selectedTileId: null,
+						selectedTile: null,
 						selectedEntityDefId: null,
 						currentTool: "pencil",
 					},
@@ -1886,7 +1894,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			let title = "Edit Collision";
 			if (sourceType === "tile") {
 				const tileset = tilesets.find((t) => t.id === sourceId);
-				const tile = tileset?.tiles.find((t) => t.id === tileId);
+				const tile =
+					tileset && tileId
+						? (() => {
+								const { x, y } = unpackTileId(tileId);
+								return tileset.tiles.find((t) => t.x === x && t.y === y);
+							})()
+						: undefined;
 				if (tile && tile.name !== "") {
 					title = `Collision - ${tile.name}`;
 				} else if (tileset) {

@@ -14,7 +14,7 @@ import {
 } from "../utils/collisionGeometry";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
-import { unpackTileId } from "../utils/tileId";
+import { isCompoundTile } from "../utils/tileHelpers";
 import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
@@ -264,7 +264,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Find all compound tiles that intersect this vertical line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
 				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-				const { x: tileX } = unpackTileId(tile.id);
+				const tileX = tile.x;
 				const tileWidth =
 					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 				return x > tileX && x < tileX + tileWidth;
@@ -280,7 +280,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentY = 0;
 				for (const tile of intersectingTiles) {
-					const { y: tileY } = unpackTileId(tile.id);
+					const tileY = tile.y;
 					const tileHeight =
 						tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 					// Draw from currentY to top of tile
@@ -307,7 +307,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			// Find all compound tiles that intersect this horizontal line
 			const intersectingTiles = (selectedTileset.tiles || []).filter((tile) => {
 				if (tile.width === 0 || tile.height === 0) return false; // Not a compound tile
-				const { y: tileY } = unpackTileId(tile.id);
+				const tileY = tile.y;
 				const tileHeight =
 					tile.height !== 0 ? tile.height : selectedTileset.tileHeight;
 				return y > tileY && y < tileY + tileHeight;
@@ -323,7 +323,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw line segments, skipping parts inside compound tiles
 				let currentX = 0;
 				for (const tile of intersectingTiles) {
-					const { x: tileX } = unpackTileId(tile.id);
+					const tileX = tile.x;
 					const tileWidth =
 						tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 					// Draw from currentX to left of tile
@@ -350,9 +350,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		ctx.lineWidth = 2;
 		for (const tile of selectedTileset.tiles || []) {
 			// Check the isCompound flag
-			if (tile.isCompound) {
+			if (isCompoundTile(tile, selectedTileset)) {
 				// This is a compound tile
-				const { x: tileX, y: tileY } = unpackTileId(tile.id);
+				const tileX = tile.x;
+				const tileY = tile.y;
 				const tileWidth =
 					tile.width !== 0 ? tile.width : selectedTileset.tileWidth;
 				const tileHeight =
@@ -582,7 +583,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw colliders from the tile (only if tileset exists)
 				if (tileset) {
 					const tile = tileset.tiles.find((t) => {
-						const { x: tileX, y: tileY } = unpackTileId(t.id);
+						const tileX = t.x;
+						const tileY = t.y;
 						const tileWidth = t.width || tileset.tileWidth;
 						const tileHeight = t.height || tileset.tileHeight;
 
@@ -595,7 +597,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					});
 
 					if (tile?.colliders && tile.colliders.length > 0) {
-						const { x: tileX, y: tileY } = unpackTileId(tile.id);
+						const tileX = tile.x;
+						const tileY = tile.y;
 						for (const collider of tile.colliders) {
 							if (collider.points.length < 2) continue;
 
@@ -2328,7 +2331,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						for (const tile of selectedTileset.tiles || []) {
 							if (tile.width && tile.height) {
 								// Check if click is within this compound tile's bounds
-								const { x: tileX, y: tileY } = unpackTileId(tile.id);
+								const tileX = tile.x;
+								const tileY = tile.y;
 								const tileRight =
 									tileX +
 									(tile.width !== 0 ? tile.width : selectedTileset.tileWidth);

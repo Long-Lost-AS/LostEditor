@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { FileNotFoundError } from "../errors/FileErrors";
 import { TilesetDataSchema } from "../schemas";
 import type { TileDefinition, TilesetData, TilesetDataJson } from "../types";
+import { isCompoundTile } from "../utils/tileHelpers";
 import { unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
 import { FileLoader } from "./FileLoader";
@@ -43,7 +44,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 			tiles: data.tiles
 				.filter((tile) => {
 					// Check if this is a compound tile
-					if (tile.isCompound) return true;
+					if (isCompoundTile(tile, data)) return true;
 
 					// For regular tiles, only save if they have properties
 					return (
@@ -54,7 +55,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 					);
 				})
 				.map((tile) => {
-					if (!tile.isCompound) {
+					if (!isCompoundTile(tile, data)) {
 						tile.width = data.tileWidth;
 						tile.height = data.tileHeight;
 					}
@@ -94,19 +95,11 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		// Load the image
 		const imageElement = await this.loadImage(imagePath);
 
-		// Unpack tile geometries from packed IDs
-		const tilesWithGeometry = (validated.tiles || []).map((tile) => {
-			const geometry = unpackTileId(tile.id);
-			return {
-				...tile,
-				x: geometry.x,
-				y: geometry.y,
-				// width/height are preserved from tile if present (for compound tiles)
-				// Add default values for properties that may not exist in older files
-				colliders: tile.colliders || [],
-				origin: tile.origin || { x: 0, y: 0 },
-			};
-		});
+		// Add default values for properties that may not exist in older files
+		const tilesWithDefaults = (validated.tiles || []).map((tile) => ({
+			...tile,
+			colliders: tile.colliders || [],
+		}));
 
 		// Handle tileset order assignment
 		// Check for order conflicts with already-loaded tilesets
@@ -135,7 +128,7 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 			imagePath: imagePath, // Use resolved absolute path
 			imageData: imageElement,
 			filePath: filePath, // Set the filePath so we know where this tileset was loaded from
-			tiles: tilesWithGeometry,
+			tiles: tilesWithDefaults,
 		};
 	}
 
@@ -219,6 +212,8 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 
 	/**
 	 * Get a tile definition from a tileset
+	 * @param tilesetId - The tileset ID
+	 * @param tileId - The packed tile ID from map (will be unpacked to get x, y)
 	 */
 	getTileDefinition(
 		tilesetId: string,
@@ -228,7 +223,10 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 			(t) => t.id === tilesetId,
 		);
 		if (!tileset) return undefined;
-		return tileset.tiles.find((t) => t.id === tileId);
+
+		// Unpack the tile ID to get x and y coordinates
+		const geometry = unpackTileId(tileId);
+		return tileset.tiles.find((t) => t.x === geometry.x && t.y === geometry.y);
 	}
 
 	/**
