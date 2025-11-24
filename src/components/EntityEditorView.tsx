@@ -515,8 +515,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				const rotation = layer.rotation || 0;
 
 				// Convert normalized origin (0-1) to pixel coordinates
-				const originX = origin.x * layer.sprite.width;
-				const originY = origin.y * layer.sprite.height;
+				const originX = origin.x * layer.rect.width;
+				const originY = origin.y * layer.rect.height;
 
 				ctx.save();
 				// Translate to where the origin point should be in world space
@@ -533,51 +533,51 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					// Draw actual sprite
 					ctx.drawImage(
 						tileset.imageData,
-						layer.sprite.x,
-						layer.sprite.y,
-						layer.sprite.width,
-						layer.sprite.height,
+						layer.rect.x,
+						layer.rect.y,
+						layer.rect.width,
+						layer.rect.height,
 						0,
 						0,
-						layer.sprite.width,
-						layer.sprite.height,
+						layer.rect.width,
+						layer.rect.height,
 					);
 				} else {
 					// Draw placeholder for missing sprite
 					const gradient = ctx.createLinearGradient(
 						0,
 						0,
-						layer.sprite.width,
-						layer.sprite.height,
+						layer.rect.width,
+						layer.rect.height,
 					);
 					gradient.addColorStop(0, "#663399");
 					gradient.addColorStop(1, "#8844AA");
 
 					// Draw background rectangle
 					ctx.fillStyle = gradient;
-					ctx.fillRect(0, 0, layer.sprite.width, layer.sprite.height);
+					ctx.fillRect(0, 0, layer.rect.width, layer.rect.height);
 
 					// Draw border
 					ctx.strokeStyle = "#AA66CC";
 					ctx.lineWidth = 2 / scale;
-					ctx.strokeRect(0, 0, layer.sprite.width, layer.sprite.height);
+					ctx.strokeRect(0, 0, layer.rect.width, layer.rect.height);
 
 					// Draw X pattern
 					ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
 					ctx.lineWidth = 3 / scale;
 					ctx.beginPath();
-					ctx.moveTo(layer.sprite.width * 0.2, layer.sprite.height * 0.2);
-					ctx.lineTo(layer.sprite.width * 0.8, layer.sprite.height * 0.8);
-					ctx.moveTo(layer.sprite.width * 0.8, layer.sprite.height * 0.2);
-					ctx.lineTo(layer.sprite.width * 0.2, layer.sprite.height * 0.8);
+					ctx.moveTo(layer.rect.width * 0.2, layer.rect.height * 0.2);
+					ctx.lineTo(layer.rect.width * 0.8, layer.rect.height * 0.8);
+					ctx.moveTo(layer.rect.width * 0.8, layer.rect.height * 0.2);
+					ctx.lineTo(layer.rect.width * 0.2, layer.rect.height * 0.8);
 					ctx.stroke();
 
 					// Draw "?" text in center
 					ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-					ctx.font = `${Math.max(16, layer.sprite.height * 0.4) / scale}px Arial`;
+					ctx.font = `${Math.max(16, layer.rect.height * 0.4) / scale}px Arial`;
 					ctx.textAlign = "center";
 					ctx.textBaseline = "middle";
-					ctx.fillText("?", layer.sprite.width / 2, layer.sprite.height / 2);
+					ctx.fillText("?", layer.rect.width / 2, layer.rect.height / 2);
 				}
 
 				// Draw colliders from the tile (only if tileset exists)
@@ -589,10 +589,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						const tileHeight = t.height || tileset.tileHeight;
 
 						return (
-							layer.sprite.x >= tileX &&
-							layer.sprite.y >= tileY &&
-							layer.sprite.x + layer.sprite.width <= tileX + tileWidth &&
-							layer.sprite.y + layer.sprite.height <= tileY + tileHeight
+							layer.rect.x >= tileX &&
+							layer.rect.y >= tileY &&
+							layer.rect.x + layer.rect.width <= tileX + tileWidth &&
+							layer.rect.y + layer.rect.height <= tileY + tileHeight
 						);
 					});
 
@@ -603,8 +603,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							if (collider.points.length < 2) continue;
 
 							// Calculate the offset of the sprite within the tile
-							const spriteOffsetX = layer.sprite.x - tileX;
-							const spriteOffsetY = layer.sprite.y - tileY;
+							const spriteOffsetX = layer.rect.x - tileX;
+							const spriteOffsetY = layer.rect.y - tileY;
 
 							ctx.strokeStyle = "rgba(0, 255, 0, 0.7)";
 							ctx.lineWidth = 2 / scale;
@@ -768,8 +768,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					const rotation = selectedLayer.rotation || 0;
 
 					// Convert normalized origin (0-1) to pixel coordinates
-					const originX = origin.x * selectedLayer.sprite.width;
-					const originY = origin.y * selectedLayer.sprite.height;
+					const originX = origin.x * selectedLayer.rect.width;
+					const originY = origin.y * selectedLayer.rect.height;
 
 					ctx.save();
 					// Match the same transform as sprite rendering
@@ -785,8 +785,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					ctx.strokeRect(
 						0,
 						0,
-						selectedLayer.sprite.width,
-						selectedLayer.sprite.height,
+						selectedLayer.rect.width,
+						selectedLayer.rect.height,
 					);
 
 					// Draw origin marker (crosshair) - always at the origin point
@@ -993,14 +993,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					const origin = selectedLayer.origin || { x: 0, y: 0 };
 
 					// Convert normalized origin to pixel coordinates
-					const originX = origin.x * selectedLayer.sprite.width;
-					const originY = origin.y * selectedLayer.sprite.height;
+					const originX = origin.x * selectedLayer.rect.width;
+					const originY = origin.y * selectedLayer.rect.height;
 
 					// Calculate actual sprite bounds in world space (accounting for origin)
 					const minX = offset.x - originX;
 					const minY = offset.y - originY;
-					const maxX = offset.x - originX + selectedLayer.sprite.width;
-					const maxY = offset.y - originY + selectedLayer.sprite.height;
+					const maxX = offset.x - originX + selectedLayer.rect.width;
+					const maxY = offset.y - originY + selectedLayer.rect.height;
 
 					if (
 						worldX >= minX &&
@@ -1032,14 +1032,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				const origin = layer.origin || { x: 0, y: 0 };
 
 				// Convert normalized origin to pixel coordinates
-				const originX = origin.x * layer.sprite.width;
-				const originY = origin.y * layer.sprite.height;
+				const originX = origin.x * layer.rect.width;
+				const originY = origin.y * layer.rect.height;
 
 				// Calculate actual sprite bounds in world space (accounting for origin)
 				const minX = offset.x - originX;
 				const minY = offset.y - originY;
-				const maxX = offset.x - originX + layer.sprite.width;
-				const maxY = offset.y - originY + layer.sprite.height;
+				const maxX = offset.x - originX + layer.rect.width;
+				const maxY = offset.y - originY + layer.rect.height;
 
 				if (
 					worldX >= minX &&
@@ -1279,14 +1279,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const origin = layer.origin || { x: 0, y: 0 };
 
 			// Convert normalized origin to pixel coordinates
-			const originX = origin.x * layer.sprite.width;
-			const originY = origin.y * layer.sprite.height;
+			const originX = origin.x * layer.rect.width;
+			const originY = origin.y * layer.rect.height;
 
 			// Calculate actual sprite bounds in world space (accounting for origin)
 			const minX = offset.x - originX;
 			const minY = offset.y - originY;
-			const maxX = offset.x - originX + layer.sprite.width;
-			const maxY = offset.y - originY + layer.sprite.height;
+			const maxX = offset.x - originX + layer.rect.width;
+			const maxY = offset.y - originY + layer.rect.height;
 
 			if (
 				worldX >= minX &&
@@ -1331,7 +1331,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			name: "",
 			type: "",
 			tilesetId: selectedTilesetId,
-			sprite: {
+			rect: {
 				x: selectedRegion.x * tileset.tileWidth,
 				y: selectedRegion.y * tileset.tileHeight,
 				width: selectedRegion.width * tileset.tileWidth,

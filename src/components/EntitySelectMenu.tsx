@@ -132,9 +132,9 @@ export const EntitySelectMenu = ({
 			maxY = -Infinity;
 
 		entity.sprites.forEach((spriteLayer) => {
-			if (!spriteLayer.sprite) return;
+			if (!spriteLayer.rect) return;
 
-			const sprite = spriteLayer.sprite;
+			const sprite = spriteLayer.rect;
 			const offset = spriteLayer.offset || { x: 0, y: 0 };
 			const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 
@@ -171,9 +171,9 @@ export const EntitySelectMenu = ({
 
 		// Draw each sprite layer
 		entity.sprites.forEach((spriteLayer) => {
-			if (!spriteLayer.sprite) return;
+			if (!spriteLayer.rect) return;
 
-			const sprite = spriteLayer.sprite;
+			const sprite = spriteLayer.rect;
 			const offset = spriteLayer.offset || { x: 0, y: 0 };
 			const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 

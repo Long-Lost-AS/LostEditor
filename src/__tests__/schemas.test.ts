@@ -620,7 +620,7 @@ describe("schemas", () => {
 					{
 						id: "sprite-1",
 						tilesetId: "tileset-1",
-						sprite: { x: 0, y: 0, width: 16, height: 16 },
+						rect: { x: 0, y: 0, width: 16, height: 16 },
 						zIndex: 0,
 					},
 				],
@@ -680,7 +680,7 @@ describe("schemas", () => {
 			const valid = {
 				id: "sprite-1",
 				tilesetId: "tileset-1",
-				sprite: { x: 0, y: 0, width: 16, height: 16 },
+				rect: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
 			expect(() => SpriteSchema.parse(valid)).not.toThrow();
@@ -692,7 +692,7 @@ describe("schemas", () => {
 				name: "Player Sprite",
 				type: "character",
 				tilesetId: "tileset-1",
-				sprite: { x: 0, y: 0, width: 16, height: 16 },
+				rect: { x: 0, y: 0, width: 16, height: 16 },
 				offset: { x: 2, y: 4 },
 				origin: { x: 0.5, y: 1 },
 				rotation: 45,
@@ -705,7 +705,7 @@ describe("schemas", () => {
 		it("should reject missing required id", () => {
 			const invalid = {
 				tilesetId: "tileset-1",
-				sprite: { x: 0, y: 0, width: 16, height: 16 },
+				rect: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
 			expect(() => SpriteSchema.parse(invalid)).toThrow();
@@ -714,7 +714,7 @@ describe("schemas", () => {
 		it("should reject missing tilesetId", () => {
 			const invalid = {
 				id: "sprite-1",
-				sprite: { x: 0, y: 0, width: 16, height: 16 },
+				rect: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
 			expect(() => SpriteSchema.parse(invalid)).toThrow();

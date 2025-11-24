@@ -35,7 +35,7 @@ export const SpriteSchema = z.object({
 	name: z.string().default(""),
 	type: z.string().default(""),
 	tilesetId: z.string(),
-	sprite: SpriteRectSchema,
+	rect: SpriteRectSchema,
 	offset: z
 		.object({
 			x: z.number(),

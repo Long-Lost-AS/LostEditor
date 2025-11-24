@@ -68,10 +68,10 @@ export const CollisionEditorView = ({ tab }: CollisionEditorViewProps) => {
 			const firstSprite = entity.sprites?.[0];
 			const bbox = firstSprite
 				? {
-						x: firstSprite.sprite.x,
-						y: firstSprite.sprite.y,
-						width: firstSprite.sprite.width,
-						height: firstSprite.sprite.height,
+						x: firstSprite.rect.x,
+						y: firstSprite.rect.y,
+						width: firstSprite.rect.width,
+						height: firstSprite.rect.height,
 					}
 				: { x: 0, y: 0, width: 32, height: 32 };
 

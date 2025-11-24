@@ -864,11 +864,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				if (entityDef.sprites && entityDef.sprites.length > 0) {
 					entityDef.sprites.forEach((spriteLayer: Sprite) => {
 						// Skip if sprite is missing
-						if (!spriteLayer.sprite) return;
+						if (!spriteLayer.rect) return;
 
 						ctx.save();
 
-						const sprite = spriteLayer.sprite;
+						const sprite = spriteLayer.rect;
 						const offset = spriteLayer.offset || { x: 0, y: 0 };
 						const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 						const rotation =
@@ -1541,9 +1541,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							// Render each sprite in the entity
 							entityDef.sprites.forEach((spriteLayer) => {
 								// Skip if sprite is missing
-								if (!spriteLayer.sprite) return;
+								if (!spriteLayer.rect) return;
 
-								const sprite = spriteLayer.sprite;
+								const sprite = spriteLayer.rect;
 								const offset = spriteLayer.offset || { x: 0, y: 0 };
 								const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 								const scale = { x: 1, y: 1 }; // Default scale for preview
@@ -1669,9 +1669,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								maxY = -Infinity;
 
 							entityDef.sprites.forEach((spriteLayer) => {
-								if (!spriteLayer.sprite) return;
+								if (!spriteLayer.rect) return;
 
-								const sprite = spriteLayer.sprite;
+								const sprite = spriteLayer.rect;
 								const offset = spriteLayer.offset || { x: 0, y: 0 };
 								const origin = spriteLayer.origin || { x: 0.5, y: 1 };
 
@@ -2061,8 +2061,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 							if (entityDef?.sprites && entityDef.sprites.length > 0) {
 								const firstSprite = entityDef.sprites[0];
-								if (firstSprite.sprite) {
-									const sprite = firstSprite.sprite;
+								if (firstSprite.rect) {
+									const sprite = firstSprite.rect;
 									const origin = firstSprite.origin || { x: 0.5, y: 1 };
 									const offset = firstSprite.offset || { x: 0, y: 0 };
 									const scale = entity.scale;
@@ -2392,8 +2392,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 					if (entityDef?.sprites && entityDef.sprites.length > 0) {
 						const firstSprite = entityDef.sprites[0];
-						if (firstSprite.sprite) {
-							const sprite = firstSprite.sprite;
+						if (firstSprite.rect) {
+							const sprite = firstSprite.rect;
 							const origin = firstSprite.origin || { x: 0.5, y: 1 };
 							const offset = firstSprite.offset || { x: 0, y: 0 };
 							const scale = selectedEntity.scale;
@@ -2846,8 +2846,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 					if (entityDef?.sprites && entityDef.sprites.length > 0) {
 						const firstSprite = entityDef.sprites[0];
-						if (firstSprite.sprite) {
-							const sprite = firstSprite.sprite;
+						if (firstSprite.rect) {
+							const sprite = firstSprite.rect;
 							const origin = firstSprite.origin || { x: 0.5, y: 1 };
 							const offset = firstSprite.offset || { x: 0, y: 0 };
 							const scale = entity.scale;

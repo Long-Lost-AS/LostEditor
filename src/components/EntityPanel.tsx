@@ -195,8 +195,8 @@ export const EntityPanel = () => {
 								<div>Sprites: {selectedEntity.sprites.length}</div>
 								{selectedEntity.sprites[0] && (
 									<div>
-										Primary: {selectedEntity.sprites[0].sprite.width}×
-										{selectedEntity.sprites[0].sprite.height}px
+										Primary: {selectedEntity.sprites[0].rect.width}×
+										{selectedEntity.sprites[0].rect.height}px
 									</div>
 								)}
 							</>
