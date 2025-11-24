@@ -29,18 +29,18 @@ describe("autotiling - comprehensive coverage", () => {
 			version: "1.0",
 			name: "test-tileset",
 			id: "tileset-0",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+			tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
 					name: "grass",
 					tiles: [
-						{ tileId: packTileId(16, 0, 0), bitmask: 16 }, // Center only
-						{ tileId: packTileId(16, 0, 0), bitmask: 511 }, // All neighbors
+						{ tileId: packTileId(16, 0, 1), bitmask: 16 }, // Center only
+						{ tileId: packTileId(16, 0, 1), bitmask: 511 }, // All neighbors
 					],
 				},
 			],
@@ -71,19 +71,19 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-1",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
 					// Tile at (16,0) exists
-					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
+					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
 				],
 				terrainLayers: [],
 			};
 
 			// Request tile at (16,0) which doesn't exist in tiles array
-			const tileId = packTileId(16, 0, 0);
+			const tileId = packTileId(16, 0, 1);
 			const layer = createLayer([tileId]);
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
 			expect(result).toBeNull();
@@ -94,15 +94,15 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-2",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0)],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0)],
 				terrainLayers: [],
 			};
 
-			const tileId = packTileId(16, 0, 0);
+			const tileId = packTileId(16, 0, 1);
 			const layer = createLayer([tileId]);
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
 			expect(result).toBeNull();
@@ -113,18 +113,18 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-3",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					// Has "dirt" but not "grass"
 					{ id: "dirt-layer", name: "dirt", tiles: [] },
 				],
 			};
 
-			const tileId = packTileId(16, 0, 0);
+			const tileId = packTileId(16, 0, 1);
 			const layer = createLayer([tileId]);
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
 			expect(result).toBeNull();
@@ -132,7 +132,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should process tile with terrain type", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			// Single grass tile (isolated) with valid terrain
 			const layer = createLayer([grassTile]);
@@ -147,11 +147,11 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-4",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -161,7 +161,7 @@ describe("autotiling - comprehensive coverage", () => {
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			const layer = createLayer([grassTile]);
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
 
@@ -171,7 +171,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should handle out of bounds positions correctly (getTileIdAt)", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			// 2x2 grid with grass in corners
 			const layer = createLayer([grassTile, 0, 0, grassTile]);
@@ -187,25 +187,25 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "multi",
 				id: "tileset-5",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 0), 32, 0, "dirt"),
+					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
+					createSimpleTile(packTileId(32, 0, 1), 32, 0, "dirt"),
 				],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
-						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+						tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
-			const dirtTile = packTileId(32, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
+			const dirtTile = packTileId(32, 0, 1);
 
 			// Grass surrounded by dirt - should not match dirt as neighbors
 			const layer = createLayer([
@@ -238,7 +238,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should update single position", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile]);
 			const result = updateTileAndNeighbors(layer, [{ x: 0, y: 0 }], 1, 1, [
@@ -256,7 +256,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should include all 8 neighbors in update region", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			// 3x3 grid, all grass
 			const layer = createLayer(Array(9).fill(grassTile));
@@ -280,7 +280,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should exclude out-of-bounds neighbors", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile, grassTile, grassTile, grassTile]);
 
@@ -298,7 +298,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should handle multiple positions", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer(Array(9).fill(grassTile));
 			const result = updateTileAndNeighbors(
@@ -318,7 +318,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should deduplicate overlapping neighbor regions", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile, grassTile, grassTile, grassTile]);
 
@@ -341,7 +341,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should calculate correct index for 2D position", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			// 3x2 grid
 			const layer = createLayer(Array(6).fill(grassTile));
@@ -368,7 +368,7 @@ describe("autotiling - comprehensive coverage", () => {
 			const tileset = createSimpleTileset();
 
 			// Mix of grass and empty
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			const layer = createLayer([grassTile, 0, 0, 0]);
 
 			const result = updateTileAndNeighbors(
@@ -396,7 +396,7 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "no-terrain",
 				id: "tileset-6",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -413,7 +413,7 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "undefined-terrain",
 				id: "tileset-7",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -431,7 +431,7 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "multi-terrain",
 				id: "tileset-8",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -453,7 +453,7 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "tileset-1",
 				id: "tileset-9",
-				order: 0,
+				order: 1,
 				imagePath: "/1.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -497,21 +497,21 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-terrain",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
-						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+						tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			// 2x2 grid with grass tiles - this will call getTileTerrainType for neighbors
 			const layer = createLayer([grassTile, grassTile, grassTile, grassTile]);
 
@@ -534,19 +534,19 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "test",
 				id: "tileset-missing",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
 					// Only has tile at (16,0)
-					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
+					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
 				],
 				terrainLayers: [],
 			};
 
 			// Request tile at (32,0) which doesn't exist
-			const missingTile = packTileId(32, 0, 0);
+			const missingTile = packTileId(32, 0, 1);
 			const layer = createLayer([missingTile]);
 
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
@@ -561,28 +561,28 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "working",
 				id: "tileset-working",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 0), 32, 0, "grass"),
+					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
+					createSimpleTile(packTileId(32, 0, 1), 32, 0, "grass"),
 				],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
 						tiles: [
-							{ tileId: packTileId(16, 0, 0), bitmask: 16 }, // Center only
-							{ tileId: packTileId(32, 0, 0), bitmask: 31 }, // Different bitmask
-							{ tileId: packTileId(16, 0, 0), bitmask: 511 }, // All neighbors
+							{ tileId: packTileId(16, 0, 1), bitmask: 16 }, // Center only
+							{ tileId: packTileId(32, 0, 1), bitmask: 31 }, // Different bitmask
+							{ tileId: packTileId(16, 0, 1), bitmask: 511 }, // All neighbors
 						],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			// 3x3 grid all grass - will execute full bitmask matching
 			const layer = createLayer([
 				grassTile,
@@ -608,30 +608,30 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "multi",
 				id: "tileset-multi",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
 				tiles: [
-					createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"),
-					createSimpleTile(packTileId(32, 0, 0), 32, 0, "dirt"),
+					createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"),
+					createSimpleTile(packTileId(32, 0, 1), 32, 0, "dirt"),
 				],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
-						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+						tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 					},
 					{
 						id: "dirt-layer",
 						name: "dirt",
-						tiles: [{ tileId: packTileId(32, 0, 0), bitmask: 16 }],
+						tiles: [{ tileId: packTileId(32, 0, 1), bitmask: 16 }],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
-			const dirtTile = packTileId(32, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
+			const dirtTile = packTileId(32, 0, 1);
 
 			// Mixed terrain - hasNeighbor will check for matching terrain types
 			const layer = createLayer([
@@ -656,11 +656,11 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "nomatch",
 				id: "tileset-nomatch",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
@@ -671,7 +671,7 @@ describe("autotiling - comprehensive coverage", () => {
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			const layer = createLayer([grassTile, grassTile, grassTile, grassTile]);
 
 			const result = applyAutotiling(layer, 0, 0, 2, 2, [tileset]);
@@ -685,23 +685,23 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "match",
 				id: "tileset-match",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
 						tiles: [
-							{ tileId: packTileId(16, 0, 0), bitmask: 16 }, // Center tile
+							{ tileId: packTileId(16, 0, 1), bitmask: 16 }, // Center tile
 						],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			// Single isolated tile should match bitmask 16
 			const layer = createLayer([grassTile, 0, 0, 0]);
 
@@ -718,21 +718,21 @@ describe("autotiling - comprehensive coverage", () => {
 				version: "1.0",
 				name: "update",
 				id: "tileset-update",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+				tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 				terrainLayers: [
 					{
 						id: "grass-layer",
 						name: "grass",
-						tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+						tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 					},
 				],
 			};
 
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 			const layer = createLayer([grassTile, grassTile, grassTile, grassTile]);
 
 			// This should execute lines 164-165 when updates are pushed
@@ -760,7 +760,7 @@ describe("autotiling - comprehensive coverage", () => {
 	describe("edge cases and integration", () => {
 		it("should handle 1x1 map", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile]);
 			const result = applyAutotiling(layer, 0, 0, 1, 1, [tileset]);
@@ -770,7 +770,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should handle negative coordinates (out of bounds)", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile]);
 			const result = applyAutotiling(layer, -1, 0, 1, 1, [tileset]);
@@ -781,7 +781,7 @@ describe("autotiling - comprehensive coverage", () => {
 
 		it("should handle coordinates beyond map dimensions", () => {
 			const tileset = createSimpleTileset();
-			const grassTile = packTileId(16, 0, 0);
+			const grassTile = packTileId(16, 0, 1);
 
 			const layer = createLayer([grassTile]);
 			const result = applyAutotiling(layer, 10, 10, 1, 1, [tileset]);

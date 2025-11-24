@@ -20,7 +20,7 @@ export function createMockTileset(
 		version: "1.0",
 		name: "test-tileset",
 		id: "test-tileset-id",
-		order: 0,
+		order: 1,
 		imagePath: "/test/tileset.png",
 		tileWidth: 16,
 		tileHeight: 16,
@@ -134,7 +134,7 @@ export function createSimpleTile(
 	// Otherwise use id as-is
 	const packedId =
 		x !== undefined && y !== undefined
-			? Number(createTileId({ tilesetIndex: 0, localId: id })) // Use helper to pack x/y into id
+			? Number(createTileId({ tilesetOrder: 0, localId: id })) // Use helper to pack x/y into id
 			: id;
 	return createMockTileDefinition({ id: packedId, type: type || "" });
 }
@@ -143,14 +143,14 @@ export function createSimpleTile(
  * Helper to create a tile ID with packed data
  */
 export function createTileId(options: {
-	tilesetIndex?: number;
+	tilesetOrder?: number;
 	localId?: number;
 	flipX?: boolean;
 	flipY?: boolean;
 	flipD?: boolean;
 }): bigint {
 	const {
-		tilesetIndex = 0,
+		tilesetOrder = 0,
 		localId = 0,
 		flipX = false,
 		flipY = false,
@@ -159,7 +159,7 @@ export function createTileId(options: {
 
 	// Simplified version of packTileId logic
 	let id = BigInt(localId);
-	id |= BigInt(tilesetIndex) << 32n;
+	id |= BigInt(tilesetOrder) << 32n;
 	if (flipX) id |= 1n << 45n;
 	if (flipY) id |= 1n << 46n;
 	if (flipD) id |= 1n << 47n;

@@ -188,7 +188,7 @@ export const TilesetSelectMenu = ({
 				setSelectedTile(0, 0, tileset.id, firstCompoundTile.id);
 			} else {
 				// Select regular tile at (0, 0)
-				const regularTileId = packTileId(0, 0, 0, false, false);
+				const regularTileId = packTileId(0, 0, tileset.order, false, false);
 				setSelectedTileId(regularTileId);
 				setSelectedTile(0, 0, tileset.id, regularTileId);
 			}

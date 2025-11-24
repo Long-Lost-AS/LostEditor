@@ -50,33 +50,33 @@ describe("tilesetIndexManager", () => {
 	});
 
 	describe("getNextAvailableIndex", () => {
-		it("should return 0 when no indices are used", () => {
-			const index = tilesetIndexManager.getNextAvailableIndex();
-			expect(index).toBe(0);
-		});
-
-		it("should return 1 when 0 is already used", () => {
-			tilesetIndexManager.registerIndex(0);
+		it("should return 1 when no indices are used (starts from 1 to avoid collision with empty tile)", () => {
 			const index = tilesetIndexManager.getNextAvailableIndex();
 			expect(index).toBe(1);
 		});
 
-		it("should return the lowest available index", () => {
-			tilesetIndexManager.registerIndex(0);
+		it("should return 2 when 1 is already used", () => {
 			tilesetIndexManager.registerIndex(1);
-			tilesetIndexManager.registerIndex(2);
-
 			const index = tilesetIndexManager.getNextAvailableIndex();
-			expect(index).toBe(3);
+			expect(index).toBe(2);
 		});
 
-		it("should fill gaps in index sequence", () => {
-			tilesetIndexManager.registerIndex(0);
+		it("should return the lowest available index", () => {
+			tilesetIndexManager.registerIndex(1);
 			tilesetIndexManager.registerIndex(2);
 			tilesetIndexManager.registerIndex(3);
 
 			const index = tilesetIndexManager.getNextAvailableIndex();
-			expect(index).toBe(1); // Gap at 1
+			expect(index).toBe(4);
+		});
+
+		it("should fill gaps in index sequence", () => {
+			tilesetIndexManager.registerIndex(1);
+			tilesetIndexManager.registerIndex(3);
+			tilesetIndexManager.registerIndex(4);
+
+			const index = tilesetIndexManager.getNextAvailableIndex();
+			expect(index).toBe(2); // Gap at 2
 		});
 
 		it("should automatically register the returned index", () => {
@@ -89,21 +89,21 @@ describe("tilesetIndexManager", () => {
 			const index2 = tilesetIndexManager.getNextAvailableIndex();
 			const index3 = tilesetIndexManager.getNextAvailableIndex();
 
-			expect(index1).toBe(0);
-			expect(index2).toBe(1);
-			expect(index3).toBe(2);
+			expect(index1).toBe(1);
+			expect(index2).toBe(2);
+			expect(index3).toBe(3);
 		});
 
 		it("should handle gaps correctly", () => {
-			tilesetIndexManager.registerIndex(0);
-			tilesetIndexManager.registerIndex(2);
-			tilesetIndexManager.registerIndex(4);
+			tilesetIndexManager.registerIndex(1);
+			tilesetIndexManager.registerIndex(3);
+			tilesetIndexManager.registerIndex(5);
 
 			const index1 = tilesetIndexManager.getNextAvailableIndex();
 			const index2 = tilesetIndexManager.getNextAvailableIndex();
 
-			expect(index1).toBe(1);
-			expect(index2).toBe(3);
+			expect(index1).toBe(2);
+			expect(index2).toBe(4);
 		});
 	});
 
@@ -117,13 +117,13 @@ describe("tilesetIndexManager", () => {
 		});
 
 		it("should allow reusing released indices", () => {
-			tilesetIndexManager.registerIndex(0);
 			tilesetIndexManager.registerIndex(1);
+			tilesetIndexManager.registerIndex(2);
 
-			tilesetIndexManager.releaseIndex(0);
+			tilesetIndexManager.releaseIndex(1);
 
 			const nextIndex = tilesetIndexManager.getNextAvailableIndex();
-			expect(nextIndex).toBe(0); // 0 is now available again
+			expect(nextIndex).toBe(1); // 1 is now available again
 		});
 
 		it("should handle releasing non-existent indices gracefully", () => {
@@ -197,7 +197,7 @@ describe("tilesetIndexManager", () => {
 			tilesetIndexManager.clear();
 
 			const nextIndex = tilesetIndexManager.getNextAvailableIndex();
-			expect(nextIndex).toBe(0);
+			expect(nextIndex).toBe(1);
 		});
 
 		it("should clear empty manager gracefully", () => {
@@ -307,7 +307,7 @@ describe("tilesetIndexManager", () => {
 
 		it("should handle many tilesets", () => {
 			// Register 100 tilesets
-			for (let i = 0; i < 100; i++) {
+			for (let i = 1; i <= 100; i++) {
 				const index = tilesetIndexManager.getNextAvailableIndex();
 				expect(index).toBe(i);
 			}
@@ -339,9 +339,9 @@ describe("tilesetIndexManager", () => {
 			expect(tilesetIndexManager.getUsedIndices()).toEqual([1, 3, 5, 7, 9]);
 
 			// Get next available should fill gaps
-			expect(tilesetIndexManager.getNextAvailableIndex()).toBe(0);
 			expect(tilesetIndexManager.getNextAvailableIndex()).toBe(2);
 			expect(tilesetIndexManager.getNextAvailableIndex()).toBe(4);
+			expect(tilesetIndexManager.getNextAvailableIndex()).toBe(6);
 		});
 	});
 });

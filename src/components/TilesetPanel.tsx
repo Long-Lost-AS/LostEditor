@@ -331,7 +331,7 @@ export const TilesetPanel = () => {
 				const regularTileId = packTileId(
 					tileX * tileWidth,
 					tileY * tileHeight,
-					0,
+					currentTileset.order,
 					false,
 					false,
 				);

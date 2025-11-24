@@ -16,10 +16,11 @@ class TilesetIndexManager {
 
 	/**
 	 * Get the next available index (lowest unused index)
-	 * @returns The next available index
+	 * Note: Starts from 1 to avoid collision with empty tile (tileId = 0)
+	 * @returns The next available index (minimum 1)
 	 */
 	getNextAvailableIndex(): number {
-		let index = 0;
+		let index = 1; // Start from 1 to avoid packTileId(0,0,0) = 0 collision
 		while (this.usedIndices.has(index)) {
 			index++;
 		}

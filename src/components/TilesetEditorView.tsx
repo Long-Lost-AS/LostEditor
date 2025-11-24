@@ -664,7 +664,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tileId = packTileId(
 								tilePosX,
 								tilePosY,
-								0, // tileset index
+								tilesetData.order, // actual tileset order
 							);
 
 							// Get bitmask from terrain layer
@@ -796,7 +796,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileId = packTileId(
 			tilePosX,
 			tilePosY,
-			0, // tileset index
+			tilesetData.order, // actual tileset order
 		);
 
 		// Get current bitmask from terrain layer
@@ -856,7 +856,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			const tileId = packTileId(
 				tilePosX,
 				tilePosY,
-				0, // tileset index
+				tilesetData.order, // actual tileset order
 			);
 
 			// Determine the action based on whether the bit is currently set
@@ -972,7 +972,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					const tileId = packTileId(
 						tilePosX,
 						tilePosY,
-						0, // tileset index
+						tilesetData.order, // actual tileset order
 					);
 					const newTile: TileDefinition = {
 						id: tileId,
@@ -1085,7 +1085,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileWidth = width * tilesetData.tileWidth;
 		const tileHeight = height * tilesetData.tileHeight;
 		const newTile: TileDefinition = {
-			id: packTileId(tileX, tileY, 0), // tileset index=0 (compound tile), x and y packed in id
+			id: packTileId(tileX, tileY, tilesetData.order), // Pack with actual tileset order
 			isCompound: true,
 			width: tileWidth,
 			height: tileHeight,
@@ -1163,7 +1163,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Single tile selection - calculate tile ID from position
 			const tileX = selectedTileRegion.x * tilesetData.tileWidth;
 			const tileY = selectedTileRegion.y * tilesetData.tileHeight;
-			tileId = packTileId(tileX, tileY, 0);
+			tileId = packTileId(tileX, tileY, tilesetData.order);
 		} else {
 			return;
 		}

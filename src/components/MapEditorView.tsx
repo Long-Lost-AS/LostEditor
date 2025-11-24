@@ -36,7 +36,7 @@ import {
 	placeTerrainTile,
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
-import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
+import { packTileId, unpackTileId } from "../utils/tileId";
 import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
@@ -1362,7 +1362,7 @@ export const MapEditorView = ({
 					return;
 				}
 
-				const tilesetHash = hashTilesetId(selectedTileset.id);
+				const tilesetOrder = selectedTileset.order;
 
 				// Calculate affected chunks for undo system
 				const CHUNK_SIZE = 64;
@@ -1400,7 +1400,7 @@ export const MapEditorView = ({
 										prev.height,
 										terrainLayer,
 										selectedTileset,
-										tilesetHash,
+										tilesetOrder,
 										tilesets,
 									);
 								});
@@ -1415,7 +1415,7 @@ export const MapEditorView = ({
 										prev.height,
 										terrainLayer.id,
 										selectedTileset,
-										tilesetHash,
+										tilesetOrder,
 										tilesets,
 									);
 								});
@@ -1456,13 +1456,13 @@ export const MapEditorView = ({
 				return;
 			}
 
-			const tilesetHash = hashTilesetId(selectedTileset.id);
+			const tilesetOrder = selectedTileset.order;
 
 			const geometry = unpackTileId(selectedTileId);
 			const globalTileId = packTileId(
 				geometry.x,
 				geometry.y,
-				tilesetHash,
+				tilesetOrder,
 				geometry.flipX,
 				geometry.flipY,
 			);

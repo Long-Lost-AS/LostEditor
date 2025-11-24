@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TilesetData } from "../../types";
 import { applyAutotiling } from "../autotiling";
-import { hashTilesetId, packTileId } from "../tileId";
+import { packTileId } from "../tileId";
 
 describe("autotiling - debug coverage", () => {
 	it("should successfully execute full autotiling path", () => {
@@ -10,15 +10,15 @@ describe("autotiling - debug coverage", () => {
 		// IMPORTANT: x=0, y=0 packs to ID 0, which is treated as EMPTY!
 		// Use x=16, y=0 instead
 		const tilesetId = "debug-tileset-0";
-		const hash = hashTilesetId(tilesetId);
-		const grassTileIdLocal = packTileId(16, 0, 0); // Local ID for terrain layer definition
-		const grassTileIdGlobal = packTileId(16, 0, hash); // Global ID with tileset hash
+		// Tileset order is 1 for test tileset
+		const grassTileIdLocal = packTileId(16, 0, 1); // Local ID for terrain layer definition
+		const grassTileIdGlobal = packTileId(16, 0, 1); // Global ID with tileset order
 
 		const tileset: TilesetData = {
 			version: "1.0",
 			name: "debug-tileset",
 			id: tilesetId,
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,

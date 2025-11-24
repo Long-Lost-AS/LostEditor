@@ -38,7 +38,7 @@ import {
 	placeTerrainTile,
 	updateNeighborsAround,
 } from "../utils/terrainDrawing";
-import { hashTilesetId, packTileId, unpackTileId } from "../utils/tileId";
+import { packTileId, unpackTileId } from "../utils/tileId";
 
 // Imperative handle exposed by MapCanvas for direct chunk invalidation
 export interface MapCanvasHandle {
@@ -453,8 +453,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						return;
 					}
 
-					// Calculate tileset hash
-					const tilesetHash = hashTilesetId(selectedTileset.id);
+					// Calculate tileset order
+					const tilesetOrder = selectedTileset.order;
 
 					// Create a mutable copy of the layer tiles and wrap in a temporary layer object
 					const tempLayer = {
@@ -472,7 +472,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							mapData.height,
 							terrainLayer,
 							selectedTileset,
-							tilesetHash,
+							tilesetOrder,
 							tilesets,
 						);
 					}
@@ -528,7 +528,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							mapData.height,
 							selectedTerrainLayerId,
 							selectedTileset,
-							tilesetHash,
+							tilesetOrder,
 							tilesets,
 						);
 					}
@@ -554,13 +554,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					return;
 				}
 
-				const tilesetHash = hashTilesetId(selectedTileset.id);
+				const tilesetOrder = selectedTileset.order;
 
 				const geometry = unpackTileId(selectedTileId);
 				const globalTileId = packTileId(
 					geometry.x,
 					geometry.y,
-					tilesetHash,
+					tilesetOrder,
 					geometry.flipX,
 					geometry.flipY,
 				);
@@ -612,12 +612,12 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			}
 		};
 
-		// Performance optimization: Cache tileset lookups by hash (Map provides O(1) lookup vs O(n) array.find)
-		const tilesetByHash = useMemo(() => {
+		// Performance optimization: Cache tileset lookups by order (Map provides O(1) lookup vs O(n) array.find)
+		const tilesetByOrder = useMemo(() => {
 			const cache = new Map<number, (typeof tilesets)[0]>();
 			for (const tileset of tilesets) {
-				const hash = hashTilesetId(tileset.id);
-				cache.set(hash, tileset);
+				const order = tileset.order;
+				cache.set(order, tileset);
 			}
 			return cache;
 		}, [tilesets]);
@@ -800,15 +800,15 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								// Unpack tile geometry
 								const geometry = unpackTileId(tileId);
 
-								// Get tileset by hash
-								const tileset = tilesetByHash.get(geometry.tilesetHash);
+								// Get tileset by order
+								const tileset = tilesetByOrder.get(geometry.tilesetOrder);
 								if (!tileset?.imageData) continue;
 
 								// Create local tile ID to find definition
 								const localTileId = packTileId(
 									geometry.x,
 									geometry.y,
-									0,
+									tileset.order,
 									geometry.flipX,
 									geometry.flipY,
 								);
@@ -857,7 +857,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					},
 				);
 			},
-			[mapData, tilesetByHash, tileDefinitionCache],
+			[mapData, tilesetByOrder, tileDefinitionCache],
 		);
 
 		// Render an entity with its hierarchy
@@ -928,7 +928,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 		const renderMap = useRef<() => void>(() => {});
 
 		// Update renderMap ref when dependencies change
-		// biome-ignore lint/correctness/useExhaustiveDependencies: zoom/tilesetByHash/tileDefinitionCache are from useMemo
+		// biome-ignore lint/correctness/useExhaustiveDependencies: zoom/tilesetByOrder/tileDefinitionCache are from useMemo
 		useEffect(() => {
 			renderMap.current = () => {
 				const canvas = canvasRef.current;
@@ -1404,7 +1404,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						const localTileId = packTileId(
 							geometry.x,
 							geometry.y,
-							0,
+							tileset.order,
 							geometry.flipX,
 							geometry.flipY,
 						);
@@ -1956,7 +1956,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			getZoom,
 			renderChunkToCache,
 			getChunkCoordinates,
-			tilesetByHash,
+			tilesetByOrder,
 			tileDefinitionCache,
 		]);
 

@@ -14,21 +14,21 @@ describe("autotiling - direct line coverage", () => {
 			version: "1.0",
 			name: "terrain-test",
 			id: "tileset-direct-1",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+			tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
 					name: "grass",
-					tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 				},
 			],
 		};
 
-		const grassTile = packTileId(16, 0, 0);
+		const grassTile = packTileId(16, 0, 1);
 		const layer: Layer = {
 			id: "test-layer",
 			name: "Test",
@@ -52,23 +52,23 @@ describe("autotiling - direct line coverage", () => {
 			version: "1.0",
 			name: "terrain-layer-test",
 			id: "tileset-direct-2",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
 			tiles: [
-				createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass"), // This will be assigned to terrainType at line 83
+				createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass"), // This will be assigned to terrainType at line 83
 			],
 			terrainLayers: [
 				{
 					id: "grass-layer",
 					name: "grass", // This will be found at line 86-87
-					tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 				},
 			],
 		};
 
-		const grassTile = packTileId(16, 0, 0);
+		const grassTile = packTileId(16, 0, 1);
 		const layer: Layer = {
 			id: "test-layer",
 			name: "Test",
@@ -86,21 +86,21 @@ describe("autotiling - direct line coverage", () => {
 			version: "1.0",
 			name: "hasNeighbor-test",
 			id: "tileset-direct-3",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+			tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
 					name: "grass",
-					tiles: [{ tileId: packTileId(16, 0, 0), bitmask: 16 }],
+					tiles: [{ tileId: packTileId(16, 0, 1), bitmask: 16 }],
 				},
 			],
 		};
 
-		const grassTile = packTileId(16, 0, 0);
+		const grassTile = packTileId(16, 0, 1);
 		const layer: Layer = {
 			id: "test-layer",
 			name: "Test",
@@ -128,23 +128,23 @@ describe("autotiling - direct line coverage", () => {
 			version: "1.0",
 			name: "bitmask-test",
 			id: "tileset-direct-4",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
-			tiles: [createSimpleTile(packTileId(16, 0, 0), 16, 0, "grass")],
+			tiles: [createSimpleTile(packTileId(16, 0, 1), 16, 0, "grass")],
 			terrainLayers: [
 				{
 					id: "grass-layer",
 					name: "grass",
 					tiles: [
-						{ tileId: packTileId(16, 0, 0), bitmask: 16 }, // Center only
+						{ tileId: packTileId(16, 0, 1), bitmask: 16 }, // Center only
 					],
 				},
 			],
 		};
 
-		const grassTile = packTileId(16, 0, 0);
+		const grassTile = packTileId(16, 0, 1);
 		const layer: Layer = {
 			id: "test-layer",
 			name: "Test",
@@ -158,12 +158,12 @@ describe("autotiling - direct line coverage", () => {
 	});
 
 	it("should return matched tileId when matchedTile found (lines 111-112)", () => {
-		const tileId = packTileId(16, 0, 0);
+		const tileId = packTileId(16, 0, 1);
 		const tileset: TilesetData = {
 			version: "1.0",
 			name: "match-test",
 			id: "tileset-direct-5",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
@@ -194,12 +194,12 @@ describe("autotiling - direct line coverage", () => {
 	});
 
 	it("should return currentTileId when no match found (line 116)", () => {
-		const tileId = packTileId(16, 0, 0);
+		const tileId = packTileId(16, 0, 1);
 		const tileset: TilesetData = {
 			version: "1.0",
 			name: "nomatch-test",
 			id: "tileset-direct-6",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
@@ -226,12 +226,12 @@ describe("autotiling - direct line coverage", () => {
 	});
 
 	it("should push update to array when updatedTileId is not null (lines 164-165)", () => {
-		const tileId = packTileId(16, 0, 0);
+		const tileId = packTileId(16, 0, 1);
 		const tileset: TilesetData = {
 			version: "1.0",
 			name: "update-test",
 			id: "tileset-direct-7",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,
@@ -263,14 +263,14 @@ describe("autotiling - direct line coverage", () => {
 
 	it("should execute full path with complex tile arrangement", () => {
 		// This test ensures all major code paths are hit
-		const grassId = packTileId(16, 0, 0);
-		const grass2Id = packTileId(32, 0, 0);
+		const grassId = packTileId(16, 0, 1);
+		const grass2Id = packTileId(32, 0, 1);
 
 		const tileset: TilesetData = {
 			version: "1.0",
 			name: "complex-test",
 			id: "tileset-direct-8",
-			order: 0,
+			order: 1,
 			imagePath: "/test.png",
 			tileWidth: 16,
 			tileHeight: 16,

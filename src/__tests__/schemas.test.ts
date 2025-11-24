@@ -218,7 +218,7 @@ describe("schemas", () => {
 		it("should validate minimal tileset", () => {
 			const valid = {
 				name: "Test Tileset",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -229,7 +229,7 @@ describe("schemas", () => {
 		it("should default version to 1.0", () => {
 			const input = {
 				name: "Test",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -241,7 +241,7 @@ describe("schemas", () => {
 		it("should default tiles to empty array", () => {
 			const input = {
 				name: "Test",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -253,7 +253,7 @@ describe("schemas", () => {
 		it("should default terrainLayers to empty array", () => {
 			const input = {
 				name: "Test",
-				order: 0,
+				order: 1,
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
@@ -289,7 +289,7 @@ describe("schemas", () => {
 				version: "1.0",
 				name: "Complete Tileset",
 				id: "tileset-1",
-				order: 0,
+				order: 1,
 				imagePath: "/complete.png",
 				tileWidth: 16,
 				tileHeight: 16,
