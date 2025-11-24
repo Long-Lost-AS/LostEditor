@@ -204,7 +204,12 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	const isTileEmpty = useCallback(
 		(tile: TileDefinition): boolean => {
 			// Compound tiles are always meaningful
-			if (isCompoundTile(tile, tilesetData)) return false;
+			// Use local dimensions to avoid circular dependency with tilesetData
+			const isCompound =
+				tile.width !== 0 &&
+				tile.height !== 0 &&
+				(tile.width !== localTileWidth || tile.height !== localTileHeight);
+			if (isCompound) return false;
 
 			// Check if tile has any meaningful properties
 			return (
@@ -214,7 +219,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				Object.keys(tile.properties || {}).length === 0
 			);
 		},
-		[tilesetData],
+		[localTileWidth, localTileHeight],
 	);
 
 	// One-way sync: local tileset state → tab data
