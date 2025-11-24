@@ -17,7 +17,7 @@ import {
 	type MapData,
 	type PointInstance,
 	type PolygonCollider,
-	type SpriteLayer,
+	type Sprite,
 	type Tool,
 } from "../types";
 import {
@@ -862,7 +862,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			) => {
 				// Render all sprite layers in the entity
 				if (entityDef.sprites && entityDef.sprites.length > 0) {
-					entityDef.sprites.forEach((spriteLayer: SpriteLayer) => {
+					entityDef.sprites.forEach((spriteLayer: Sprite) => {
 						// Skip if sprite is missing
 						if (!spriteLayer.sprite) return;
 
@@ -1027,7 +1027,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						// Find the minimum ysortOffset among all sprite layers
 						// (entities with lower ysortOffset should render first)
 						let minYSortOffset = 0;
-						entityDef.sprites.forEach((sprite: SpriteLayer) => {
+						entityDef.sprites.forEach((sprite: Sprite) => {
 							const ysortOffset = sprite.ysortOffset || 0;
 							if (ysortOffset < minYSortOffset) {
 								minYSortOffset = ysortOffset;

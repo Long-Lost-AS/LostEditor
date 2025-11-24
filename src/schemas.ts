@@ -30,7 +30,7 @@ export const SpriteRectSchema = z.object({
 	height: z.number(),
 });
 
-export const SpriteLayerSchema = z.object({
+export const SpriteSchema = z.object({
 	id: z.string(),
 	name: z.string().default(""),
 	type: z.string().default(""),
@@ -81,7 +81,7 @@ export const EntityDefinitionSchema: z.ZodType<EntityDefinition> = z.lazy(() =>
 		id: z.string(),
 		name: z.string().default(""),
 		type: z.string().default(""),
-		sprites: z.array(SpriteLayerSchema).default([]),
+		sprites: z.array(SpriteSchema).default([]),
 		offset: z
 			.object({
 				x: z.number(),
@@ -312,13 +312,13 @@ export const EntityEditorViewStateSchema = z.object({
 	scale: z.number(),
 	panX: z.number(),
 	panY: z.number(),
-	selectedSpriteLayerId: z.string().nullable(),
+	selectedSpriteId: z.string().nullable(),
 	selectedChildId: z.string().nullable(),
 	selectedColliderId: z.string().nullable().default(null),
 });
 
 const EntityUndoStateSchema = z.object({
-	sprites: z.array(SpriteLayerSchema),
+	sprites: z.array(SpriteSchema),
 	colliders: z.array(PolygonColliderSchema),
 	properties: z.record(z.string(), z.string()),
 });

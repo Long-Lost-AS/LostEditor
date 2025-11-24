@@ -16,8 +16,8 @@ import type {
 	ProjectDataSchema,
 	SerializedLayerSchema,
 	SerializedMapDataSchema,
-	SpriteLayerSchema,
 	SpriteRectSchema,
+	SpriteSchema,
 	TabTypeSchema,
 	TerrainLayerSchema,
 	TerrainTileSchema,
@@ -41,7 +41,7 @@ export type PolygonCollider = z.infer<typeof PolygonColliderSchema>;
 
 export type SpriteRect = z.infer<typeof SpriteRectSchema>;
 
-export type SpriteLayer = z.infer<typeof SpriteLayerSchema>;
+export type Sprite = z.infer<typeof SpriteSchema>;
 
 // Tile definition - inferred from schema
 // Note: x and y are pixel coordinates identifying the sprite position in the tileset image
@@ -56,7 +56,7 @@ export interface EntityDefinition {
 	id: string;
 	name: string;
 	type: string;
-	sprites: SpriteLayer[]; // Multiple sprite layers for composition
+	sprites: Sprite[]; // Multiple sprites for composition
 	offset: { x: number; y: number };
 	rotation: number;
 	colliders: PolygonCollider[]; // Multiple colliders

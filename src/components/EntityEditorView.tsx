@@ -4,7 +4,7 @@ import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
 import { useCanvasZoomPan } from "../hooks/useCanvasZoomPan";
 import { useUndoableReducer } from "../hooks/useUndoableReducer";
-import type { EntityEditorTab, PolygonCollider, SpriteLayer } from "../types";
+import type { EntityEditorTab, PolygonCollider, Sprite } from "../types";
 import { drawGrid } from "../utils/canvasUtils";
 import {
 	canClosePolygon,
@@ -30,7 +30,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	// Unified undo/redo state for the entire entity
 	type EntityUndoState = {
-		sprites: SpriteLayer[];
+		sprites: Sprite[];
 		colliders: PolygonCollider[];
 		properties: Record<string, string>;
 	};
@@ -144,9 +144,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-	const [selectedSpriteLayerId, setSelectedSpriteLayerId] = useState<
-		string | null
-	>(tab.viewState.selectedSpriteLayerId);
+	const [selectedSpriteId, setSelectedSpriteId] = useState<string | null>(
+		tab.viewState.selectedSpriteId,
+	);
 
 	// Sprite dragging state
 	const [isDraggingSprite, setIsDraggingSprite] = useState(false);
@@ -220,7 +220,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				scale,
 				panX: pan.x,
 				panY: pan.y,
-				selectedSpriteLayerId,
+				selectedSpriteId,
 				selectedChildId: null, // Not implemented yet
 				selectedColliderId,
 			},
@@ -231,7 +231,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		scale,
 		pan.x,
 		pan.y,
-		selectedSpriteLayerId,
+		selectedSpriteId,
 		selectedColliderId,
 	]);
 
@@ -758,9 +758,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			}
 
 			// Draw selection outline and origin marker for selected sprite
-			if (selectedSpriteLayerId) {
+			if (selectedSpriteId) {
 				const selectedLayer = localSprites.find(
-					(l) => l.id === selectedSpriteLayerId,
+					(l) => l.id === selectedSpriteId,
 				);
 				if (selectedLayer) {
 					const offset = selectedLayer.offset || { x: 0, y: 0 };
@@ -854,7 +854,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		pan,
 		scale,
 		getTilesetById,
-		selectedSpriteLayerId,
+		selectedSpriteId,
 		selectedColliderId,
 		selectedColliderPointIndex,
 		isDrawing,
@@ -871,7 +871,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		scale,
 		localSprites,
 		localColliders,
-		selectedSpriteLayerId,
+		selectedSpriteId,
 		selectedColliderId,
 		drawingPoints,
 	]);
@@ -974,7 +974,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					isPointInPolygon(worldX, worldY, collider.points)
 				) {
 					setSelectedColliderId(collider.id || null);
-					setSelectedSpriteLayerId(null); // Deselect sprite when selecting collider
+					setSelectedSpriteId(null); // Deselect sprite when selecting collider
 					setSelectedColliderPointIndex(null); // Reset point selection
 					return; // Don't check sprites
 				}
@@ -984,9 +984,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 		// Check for sprite layer click (left click only, not panning)
 		if (e.button === 0 && !e.shiftKey && !isDrawing) {
 			// Check if we clicked on the already selected sprite to start dragging
-			if (selectedSpriteLayerId) {
+			if (selectedSpriteId) {
 				const selectedLayer = localSprites.find(
-					(l) => l.id === selectedSpriteLayerId,
+					(l) => l.id === selectedSpriteId,
 				);
 				if (selectedLayer) {
 					const offset = selectedLayer.offset || { x: 0, y: 0 };
@@ -1048,14 +1048,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					worldY <= maxY
 				) {
 					// Clicked on this sprite layer
-					setSelectedSpriteLayerId(layer.id);
+					setSelectedSpriteId(layer.id);
 					setSelectedColliderId(null); // Deselect collider when selecting sprite
 					return; // Don't start panning
 				}
 			}
 
 			// No sprite clicked, deselect both sprite and collider
-			setSelectedSpriteLayerId(null);
+			setSelectedSpriteId(null);
 			setSelectedColliderId(null);
 		}
 
@@ -1072,7 +1072,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				x: e.clientX - dragStart.x,
 				y: e.clientY - dragStart.y,
 			});
-		} else if (isDraggingSprite && spriteDragStart && selectedSpriteLayerId) {
+		} else if (isDraggingSprite && spriteDragStart && selectedSpriteId) {
 			// Update sprite position during drag
 			const canvas = canvasRef.current;
 			if (!canvas) return;
@@ -1090,7 +1090,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			const newOffsetY = spriteDragStart.offsetY + deltaY;
 
 			// Update the sprite layer offset
-			handleUpdateSpriteLayer(selectedSpriteLayerId, {
+			handleUpdateSprite(selectedSpriteId, {
 				offset: { x: newOffsetX, y: newOffsetY },
 			});
 		} else if (
@@ -1320,13 +1320,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	};
 
 	// Add sprite layer
-	const handleAddSpriteLayer = () => {
+	const handleAddSprite = () => {
 		if (!selectedRegion || !selectedTilesetId) return;
 
 		const tileset = getTilesetById(selectedTilesetId);
 		if (!tileset) return;
 
-		const newLayer: SpriteLayer = {
+		const newLayer: Sprite = {
 			id: generateId(),
 			name: "",
 			type: "",
@@ -1364,7 +1364,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	};
 
 	// Delete sprite layer
-	const handleDeleteSpriteLayer = (layerId: string) => {
+	const handleDeleteSprite = (layerId: string) => {
 		const updatedSprites = localSprites.filter((s) => s.id !== layerId);
 
 		setLocalEntityState({
@@ -1373,16 +1373,13 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			properties: localProperties,
 		});
 
-		if (selectedSpriteLayerId === layerId) {
-			setSelectedSpriteLayerId(null);
+		if (selectedSpriteId === layerId) {
+			setSelectedSpriteId(null);
 		}
 	};
 
 	// Update sprite layer properties
-	const handleUpdateSpriteLayer = (
-		layerId: string,
-		updates: Partial<SpriteLayer>,
-	) => {
+	const handleUpdateSprite = (layerId: string, updates: Partial<Sprite>) => {
 		const updatedSprites = localSprites.map((s) => {
 			if (s.id === layerId) {
 				return { ...s, ...updates };
@@ -1711,7 +1708,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			</div>
 
 			{/* Right Side - Collider Properties Panel (only visible when collider selected) */}
-			{selectedColliderId && !selectedSpriteLayerId && (
+			{selectedColliderId && !selectedSpriteId && (
 				<div
 					className="w-80 flex flex-col overflow-hidden"
 					style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
@@ -1743,10 +1740,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			)}
 
 			{/* Right Side - Sprite Properties Panel (only visible when sprite selected) */}
-			{selectedSpriteLayerId &&
+			{selectedSpriteId &&
 				(() => {
 					const selectedLayer = localSprites.find(
-						(l) => l.id === selectedSpriteLayerId,
+						(l) => l.id === selectedSpriteId,
 					);
 					if (!selectedLayer) return null;
 
@@ -1769,7 +1766,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									</div>
 									<button
 										type="button"
-										onClick={() => setSelectedSpriteLayerId(null)}
+										onClick={() => setSelectedSpriteId(null)}
 										className="text-gray-400 hover:text-gray-200 transition-colors"
 										title="Close"
 									>
@@ -1791,7 +1788,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											type="text"
 											value={selectedLayer.name || ""}
 											onChange={(e) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													name: e.target.value,
 												});
 											}}
@@ -1823,7 +1820,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											type="text"
 											value={selectedLayer.type || ""}
 											onChange={(e) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													type: e.target.value,
 												});
 											}}
@@ -1860,7 +1857,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													<DragNumberInput
 														value={selectedLayer.offset?.x || 0}
 														onChange={(x) => {
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																offset: {
 																	y: selectedLayer.offset?.y || 0,
 																	x,
@@ -1868,7 +1865,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 															});
 														}}
 														onInput={(x) => {
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																offset: {
 																	y: selectedLayer.offset?.y || 0,
 																	x,
@@ -1891,7 +1888,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 													<DragNumberInput
 														value={selectedLayer.offset?.y || 0}
 														onChange={(y) => {
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																offset: {
 																	x: selectedLayer.offset?.x || 0,
 																	y,
@@ -1899,7 +1896,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 															});
 														}}
 														onInput={(y) => {
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																offset: {
 																	x: selectedLayer.offset?.x || 0,
 																	y,
@@ -1938,7 +1935,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																...selectedLayer.origin,
 																x,
 															};
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																origin: newOrigin,
 															});
 														}}
@@ -1947,7 +1944,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																...selectedLayer.origin,
 																x,
 															};
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																origin: newOrigin,
 															});
 														}}
@@ -1973,7 +1970,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																...selectedLayer.origin,
 																y,
 															};
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																origin: newOrigin,
 															});
 														}}
@@ -1982,7 +1979,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 																...selectedLayer.origin,
 																y,
 															};
-															handleUpdateSpriteLayer(selectedLayer.id, {
+															handleUpdateSprite(selectedLayer.id, {
 																origin: newOrigin,
 															});
 														}}
@@ -2010,12 +2007,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										<DragNumberInput
 											value={selectedLayer.ysortOffset || 0}
 											onChange={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													ysortOffset: value,
 												});
 											}}
 											onInput={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													ysortOffset: value,
 												});
 											}}
@@ -2037,12 +2034,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										<DragNumberInput
 											value={selectedLayer.rotation || 0}
 											onChange={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													rotation: value,
 												});
 											}}
 											onInput={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													rotation: value,
 												});
 											}}
@@ -2064,12 +2061,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										<DragNumberInput
 											value={selectedLayer.zIndex}
 											onChange={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													zIndex: Math.round(value),
 												});
 											}}
 											onInput={(value) => {
-												handleUpdateSpriteLayer(selectedLayer.id, {
+												handleUpdateSprite(selectedLayer.id, {
 													zIndex: Math.round(value),
 												});
 											}}
@@ -2234,7 +2231,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									}}
 									onClick={() => {
 										if (contextMenu.spriteLayerId) {
-											handleDeleteSpriteLayer(contextMenu.spriteLayerId);
+											handleDeleteSprite(contextMenu.spriteLayerId);
 											setContextMenu(null);
 										}
 									}}
@@ -2242,7 +2239,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										if (e.key === "Enter" || e.key === " ") {
 											e.preventDefault();
 											if (contextMenu.spriteLayerId) {
-												handleDeleteSpriteLayer(contextMenu.spriteLayerId);
+												handleDeleteSprite(contextMenu.spriteLayerId);
 												setContextMenu(null);
 											}
 										}
@@ -2464,7 +2461,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										</button>
 										<button
 											type="button"
-											onClick={handleAddSpriteLayer}
+											onClick={handleAddSprite}
 											disabled={!selectedRegion}
 											className="px-4 py-2 rounded transition-colors"
 											style={{

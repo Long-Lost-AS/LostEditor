@@ -13,8 +13,8 @@ import {
 	ProjectDataSchema,
 	SerializedLayerSchema,
 	SerializedMapDataSchema,
-	SpriteLayerSchema,
 	SpriteRectSchema,
+	SpriteSchema,
 	TerrainLayerSchema,
 	TerrainTileSchema,
 	TileDefinitionSchema,
@@ -675,7 +675,7 @@ describe("schemas", () => {
 		});
 	});
 
-	describe("SpriteLayerSchema", () => {
+	describe("SpriteSchema", () => {
 		it("should validate minimal sprite layer", () => {
 			const valid = {
 				id: "sprite-1",
@@ -683,7 +683,7 @@ describe("schemas", () => {
 				sprite: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
-			expect(() => SpriteLayerSchema.parse(valid)).not.toThrow();
+			expect(() => SpriteSchema.parse(valid)).not.toThrow();
 		});
 
 		it("should validate sprite layer with all optional fields", () => {
@@ -699,7 +699,7 @@ describe("schemas", () => {
 				zIndex: 10,
 				ysortOffset: -8,
 			};
-			expect(() => SpriteLayerSchema.parse(valid)).not.toThrow();
+			expect(() => SpriteSchema.parse(valid)).not.toThrow();
 		});
 
 		it("should reject missing required id", () => {
@@ -708,7 +708,7 @@ describe("schemas", () => {
 				sprite: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
-			expect(() => SpriteLayerSchema.parse(invalid)).toThrow();
+			expect(() => SpriteSchema.parse(invalid)).toThrow();
 		});
 
 		it("should reject missing tilesetId", () => {
@@ -717,7 +717,7 @@ describe("schemas", () => {
 				sprite: { x: 0, y: 0, width: 16, height: 16 },
 				zIndex: 0,
 			};
-			expect(() => SpriteLayerSchema.parse(invalid)).toThrow();
+			expect(() => SpriteSchema.parse(invalid)).toThrow();
 		});
 
 		it("should reject missing sprite rect", () => {
@@ -726,7 +726,7 @@ describe("schemas", () => {
 				tilesetId: "tileset-1",
 				zIndex: 0,
 			};
-			expect(() => SpriteLayerSchema.parse(invalid)).toThrow();
+			expect(() => SpriteSchema.parse(invalid)).toThrow();
 		});
 	});
 
