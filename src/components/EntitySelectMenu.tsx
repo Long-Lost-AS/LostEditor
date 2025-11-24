@@ -194,6 +194,19 @@ export const EntitySelectMenu = ({
 				sprite.width,
 				sprite.height,
 			);
+
+			// Apply tint if not white
+			const tint = spriteLayer.tint || { r: 255, g: 255, b: 255, a: 1 };
+			const needsTint =
+				tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
+
+			if (needsTint) {
+				const prevCompositeOp = ctx.globalCompositeOperation;
+				ctx.globalCompositeOperation = "multiply";
+				ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
+				ctx.fillRect(drawX, drawY, sprite.width, sprite.height);
+				ctx.globalCompositeOperation = prevCompositeOp;
+			}
 		});
 
 		ctx.restore();

@@ -26,6 +26,7 @@ import type {
 	TilesetDataSchema,
 	TilesetTabSchema,
 	TilesetViewStateSchema,
+	TintColorSchema,
 	ToolSchema,
 } from "./schemas";
 
@@ -40,6 +41,8 @@ export type PolygonCollider = z.infer<typeof PolygonColliderSchema>;
 // ===========================
 
 export type SpriteRect = z.infer<typeof SpriteRectSchema>;
+
+export type TintColor = z.infer<typeof TintColorSchema>;
 
 export type Sprite = z.infer<typeof SpriteSchema>;
 

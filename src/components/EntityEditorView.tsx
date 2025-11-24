@@ -542,6 +542,19 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 						layer.rect.width,
 						layer.rect.height,
 					);
+
+					// Apply tint if not white
+					const tint = layer.tint || { r: 255, g: 255, b: 255, a: 1 };
+					const needsTint =
+						tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
+
+					if (needsTint) {
+						const prevCompositeOp = ctx.globalCompositeOperation;
+						ctx.globalCompositeOperation = "multiply";
+						ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
+						ctx.fillRect(0, 0, layer.rect.width, layer.rect.height);
+						ctx.globalCompositeOperation = prevCompositeOp;
+					}
 				} else {
 					// Draw placeholder for missing sprite
 					const gradient = ctx.createLinearGradient(
@@ -1342,6 +1355,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			rotation: 0,
 			zIndex: 0,
 			ysortOffset: 0,
+			tint: { r: 255, g: 255, b: 255, a: 1 },
 		};
 
 		setLocalEntityState({
@@ -2075,6 +2089,100 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 											dragSpeed={0.1}
 											precision={0}
 										/>
+									</div>
+
+									{/* Tint Color */}
+									<div>
+										<div
+											className="text-xs font-medium block mb-1.5"
+											style={{ color: "#858585" }}
+										>
+											Tint Color
+										</div>
+										<div className="space-y-2">
+											{/* Color Picker */}
+											<div className="flex gap-2 items-center">
+												<input
+													type="color"
+													value={`#${(((selectedLayer.tint?.r || 255) << 16) | ((selectedLayer.tint?.g || 255) << 8) | (selectedLayer.tint?.b || 255)).toString(16).padStart(6, "0")}`}
+													onChange={(e) => {
+														const hex = e.target.value.slice(1);
+														const r = Number.parseInt(hex.slice(0, 2), 16);
+														const g = Number.parseInt(hex.slice(2, 4), 16);
+														const b = Number.parseInt(hex.slice(4, 6), 16);
+														handleUpdateSprite(selectedLayer.id, {
+															tint: {
+																r,
+																g,
+																b,
+																a: selectedLayer.tint?.a || 1,
+															},
+														});
+													}}
+													className="w-16 h-8 rounded cursor-pointer"
+													style={{
+														background: "#3e3e42",
+														border: "1px solid #555",
+													}}
+												/>
+												{/* Reset Button */}
+												<button
+													type="button"
+													onClick={() => {
+														handleUpdateSprite(selectedLayer.id, {
+															tint: { r: 255, g: 255, b: 255, a: 1 },
+														});
+													}}
+													className="px-2.5 py-1.5 text-xs rounded hover:opacity-80 transition-opacity"
+													style={{
+														background: "#3e3e42",
+														color: "#cccccc",
+														border: "1px solid #555",
+													}}
+												>
+													Reset
+												</button>
+											</div>
+
+											{/* Alpha Slider */}
+											<div>
+												<div className="flex items-center justify-between mb-1">
+													<span
+														className="text-xs"
+														style={{ color: "#858585" }}
+													>
+														Opacity
+													</span>
+													<span
+														className="text-xs"
+														style={{ color: "#cccccc" }}
+													>
+														{Math.round((selectedLayer.tint?.a || 1) * 100)}%
+													</span>
+												</div>
+												<input
+													type="range"
+													min="0"
+													max="1"
+													step="0.01"
+													value={selectedLayer.tint?.a || 1}
+													onChange={(e) => {
+														handleUpdateSprite(selectedLayer.id, {
+															tint: {
+																r: selectedLayer.tint?.r || 255,
+																g: selectedLayer.tint?.g || 255,
+																b: selectedLayer.tint?.b || 255,
+																a: Number.parseFloat(e.target.value),
+															},
+														});
+													}}
+													className="w-full"
+													style={{
+														accentColor: "#007acc",
+													}}
+												/>
+											</div>
+										</div>
 									</div>
 								</div>
 							</div>
