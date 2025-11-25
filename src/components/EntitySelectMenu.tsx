@@ -202,7 +202,7 @@ export const EntitySelectMenu = ({
 
 			if (needsTint) {
 				const prevCompositeOp = ctx.globalCompositeOperation;
-				ctx.globalCompositeOperation = "source-atop";
+				ctx.globalCompositeOperation = "multiply";
 				ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
 				ctx.fillRect(drawX, drawY, sprite.width, sprite.height);
 				ctx.globalCompositeOperation = prevCompositeOp;

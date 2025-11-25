@@ -552,7 +552,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					if (needsTint) {
 						const prevCompositeOp = ctx.globalCompositeOperation;
-						ctx.globalCompositeOperation = "source-atop";
+						ctx.globalCompositeOperation = "multiply";
 						ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
 						ctx.fillRect(0, 0, layer.rect.width, layer.rect.height);
 						ctx.globalCompositeOperation = prevCompositeOp;
