@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RgbColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
@@ -2101,47 +2102,163 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										</div>
 										<div className="space-y-2">
 											{/* Color Picker */}
-											<div className="flex gap-2 items-center">
-												<input
-													type="color"
-													value={`#${(((selectedLayer.tint?.r || 255) << 16) | ((selectedLayer.tint?.g || 255) << 8) | (selectedLayer.tint?.b || 255)).toString(16).padStart(6, "0")}`}
-													onChange={(e) => {
-														const hex = e.target.value.slice(1);
-														const r = Number.parseInt(hex.slice(0, 2), 16);
-														const g = Number.parseInt(hex.slice(2, 4), 16);
-														const b = Number.parseInt(hex.slice(4, 6), 16);
-														handleUpdateSprite(selectedLayer.id, {
-															tint: {
-																r,
-																g,
-																b,
-																a: selectedLayer.tint?.a || 1,
-															},
-														});
-													}}
-													className="w-16 h-8 rounded cursor-pointer"
+											<div className="flex gap-2">
+												<div
 													style={{
-														background: "#3e3e42",
-														border: "1px solid #555",
-													}}
-												/>
-												{/* Reset Button */}
-												<button
-													type="button"
-													onClick={() => {
-														handleUpdateSprite(selectedLayer.id, {
-															tint: { r: 255, g: 255, b: 255, a: 1 },
-														});
-													}}
-													className="px-2.5 py-1.5 text-xs rounded hover:opacity-80 transition-opacity"
-													style={{
-														background: "#3e3e42",
-														color: "#cccccc",
-														border: "1px solid #555",
+														width: "200px",
 													}}
 												>
-													Reset
-												</button>
+													<RgbColorPicker
+														color={{
+															r: selectedLayer.tint?.r || 255,
+															g: selectedLayer.tint?.g || 255,
+															b: selectedLayer.tint?.b || 255,
+														}}
+														onChange={(color) => {
+															handleUpdateSprite(selectedLayer.id, {
+																tint: {
+																	r: color.r,
+																	g: color.g,
+																	b: color.b,
+																	a: selectedLayer.tint?.a || 1,
+																},
+															});
+														}}
+													/>
+												</div>
+												<div className="flex flex-col gap-2">
+													{/* RGB Values */}
+													<div className="space-y-1">
+														<div className="flex items-center gap-1">
+															<span
+																className="text-xs w-4"
+																style={{ color: "#ff6b6b" }}
+															>
+																R:
+															</span>
+															<input
+																type="number"
+																min="0"
+																max="255"
+																value={selectedLayer.tint?.r || 255}
+																onChange={(e) => {
+																	const value = Math.max(
+																		0,
+																		Math.min(
+																			255,
+																			Number.parseInt(e.target.value, 10) || 0,
+																		),
+																	);
+																	handleUpdateSprite(selectedLayer.id, {
+																		tint: {
+																			r: value,
+																			g: selectedLayer.tint?.g || 255,
+																			b: selectedLayer.tint?.b || 255,
+																			a: selectedLayer.tint?.a || 1,
+																		},
+																	});
+																}}
+																className="w-16 px-1.5 py-0.5 text-xs rounded"
+																style={{
+																	background: "#3e3e42",
+																	color: "#cccccc",
+																	border: "1px solid #555",
+																}}
+															/>
+														</div>
+														<div className="flex items-center gap-1">
+															<span
+																className="text-xs w-4"
+																style={{ color: "#51cf66" }}
+															>
+																G:
+															</span>
+															<input
+																type="number"
+																min="0"
+																max="255"
+																value={selectedLayer.tint?.g || 255}
+																onChange={(e) => {
+																	const value = Math.max(
+																		0,
+																		Math.min(
+																			255,
+																			Number.parseInt(e.target.value, 10) || 0,
+																		),
+																	);
+																	handleUpdateSprite(selectedLayer.id, {
+																		tint: {
+																			r: selectedLayer.tint?.r || 255,
+																			g: value,
+																			b: selectedLayer.tint?.b || 255,
+																			a: selectedLayer.tint?.a || 1,
+																		},
+																	});
+																}}
+																className="w-16 px-1.5 py-0.5 text-xs rounded"
+																style={{
+																	background: "#3e3e42",
+																	color: "#cccccc",
+																	border: "1px solid #555",
+																}}
+															/>
+														</div>
+														<div className="flex items-center gap-1">
+															<span
+																className="text-xs w-4"
+																style={{ color: "#339af0" }}
+															>
+																B:
+															</span>
+															<input
+																type="number"
+																min="0"
+																max="255"
+																value={selectedLayer.tint?.b || 255}
+																onChange={(e) => {
+																	const value = Math.max(
+																		0,
+																		Math.min(
+																			255,
+																			Number.parseInt(e.target.value, 10) || 0,
+																		),
+																	);
+																	handleUpdateSprite(selectedLayer.id, {
+																		tint: {
+																			r: selectedLayer.tint?.r || 255,
+																			g: selectedLayer.tint?.g || 255,
+																			b: value,
+																			a: selectedLayer.tint?.a || 1,
+																		},
+																	});
+																}}
+																className="w-16 px-1.5 py-0.5 text-xs rounded"
+																style={{
+																	background: "#3e3e42",
+																	color: "#cccccc",
+																	border: "1px solid #555",
+																}}
+															/>
+														</div>
+													</div>
+													{/* Reset Button */}
+													<button
+														type="button"
+														onClick={() => {
+															handleUpdateSprite(selectedLayer.id, {
+																tint: { r: 255, g: 255, b: 255, a: 1 },
+															});
+														}}
+														className="px-2.5 py-1.5 text-xs rounded hover:opacity-80 transition-opacity"
+														style={{
+															background: "#3e3e42",
+															color: "#cccccc",
+															border: "1px solid #555",
+														}}
+													>
+														Reset
+													</button>
+												</div>
 											</div>
 
 											{/* Alpha Slider */}
