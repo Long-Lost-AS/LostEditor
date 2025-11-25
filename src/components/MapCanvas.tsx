@@ -915,11 +915,49 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							tint.a !== 1;
 
 						if (needsTint) {
-							const prevCompositeOp = ctx.globalCompositeOperation;
-							ctx.globalCompositeOperation = "multiply";
-							ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
-							ctx.fillRect(x, y, scaledWidth, scaledHeight);
-							ctx.globalCompositeOperation = prevCompositeOp;
+							// Use offscreen canvas for tinting to avoid affecting background
+							const offscreen = document.createElement("canvas");
+							offscreen.width = scaledWidth;
+							offscreen.height = scaledHeight;
+							const offCtx = offscreen.getContext("2d");
+
+							if (offCtx) {
+								// Draw sprite to offscreen canvas
+								offCtx.drawImage(
+									tilesetImage,
+									sprite.x,
+									sprite.y,
+									sprite.width,
+									sprite.height,
+									0,
+									0,
+									scaledWidth,
+									scaledHeight,
+								);
+
+								// Apply color tint with multiply
+								offCtx.globalCompositeOperation = "multiply";
+								offCtx.fillStyle = `rgb(${tint.r}, ${tint.g}, ${tint.b})`;
+								offCtx.fillRect(0, 0, scaledWidth, scaledHeight);
+
+								// Clip to original sprite alpha with destination-in
+								offCtx.globalCompositeOperation = "destination-in";
+								offCtx.globalAlpha = tint.a;
+								offCtx.drawImage(
+									tilesetImage,
+									sprite.x,
+									sprite.y,
+									sprite.width,
+									sprite.height,
+									0,
+									0,
+									scaledWidth,
+									scaledHeight,
+								);
+
+								// Draw tinted sprite from offscreen canvas
+								ctx.drawImage(offscreen, x, y);
+							}
 						}
 
 						ctx.restore();
@@ -1575,18 +1613,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								const drawX = worldX - originOffsetX + offset.x;
 								const drawY = worldY - originOffsetY + offset.y;
 
-								ctx.drawImage(
-									tileset.imageData,
-									sprite.x,
-									sprite.y,
-									sprite.width,
-									sprite.height,
-									drawX,
-									drawY,
-									scaledWidth,
-									scaledHeight,
-								);
-
 								// Apply tint if not white
 								const tint = spriteLayer.tint || {
 									r: 255,
@@ -1601,11 +1627,62 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									tint.a !== 1;
 
 								if (needsTint) {
-									const prevCompositeOp = ctx.globalCompositeOperation;
-									ctx.globalCompositeOperation = "multiply";
-									ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
-									ctx.fillRect(drawX, drawY, scaledWidth, scaledHeight);
-									ctx.globalCompositeOperation = prevCompositeOp;
+									// Use offscreen canvas for tinting to avoid affecting background
+									const offscreen = document.createElement("canvas");
+									offscreen.width = scaledWidth;
+									offscreen.height = scaledHeight;
+									const offCtx = offscreen.getContext("2d");
+
+									if (offCtx) {
+										// Draw sprite to offscreen canvas
+										offCtx.drawImage(
+											tileset.imageData,
+											sprite.x,
+											sprite.y,
+											sprite.width,
+											sprite.height,
+											0,
+											0,
+											scaledWidth,
+											scaledHeight,
+										);
+
+										// Apply color tint with multiply
+										offCtx.globalCompositeOperation = "multiply";
+										offCtx.fillStyle = `rgb(${tint.r}, ${tint.g}, ${tint.b})`;
+										offCtx.fillRect(0, 0, scaledWidth, scaledHeight);
+
+										// Clip to original sprite alpha with destination-in
+										offCtx.globalCompositeOperation = "destination-in";
+										offCtx.globalAlpha = tint.a;
+										offCtx.drawImage(
+											tileset.imageData,
+											sprite.x,
+											sprite.y,
+											sprite.width,
+											sprite.height,
+											0,
+											0,
+											scaledWidth,
+											scaledHeight,
+										);
+
+										// Draw tinted sprite from offscreen canvas
+										ctx.drawImage(offscreen, drawX, drawY);
+									}
+								} else {
+									// Draw sprite without tint
+									ctx.drawImage(
+										tileset.imageData,
+										sprite.x,
+										sprite.y,
+										sprite.width,
+										sprite.height,
+										drawX,
+										drawY,
+										scaledWidth,
+										scaledHeight,
+									);
 								}
 							});
 

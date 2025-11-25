@@ -201,11 +201,49 @@ export const EntitySelectMenu = ({
 				tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
 
 			if (needsTint) {
-				const prevCompositeOp = ctx.globalCompositeOperation;
-				ctx.globalCompositeOperation = "multiply";
-				ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
-				ctx.fillRect(drawX, drawY, sprite.width, sprite.height);
-				ctx.globalCompositeOperation = prevCompositeOp;
+				// Use offscreen canvas for tinting to avoid affecting background
+				const offscreen = document.createElement("canvas");
+				offscreen.width = sprite.width;
+				offscreen.height = sprite.height;
+				const offCtx = offscreen.getContext("2d");
+
+				if (offCtx) {
+					// Draw sprite to offscreen canvas
+					offCtx.drawImage(
+						tileset.imageData,
+						sprite.x,
+						sprite.y,
+						sprite.width,
+						sprite.height,
+						0,
+						0,
+						sprite.width,
+						sprite.height,
+					);
+
+					// Apply color tint with multiply
+					offCtx.globalCompositeOperation = "multiply";
+					offCtx.fillStyle = `rgb(${tint.r}, ${tint.g}, ${tint.b})`;
+					offCtx.fillRect(0, 0, sprite.width, sprite.height);
+
+					// Clip to original sprite alpha with destination-in
+					offCtx.globalCompositeOperation = "destination-in";
+					offCtx.globalAlpha = tint.a;
+					offCtx.drawImage(
+						tileset.imageData,
+						sprite.x,
+						sprite.y,
+						sprite.width,
+						sprite.height,
+						0,
+						0,
+						sprite.width,
+						sprite.height,
+					);
+
+					// Draw tinted sprite from offscreen canvas
+					ctx.drawImage(offscreen, drawX, drawY);
+				}
 			}
 		});
 

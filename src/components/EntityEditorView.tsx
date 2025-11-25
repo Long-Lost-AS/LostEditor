@@ -532,30 +532,68 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 				// Draw the sprite or placeholder
 				if (tileset?.imageData) {
-					// Draw actual sprite
-					ctx.drawImage(
-						tileset.imageData,
-						layer.rect.x,
-						layer.rect.y,
-						layer.rect.width,
-						layer.rect.height,
-						0,
-						0,
-						layer.rect.width,
-						layer.rect.height,
-					);
-
-					// Apply tint if not white
+					// Check if tint is needed
 					const tint = layer.tint || { r: 255, g: 255, b: 255, a: 1 };
 					const needsTint =
 						tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
 
 					if (needsTint) {
-						const prevCompositeOp = ctx.globalCompositeOperation;
-						ctx.globalCompositeOperation = "multiply";
-						ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
-						ctx.fillRect(0, 0, layer.rect.width, layer.rect.height);
-						ctx.globalCompositeOperation = prevCompositeOp;
+						// Use offscreen canvas for tinting to avoid affecting background
+						const offscreen = document.createElement("canvas");
+						offscreen.width = layer.rect.width;
+						offscreen.height = layer.rect.height;
+						const offCtx = offscreen.getContext("2d");
+
+						if (offCtx) {
+							// Draw sprite to offscreen canvas
+							offCtx.drawImage(
+								tileset.imageData,
+								layer.rect.x,
+								layer.rect.y,
+								layer.rect.width,
+								layer.rect.height,
+								0,
+								0,
+								layer.rect.width,
+								layer.rect.height,
+							);
+
+							// Apply color tint with multiply
+							offCtx.globalCompositeOperation = "multiply";
+							offCtx.fillStyle = `rgb(${tint.r}, ${tint.g}, ${tint.b})`;
+							offCtx.fillRect(0, 0, layer.rect.width, layer.rect.height);
+
+							// Clip to original sprite alpha with destination-in
+							offCtx.globalCompositeOperation = "destination-in";
+							offCtx.globalAlpha = tint.a;
+							offCtx.drawImage(
+								tileset.imageData,
+								layer.rect.x,
+								layer.rect.y,
+								layer.rect.width,
+								layer.rect.height,
+								0,
+								0,
+								layer.rect.width,
+								layer.rect.height,
+							);
+
+							// Draw tinted sprite from offscreen canvas
+							ctx.drawImage(offscreen, 0, 0);
+						}
+					} else {
+						// Draw actual sprite without tint
+						ctx.drawImage(
+							tileset.imageData,
+							layer.rect.x,
+							layer.rect.y,
+							layer.rect.width,
+							layer.rect.height,
+							0,
+							0,
+							layer.rect.width,
+							layer.rect.height,
+						);
 					}
 				} else {
 					// Draw placeholder for missing sprite
@@ -1665,6 +1703,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										? "crosshair"
 										: "default",
 					background: "#1e1e1e",
+					pointerEvents: colorPickerOpen ? "none" : "auto",
 				}}
 			>
 				<canvas
@@ -2149,47 +2188,32 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										{/* Color Picker Popover */}
 										{colorPickerOpen &&
 											createPortal(
-												<>
-													{/* Backdrop */}
-													<div
-														className="fixed inset-0 z-40"
-														onClick={() => setColorPickerOpen(false)}
-														onKeyDown={(e) => {
-															if (e.key === "Escape") {
-																setColorPickerOpen(false);
-															}
+												<div
+													className="fixed p-3 rounded shadow-lg"
+													style={{
+														background: "#252526",
+														border: "1px solid #3e3e42",
+														right: "310px",
+														top: "50%",
+														transform: "translateY(-50%)",
+														zIndex: 9999,
+													}}
+												>
+													<RgbaColorPicker
+														color={{
+															r: selectedLayer.tint?.r || 255,
+															g: selectedLayer.tint?.g || 255,
+															b: selectedLayer.tint?.b || 255,
+															a: selectedLayer.tint?.a || 1,
 														}}
-														role="button"
-														tabIndex={-1}
-														aria-label="Close color picker"
+														onChange={(color) => {
+															handleUpdateSprite(selectedLayer.id, {
+																tint: color,
+															});
+														}}
+														style={{ width: "200px", height: "200px" }}
 													/>
-													{/* Popover */}
-													<div
-														className="fixed z-50 p-3 rounded shadow-lg"
-														style={{
-															background: "#252526",
-															border: "1px solid #3e3e42",
-															right: "310px",
-															top: "50%",
-															transform: "translateY(-50%)",
-														}}
-													>
-														<RgbaColorPicker
-															color={{
-																r: selectedLayer.tint?.r || 255,
-																g: selectedLayer.tint?.g || 255,
-																b: selectedLayer.tint?.b || 255,
-																a: selectedLayer.tint?.a || 1,
-															}}
-															onChange={(color) => {
-																handleUpdateSprite(selectedLayer.id, {
-																	tint: color,
-																});
-															}}
-															style={{ width: "200px", height: "200px" }}
-														/>
-													</div>
-												</>,
+												</div>,
 												document.body,
 											)}
 									</div>
