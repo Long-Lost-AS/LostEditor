@@ -196,9 +196,9 @@ export const EntitySelectMenu = ({
 			);
 
 			// Apply tint if not white
-			const tint = spriteLayer.tint || { r: 255, g: 255, b: 255, a: 1 };
+			const tint = spriteLayer.tint || { r: 255, g: 255, b: 255, a: 255 };
 			const needsTint =
-				tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
+				tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 255;
 
 			if (needsTint) {
 				// Use offscreen canvas for tinting to avoid affecting background
@@ -228,7 +228,7 @@ export const EntitySelectMenu = ({
 
 					// Clip to original sprite alpha with destination-in
 					offCtx.globalCompositeOperation = "destination-in";
-					offCtx.globalAlpha = tint.a;
+					offCtx.globalAlpha = tint.a / 255;
 					offCtx.drawImage(
 						tileset.imageData,
 						sprite.x,

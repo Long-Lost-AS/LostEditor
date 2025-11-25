@@ -34,7 +34,7 @@ export const TintColorSchema = z.object({
 	r: z.number().min(0).max(255),
 	g: z.number().min(0).max(255),
 	b: z.number().min(0).max(255),
-	a: z.number().min(0).max(1),
+	a: z.number().min(0).max(255),
 });
 
 export const SpriteSchema = z.object({
@@ -58,7 +58,7 @@ export const SpriteSchema = z.object({
 	rotation: z.number().default(0),
 	zIndex: z.number(),
 	ysortOffset: z.number().default(0),
-	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 1 }),
+	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
 });
 
 export const TileDefinitionSchema = z.object({
