@@ -916,7 +916,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 						if (needsTint) {
 							const prevCompositeOp = ctx.globalCompositeOperation;
-							ctx.globalCompositeOperation = "multiply";
+							ctx.globalCompositeOperation = "source-atop";
 							ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
 							ctx.fillRect(x, y, scaledWidth, scaledHeight);
 							ctx.globalCompositeOperation = prevCompositeOp;
@@ -1602,7 +1602,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 								if (needsTint) {
 									const prevCompositeOp = ctx.globalCompositeOperation;
-									ctx.globalCompositeOperation = "multiply";
+									ctx.globalCompositeOperation = "source-atop";
 									ctx.fillStyle = `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${tint.a})`;
 									ctx.fillRect(drawX, drawY, scaledWidth, scaledHeight);
 									ctx.globalCompositeOperation = prevCompositeOp;
