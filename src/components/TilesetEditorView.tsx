@@ -83,14 +83,22 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	} | null>(null);
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState(tilesetData?.name || "");
-	const [selectedCompoundTileId, setSelectedCompoundTileId] = useState<
-		number | null
-	>(null);
 	const [selectedTerrainLayer, setSelectedTerrainLayer] = useState<
 		string | null
 	>(null);
 	const [isPaintingBitmask, setIsPaintingBitmask] = useState(false);
 	const [paintAction, setPaintAction] = useState<"set" | "clear">("set");
+	const [isAreaFilling, setIsAreaFilling] = useState(false);
+	const [areaFillStart, setAreaFillStart] = useState<{
+		cellX: number;
+		cellY: number;
+	} | null>(null);
+	const [areaFillRegion, setAreaFillRegion] = useState<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null>(null); // In cell coordinates
 	const [editingTerrainLayerId, setEditingTerrainLayerId] = useState<
 		string | null
 	>(null);
@@ -641,18 +649,9 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							const tilePosX = tileX * tilesetData.tileWidth;
 							const tilePosY = tileY * tilesetData.tileHeight;
 
-							// Calculate tile ID for this position (terrain layers use IDs directly)
-							// Use 0 for tileset index - will be replaced with actual index when placed on map
-							// Width/height are looked up from tileset, not packed in ID
-							const tileId = packTileId(
-								tilePosX,
-								tilePosY,
-								tilesetData.order, // actual tileset order
-							);
-
-							// Get bitmask from terrain layer
+							// Get bitmask from terrain layer (matching by pixel coordinates)
 							const terrainTile = selectedLayer.tiles?.find(
-								(t) => t.tileId === tileId,
+								(t) => t.x === tilePosX && t.y === tilePosY,
 							);
 							const bitmask = terrainTile?.bitmask || 0;
 
@@ -692,6 +691,35 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				}
 			}
 
+			// Draw area fill region preview (at cell level)
+			if (areaFillRegion && selectedTerrainLayer) {
+				const cellWidth = tilesetData.tileWidth / 3;
+				const cellHeight = tilesetData.tileHeight / 3;
+				const { x, y, width, height } = areaFillRegion;
+
+				ctx.fillStyle =
+					paintAction === "set"
+						? "rgba(100, 200, 100, 0.4)"
+						: "rgba(200, 100, 100, 0.4)";
+				ctx.fillRect(
+					x * cellWidth,
+					y * cellHeight,
+					width * cellWidth,
+					height * cellHeight,
+				);
+				ctx.strokeStyle =
+					paintAction === "set"
+						? "rgba(100, 200, 100, 0.9)"
+						: "rgba(200, 100, 100, 0.9)";
+				ctx.lineWidth = 2 / scale;
+				ctx.strokeRect(
+					x * cellWidth,
+					y * cellHeight,
+					width * cellWidth,
+					height * cellHeight,
+				);
+			}
+
 			ctx.restore();
 		};
 
@@ -715,6 +743,8 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		localTiles,
 		getTerrainLayers,
 		zoomPanContainerRef,
+		areaFillRegion,
+		paintAction,
 	]);
 
 	// Helper to convert screen coordinates to canvas coordinates
@@ -739,6 +769,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		const tileX = Math.floor(canvasX / tilesetData.tileWidth);
 		const tileY = Math.floor(canvasY / tilesetData.tileHeight);
 		return { tileX, tileY };
+	};
+
+	// Helper to convert canvas coordinates to cell coordinates (3x3 grid per tile)
+	const canvasToCell = (canvasX: number, canvasY: number) => {
+		if (!tilesetData) return { cellX: 0, cellY: 0 };
+		const cellWidth = tilesetData.tileWidth / 3;
+		const cellHeight = tilesetData.tileHeight / 3;
+		const cellX = Math.floor(canvasX / cellWidth);
+		const cellY = Math.floor(canvasY / cellHeight);
+		return { cellX, cellY };
 	};
 
 	// Helper function to paint a bitmask cell
@@ -772,17 +812,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		// Calculate the bit index for the bitmask
 		const bitIndex = clampedRow * 3 + clampedCol;
 
-		// For terrain layers, we don't need tile entries in tiles[]
-		// Just work directly with the packed tile ID
-		// Use 0 for tileset index - will be replaced when placed on map
-		const tileId = packTileId(
-			tilePosX,
-			tilePosY,
-			tilesetData.order, // actual tileset order
+		// Get current bitmask from terrain layer (matching by pixel coordinates)
+		const terrainTile = selectedLayer.tiles?.find(
+			(t) => t.x === tilePosX && t.y === tilePosY,
 		);
-
-		// Get current bitmask from terrain layer
-		const terrainTile = selectedLayer.tiles?.find((t) => t.tileId === tileId);
 		const currentBitmask = terrainTile?.bitmask || 0;
 
 		// Apply the action consistently
@@ -795,16 +828,61 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 
 		// Only update if the bitmask actually changed
 		if (newBitmask !== currentBitmask) {
-			handleUpdateBitmask(tileId, selectedLayer.id, newBitmask);
+			handleUpdateBitmask(tilePosX, tilePosY, selectedLayer.id, newBitmask);
 		}
 	};
 
 	// Mouse handlers for panning and tile selection
 	const handleMouseDown = (e: React.MouseEvent) => {
-		if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-			// Middle mouse or Shift+Left = Pan
+		if (e.button === 0 && e.shiftKey && selectedTerrainLayer) {
+			// Shift+Left with terrain layer = Area fill bitmask at cell level
+			if (!tilesetData) return;
+			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
+			const { cellX, cellY } = canvasToCell(canvasX, canvasY);
+			const { tileX, tileY } = canvasToTile(canvasX, canvasY);
+
+			// Get terrain layer
+			const terrainLayers = getTerrainLayers();
+			const selectedLayer = terrainLayers.find(
+				(l) => l.id === selectedTerrainLayer,
+			);
+			if (!selectedLayer) return;
+
+			// Determine action based on whether the clicked cell bit is set
+			const tilePosX = tileX * tilesetData.tileWidth;
+			const tilePosY = tileY * tilesetData.tileHeight;
+			const terrainTile = selectedLayer.tiles?.find(
+				(t) => t.x === tilePosX && t.y === tilePosY,
+			);
+			const currentBitmask = terrainTile?.bitmask || 0;
+			// Calculate which bit in the cell
+			const cellCol = cellX % 3;
+			const cellRow = cellY % 3;
+			const bitIndex = cellRow * 3 + cellCol;
+			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
+			const action: "set" | "clear" = isBitSet ? "clear" : "set";
+
+			setPaintAction(action);
+			setIsAreaFilling(true);
+			setAreaFillStart({ cellX, cellY });
+			setAreaFillRegion({ x: cellX, y: cellY, width: 1, height: 1 });
+			startBatch();
+			return;
+		} else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+			// Middle mouse or Shift+Left (without terrain layer) = Pan
 			setIsDragging(true);
 			setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+		} else if (e.button === 2 && selectedTerrainLayer) {
+			// Right click with terrain layer selected = Start drag selection for weight editing
+			if (!tilesetData) return;
+			const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
+			const { tileX, tileY } = canvasToTile(canvasX, canvasY);
+
+			// Start selection drag (reuse existing selection logic)
+			setIsSelecting(true);
+			setSelectionStart({ x: tileX, y: tileY });
+			setSelectedTileRegion({ x: tileX, y: tileY, width: 1, height: 1 });
+			return;
 		} else if (e.button === 0 && selectedTerrainLayer) {
 			// Left click with terrain layer selected = Paint bitmask cell
 			if (!tilesetData) return;
@@ -833,16 +911,10 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			// Calculate the bit index for the bitmask
 			const bitIndex = clampedRow * 3 + clampedCol;
 
-			// Calculate tile ID for this position (terrain layers use IDs directly)
-			// Use 0 for tileset index - will be replaced when placed on map
-			const tileId = packTileId(
-				tilePosX,
-				tilePosY,
-				tilesetData.order, // actual tileset order
-			);
-
 			// Determine the action based on whether the bit is currently set
-			const terrainTile = selectedLayer.tiles?.find((t) => t.tileId === tileId);
+			const terrainTile = selectedLayer.tiles?.find(
+				(t) => t.x === tilePosX && t.y === tilePosY,
+			);
 			const currentBitmask = terrainTile?.bitmask || 0;
 			const isBitSet = (currentBitmask & (1 << bitIndex)) !== 0;
 			const action: "set" | "clear" = isBitSet ? "clear" : "set";
@@ -870,7 +942,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			) {
 				// Clicked outside the tileset, clear selection
 				setSelectedTileRegion(null);
-				setSelectedCompoundTileId(null);
 				setSelectedTileId(null);
 				return;
 			}
@@ -907,8 +978,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 							width: regionWidth,
 							height: regionHeight,
 						});
-						// Set the selected tile ID for the sidebar
-						setSelectedCompoundTileId(packTileId(tile.x, tile.y, 1));
 
 						// Also set the selected tile for map drawing
 						const activeMapTab = getActiveMapTab();
@@ -959,12 +1028,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 					return t.x === tilePosX && t.y === tilePosY;
 				});
 
-				if (existingTile) {
-					// Use pseudo-ID for selection tracking
-					setSelectedCompoundTileId(
-						packTileId(existingTile.x, existingTile.y, 1),
-					);
-				} else {
+				if (!existingTile) {
 					// No tile entry exists yet, create one for property editing
 					const newTile: TileDefinition = {
 						x: tilePosX,
@@ -980,8 +1044,6 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						...localTilesetState,
 						tiles: [...localTiles, newTile],
 					});
-					// Use pseudo-ID for selection tracking
-					setSelectedCompoundTileId(packTileId(tilePosX, tilePosY, 1));
 				}
 
 				// Set initial single-tile selection
@@ -1001,6 +1063,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				x: e.clientX - dragStart.x,
 				y: e.clientY - dragStart.y,
 			});
+		} else if (isAreaFilling && areaFillStart) {
+			// Update area fill selection preview at cell level
+			const { cellX, cellY } = canvasToCell(canvasX, canvasY);
+			const x = Math.min(areaFillStart.cellX, cellX);
+			const y = Math.min(areaFillStart.cellY, cellY);
+			const width = Math.abs(cellX - areaFillStart.cellX) + 1;
+			const height = Math.abs(cellY - areaFillStart.cellY) + 1;
+			setAreaFillRegion({ x, y, width, height });
 		} else if (isPaintingBitmask) {
 			// Continue painting bitmask cells while dragging
 			paintBitmaskCell(canvasX, canvasY, paintAction);
@@ -1016,6 +1086,74 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	const handleMouseUp = () => {
+		// Handle area fill completion at cell level
+		if (isAreaFilling && areaFillRegion && tilesetData) {
+			const terrainLayers = getTerrainLayers();
+
+			const updatedLayers = terrainLayers.map((layer) => {
+				if (layer.id !== selectedTerrainLayer) return layer;
+
+				const tiles = [...(layer.tiles || [])];
+
+				// Fill all cells in the selected region
+				for (
+					let cy = areaFillRegion.y;
+					cy < areaFillRegion.y + areaFillRegion.height;
+					cy++
+				) {
+					for (
+						let cx = areaFillRegion.x;
+						cx < areaFillRegion.x + areaFillRegion.width;
+						cx++
+					) {
+						// Convert cell coordinates to tile coordinates
+						const tileX = Math.floor(cx / 3);
+						const tileY = Math.floor(cy / 3);
+						const tilePosX = tileX * tilesetData.tileWidth;
+						const tilePosY = tileY * tilesetData.tileHeight;
+
+						// Calculate which bit in the 3x3 grid
+						const cellCol = cx % 3;
+						const cellRow = cy % 3;
+						const bitIndex = cellRow * 3 + cellCol;
+
+						const existingIndex = tiles.findIndex(
+							(t) => t.x === tilePosX && t.y === tilePosY,
+						);
+
+						if (existingIndex >= 0) {
+							const currentBitmask = tiles[existingIndex].bitmask;
+							const newBitmask =
+								paintAction === "set"
+									? currentBitmask | (1 << bitIndex)
+									: currentBitmask & ~(1 << bitIndex);
+							tiles[existingIndex] = {
+								...tiles[existingIndex],
+								bitmask: newBitmask,
+							};
+						} else if (paintAction === "set") {
+							// Only add new tile if we're setting
+							tiles.push({
+								x: tilePosX,
+								y: tilePosY,
+								bitmask: 1 << bitIndex,
+								weight: 100,
+							});
+						}
+					}
+				}
+
+				return { ...layer, tiles };
+			});
+
+			updateTerrainLayers(updatedLayers);
+			endBatch();
+			setIsAreaFilling(false);
+			setAreaFillStart(null);
+			setAreaFillRegion(null);
+			return;
+		}
+
 		// End batch if we were painting terrain
 		if (isPaintingBitmask) {
 			endBatch();
@@ -1025,10 +1163,16 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		setIsSelecting(false);
 		setSelectionStart(null);
 		setIsPaintingBitmask(false);
+		setIsAreaFilling(false);
+		setAreaFillStart(null);
+		setAreaFillRegion(null);
 	};
 
 	const handleContextMenu = (e: React.MouseEvent) => {
 		e.preventDefault();
+
+		// When terrain layer is selected, right-click selects tile (handled in handleMouseDown)
+		if (selectedTerrainLayer) return;
 
 		// Check if we're right-clicking on a compound tile
 		const { canvasX, canvasY } = screenToCanvas(e.clientX, e.clientY);
@@ -1191,14 +1335,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 	};
 
 	const handleUpdateTileName = (name: string) => {
-		if (!selectedCompoundTileId) return;
+		if (!selectedTileRegion || !tilesetData) return;
 
-		// Unpack pseudo-ID to get x, y coordinates
-		const { x, y } = unpackTileId(selectedCompoundTileId);
+		const x = selectedTileRegion.x * tilesetData.tileWidth;
+		const y = selectedTileRegion.y * tilesetData.tileHeight;
 		const existingTile = localTiles.find((t) => t.x === x && t.y === y);
 
 		if (existingTile) {
-			// Update existing tile with undo/redo support
 			setLocalTilesetState({
 				...localTilesetState,
 				tiles: localTiles.map((t) =>
@@ -1206,33 +1349,34 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				),
 			});
 		} else {
-			// Create new tile entry with undo/redo support
-			const newTile: TileDefinition = {
-				x,
-				y,
-				name,
-				width: 0,
-				height: 0,
-				colliders: [],
-				type: "",
-				properties: {},
-			};
-			setLocalTilesetState({
-				...localTilesetState,
-				tiles: [...localTiles, newTile],
-			});
+			// Create new tile entry for single-tile selections only
+			if (selectedTileRegion.width === 1 && selectedTileRegion.height === 1) {
+				const newTile: TileDefinition = {
+					x,
+					y,
+					name,
+					width: 0,
+					height: 0,
+					colliders: [],
+					type: "",
+					properties: {},
+				};
+				setLocalTilesetState({
+					...localTilesetState,
+					tiles: [...localTiles, newTile],
+				});
+			}
 		}
 	};
 
 	const handleUpdateTileType = (type: string) => {
-		if (!selectedCompoundTileId) return;
+		if (!selectedTileRegion || !tilesetData) return;
 
-		// Unpack pseudo-ID to get x, y coordinates
-		const { x, y } = unpackTileId(selectedCompoundTileId);
+		const x = selectedTileRegion.x * tilesetData.tileWidth;
+		const y = selectedTileRegion.y * tilesetData.tileHeight;
 		const existingTile = localTiles.find((t) => t.x === x && t.y === y);
 
 		if (existingTile) {
-			// Update existing tile with undo/redo support
 			setLocalTilesetState({
 				...localTilesetState,
 				tiles: localTiles.map((t) =>
@@ -1240,30 +1384,32 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 				),
 			});
 		} else {
-			// Create new tile entry with undo/redo support
-			const newTile: TileDefinition = {
-				x,
-				y,
-				type,
-				width: 0,
-				height: 0,
-				colliders: [],
-				name: "",
-				properties: {},
-			};
-			setLocalTilesetState({
-				...localTilesetState,
-				tiles: [...localTiles, newTile],
-			});
+			// Create new tile entry for single-tile selections only
+			if (selectedTileRegion.width === 1 && selectedTileRegion.height === 1) {
+				const newTile: TileDefinition = {
+					x,
+					y,
+					type,
+					width: 0,
+					height: 0,
+					colliders: [],
+					name: "",
+					properties: {},
+				};
+				setLocalTilesetState({
+					...localTilesetState,
+					tiles: [...localTiles, newTile],
+				});
+			}
 		}
 	};
 
-	// Handle property changes for compound tiles
+	// Handle property changes for tiles
 	const handlePropertiesChange = (properties: Record<string, string>) => {
-		if (!selectedCompoundTileId) return;
+		if (!selectedTileRegion || !tilesetData) return;
 
-		// Unpack pseudo-ID to get x, y coordinates
-		const { x, y } = unpackTileId(selectedCompoundTileId);
+		const x = selectedTileRegion.x * tilesetData.tileWidth;
+		const y = selectedTileRegion.y * tilesetData.tileHeight;
 
 		setLocalTilesetState({
 			...localTilesetState,
@@ -1273,45 +1419,18 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		});
 	};
 
-	const handleUpdateBitmask = (
-		tileId: number,
-		layerId: string,
-		newBitmask: number,
-	) => {
-		const terrainLayers = getTerrainLayers();
-		const updatedLayers = terrainLayers.map((layer) => {
-			if (layer.id !== layerId) return layer;
-
-			const tiles = layer.tiles || [];
-			const existingTileIndex = tiles.findIndex((t) => t.tileId === tileId);
-
-			if (existingTileIndex >= 0) {
-				// Update existing tile's bitmask
-				const updatedTiles = [...tiles];
-				updatedTiles[existingTileIndex] = {
-					...tiles[existingTileIndex],
-					bitmask: newBitmask,
-				};
-				return { ...layer, tiles: updatedTiles };
-			} else {
-				// Add new tile to layer
-				return { ...layer, tiles: [...tiles, { tileId, bitmask: newBitmask }] };
-			}
-		});
-
-		// This uses undo/redo for painting operations
-		updateTerrainLayers(updatedLayers);
-	};
-
 	// Helper to update terrainLayers with undo/redo support
 	// This is used for PAINTING operations
-	const updateTerrainLayers = (layers: TerrainLayer[]) => {
-		setLocalTilesetState({
-			...localTilesetState,
-			terrainLayers: layers,
-		});
-		// The useEffect above syncs to global state automatically
-	};
+	const updateTerrainLayers = useCallback(
+		(layers: TerrainLayer[]) => {
+			setLocalTilesetState((prev) => ({
+				...prev,
+				terrainLayers: layers,
+			}));
+			// The useEffect above syncs to global state automatically
+		},
+		[setLocalTilesetState],
+	);
 
 	// Update terrain layers WITHOUT undo/redo (for structural changes like add/remove/rename)
 	const updateTerrainLayersNoHistory = (layers: TerrainLayer[]) => {
@@ -1324,6 +1443,91 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		});
 		// The useEffect above syncs to global state automatically
 	};
+
+	const handleUpdateBitmask = (
+		tileX: number,
+		tileY: number,
+		layerId: string,
+		newBitmask: number,
+	) => {
+		const terrainLayers = getTerrainLayers();
+		const updatedLayers = terrainLayers.map((layer) => {
+			if (layer.id !== layerId) return layer;
+
+			const tiles = layer.tiles || [];
+			const existingTileIndex = tiles.findIndex(
+				(t) => t.x === tileX && t.y === tileY,
+			);
+
+			if (existingTileIndex >= 0) {
+				// Update existing tile's bitmask
+				const updatedTiles = [...tiles];
+				updatedTiles[existingTileIndex] = {
+					...tiles[existingTileIndex],
+					bitmask: newBitmask,
+				};
+				return { ...layer, tiles: updatedTiles };
+			} else {
+				// Add new tile to layer
+				return {
+					...layer,
+					tiles: [
+						...tiles,
+						{ x: tileX, y: tileY, bitmask: newBitmask, weight: 100 },
+					],
+				};
+			}
+		});
+
+		// This uses undo/redo for painting operations
+		updateTerrainLayers(updatedLayers);
+	};
+
+	// Update weight for all tiles in the selected region within the terrain layer
+	const handleUpdateTerrainWeight = useCallback(
+		(weight: number) => {
+			if (!selectedTerrainLayer || !selectedTileRegion || !tilesetData) return;
+
+			// Calculate pixel bounds of the selection
+			const startPixelX = selectedTileRegion.x * tilesetData.tileWidth;
+			const startPixelY = selectedTileRegion.y * tilesetData.tileHeight;
+			const endPixelX =
+				(selectedTileRegion.x + selectedTileRegion.width) *
+				tilesetData.tileWidth;
+			const endPixelY =
+				(selectedTileRegion.y + selectedTileRegion.height) *
+				tilesetData.tileHeight;
+
+			const terrainLayers = getTerrainLayers();
+			const updatedLayers = terrainLayers.map((layer) => {
+				if (layer.id !== selectedTerrainLayer) return layer;
+
+				const tiles = layer.tiles || [];
+				// Update all tiles within the selection bounds
+				const updatedTiles = tiles.map((t) => {
+					if (
+						t.x >= startPixelX &&
+						t.x < endPixelX &&
+						t.y >= startPixelY &&
+						t.y < endPixelY
+					) {
+						return { ...t, weight: Math.round(Math.max(0, weight)) };
+					}
+					return t;
+				});
+				return { ...layer, tiles: updatedTiles };
+			});
+
+			updateTerrainLayers(updatedLayers);
+		},
+		[
+			selectedTerrainLayer,
+			selectedTileRegion,
+			tilesetData,
+			getTerrainLayers,
+			updateTerrainLayers,
+		],
+	);
 
 	// Terrain layer handlers (structural operations - no undo/redo)
 	const handleAddTerrainLayer = () => {
@@ -1402,10 +1606,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 		setContextMenu(null);
 	};
 
+	// Get selected tile for property editing (only for single-tile selection)
+	// Find the selected tile - works for both single tiles and compound tiles
 	let selectedTile: TileDefinition | undefined;
-	if (selectedCompoundTileId) {
-		const { x, y } = unpackTileId(selectedCompoundTileId);
-		selectedTile = localTiles.find((t) => t.x === x && t.y === y);
+	if (selectedTileRegion && tilesetData) {
+		const pixelX = selectedTileRegion.x * tilesetData.tileWidth;
+		const pixelY = selectedTileRegion.y * tilesetData.tileHeight;
+		selectedTile = localTiles.find((t) => t.x === pixelX && t.y === pixelY);
 	}
 
 	// If tileset not found, show error (after all hooks)
@@ -1804,7 +2011,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 			</div>
 
 			{/* Right Sidebar - Tile Properties */}
-			{selectedCompoundTileId !== null && (
+			{selectedTileRegion !== null && (
 				<div
 					className="w-64 flex flex-col overflow-auto"
 					style={{ background: "#252526", borderLeft: "1px solid #3e3e42" }}
@@ -1870,6 +2077,100 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 									onChange={handlePropertiesChange}
 								/>
 							)}
+
+							{/* Terrain Weight Section */}
+							{selectedTerrainLayer &&
+								selectedTileRegion &&
+								tilesetData &&
+								(() => {
+									const terrainLayers = getTerrainLayers();
+									const layer = terrainLayers.find(
+										(l) => l.id === selectedTerrainLayer,
+									);
+									if (!layer || !layer.tiles?.length) return null;
+
+									// Calculate pixel bounds of the selection
+									const startPixelX =
+										selectedTileRegion.x * tilesetData.tileWidth;
+									const startPixelY =
+										selectedTileRegion.y * tilesetData.tileHeight;
+									const endPixelX =
+										(selectedTileRegion.x + selectedTileRegion.width) *
+										tilesetData.tileWidth;
+									const endPixelY =
+										(selectedTileRegion.y + selectedTileRegion.height) *
+										tilesetData.tileHeight;
+
+									// Find all terrain tiles within the selection
+									const selectedTerrainTiles = layer.tiles.filter(
+										(t) =>
+											t.x >= startPixelX &&
+											t.x < endPixelX &&
+											t.y >= startPixelY &&
+											t.y < endPixelY,
+									);
+
+									if (selectedTerrainTiles.length === 0) return null;
+
+									// Check if all weights are the same
+									const firstWeight = selectedTerrainTiles[0].weight;
+									const allSameWeight = selectedTerrainTiles.every(
+										(t) => t.weight === firstWeight,
+									);
+
+									const tileCount = selectedTerrainTiles.length;
+
+									return (
+										<div
+											className="mt-4 pt-4"
+											style={{ borderTop: "1px solid #3e3e42" }}
+										>
+											<div
+												className="text-xs font-semibold uppercase tracking-wide mb-2"
+												style={{ color: "#858585" }}
+											>
+												Terrain Weight
+												{tileCount > 1 && (
+													<span
+														className="ml-1 font-normal"
+														style={{ color: "#6e6e6e" }}
+													>
+														({tileCount} tiles)
+													</span>
+												)}
+											</div>
+											<div className="space-y-2">
+												<div>
+													<div
+														className="text-xs font-medium block mb-1.5"
+														style={{ color: "#858585" }}
+													>
+														Probability Weight
+													</div>
+													<DragNumberInput
+														value={allSameWeight ? firstWeight : 100}
+														onChange={handleUpdateTerrainWeight}
+														onInput={handleUpdateTerrainWeight}
+														onDragStart={startBatch}
+														onDragEnd={endBatch}
+														min={0}
+														step={1}
+														precision={0}
+														dragSpeed={1}
+													/>
+													<div
+														className="text-[10px] mt-1"
+														style={{ color: "#858585" }}
+													>
+														{allSameWeight
+															? "Higher = more likely (default: 100)"
+															: "Mixed values - editing will set all to same"}
+													</div>
+												</div>
+											</div>
+										</div>
+									);
+								})()}
 						</div>
 					</div>
 				</div>
