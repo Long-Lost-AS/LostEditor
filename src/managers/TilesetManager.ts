@@ -68,8 +68,10 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 				tiles: layer.tiles
 					?.filter((t) => t.bitmask !== 0)
 					.map((t) => ({
-						tileId: t.tileId, // No conversion needed - already a number
+						x: t.x,
+						y: t.y,
 						bitmask: t.bitmask,
+						weight: t.weight,
 					})),
 			})),
 		};

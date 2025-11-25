@@ -1540,14 +1540,12 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							);
 							if (!previewTile) return;
 
-							const geometry = unpackTileId(previewTile.tileId);
-
 							// Draw semi-transparent preview
 							ctx.globalAlpha = 0.5;
 							ctx.drawImage(
 								tileset.imageData,
-								geometry.x,
-								geometry.y,
+								previewTile.x,
+								previewTile.y,
 								tileset.tileWidth,
 								tileset.tileHeight,
 								tileX * mapData.tileWidth,

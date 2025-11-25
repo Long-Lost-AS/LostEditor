@@ -50,17 +50,17 @@ describe("terrainDrawing", () => {
 					id: "grass-layer-1",
 					name: "grass",
 					tiles: [
-						{ tileId: packTileId(1, 1, 1), bitmask: 16 }, // Center only (local coords, hash 0)
-						{ tileId: packTileId(16, 0, 1), bitmask: 511 }, // All neighbors
-						{ tileId: packTileId(32, 0, 1), bitmask: 0 }, // No neighbors (invalid, but for testing)
+						{ x: 1, y: 1, bitmask: 16, weight: 100 }, // Center only
+						{ x: 16, y: 0, bitmask: 511, weight: 100 }, // All neighbors
+						{ x: 32, y: 0, bitmask: 0, weight: 100 }, // No neighbors (for testing)
 					],
 				},
 				{
 					id: "dirt-layer-1",
 					name: "dirt",
 					tiles: [
-						{ tileId: packTileId(1, 16, 1), bitmask: 16 },
-						{ tileId: packTileId(16, 16, 1), bitmask: 511 },
+						{ x: 1, y: 16, bitmask: 16, weight: 100 },
+						{ x: 16, y: 16, bitmask: 511, weight: 100 },
 					],
 				},
 			],
@@ -243,7 +243,7 @@ describe("terrainDrawing", () => {
 					{
 						id: "water-layer-1",
 						name: "water",
-						tiles: [{ tileId: packTileId(1, 1, 2), bitmask: 16 }],
+						tiles: [{ x: 1, y: 1, bitmask: 16, weight: 100 }],
 					},
 				],
 			};
@@ -508,7 +508,7 @@ describe("terrainDrawing", () => {
 					{
 						id: "grass-layer-only",
 						name: "grass",
-						tiles: [{ tileId: packTileId(1, 1, 1), bitmask: 16 }],
+						tiles: [{ x: 1, y: 1, bitmask: 16, weight: 100 }],
 					},
 					// NO dirt layer!
 				],

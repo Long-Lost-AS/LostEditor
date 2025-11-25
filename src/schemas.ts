@@ -73,8 +73,10 @@ export const TileDefinitionSchema = z.object({
 });
 
 export const TerrainTileSchema = z.object({
-	tileId: z.number(),
+	x: z.number(),
+	y: z.number(),
 	bitmask: z.number(),
+	weight: z.number().min(0).default(100),
 });
 
 export const TerrainLayerSchema = z.object({

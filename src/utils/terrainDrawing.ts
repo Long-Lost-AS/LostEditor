@@ -51,12 +51,13 @@ export function getTerrainLayerForTile(
 		return null;
 	}
 
-	// Create a tile ID with the actual tileset order for comparison
-	const baseTileId = packTileId(geometry.x, geometry.y, geometry.tilesetOrder);
-
 	// Check each terrain layer to see if this tile belongs to it
 	for (const terrainLayer of tileset.terrainLayers) {
-		if (terrainLayer.tiles?.some((tt) => tt.tileId === baseTileId)) {
+		if (
+			terrainLayer.tiles?.some(
+				(tt) => tt.x === geometry.x && tt.y === geometry.y,
+			)
+		) {
 			return terrainLayer.id;
 		}
 	}
@@ -98,13 +99,8 @@ export function placeTerrainTile(
 		return;
 	}
 
-	// Unpack the matched tile's local ID and repack with correct tileset index
-	const localGeometry = unpackTileId(matchingTile.tileId);
-	const globalTileId = packTileId(
-		localGeometry.x,
-		localGeometry.y,
-		tilesetOrder,
-	);
+	// Pack the matched tile's coordinates with the tileset order
+	const globalTileId = packTileId(matchingTile.x, matchingTile.y, tilesetOrder);
 
 	// Place the tile
 	const index = y * mapWidth + x;

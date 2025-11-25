@@ -3,7 +3,7 @@ import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "./bitmaskAutotiling";
-import { unpackTileId } from "./tileId";
+import { packTileId, unpackTileId } from "./tileId";
 
 /**
  * Get tile ID from dense array at position (x, y)
@@ -106,7 +106,8 @@ export function applyAutotiling(
 	const matchedTile = findTileByBitmask(tileset, terrainLayer, targetBitmask);
 
 	if (matchedTile) {
-		return matchedTile.tileId;
+		// Pack the matched tile coordinates with the tileset order
+		return packTileId(matchedTile.x, matchedTile.y, tileset.order);
 	}
 
 	// If no bitmask match found, keep current tile

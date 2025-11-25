@@ -1,5 +1,9 @@
-import type { TerrainLayer, TileDefinition, TilesetData } from "../types";
-import { unpackTileId } from "./tileId";
+import type {
+	TerrainLayer,
+	TerrainTile,
+	TileDefinition,
+	TilesetData,
+} from "../types";
 
 /**
  * Godot-style bitmask autotiling utilities.
@@ -87,49 +91,96 @@ export function calculateBitmaskFromNeighbors(
 }
 
 /**
+ * Select a random tile using weighted probability.
+ * Higher weight = higher chance of selection.
+ */
+function selectWeightedRandom(tiles: TerrainTile[]): TerrainTile {
+	if (tiles.length === 1) {
+		return tiles[0];
+	}
+
+	// Calculate total weight
+	const totalWeight = tiles.reduce((sum, tile) => sum + tile.weight, 0);
+
+	if (totalWeight === 0) {
+		// All weights are 0: fall back to uniform random
+		return tiles[Math.floor(Math.random() * tiles.length)];
+	}
+
+	// Generate random value in range [0, totalWeight)
+	const random = Math.random() * totalWeight;
+
+	// Walk through tiles, accumulating weight
+	let cumulativeWeight = 0;
+	for (const tile of tiles) {
+		cumulativeWeight += tile.weight;
+		if (random < cumulativeWeight) {
+			return tile;
+		}
+	}
+
+	// Safety fallback
+	return tiles[tiles.length - 1];
+}
+
+/**
  * Find the best matching tile for a given bitmask and terrain layer.
  *
  * Looks for tiles with matching bitmask in the terrain layer.
+ * If multiple tiles match, uses weighted random selection based on weight.
  * If no exact match, finds the closest match (most matching bits).
  * As ultimate fallback, uses the center-only tile (bitmask 16) if available.
  *
  * @param tileset - The tileset to search
  * @param terrainLayer - The terrain layer to match
  * @param targetBitmask - The target bitmask to match
- * @returns The matching terrain tile (with tileId), or null if none found
+ * @returns The matching terrain tile coordinates (x, y in pixels), or null if none found
  */
 export function findTileByBitmask(
 	_tileset: TilesetData,
 	terrainLayer: TerrainLayer,
 	targetBitmask: number,
-): { tileId: number } | null {
-	let bestMatch: { tileId: number } | null = null;
+): { x: number; y: number } | null {
+	// Step 1: Collect all exact matches
+	const exactMatches = terrainLayer.tiles.filter(
+		(tile) => tile.bitmask === targetBitmask,
+	);
+
+	if (exactMatches.length > 0) {
+		// Weighted random selection among exact matches
+		const selected = selectWeightedRandom(exactMatches);
+		return { x: selected.x, y: selected.y };
+	}
+
+	// Step 2: Find best partial matches
 	let bestMatchScore = -1;
-	let centerTile: { tileId: number } | null = null;
+	let bestMatches: TerrainTile[] = [];
+	let centerTile: { x: number; y: number } | null = null;
 
 	for (const terrainTile of terrainLayer.tiles) {
 		const tileBitmask = terrainTile.bitmask;
 
-		// Check for exact match
-		if (tileBitmask === targetBitmask) {
-			return { tileId: terrainTile.tileId };
-		}
-
 		// Save center-only tile (bitmask 16 = bit 4 only) as fallback
 		if (tileBitmask === 16) {
-			centerTile = { tileId: terrainTile.tileId };
+			centerTile = { x: terrainTile.x, y: terrainTile.y };
 		}
 
 		// Calculate match score (number of matching bits)
 		const matchingBits = countMatchingBits(tileBitmask, targetBitmask);
 		if (matchingBits > bestMatchScore) {
 			bestMatchScore = matchingBits;
-			bestMatch = { tileId: terrainTile.tileId };
+			bestMatches = [terrainTile];
+		} else if (matchingBits === bestMatchScore) {
+			bestMatches.push(terrainTile);
 		}
 	}
 
-	// Use best match if found, otherwise use center tile as fallback
-	return bestMatch || centerTile;
+	if (bestMatches.length > 0) {
+		const selected = selectWeightedRandom(bestMatches);
+		return { x: selected.x, y: selected.y };
+	}
+
+	return centerTile;
 }
 
 /**
@@ -156,8 +207,7 @@ export function getTilesForTerrain(
 ): TileDefinition[] {
 	return terrainLayer.tiles
 		.map((tt) => {
-			const { x, y } = unpackTileId(tt.tileId);
-			return tileset.tiles.find((t) => t.x === x && t.y === y);
+			return tileset.tiles.find((t) => t.x === tt.x && t.y === tt.y);
 		})
 		.filter((t): t is TileDefinition => t !== undefined);
 }

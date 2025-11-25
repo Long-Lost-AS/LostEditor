@@ -160,28 +160,34 @@ describe("schemas", () => {
 
 	describe("TerrainTileSchema", () => {
 		it("should validate terrain tile", () => {
-			const valid = { tileId: 123, bitmask: 511 };
+			const valid = { x: 0, y: 16, bitmask: 511, weight: 100 };
 			expect(() => TerrainTileSchema.parse(valid)).not.toThrow();
 		});
 
-		it("should reject missing tileId", () => {
-			const invalid = { bitmask: 511 };
+		it("should reject missing x", () => {
+			const invalid = { y: 0, bitmask: 511 };
 			expect(() => TerrainTileSchema.parse(invalid)).toThrow();
 		});
 
 		it("should reject missing bitmask", () => {
-			const invalid = { tileId: 123 };
+			const invalid = { x: 0, y: 0 };
 			expect(() => TerrainTileSchema.parse(invalid)).toThrow();
 		});
 
 		it("should accept bitmask 0", () => {
-			const valid = { tileId: 123, bitmask: 0 };
+			const valid = { x: 0, y: 0, bitmask: 0 };
 			expect(() => TerrainTileSchema.parse(valid)).not.toThrow();
 		});
 
 		it("should accept bitmask 511", () => {
-			const valid = { tileId: 123, bitmask: 511 };
+			const valid = { x: 0, y: 0, bitmask: 511 };
 			expect(() => TerrainTileSchema.parse(valid)).not.toThrow();
+		});
+
+		it("should default weight to 100", () => {
+			const input = { x: 0, y: 0, bitmask: 16 };
+			const result = TerrainTileSchema.parse(input);
+			expect(result.weight).toBe(100);
 		});
 	});
 
@@ -191,8 +197,8 @@ describe("schemas", () => {
 				id: "grass-1",
 				name: "Grass",
 				tiles: [
-					{ tileId: 1, bitmask: 16 },
-					{ tileId: 2, bitmask: 511 },
+					{ x: 0, y: 0, bitmask: 16, weight: 100 },
+					{ x: 16, y: 0, bitmask: 511, weight: 100 },
 				],
 			};
 			expect(() => TerrainLayerSchema.parse(valid)).not.toThrow();
@@ -302,7 +308,7 @@ describe("schemas", () => {
 					{
 						id: "grass-1",
 						name: "Grass",
-						tiles: [{ tileId: 123, bitmask: 16 }],
+						tiles: [{ x: 0, y: 0, bitmask: 16, weight: 100 }],
 					},
 				],
 			};

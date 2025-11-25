@@ -11,7 +11,6 @@ import {
 	isBitmaskCellSet,
 	toggleBitmaskCell,
 } from "../bitmaskAutotiling";
-import { packTileId } from "../tileId";
 
 describe("bitmaskAutotiling", () => {
 	describe("gridToBitmask", () => {
@@ -249,14 +248,14 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-1",
 				name: "grass",
 				tiles: [
-					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
-					{ tileId: 2, bitmask: 23 },
-					{ tileId: 3, bitmask: 511 },
+					{ x: 0, y: 0, bitmask: 16, weight: 100 },
+					{ x: 16, y: 0, bitmask: 23, weight: 100 },
+					{ x: 32, y: 0, bitmask: 511, weight: 100 },
 				],
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 23);
-			expect(result).toEqual({ tileId: 2 });
+			expect(result).toEqual({ x: 16, y: 0 });
 		});
 
 		it("should return best match when no exact match", () => {
@@ -264,28 +263,26 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-2",
 				name: "grass",
 				tiles: [
-					{ tileId: packTileId(0, 0, 1), bitmask: 16 }, // Center-only tile
-					{ tileId: 2, bitmask: 100 }, // Has more matching bits with 999
+					{ x: 0, y: 0, bitmask: 16, weight: 100 }, // Center-only tile
+					{ x: 16, y: 0, bitmask: 100, weight: 100 }, // Has more matching bits with 999
 				],
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 999);
-			// Returns best match (tileId 2), not necessarily center tile
+			// Returns best match, not necessarily center tile
 			expect(result).not.toBeNull();
-			expect(result?.tileId).toBeGreaterThan(0);
+			expect(result?.x).toBeGreaterThanOrEqual(0);
 		});
 
 		it("should return center tile as ultimate fallback", () => {
 			const terrainLayer: TerrainLayer = {
 				id: "grass-terrain-3",
 				name: "grass",
-				tiles: [
-					{ tileId: packTileId(0, 0, 1), bitmask: 16 }, // Center-only tile
-				],
+				tiles: [{ x: 0, y: 0, bitmask: 16, weight: 100 }], // Center-only tile
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 999);
-			expect(result).toEqual({ tileId: packTileId(0, 0, 1) });
+			expect(result).toEqual({ x: 0, y: 0 });
 		});
 
 		it("should return best match when no exact match", () => {
@@ -293,14 +290,14 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-4",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 0b000000000 }, // No match (9 bits different)
-					{ tileId: 2, bitmask: 0b111111110 }, // 8 bits match
-					{ tileId: 3, bitmask: 0b111111111 }, // All 9 bits match (best)
+					{ x: 0, y: 0, bitmask: 0b000000000, weight: 100 }, // No match (9 bits different)
+					{ x: 16, y: 0, bitmask: 0b111111110, weight: 100 }, // 8 bits match
+					{ x: 32, y: 0, bitmask: 0b111111111, weight: 100 }, // All 9 bits match (best)
 				],
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 0b111111111);
-			expect(result).toEqual({ tileId: 3 });
+			expect(result).toEqual({ x: 32, y: 0 });
 		});
 
 		it("should return null when no tiles in terrain layer", () => {
@@ -319,14 +316,14 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-6",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 100 }, // Close match
-					{ tileId: 2, bitmask: 50 }, // Exact match
-					{ tileId: 3, bitmask: 101 }, // Close match
+					{ x: 0, y: 0, bitmask: 100, weight: 100 }, // Close match
+					{ x: 16, y: 0, bitmask: 50, weight: 100 }, // Exact match
+					{ x: 32, y: 0, bitmask: 101, weight: 100 }, // Close match
 				],
 			};
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, 50);
-			expect(result).toEqual({ tileId: 2 });
+			expect(result).toEqual({ x: 16, y: 0 });
 		});
 
 		it("should select tile with better match score (coverage for line 124)", () => {
@@ -334,9 +331,9 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-terrain-7",
 				name: "grass",
 				tiles: [
-					{ tileId: 1, bitmask: 0b000000000 }, // 8 matching bits with target (all zeros except bit 0)
-					{ tileId: 2, bitmask: 0b000000001 }, // 9 matching bits with target (exact match)
-					{ tileId: 3, bitmask: 0b111111111 }, // 1 matching bit with target (only bit 0)
+					{ x: 0, y: 0, bitmask: 0b000000000, weight: 100 }, // 8 matching bits with target
+					{ x: 16, y: 0, bitmask: 0b000000001, weight: 100 }, // 9 matching bits (exact)
+					{ x: 32, y: 0, bitmask: 0b111111111, weight: 100 }, // 1 matching bit
 				],
 			};
 
@@ -344,8 +341,116 @@ describe("bitmaskAutotiling", () => {
 			const target = 0b000000001;
 
 			const result = findTileByBitmask(mockTileset, terrainLayer, target);
-			// Should select tile 2 which has exact match (9 bits vs 8 bits)
-			expect(result).toEqual({ tileId: 2 });
+			// Should select tile at x:16 which has exact match
+			expect(result).toEqual({ x: 16, y: 0 });
+		});
+
+		describe("weighted random selection", () => {
+			it("should return single exact match regardless of weight", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [{ x: 0, y: 0, bitmask: 16, weight: 100 }],
+				};
+				const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+				expect(result).toEqual({ x: 0, y: 0 });
+			});
+
+			it("should select among multiple exact matches with same bitmask", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 100 },
+						{ x: 16, y: 0, bitmask: 16, weight: 100 },
+						{ x: 32, y: 0, bitmask: 16, weight: 100 },
+					],
+				};
+
+				const results = new Set<number>();
+				for (let i = 0; i < 100; i++) {
+					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+					if (result) results.add(result.x);
+				}
+				// With 100 iterations and 3 equal-weight options, should see multiple tiles
+				expect(results.size).toBeGreaterThan(1);
+			});
+
+			it("should respect weight distribution", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 900 },
+						{ x: 16, y: 0, bitmask: 16, weight: 100 },
+					],
+				};
+
+				const counts = { 0: 0, 16: 0 };
+				for (let i = 0; i < 1000; i++) {
+					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+					if (result) counts[result.x as 0 | 16]++;
+				}
+
+				// With 900:100 weights, x:0 should be ~9x more common
+				const ratio = counts[0] / counts[16];
+				expect(ratio).toBeGreaterThan(5);
+				expect(ratio).toBeLessThan(15);
+			});
+
+			it("should handle tiles with weight 0", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 0 },
+						{ x: 16, y: 0, bitmask: 16, weight: 100 },
+					],
+				};
+
+				for (let i = 0; i < 50; i++) {
+					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+					expect(result?.x).toBe(16);
+				}
+			});
+
+			it("should select among equal weight tiles", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 100 },
+						{ x: 16, y: 0, bitmask: 16, weight: 100 },
+					],
+				};
+
+				const results = new Set<number>();
+				for (let i = 0; i < 50; i++) {
+					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+					if (result) results.add(result.x);
+				}
+				// Equal weights should produce both tiles
+				expect(results.size).toBe(2);
+			});
+
+			it("should fall back to uniform random when all weights are 0", () => {
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 0 },
+						{ x: 16, y: 0, bitmask: 16, weight: 0 },
+					],
+				};
+
+				const results = new Set<number>();
+				for (let i = 0; i < 50; i++) {
+					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+					if (result) results.add(result.x);
+				}
+				// Should still select from both tiles (uniform random fallback)
+				expect(results.size).toBe(2);
+			});
 		});
 	});
 
@@ -526,7 +631,7 @@ describe("bitmaskAutotiling", () => {
 	});
 
 	describe("getTilesForTerrain", () => {
-		it("should return tiles that match terrain layer tile IDs", () => {
+		it("should return tiles that match terrain layer tile coordinates", () => {
 			const tileset: TilesetData = {
 				version: "1.0",
 				name: "test",
@@ -547,8 +652,8 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-layer",
 				name: "grass",
 				tiles: [
-					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
-					{ tileId: packTileId(16, 0, 1), bitmask: 31 },
+					{ x: 0, y: 0, bitmask: 16, weight: 100 },
+					{ x: 16, y: 0, bitmask: 31, weight: 100 },
 				],
 			};
 
@@ -576,8 +681,8 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-layer",
 				name: "grass",
 				tiles: [
-					{ tileId: packTileId(0, 0, 1), bitmask: 16 },
-					{ tileId: 999, bitmask: 31 }, // Non-existent tile
+					{ x: 0, y: 0, bitmask: 16, weight: 100 },
+					{ x: 999, y: 999, bitmask: 31, weight: 100 }, // Non-existent tile
 				],
 			};
 
@@ -653,8 +758,8 @@ describe("bitmaskAutotiling", () => {
 				id: "grass-layer",
 				name: "grass",
 				tiles: [
-					{ tileId: 100, bitmask: 16 },
-					{ tileId: 200, bitmask: 31 },
+					{ x: 100, y: 0, bitmask: 16, weight: 100 },
+					{ x: 200, y: 0, bitmask: 31, weight: 100 },
 				],
 			};
 
