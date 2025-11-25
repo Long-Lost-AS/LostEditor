@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RgbColorPicker } from "react-colorful";
+import { RgbaColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
@@ -2174,194 +2174,20 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 															transform: "translateY(-50%)",
 														}}
 													>
-														<div className="flex gap-3">
-															<div>
-																<RgbColorPicker
-																	color={{
-																		r: selectedLayer.tint?.r || 255,
-																		g: selectedLayer.tint?.g || 255,
-																		b: selectedLayer.tint?.b || 255,
-																	}}
-																	onChange={(color) => {
-																		handleUpdateSprite(selectedLayer.id, {
-																			tint: {
-																				r: color.r,
-																				g: color.g,
-																				b: color.b,
-																				a: selectedLayer.tint?.a || 1,
-																			},
-																		});
-																	}}
-																	style={{ width: "200px", height: "200px" }}
-																/>
-															</div>
-															<div className="flex flex-col gap-2">
-																{/* RGB Values */}
-																<div className="space-y-1">
-																	<div className="flex items-center gap-1">
-																		<span
-																			className="text-xs w-4"
-																			style={{ color: "#ff6b6b" }}
-																		>
-																			R:
-																		</span>
-																		<input
-																			type="number"
-																			min="0"
-																			max="255"
-																			value={selectedLayer.tint?.r || 255}
-																			onChange={(e) => {
-																				const value = Math.max(
-																					0,
-																					Math.min(
-																						255,
-																						Number.parseInt(
-																							e.target.value,
-																							10,
-																						) || 0,
-																					),
-																				);
-																				handleUpdateSprite(selectedLayer.id, {
-																					tint: {
-																						r: value,
-																						g: selectedLayer.tint?.g || 255,
-																						b: selectedLayer.tint?.b || 255,
-																						a: selectedLayer.tint?.a || 1,
-																					},
-																				});
-																			}}
-																			className="w-16 px-1.5 py-0.5 text-xs rounded"
-																			style={{
-																				background: "#3e3e42",
-																				color: "#cccccc",
-																				border: "1px solid #555",
-																			}}
-																		/>
-																	</div>
-																	<div className="flex items-center gap-1">
-																		<span
-																			className="text-xs w-4"
-																			style={{ color: "#51cf66" }}
-																		>
-																			G:
-																		</span>
-																		<input
-																			type="number"
-																			min="0"
-																			max="255"
-																			value={selectedLayer.tint?.g || 255}
-																			onChange={(e) => {
-																				const value = Math.max(
-																					0,
-																					Math.min(
-																						255,
-																						Number.parseInt(
-																							e.target.value,
-																							10,
-																						) || 0,
-																					),
-																				);
-																				handleUpdateSprite(selectedLayer.id, {
-																					tint: {
-																						r: selectedLayer.tint?.r || 255,
-																						g: value,
-																						b: selectedLayer.tint?.b || 255,
-																						a: selectedLayer.tint?.a || 1,
-																					},
-																				});
-																			}}
-																			className="w-16 px-1.5 py-0.5 text-xs rounded"
-																			style={{
-																				background: "#3e3e42",
-																				color: "#cccccc",
-																				border: "1px solid #555",
-																			}}
-																		/>
-																	</div>
-																	<div className="flex items-center gap-1">
-																		<span
-																			className="text-xs w-4"
-																			style={{ color: "#339af0" }}
-																		>
-																			B:
-																		</span>
-																		<input
-																			type="number"
-																			min="0"
-																			max="255"
-																			value={selectedLayer.tint?.b || 255}
-																			onChange={(e) => {
-																				const value = Math.max(
-																					0,
-																					Math.min(
-																						255,
-																						Number.parseInt(
-																							e.target.value,
-																							10,
-																						) || 0,
-																					),
-																				);
-																				handleUpdateSprite(selectedLayer.id, {
-																					tint: {
-																						r: selectedLayer.tint?.r || 255,
-																						g: selectedLayer.tint?.g || 255,
-																						b: value,
-																						a: selectedLayer.tint?.a || 1,
-																					},
-																				});
-																			}}
-																			className="w-16 px-1.5 py-0.5 text-xs rounded"
-																			style={{
-																				background: "#3e3e42",
-																				color: "#cccccc",
-																				border: "1px solid #555",
-																			}}
-																		/>
-																	</div>
-																</div>
-																{/* Opacity Slider */}
-																<div>
-																	<div className="flex items-center justify-between mb-1">
-																		<span
-																			className="text-xs"
-																			style={{ color: "#858585" }}
-																		>
-																			Opacity
-																		</span>
-																		<span
-																			className="text-xs"
-																			style={{ color: "#cccccc" }}
-																		>
-																			{Math.round(
-																				(selectedLayer.tint?.a || 1) * 100,
-																			)}
-																			%
-																		</span>
-																	</div>
-																	<input
-																		type="range"
-																		min="0"
-																		max="1"
-																		step="0.01"
-																		value={selectedLayer.tint?.a || 1}
-																		onChange={(e) => {
-																			handleUpdateSprite(selectedLayer.id, {
-																				tint: {
-																					r: selectedLayer.tint?.r || 255,
-																					g: selectedLayer.tint?.g || 255,
-																					b: selectedLayer.tint?.b || 255,
-																					a: Number.parseFloat(e.target.value),
-																				},
-																			});
-																		}}
-																		className="w-full"
-																		style={{
-																			accentColor: "#007acc",
-																		}}
-																	/>
-																</div>
-															</div>
-														</div>
+														<RgbaColorPicker
+															color={{
+																r: selectedLayer.tint?.r || 255,
+																g: selectedLayer.tint?.g || 255,
+																b: selectedLayer.tint?.b || 255,
+																a: selectedLayer.tint?.a || 1,
+															}}
+															onChange={(color) => {
+																handleUpdateSprite(selectedLayer.id, {
+																	tint: color,
+																});
+															}}
+															style={{ width: "200px", height: "200px" }}
+														/>
 													</div>
 												</>,
 												document.body,
