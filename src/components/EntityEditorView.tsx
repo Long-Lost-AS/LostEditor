@@ -533,9 +533,12 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				// Draw the sprite or placeholder
 				if (tileset?.imageData) {
 					// Check if tint is needed
-					const tint = layer.tint || { r: 255, g: 255, b: 255, a: 1 };
+					const tint = layer.tint || { r: 255, g: 255, b: 255, a: 255 };
 					const needsTint =
-						tint.r !== 255 || tint.g !== 255 || tint.b !== 255 || tint.a !== 1;
+						tint.r !== 255 ||
+						tint.g !== 255 ||
+						tint.b !== 255 ||
+						tint.a !== 255;
 
 					if (needsTint) {
 						// Use offscreen canvas for tinting to avoid affecting background
@@ -565,7 +568,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 							// Clip to original sprite alpha with destination-in
 							offCtx.globalCompositeOperation = "destination-in";
-							offCtx.globalAlpha = tint.a;
+							offCtx.globalAlpha = tint.a / 255;
 							offCtx.drawImage(
 								tileset.imageData,
 								layer.rect.x,
@@ -2156,7 +2159,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 														width: "32px",
 														height: "20px",
 														borderRadius: "3px",
-														background: `rgba(${selectedLayer.tint?.r || 255}, ${selectedLayer.tint?.g || 255}, ${selectedLayer.tint?.b || 255}, ${selectedLayer.tint?.a || 1})`,
+														background: `rgba(${selectedLayer.tint?.r || 255}, ${selectedLayer.tint?.g || 255}, ${selectedLayer.tint?.b || 255}, ${(selectedLayer.tint?.a ?? 255) / 255})`,
 														border: "1px solid #555",
 													}}
 												/>
@@ -2171,7 +2174,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 												type="button"
 												onClick={() => {
 													handleUpdateSprite(selectedLayer.id, {
-														tint: { r: 255, g: 255, b: 255, a: 1 },
+														tint: { r: 255, g: 255, b: 255, a: 255 },
 													});
 												}}
 												className="px-2.5 py-1.5 text-xs rounded hover:opacity-80 transition-opacity"
@@ -2188,32 +2191,55 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										{/* Color Picker Popover */}
 										{colorPickerOpen &&
 											createPortal(
-												<div
-													className="fixed p-3 rounded shadow-lg"
-													style={{
-														background: "#252526",
-														border: "1px solid #3e3e42",
-														right: "310px",
-														top: "50%",
-														transform: "translateY(-50%)",
-														zIndex: 9999,
-													}}
-												>
-													<RgbaColorPicker
-														color={{
-															r: selectedLayer.tint?.r || 255,
-															g: selectedLayer.tint?.g || 255,
-															b: selectedLayer.tint?.b || 255,
-															a: selectedLayer.tint?.a || 1,
+												<>
+													{/* Backdrop */}
+													<div
+														className="fixed inset-0"
+														style={{ zIndex: 9998 }}
+														onClick={() => setColorPickerOpen(false)}
+														onKeyDown={(e) => {
+															if (e.key === "Escape") {
+																setColorPickerOpen(false);
+															}
 														}}
-														onChange={(color) => {
-															handleUpdateSprite(selectedLayer.id, {
-																tint: color,
-															});
-														}}
-														style={{ width: "200px", height: "200px" }}
+														role="button"
+														tabIndex={-1}
+														aria-label="Close color picker"
 													/>
-												</div>,
+													<div
+														className="fixed rounded shadow-lg"
+														style={{
+															background: "#252526",
+															border: "1px solid #3e3e42",
+															right: "310px",
+															top: "50%",
+															transform: "translateY(-50%)",
+															zIndex: 9999,
+															width: "200px",
+															padding: "8px",
+														}}
+													>
+														<RgbaColorPicker
+															color={{
+																r: selectedLayer.tint?.r || 255,
+																g: selectedLayer.tint?.g || 255,
+																b: selectedLayer.tint?.b || 255,
+																a: (selectedLayer.tint?.a ?? 255) / 255,
+															}}
+															onChange={(color) => {
+																handleUpdateSprite(selectedLayer.id, {
+																	tint: {
+																		r: color.r,
+																		g: color.g,
+																		b: color.b,
+																		a: Math.round(color.a * 255),
+																	},
+																});
+															}}
+															style={{ width: "100%" }}
+														/>
+													</div>
+												</>,
 												document.body,
 											)}
 									</div>
