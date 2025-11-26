@@ -1058,14 +1058,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Render map-level points (on top of entities) with viewport culling
 				if (mapData.points && mapData.points.length > 0) {
 					const pointBuffer = 50; // Buffer in pixels for point visibility
-					const visibleWorldMinX = Math.max(
-						0,
-						(startX - 1) * currentTileWidth - pointBuffer,
-					);
-					const visibleWorldMinY = Math.max(
-						0,
-						(startY - 1) * currentTileHeight - pointBuffer,
-					);
+					const visibleWorldMinX =
+						(startX - 1) * currentTileWidth - pointBuffer;
+					const visibleWorldMinY =
+						(startY - 1) * currentTileHeight - pointBuffer;
 					const visibleWorldMaxX = (endX + 1) * currentTileWidth + pointBuffer;
 					const visibleWorldMaxY = (endY + 1) * currentTileHeight + pointBuffer;
 
@@ -1138,14 +1134,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Render map-level colliders (on top of points) with viewport culling
 				if (mapData.colliders && mapData.colliders.length > 0) {
 					const colliderBuffer = 100; // Buffer in pixels for collider visibility
-					const visibleWorldMinX = Math.max(
-						0,
-						(startX - 1) * currentTileWidth - colliderBuffer,
-					);
-					const visibleWorldMinY = Math.max(
-						0,
-						(startY - 1) * currentTileHeight - colliderBuffer,
-					);
+					const visibleWorldMinX =
+						(startX - 1) * currentTileWidth - colliderBuffer;
+					const visibleWorldMinY =
+						(startY - 1) * currentTileHeight - colliderBuffer;
 					const visibleWorldMaxX =
 						(endX + 1) * currentTileWidth + colliderBuffer;
 					const visibleWorldMaxY =
