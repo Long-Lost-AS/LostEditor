@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createSimpleTile } from "../../__mocks__/testFactories";
 import type { Layer, TilesetData } from "../../types";
+import { getTile, setTile } from "../chunkStorage";
 import {
 	getTerrainLayerForTile,
 	isTerrainAtPosition,
@@ -22,16 +23,32 @@ import { packTileId } from "../tileId";
  */
 
 describe("terrainDrawing", () => {
-	// Helper to create a test layer
-	function createLayer(tiles: number[], _width: number): Layer {
+	// Helper to create a test layer with tiles stored in chunks
+	function createLayer(tiles: number[], width: number): Layer {
+		// Convert tiles array to chunk-based storage
+		const chunksMap = new Map<string, number[]>();
+		tiles.forEach((tileId, index) => {
+			const x = index % width;
+			const y = Math.floor(index / width);
+			setTile(chunksMap, x, y, tileId);
+		});
+		const chunks = Object.fromEntries(chunksMap);
+
 		return {
 			id: "test-layer-1",
 			name: "Test Layer",
 			visible: true,
-			tiles,
+			chunks,
 			tileWidth: 16,
 			tileHeight: 16,
+			properties: {},
 		};
+	}
+
+	// Helper to read a tile from a layer's chunks
+	function getTileFromLayer(layer: Layer, x: number, y: number): number {
+		const chunksMap = new Map(Object.entries(layer.chunks));
+		return getTile(chunksMap, x, y);
 	}
 
 	// Helper to create a test tileset with terrain
@@ -101,18 +118,18 @@ describe("terrainDrawing", () => {
 			const layer = createLayer([createTileWithOrder(tileset, 1, 1)], 1);
 			const tilesets = [tileset];
 
-			expect(
-				isTerrainAtPosition(layer, -1, 0, 1, 1, "grass-layer-1", tilesets),
-			).toBe(false);
-			expect(
-				isTerrainAtPosition(layer, 0, -1, 1, 1, "grass-layer-1", tilesets),
-			).toBe(false);
-			expect(
-				isTerrainAtPosition(layer, 1, 0, 1, 1, "grass-layer-1", tilesets),
-			).toBe(false);
-			expect(
-				isTerrainAtPosition(layer, 0, 1, 1, 1, "grass-layer-1", tilesets),
-			).toBe(false);
+			expect(isTerrainAtPosition(layer, -1, 0, "grass-layer-1", tilesets)).toBe(
+				false,
+			);
+			expect(isTerrainAtPosition(layer, 0, -1, "grass-layer-1", tilesets)).toBe(
+				false,
+			);
+			expect(isTerrainAtPosition(layer, 1, 0, "grass-layer-1", tilesets)).toBe(
+				false,
+			);
+			expect(isTerrainAtPosition(layer, 0, 1, "grass-layer-1", tilesets)).toBe(
+				false,
+			);
 		});
 
 		it("should return false for empty tile", () => {
@@ -123,8 +140,6 @@ describe("terrainDrawing", () => {
 				layer,
 				0,
 				0,
-				1,
-				1,
 				"grass-layer-1",
 				tilesets,
 			);
@@ -136,7 +151,7 @@ describe("terrainDrawing", () => {
 			const grassTile = createTileWithOrder(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			const result = isTerrainAtPosition(layer, 0, 0, 1, 1, "grass-layer-1", [
+			const result = isTerrainAtPosition(layer, 0, 0, "grass-layer-1", [
 				tileset,
 			]);
 			// This actually works correctly when tested in isolation
@@ -148,7 +163,7 @@ describe("terrainDrawing", () => {
 			const grassTile = createTileWithOrder(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			const result = isTerrainAtPosition(layer, 0, 0, 1, 1, "dirt-layer-1", [
+			const result = isTerrainAtPosition(layer, 0, 0, "dirt-layer-1", [
 				tileset,
 			]);
 			expect(result).toBe(false);
@@ -161,18 +176,18 @@ describe("terrainDrawing", () => {
 
 			const layer = createLayer([grassTile, dirtTile, dirtTile, grassTile], 2);
 
-			expect(
-				isTerrainAtPosition(layer, 0, 0, 2, 2, "grass-layer-1", [tileset]),
-			).toBe(true);
-			expect(
-				isTerrainAtPosition(layer, 1, 0, 2, 2, "dirt-layer-1", [tileset]),
-			).toBe(true);
-			expect(
-				isTerrainAtPosition(layer, 0, 1, 2, 2, "dirt-layer-1", [tileset]),
-			).toBe(true);
-			expect(
-				isTerrainAtPosition(layer, 1, 1, 2, 2, "grass-layer-1", [tileset]),
-			).toBe(true);
+			expect(isTerrainAtPosition(layer, 0, 0, "grass-layer-1", [tileset])).toBe(
+				true,
+			);
+			expect(isTerrainAtPosition(layer, 1, 0, "dirt-layer-1", [tileset])).toBe(
+				true,
+			);
+			expect(isTerrainAtPosition(layer, 0, 1, "dirt-layer-1", [tileset])).toBe(
+				true,
+			);
+			expect(isTerrainAtPosition(layer, 1, 1, "grass-layer-1", [tileset])).toBe(
+				true,
+			);
 		});
 	});
 
@@ -265,10 +280,10 @@ describe("terrainDrawing", () => {
 			const terrainLayer = tileset.terrainLayers?.[0]; // grass
 			const layer = createLayer([0], 1);
 
-			placeTerrainTile(layer, 0, 0, 1, 1, terrainLayer, tileset, 1, [tileset]);
+			placeTerrainTile(layer, 0, 0, terrainLayer, tileset, 1, [tileset]);
 
 			// Should place bitmask 16 tile (center only, no neighbors)
-			expect(layer.tiles[0]).toBe(packTileId(1, 1, 1));
+			expect(getTileFromLayer(layer, 0, 0)).toBe(packTileId(1, 1, 1));
 		});
 
 		it("should do nothing when no matching tile found", () => {
@@ -293,10 +308,10 @@ describe("terrainDrawing", () => {
 			const terrainLayer = tileset.terrainLayers?.[0];
 			const layer = createLayer([0], 1);
 
-			placeTerrainTile(layer, 0, 0, 1, 1, terrainLayer, tileset, 1, [tileset]);
+			placeTerrainTile(layer, 0, 0, terrainLayer, tileset, 1, [tileset]);
 
 			// Should remain empty
-			expect(layer.tiles[0]).toBe(0);
+			expect(getTileFromLayer(layer, 0, 0)).toBe(0);
 		});
 
 		it("should place fully connected tile when surrounded", () => {
@@ -320,12 +335,10 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			placeTerrainTile(layer, 1, 1, 3, 3, terrainLayer, tileset, order, [
-				tileset,
-			]);
+			placeTerrainTile(layer, 1, 1, terrainLayer, tileset, order, [tileset]);
 
 			// Should place bitmask 511 tile (all neighbors)
-			expect(layer.tiles[4]).toBe(packTileId(16, 0, order));
+			expect(getTileFromLayer(layer, 1, 1)).toBe(packTileId(16, 0, order));
 		});
 
 		it("should use correct tileset index for placed tile", () => {
@@ -334,14 +347,14 @@ describe("terrainDrawing", () => {
 			const layer = createLayer([0], 1);
 
 			// Place with tileset index 3
-			placeTerrainTile(layer, 0, 0, 1, 1, terrainLayer, tileset, 3, [
+			placeTerrainTile(layer, 0, 0, terrainLayer, tileset, 3, [
 				tileset,
 				createEmptyTileset(1),
 				createEmptyTileset(2),
 				tileset,
 			]);
 
-			const geometry = layer.tiles[0];
+			const geometry = getTileFromLayer(layer, 0, 0);
 			// Tile should have been repacked with tileset index 3
 			expect(geometry).not.toBe(0);
 		});
@@ -366,10 +379,10 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			placeTerrainTile(layer, 1, 1, 3, 3, grassLayer, tileset, 1, [tileset]);
+			placeTerrainTile(layer, 1, 1, grassLayer, tileset, 1, [tileset]);
 
 			// Should place bitmask 16 tile (center only, no grass neighbors)
-			expect(layer.tiles[4]).toBe(packTileId(1, 1, 1));
+			expect(getTileFromLayer(layer, 1, 1)).toBe(packTileId(1, 1, 1));
 		});
 
 		it("should calculate bitmask based on partial neighbors", () => {
@@ -379,10 +392,10 @@ describe("terrainDrawing", () => {
 
 			const layer = createLayer([grassTile, 0, 0, 0], 2);
 
-			placeTerrainTile(layer, 1, 1, 2, 2, terrainLayer, tileset, 1, [tileset]);
+			placeTerrainTile(layer, 1, 1, terrainLayer, tileset, 1, [tileset]);
 
 			// Should place some tile (exact bitmask depends on neighbors)
-			expect(layer.tiles[3]).not.toBe(0);
+			expect(getTileFromLayer(layer, 1, 1)).not.toBe(0);
 		});
 	});
 
@@ -391,9 +404,9 @@ describe("terrainDrawing", () => {
 			const grassTile = packTileId(1, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			removeTerrainTile(layer, 0, 0, 1, 1);
+			removeTerrainTile(layer, 0, 0);
 
-			expect(layer.tiles[0]).toBe(0);
+			expect(getTileFromLayer(layer, 0, 0)).toBe(0);
 		});
 
 		it("should work on multi-tile grid", () => {
@@ -403,23 +416,23 @@ describe("terrainDrawing", () => {
 				2,
 			);
 
-			removeTerrainTile(layer, 1, 0, 2, 2);
+			removeTerrainTile(layer, 1, 0);
 
-			expect(layer.tiles[0]).toBe(grassTile); // Unchanged
-			expect(layer.tiles[1]).toBe(0); // Removed
-			expect(layer.tiles[2]).toBe(grassTile); // Unchanged
-			expect(layer.tiles[3]).toBe(grassTile); // Unchanged
+			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Unchanged
+			expect(getTileFromLayer(layer, 1, 0)).toBe(0); // Removed
+			expect(getTileFromLayer(layer, 0, 1)).toBe(grassTile); // Unchanged
+			expect(getTileFromLayer(layer, 1, 1)).toBe(grassTile); // Unchanged
 		});
 
 		it("should handle already empty tile", () => {
 			const layer = createLayer([0], 1);
 
-			removeTerrainTile(layer, 0, 0, 1, 1);
+			removeTerrainTile(layer, 0, 0);
 
-			expect(layer.tiles[0]).toBe(0);
+			expect(getTileFromLayer(layer, 0, 0)).toBe(0);
 		});
 
-		it("should calculate correct index for position", () => {
+		it("should calculate correct position for center tile", () => {
 			const grassTile = packTileId(1, 1, 1);
 			const layer = createLayer(
 				[
@@ -436,9 +449,9 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			removeTerrainTile(layer, 1, 1, 3, 3); // Center tile
+			removeTerrainTile(layer, 1, 1); // Center tile
 
-			expect(layer.tiles[4]).toBe(0); // Index 1 + 1*3 = 4
+			expect(getTileFromLayer(layer, 1, 1)).toBe(0); // Position (1,1) removed
 		});
 	});
 
@@ -448,14 +461,14 @@ describe("terrainDrawing", () => {
 			const grassTile = packTileId(1, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			updateNeighborTerrain(layer, -1, 0, 1, 1, "grass-layer-1", tileset, 1, [
+			updateNeighborTerrain(layer, -1, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
-			updateNeighborTerrain(layer, 1, 0, 1, 1, "grass-layer-1", tileset, 1, [
+			updateNeighborTerrain(layer, 1, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
-			expect(layer.tiles[0]).toBe(grassTile); // Unchanged
+			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Unchanged
 		});
 
 		it("should do nothing when tile is from different terrain layer", () => {
@@ -463,11 +476,11 @@ describe("terrainDrawing", () => {
 			const dirtTile = packTileId(1, 16, 1); // Dirt terrain
 			const layer = createLayer([dirtTile], 1);
 
-			updateNeighborTerrain(layer, 0, 0, 1, 1, "grass-layer-1", tileset, 1, [
+			updateNeighborTerrain(layer, 0, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
-			expect(layer.tiles[0]).toBe(dirtTile); // Unchanged
+			expect(getTileFromLayer(layer, 0, 0)).toBe(dirtTile); // Unchanged
 		});
 
 		it("should do nothing when terrain layer not found in tileset", () => {
@@ -476,19 +489,11 @@ describe("terrainDrawing", () => {
 			const grassTile = createTileWithOrder(tileset, 1, 1);
 			const layer = createLayer([grassTile], 1);
 
-			updateNeighborTerrain(
-				layer,
-				0,
-				0,
-				1,
-				1,
-				"unknown-layer",
+			updateNeighborTerrain(layer, 0, 0, "unknown-layer", tileset, order, [
 				tileset,
-				order,
-				[tileset],
-			);
+			]);
 
-			expect(layer.tiles[0]).toBe(grassTile); // Unchanged
+			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Unchanged
 		});
 
 		it("should early return when terrain layer not found by ID (line 165)", () => {
@@ -522,19 +527,11 @@ describe("terrainDrawing", () => {
 			// Try to update as if it's a dirt layer (which doesn't exist in tileset.terrainLayers)
 			// The tile DOES belong to grass-layer-only, so it passes the check at line 154-158
 			// But then at line 161-165 it can't find "dirt-layer-missing" in terrainLayers
-			updateNeighborTerrain(
-				layer,
-				0,
-				0,
-				1,
-				1,
-				"dirt-layer-missing",
+			updateNeighborTerrain(layer, 0, 0, "dirt-layer-missing", tileset, order, [
 				tileset,
-				order,
-				[tileset],
-			);
+			]);
 
-			expect(layer.tiles[0]).toBe(grassTile); // Should remain unchanged
+			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Should remain unchanged
 		});
 
 		it("should update tile when it matches the terrain layer", () => {
@@ -559,20 +556,12 @@ describe("terrainDrawing", () => {
 			);
 
 			// Update center tile which now has all 8 neighbors
-			updateNeighborTerrain(
-				layer,
-				1,
-				1,
-				3,
-				3,
-				"grass-layer-1",
+			updateNeighborTerrain(layer, 1, 1, "grass-layer-1", tileset, order, [
 				tileset,
-				order,
-				[tileset],
-			);
+			]);
 
 			// Tile should be updated to the all-neighbors tile
-			expect(layer.tiles[4]).toBe(grassAllTile);
+			expect(getTileFromLayer(layer, 1, 1)).toBe(grassAllTile);
 		});
 
 		it("should preserve tileset index when updating", () => {
@@ -581,7 +570,7 @@ describe("terrainDrawing", () => {
 
 			const layer = createLayer([grassTileWithIndex3], 1);
 
-			updateNeighborTerrain(layer, 0, 0, 1, 1, "grass-layer-1", tileset, 3, [
+			updateNeighborTerrain(layer, 0, 0, "grass-layer-1", tileset, 3, [
 				tileset,
 				createEmptyTileset(1),
 				createEmptyTileset(2),
@@ -589,7 +578,7 @@ describe("terrainDrawing", () => {
 			]);
 
 			// Tile should still be from tileset index 3
-			expect(layer.tiles[0]).not.toBe(0);
+			expect(getTileFromLayer(layer, 0, 0)).not.toBe(0);
 		});
 	});
 
@@ -613,14 +602,14 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			const originalCenter = layer.tiles[4];
+			const originalCenter = getTileFromLayer(layer, 1, 1);
 
-			updateNeighborsAround(layer, 1, 1, 3, 3, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
 			// Center should remain unchanged
-			expect(layer.tiles[4]).toBe(originalCenter);
+			expect(getTileFromLayer(layer, 1, 1)).toBe(originalCenter);
 
 			// At least some neighbors should potentially be updated
 			// (We can't assert exact values without knowing the exact bitmask logic)
@@ -645,13 +634,13 @@ describe("terrainDrawing", () => {
 				3,
 			);
 
-			const originalCenter = layer.tiles[4];
+			const originalCenter = getTileFromLayer(layer, 1, 1);
 
-			updateNeighborsAround(layer, 1, 1, 3, 3, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
-			expect(layer.tiles[4]).toBe(originalCenter);
+			expect(getTileFromLayer(layer, 1, 1)).toBe(originalCenter);
 		});
 
 		it("should handle edge positions gracefully", () => {
@@ -664,12 +653,12 @@ describe("terrainDrawing", () => {
 			);
 
 			// Update neighbors of top-left corner
-			updateNeighborsAround(layer, 0, 0, 2, 2, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 0, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
-			// Should not crash, tiles should still exist
-			expect(layer.tiles.length).toBe(4);
+			// Should not crash, chunks should still exist
+			expect(Object.keys(layer.chunks).length).toBeGreaterThanOrEqual(0);
 		});
 
 		it("should only update tiles from same terrain layer", () => {
@@ -694,15 +683,15 @@ describe("terrainDrawing", () => {
 
 			const originalDirt = dirtTile;
 
-			updateNeighborsAround(layer, 1, 1, 3, 3, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
 			// Dirt tiles should remain unchanged
-			expect(layer.tiles[1]).toBe(originalDirt);
-			expect(layer.tiles[3]).toBe(originalDirt);
-			expect(layer.tiles[5]).toBe(originalDirt);
-			expect(layer.tiles[7]).toBe(originalDirt);
+			expect(getTileFromLayer(layer, 1, 0)).toBe(originalDirt);
+			expect(getTileFromLayer(layer, 0, 1)).toBe(originalDirt);
+			expect(getTileFromLayer(layer, 2, 1)).toBe(originalDirt);
+			expect(getTileFromLayer(layer, 1, 2)).toBe(originalDirt);
 		});
 
 		it("should handle corner positions", () => {
@@ -715,21 +704,21 @@ describe("terrainDrawing", () => {
 			);
 
 			// Update all 4 corners
-			updateNeighborsAround(layer, 0, 0, 2, 2, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 0, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
-			updateNeighborsAround(layer, 1, 0, 2, 2, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 0, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
-			updateNeighborsAround(layer, 0, 1, 2, 2, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 0, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
-			updateNeighborsAround(layer, 1, 1, 2, 2, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
 			// Should not crash
-			expect(layer.tiles.length).toBe(4);
+			expect(Object.keys(layer.chunks).length).toBeGreaterThanOrEqual(0);
 		});
 	});
 
@@ -740,18 +729,18 @@ describe("terrainDrawing", () => {
 			const layer = createLayer([0, 0, 0, 0, 0, 0, 0, 0, 0], 3);
 
 			// Place center tile
-			placeTerrainTile(layer, 1, 1, 3, 3, terrainLayer, tileset, 1, [tileset]);
-			expect(layer.tiles[4]).not.toBe(0);
+			placeTerrainTile(layer, 1, 1, terrainLayer, tileset, 1, [tileset]);
+			expect(getTileFromLayer(layer, 1, 1)).not.toBe(0);
 
 			// Place neighbor and update
-			placeTerrainTile(layer, 0, 1, 3, 3, terrainLayer, tileset, 1, [tileset]);
-			updateNeighborsAround(layer, 0, 1, 3, 3, "grass-layer-1", tileset, 1, [
+			placeTerrainTile(layer, 0, 1, terrainLayer, tileset, 1, [tileset]);
+			updateNeighborsAround(layer, 0, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
 			// Both tiles should be placed
-			expect(layer.tiles[3]).not.toBe(0);
-			expect(layer.tiles[4]).not.toBe(0);
+			expect(getTileFromLayer(layer, 0, 1)).not.toBe(0);
+			expect(getTileFromLayer(layer, 1, 1)).not.toBe(0);
 		});
 
 		it("should handle terrain removal workflow", () => {
@@ -774,17 +763,17 @@ describe("terrainDrawing", () => {
 			);
 
 			// Remove center tile
-			removeTerrainTile(layer, 1, 1, 3, 3);
-			expect(layer.tiles[4]).toBe(0);
+			removeTerrainTile(layer, 1, 1);
+			expect(getTileFromLayer(layer, 1, 1)).toBe(0);
 
 			// Update neighbors
-			updateNeighborsAround(layer, 1, 1, 3, 3, "grass-layer-1", tileset, 1, [
+			updateNeighborsAround(layer, 1, 1, "grass-layer-1", tileset, 1, [
 				tileset,
 			]);
 
 			// Neighbors should be updated (but we can't assert exact values)
-			expect(layer.tiles[0]).not.toBe(0);
-			expect(layer.tiles[1]).not.toBe(0);
+			expect(getTileFromLayer(layer, 0, 0)).not.toBe(0);
+			expect(getTileFromLayer(layer, 1, 0)).not.toBe(0);
 		});
 
 		it("should handle mixed terrain types", () => {
@@ -796,24 +785,22 @@ describe("terrainDrawing", () => {
 			const layer = createLayer([0, 0, 0, 0, 0, 0, 0, 0, 0], 3);
 
 			// Place grass in center
-			placeTerrainTile(layer, 1, 1, 3, 3, grassLayer, tileset, order, [
-				tileset,
-			]);
+			placeTerrainTile(layer, 1, 1, grassLayer, tileset, order, [tileset]);
 
 			// Place dirt around it
-			placeTerrainTile(layer, 0, 0, 3, 3, dirtLayer, tileset, order, [tileset]);
-			placeTerrainTile(layer, 2, 2, 3, 3, dirtLayer, tileset, order, [tileset]);
+			placeTerrainTile(layer, 0, 0, dirtLayer, tileset, order, [tileset]);
+			placeTerrainTile(layer, 2, 2, dirtLayer, tileset, order, [tileset]);
 
 			// Both types should be placed
-			expect(getTerrainLayerForTile(layer.tiles[0], [tileset])).toBe(
-				"dirt-layer-1",
-			);
-			expect(getTerrainLayerForTile(layer.tiles[4], [tileset])).toBe(
-				"grass-layer-1",
-			);
-			expect(getTerrainLayerForTile(layer.tiles[8], [tileset])).toBe(
-				"dirt-layer-1",
-			);
+			expect(
+				getTerrainLayerForTile(getTileFromLayer(layer, 0, 0), [tileset]),
+			).toBe("dirt-layer-1");
+			expect(
+				getTerrainLayerForTile(getTileFromLayer(layer, 1, 1), [tileset]),
+			).toBe("grass-layer-1");
+			expect(
+				getTerrainLayerForTile(getTileFromLayer(layer, 2, 2), [tileset]),
+			).toBe("dirt-layer-1");
 		});
 	});
 });

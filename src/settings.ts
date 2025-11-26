@@ -4,8 +4,7 @@ import { EditorSettingsSchema } from "./schemas";
 
 export interface EditorSettings {
 	gridVisible: boolean;
-	defaultMapWidth: number;
-	defaultMapHeight: number;
+	// No defaultMapWidth/defaultMapHeight - maps are infinite!
 	defaultTileWidth: number;
 	defaultTileHeight: number;
 	autoSaveInterval: number; // in minutes, 0 = disabled
@@ -16,8 +15,7 @@ export interface EditorSettings {
 
 export const defaultSettings: EditorSettings = {
 	gridVisible: true,
-	defaultMapWidth: 32,
-	defaultMapHeight: 32,
+	// No defaultMapWidth/defaultMapHeight - maps are infinite!
 	defaultTileWidth: 16,
 	defaultTileHeight: 16,
 	autoSaveInterval: 5,

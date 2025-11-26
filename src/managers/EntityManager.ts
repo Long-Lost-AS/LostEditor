@@ -45,12 +45,8 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 
 	/**
 	 * Get an entity definition by entity ID
-	 * Note: tilesetId parameter is ignored (legacy parameter, entities are no longer stored in tilesets)
 	 */
-	getEntityDefinition(
-		_tilesetId: string,
-		entityId: string,
-	): EntityDefinition | undefined {
+	getEntityDefinition(entityId: string): EntityDefinition | undefined {
 		// Search through all loaded entities to find one with matching ID
 		return this.getAllEntities().find((e) => e.id === entityId);
 	}
@@ -98,24 +94,17 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 
 	/**
 	 * Create a new entity instance
-	 * @param tilesetId - Reference to tileset containing the entity sprites
 	 * @param entityDefId - Reference to entity definition
 	 * @param x - X position in pixel coordinates
 	 * @param y - Y position in pixel coordinates
 	 * @returns A new EntityInstance object
 	 */
-	createInstance(
-		tilesetId: string,
-		entityDefId: string,
-		x: number,
-		y: number,
-	): EntityInstance {
+	createInstance(entityDefId: string, x: number, y: number): EntityInstance {
 		return {
 			id: generateId(),
 			x,
 			y,
 			entityDefId,
-			tilesetId,
 			rotation: 0,
 			scale: { x: 1, y: 1 },
 			properties: {},

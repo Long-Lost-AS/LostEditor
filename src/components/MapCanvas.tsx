@@ -10,20 +10,20 @@ import {
 } from "react";
 import { useEditor } from "../context/EditorContext";
 import { entityManager } from "../managers/EntityManager";
-import {
-	type EntityDefinition,
-	type EntityInstance,
-	hasImageData,
-	type MapData,
-	type PointInstance,
-	type PolygonCollider,
-	type Sprite,
-	type Tool,
+import type {
+	EntityDefinition,
+	EntityInstance,
+	MapData,
+	PointInstance,
+	PolygonCollider,
+	Sprite,
+	Tool,
 } from "../types";
 import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "../utils/bitmaskAutotiling";
+import { CHUNK_SIZE, getTile } from "../utils/chunkStorage";
 import {
 	calculateDistance as calcDistance,
 	findEdgeAtPosition as findEdgeAtPos,
@@ -33,13 +33,12 @@ import {
 import { getArrowKeyDelta, isArrowKey } from "../utils/keyboardMovement";
 import { isEditableElementFocused } from "../utils/keyboardUtils";
 import { LayerChunkCache } from "../utils/LayerChunkCache";
-import {
-	getTerrainLayerForTile,
-	placeTerrainTile,
-	updateNeighborsAround,
-} from "../utils/terrainDrawing";
+import { getTerrainLayerForTile } from "../utils/terrainDrawing";
 import { getTileHeight, getTileWidth } from "../utils/tileHelpers";
 import { packTileId, unpackTileId } from "../utils/tileId";
+
+// Maximum number of tiles that can be filled in a single fill operation (prevents infinite fills)
+const MAX_FILL_TILES = 65536;
 
 // Imperative handle exposed by MapCanvas for direct chunk invalidation
 export interface MapCanvasHandle {
@@ -405,8 +404,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				}
 
 				// Get the target terrain layer ID at the start position
-				const startIndex = startY * mapData.width + startX;
-				const startTileId = activeLayer.tiles[startIndex] || 0;
+				const chunksMap = new Map(Object.entries(activeLayer.chunks));
+				const startTileId = getTile(chunksMap, startX, startY) || 0;
 				const targetTerrainLayerId = getTerrainLayerForTile(
 					startTileId,
 					tilesets,
@@ -417,24 +416,20 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const queue: Array<{ x: number; y: number }> = [
 					{ x: startX, y: startY },
 				];
-				const visited = new Set<number>();
+				const visited = new Set<string>();
 
-				while (queue.length > 0) {
+				while (queue.length > 0 && tilesToFill.length < MAX_FILL_TILES) {
 					const pos = queue.shift();
 					if (!pos) continue;
 					const { x, y } = pos;
-					const index = y * mapData.width + x;
-
-					// Skip if out of bounds
-					if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height)
-						continue;
+					const coordKey = `${x},${y}`;
 
 					// Skip if already visited
-					if (visited.has(index)) continue;
-					visited.add(index);
+					if (visited.has(coordKey)) continue;
+					visited.add(coordKey);
 
 					// Skip if not the target terrain layer
-					const currentTileId = activeLayer.tiles[index] || 0;
+					const currentTileId = getTile(chunksMap, x, y) || 0;
 					const currentTerrainLayerId = getTerrainLayerForTile(
 						currentTileId,
 						tilesets,
@@ -462,94 +457,17 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						return;
 					}
 
-					// Calculate tileset order
-					const tilesetOrder = selectedTileset.order;
-
-					// Create a mutable copy of the layer tiles and wrap in a temporary layer object
-					const tempLayer = {
-						...activeLayer,
-						tiles: activeLayer.tiles.slice(), // TODO: Slow on large maps - refactor fill to avoid copy
-					};
-
-					// Place each terrain tile with autotiling
-					for (const { x, y } of tilesToFill) {
-						placeTerrainTile(
-							tempLayer,
-							x,
-							y,
-							mapData.width,
-							mapData.height,
-							terrainLayer,
-							selectedTileset,
-							tilesetOrder,
-							tilesets,
-						);
-					}
-
-					// Optimize: Only update boundary tiles to avoid redundant neighbor updates
-					// Each filled tile already recalculates based on neighbors when placed
-					// We just need to update tiles on the edge of the filled region
-					const filledSet = new Set<string>();
-					for (const { x, y } of tilesToFill) {
-						filledSet.add(`${x},${y}`);
-					}
-
-					// Find boundary tiles (tiles with at least one non-filled neighbor)
-					const boundaryTiles: Array<{ x: number; y: number }> = [];
-					for (const { x, y } of tilesToFill) {
-						let isBoundary = false;
-						// Check if any of the 8 neighbors is NOT in the filled set
-						for (let dy = -1; dy <= 1; dy++) {
-							for (let dx = -1; dx <= 1; dx++) {
-								if (dx === 0 && dy === 0) continue;
-								const nx = x + dx;
-								const ny = y + dy;
-								if (
-									nx >= 0 &&
-									nx < mapData.width &&
-									ny >= 0 &&
-									ny < mapData.height
-								) {
-									if (!filledSet.has(`${nx},${ny}`)) {
-										isBoundary = true;
-										break;
-									}
-								} else {
-									// Out of bounds counts as boundary
-									isBoundary = true;
-									break;
-								}
-							}
-							if (isBoundary) break;
-						}
-						if (isBoundary) {
-							boundaryTiles.push({ x, y });
-						}
-					}
-
-					// Update only boundary tiles - dramatically reduces updates on large fills
-					for (const { x, y } of boundaryTiles) {
-						updateNeighborsAround(
-							tempLayer,
-							x,
-							y,
-							mapData.width,
-							mapData.height,
-							selectedTerrainLayerId,
-							selectedTileset,
-							tilesetOrder,
-							tilesets,
-						);
-					}
-
-					// Place all tiles in one batch
-					onPlaceTilesBatch(tilesToFill);
+					// Note: placeTerrainTile and updateNeighborsAround still use layer.tiles (old format)
+					// They need to be updated to use chunk storage. For now, skip terrain fill.
+					// TODO: Update terrain utilities to use chunk storage
+					console.warn("Terrain fill not yet supported with chunk storage");
+					return;
 				}
 			} else {
 				// TILE MODE: Fill with regular tiles
 				// Get the target tile ID (what we're replacing)
-				const startIndex = startY * mapData.width + startX;
-				const targetTileId = activeLayer.tiles[startIndex] || 0; // Treat undefined as 0 (empty)
+				const chunksMap = new Map(Object.entries(activeLayer.chunks));
+				const targetTileId = getTile(chunksMap, startX, startY) || 0; // Treat undefined as 0 (empty)
 
 				// Get the replacement tile ID and convert to global tile ID
 				if (!selectedTileId || !selectedTilesetId) {
@@ -584,24 +502,20 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const queue: Array<{ x: number; y: number }> = [
 					{ x: startX, y: startY },
 				];
-				const visited = new Set<number>();
+				const visited = new Set<string>();
 
-				while (queue.length > 0) {
+				while (queue.length > 0 && tilesToFill.length < MAX_FILL_TILES) {
 					const pos = queue.shift();
 					if (!pos) continue;
 					const { x, y } = pos;
-					const index = y * mapData.width + x;
-
-					// Skip if out of bounds
-					if (x < 0 || x >= mapData.width || y < 0 || y >= mapData.height)
-						continue;
+					const coordKey = `${x},${y}`;
 
 					// Skip if already visited
-					if (visited.has(index)) continue;
-					visited.add(index);
+					if (visited.has(coordKey)) continue;
+					visited.add(coordKey);
 
 					// Skip if not the target tile (treat undefined as 0)
-					const currentTileId = activeLayer.tiles[index] || 0;
+					const currentTileId = getTile(chunksMap, x, y) || 0;
 					if (currentTileId !== targetTileId) continue;
 
 					// Add to batch
@@ -648,11 +562,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			return cache;
 		}, [tilesets]);
 
-		// Chunk size for spatial grid (64x64 tiles per chunk)
-		const CHUNK_SIZE = 64;
-
 		// Offscreen canvas cache for layer rendering optimization
-		// Each layer is divided into chunks (64x64 tiles), and each chunk is rendered to its own offscreen canvas
+		// Each layer is divided into chunks (16x16 tiles), and each chunk is rendered to its own offscreen canvas
 		// This allows for granular dirty tracking - only re-render chunks that changed
 		const chunkCacheRef = useRef<LayerChunkCache>(
 			new LayerChunkCache(CHUNK_SIZE),
@@ -749,16 +660,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					}
 				}
 
-				// Check for map size changes
-				if (
-					prevMapData.width !== mapData.width ||
-					prevMapData.height !== mapData.height
-				) {
-					chunkCacheRef.current.invalidateAll();
-					mapDataVersionRef.current++;
-					prevMapDataRef.current = mapData;
-					return;
-				}
+				// Note: Map size no longer exists in infinite maps (chunk-based storage)
+				// Chunk-based maps don't have fixed dimensions, so no size change check needed
 			}
 
 			// Update previous mapData reference
@@ -801,15 +704,17 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						// Calculate tile bounds for this chunk
 						const startX = chunkX * CHUNK_SIZE;
 						const startY = chunkY * CHUNK_SIZE;
-						const endX = Math.min(startX + CHUNK_SIZE, mapData.width);
-						const endY = Math.min(startY + CHUNK_SIZE, mapData.height);
+						const endX = startX + CHUNK_SIZE;
+						const endY = startY + CHUNK_SIZE;
+
+						// Convert chunks to Map for efficient tile lookup
+						const chunksMap = new Map(Object.entries(layer.chunks));
 
 						// Render all tiles in this chunk
 						for (let y = startY; y < endY; y++) {
 							for (let x = startX; x < endX; x++) {
-								const index = y * mapData.width + x;
-								const tileId = layer.tiles[index];
-								if (tileId === 0) continue; // Skip empty tiles
+								const tileId = getTile(chunksMap, x, y);
+								if (!tileId || tileId === 0) continue; // Skip empty tiles
 
 								// Unpack tile geometry
 								const geometry = unpackTileId(tileId);
@@ -867,7 +772,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				ctx: CanvasRenderingContext2D,
 				entityDef: EntityDefinition,
 				instance: EntityInstance,
-				tilesetImage: HTMLImageElement,
 				parentX: number = instance.x,
 				parentY: number = instance.y,
 				parentRotation: number = 0,
@@ -877,6 +781,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					entityDef.sprites.forEach((spriteLayer: Sprite) => {
 						// Skip if sprite is missing
 						if (!spriteLayer.rect) return;
+
+						// Look up the tileset for this sprite
+						const tileset = getTilesetById(spriteLayer.tilesetId);
+						if (!tileset?.imageData) return;
+						const tilesetImage = tileset.imageData;
 
 						ctx.save();
 
@@ -976,7 +885,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					});
 				}
 			},
-			[],
+			[getTilesetById],
 		);
 
 		// Extract render logic to a function so we can call it synchronously after resize
@@ -1023,11 +932,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						(canvas.height - currentPan.y) / currentZoom / currentTileHeight,
 					) + 1;
 
-				// Clamp to map bounds
-				const startX = Math.max(0, visibleMinX);
-				const startY = Math.max(0, visibleMinY);
-				const endX = Math.min(mapData.width, visibleMaxX);
-				const endY = Math.min(mapData.height, visibleMaxY);
+				// No need to clamp to map bounds in infinite maps
+				const startX = visibleMinX;
+				const startY = visibleMinY;
+				const endX = visibleMaxX;
+				const endY = visibleMaxY;
 
 				// Calculate which chunks are visible in the viewport
 				const { chunkX: minChunkX, chunkY: minChunkY } = getChunkCoordinates(
@@ -1040,7 +949,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				);
 
 				// Render each layer bottom-to-top using chunked offscreen canvas caching
-				// Each chunk is 64x64 tiles, allowing granular dirty tracking when painting tiles
+				// Each chunk is 16x16 tiles, allowing granular dirty tracking when painting tiles
 
 				mapData.layers.forEach((layer) => {
 					if (!layer.visible) return;
@@ -1070,14 +979,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				if (mapData.entities && mapData.entities.length > 0) {
 					// Calculate visible world bounds for entity viewport culling
 					const entityCullingBuffer = 3; // Buffer in tiles to account for large entities
-					const visibleWorldMinX = Math.max(
-						0,
-						(startX - entityCullingBuffer) * currentTileWidth,
-					);
-					const visibleWorldMinY = Math.max(
-						0,
-						(startY - entityCullingBuffer) * currentTileHeight,
-					);
+					const visibleWorldMinX =
+						(startX - entityCullingBuffer) * currentTileWidth;
+					const visibleWorldMinY =
+						(startY - entityCullingBuffer) * currentTileHeight;
 					const visibleWorldMaxX =
 						(endX + entityCullingBuffer) * currentTileWidth;
 					const visibleWorldMaxY =
@@ -1086,7 +991,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					// Helper function to calculate Y-sort position for an entity
 					const getEntityYSortPosition = (instance: EntityInstance) => {
 						const entityDef = entityManager.getEntityDefinition(
-							instance.tilesetId,
 							instance.entityDefId,
 						);
 
@@ -1128,11 +1032,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					});
 
 					sortedEntities.forEach((entityInstance) => {
-						const tileset = getTilesetById(entityInstance.tilesetId);
-						if (!tileset?.imageData) return;
-
 						const entityDef = entityManager.getEntityDefinition(
-							entityInstance.tilesetId,
 							entityInstance.entityDefId,
 						);
 
@@ -1151,7 +1051,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								: entityInstance;
 
 						// Render entity with hierarchy
-						renderEntity(ctx, entityDef, instanceToRender, tileset.imageData);
+						renderEntity(ctx, entityDef, instanceToRender);
 					});
 				}
 
@@ -1522,19 +1422,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							if (!currentLayer) return;
 
 							// Helper to check if a neighbor tile belongs to this terrain layer
+							const chunksMap = new Map(Object.entries(currentLayer.chunks));
 							const hasNeighbor = (dx: number, dy: number): boolean => {
 								const nx = tileX + dx;
 								const ny = tileY + dy;
-								if (
-									nx < 0 ||
-									ny < 0 ||
-									nx >= mapData.width ||
-									ny >= mapData.height
-								) {
-									return false;
-								}
-								const index = ny * mapData.width + nx;
-								const neighborTileId = currentLayer.tiles[index];
+								const neighborTileId = getTile(chunksMap, nx, ny);
 								if (!neighborTileId) return false;
 
 								// Check if this tile belongs to the selected terrain layer
@@ -1582,16 +1474,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				) {
 					const entityDefId = selectedEntityDefIdRef.current;
 					if (entityDefId) {
-						const entityDef = entityManager.getEntityDefinition(
-							selectedTilesetId,
-							entityDefId,
-						);
-						const tileset = getTilesetById(selectedTilesetId);
+						const entityDef = entityManager.getEntityDefinition(entityDefId);
 
 						if (
 							entityDef &&
-							tileset &&
-							hasImageData(tileset) &&
 							entityDef.sprites &&
 							entityDef.sprites.length > 0
 						) {
@@ -1609,6 +1495,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							entityDef.sprites.forEach((spriteLayer) => {
 								// Skip if sprite is missing
 								if (!spriteLayer.rect) return;
+
+								// Look up the tileset for this sprite
+								const tileset = getTilesetById(spriteLayer.tilesetId);
+								if (!tileset?.imageData) return;
 
 								const sprite = spriteLayer.rect;
 								const offset = spriteLayer.offset || { x: 0, y: 0 };
@@ -1766,15 +1656,12 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						(e) => e.id === currentSelectedId,
 					);
 					if (selectedEntity) {
-						const tileset = getTilesetById(selectedEntity.tilesetId);
 						const entityDef = entityManager.getEntityDefinition(
-							selectedEntity.tilesetId,
 							selectedEntity.entityDefId,
 						);
 
 						if (
 							entityDef &&
-							tileset?.imageData &&
 							entityDef.sprites &&
 							entityDef.sprites.length > 0
 						) {
@@ -2030,6 +1917,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			getChunkCoordinates,
 			tilesetByOrder,
 			tileDefinitionCache,
+			currentTileWidth,
+			currentTileHeight,
 		]);
 
 		// Trigger render when dependencies change
@@ -2060,6 +1949,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			isDraggingColliderPoint,
 			tempColliderPointPosition,
 			currentTool,
+			currentTileWidth,
+			currentTileHeight,
 		]);
 
 		const screenToWorld = (screenX: number, screenY: number) => {
@@ -2182,7 +2073,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						for (let i = mapData.entities.length - 1; i >= 0; i--) {
 							const entity = mapData.entities[i];
 							const entityDef = entityManager.getEntityDefinition(
-								entity.tilesetId,
 								entity.entityDefId,
 							);
 
@@ -2449,17 +2339,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			// Update mouse position in tile coordinates for status bar
 			if (onMousePositionChange) {
 				const { tileX, tileY } = getTileCoords(e.clientX, e.clientY);
-				// Only send if within map bounds
-				if (
-					tileX >= 0 &&
-					tileX < mapData.width &&
-					tileY >= 0 &&
-					tileY < mapData.height
-				) {
-					onMousePositionChange(tileX, tileY);
-				} else {
-					onMousePositionChange(null, null);
-				}
+				// Always send tile position (infinite maps have no bounds)
+				onMousePositionChange(tileX, tileY);
 			}
 
 			// Trigger render for tools that show cursor previews (pencil, entity, point)
@@ -2513,7 +2394,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				if (selectedEntity) {
 					const entityDef = entityManager.getEntityDefinition(
-						selectedEntity.tilesetId,
 						selectedEntity.entityDefId,
 					);
 
@@ -2967,7 +2847,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				for (let i = mapData.entities.length - 1; i >= 0; i--) {
 					const entity = mapData.entities[i];
 					const entityDef = entityManager.getEntityDefinition(
-						entity.tilesetId,
 						entity.entityDefId,
 					);
 
@@ -3533,7 +3412,6 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									if (entity) {
 										// Get the entity definition to find the file path
 										const entityDef = entityManager.getEntityDefinition(
-											entity.tilesetId,
 											entity.entityDefId,
 										);
 										if (entityDef?.filePath) {

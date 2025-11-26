@@ -1,7 +1,7 @@
 /**
  * Map serialization utilities
  * Converts between runtime format (MapData) and serialized format (SerializedMapData)
- * Version 4.0: Uses dense arrays of regular numbers (48-bit packed tile IDs)
+ * Version 5.0: Uses chunk-based storage for infinite maps
  */
 
 import type {
@@ -10,33 +10,44 @@ import type {
 	SerializedLayer,
 	SerializedMapData,
 } from "../types";
+import { isChunkEmpty } from "./chunkStorage";
 
 /**
- * Serialize map data to file format (dense array of tile IDs)
+ * Serialize map data to file format (chunk-based storage)
  * @param mapData - Runtime map data
  * @returns Serialized map data ready for JSON.stringify
  */
 export function serializeMapData(mapData: MapData): SerializedMapData {
-	// Convert layers - tiles are already in the right format!
-	const serializedLayers: SerializedLayer[] = mapData.layers.map((layer) => ({
-		id: layer.id,
-		name: layer.name,
-		visible: layer.visible,
-		tiles: layer.tiles, // Dense array - already serializable!
-		tileWidth: layer.tileWidth,
-		tileHeight: layer.tileHeight,
-	}));
+	// Convert layers - filter out empty chunks
+	const serializedLayers: SerializedLayer[] = mapData.layers.map((layer) => {
+		// Convert Map to Record, filtering empty chunks
+		const chunks: Record<string, number[]> = {};
+		for (const [key, chunk] of Object.entries(layer.chunks)) {
+			if (!isChunkEmpty(chunk)) {
+				chunks[key] = chunk;
+			}
+		}
+
+		return {
+			id: layer.id,
+			name: layer.name,
+			visible: layer.visible,
+			chunks, // Chunk-based storage
+			tileWidth: layer.tileWidth,
+			tileHeight: layer.tileHeight,
+			properties: layer.properties || {},
+		};
+	});
 
 	return {
-		version: "4.0",
+		version: "5.0",
 		id: mapData.id,
 		name: mapData.name,
-		width: mapData.width,
-		height: mapData.height,
+		// No width/height - infinite map!
 		layers: serializedLayers,
-		entities: mapData.entities, // Entities at map level
-		points: mapData.points, // Points at map level
-		colliders: mapData.colliders, // Colliders at map level
+		entities: mapData.entities,
+		points: mapData.points,
+		colliders: mapData.colliders,
 	};
 }
 
@@ -46,36 +57,26 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
  * @returns Runtime map data
  */
 export function deserializeMapData(serialized: SerializedMapData): MapData {
-	// Convert layers - ensure tiles array has correct size
+	// Convert layers - chunks are already in the correct format
 	const layers: Layer[] = serialized.layers.map((layer) => {
-		// Tiles are already in the correct format
-		// Just ensure the array exists and has the right size for the map
-		const expectedSize = serialized.width * serialized.height;
-		let tiles = layer.tiles || [];
-
-		// If tiles array is too small, pad with zeros
-		if (tiles.length < expectedSize) {
-			tiles = [...tiles, ...new Array(expectedSize - tiles.length).fill(0)];
-		}
-
 		return {
 			id: layer.id,
 			name: layer.name,
 			visible: layer.visible,
-			tiles,
+			chunks: layer.chunks || {}, // Already a Record, use as-is
 			tileWidth: layer.tileWidth ?? 16,
 			tileHeight: layer.tileHeight ?? 16,
+			properties: layer.properties || {},
 		};
 	});
 
 	return {
 		id: serialized.id,
 		name: serialized.name,
-		width: serialized.width,
-		height: serialized.height,
+		// No width/height - infinite map!
 		layers,
-		entities: serialized.entities || [], // Entities at map level
-		points: serialized.points || [], // Points at map level
-		colliders: serialized.colliders || [], // Colliders at map level
+		entities: serialized.entities || [],
+		points: serialized.points || [],
+		colliders: serialized.colliders || [],
 	};
 }

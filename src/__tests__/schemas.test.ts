@@ -30,7 +30,7 @@ function createDefaultLayer(
 		id: generateId(),
 		name,
 		visible: true,
-		tiles: [],
+		chunks: {},
 	});
 }
 
@@ -326,22 +326,22 @@ describe("schemas", () => {
 			expect(() => LayerSchema.parse(valid)).not.toThrow();
 		});
 
-		it("should default tiles to empty array", () => {
+		it("should default chunks to empty object", () => {
 			const input = {
 				id: "layer-1",
 				name: "Layer 1",
 				visible: true,
 			};
 			const result = LayerSchema.parse(input);
-			expect(result.tiles).toEqual([]);
+			expect(result.chunks).toEqual({});
 		});
 
-		it("should validate layer with tiles", () => {
+		it("should validate layer with chunks", () => {
 			const valid = {
 				id: "layer-1",
 				name: "Layer 1",
 				visible: true,
-				tiles: [1, 2, 3, 0, 5],
+				chunks: { "0,0": [1, 2, 3, 0, 5] },
 			};
 			expect(() => LayerSchema.parse(valid)).not.toThrow();
 		});
@@ -352,10 +352,6 @@ describe("schemas", () => {
 			const valid = {
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			expect(() => MapDataSchema.parse(valid)).not.toThrow();
 		});
@@ -364,10 +360,6 @@ describe("schemas", () => {
 			const input = {
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			const result = MapDataSchema.parse(input);
 			expect(result.layers).toEqual([]);
@@ -377,54 +369,21 @@ describe("schemas", () => {
 			const input = {
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			const result = MapDataSchema.parse(input);
 			expect(result.entities).toEqual([]);
-		});
-
-		it("should reject zero width", () => {
-			const invalid = {
-				id: generateId(),
-				name: "Test Map",
-				width: 0,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
-			};
-			expect(() => MapDataSchema.parse(invalid)).toThrow();
-		});
-
-		it("should reject negative dimensions", () => {
-			const invalid = {
-				id: generateId(),
-				name: "Test Map",
-				width: -10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
-			};
-			expect(() => MapDataSchema.parse(invalid)).toThrow();
 		});
 
 		it("should validate complete map", () => {
 			const valid = {
 				id: generateId(),
 				name: "Complete Map",
-				width: 20,
-				height: 15,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile" as const,
-						tiles: [1, 2, 3],
+						chunks: { "0,0": [1, 2, 3] },
 					},
 				],
 				entities: [],
@@ -434,28 +393,20 @@ describe("schemas", () => {
 	});
 
 	describe("SerializedMapDataSchema", () => {
-		it("should validate v4.0 map format", () => {
+		it("should validate v5.0 map format", () => {
 			const valid = {
-				version: "4.0" as const,
+				version: "5.0" as const,
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			expect(() => SerializedMapDataSchema.parse(valid)).not.toThrow();
 		});
 
-		it("should reject non-4.0 version", () => {
+		it("should reject non-5.0 version", () => {
 			const invalid = {
-				version: "3.0",
+				version: "4.0",
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			expect(() => SerializedMapDataSchema.parse(invalid)).toThrow();
 		});
@@ -464,30 +415,21 @@ describe("schemas", () => {
 			const invalid = {
 				id: generateId(),
 				name: "Test Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			expect(() => SerializedMapDataSchema.parse(invalid)).toThrow();
 		});
 
 		it("should validate serialized map with layers", () => {
 			const valid = {
-				version: "4.0" as const,
+				version: "5.0" as const,
 				id: generateId(),
 				name: "Complete",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile" as const,
-						tiles: [1, 2, 3],
+						chunks: { "0,0": [1, 2, 3] },
 					},
 				],
 				entities: [],
@@ -499,33 +441,24 @@ describe("schemas", () => {
 	describe("MapFileSchema", () => {
 		it("should be equivalent to SerializedMapDataSchema", () => {
 			const valid = {
-				version: "4.0" as const,
+				version: "5.0" as const,
 				id: generateId(),
 				name: "File Map",
-				width: 10,
-				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 			};
 			expect(() => MapFileSchema.parse(valid)).not.toThrow();
 		});
 
 		it("should validate .lostmap file format", () => {
 			const fileContent = {
-				version: "4.0" as const,
+				version: "5.0" as const,
 				id: generateId(),
 				name: "Saved Map",
-				width: 32,
-				height: 32,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
-						type: "tile" as const,
-						tiles: Array(32 * 32).fill(0),
+						chunks: { "0,0": Array(16).fill(0), "1,0": Array(16).fill(0) },
 					},
 				],
 				entities: [],
@@ -863,11 +796,9 @@ describe("schemas", () => {
 			expect(() => EditorSettingsSchema.parse(invalid)).toThrow();
 		});
 
-		it("should reject missing defaultMapWidth", () => {
+		it("should reject missing defaultTileWidth", () => {
 			const invalid = {
 				gridVisible: true,
-				defaultMapHeight: 32,
-				defaultTileWidth: 16,
 				defaultTileHeight: 16,
 				autoSaveInterval: 5,
 				recentFilesLimit: 10,
@@ -910,34 +841,33 @@ describe("schemas", () => {
 	});
 
 	describe("SerializedLayerSchema", () => {
-		it("should validate serialized layer with tiles", () => {
+		it("should validate serialized layer with chunks", () => {
 			const valid = {
 				id: "layer-1",
 				name: "Ground",
 				visible: true,
-				type: "tile" as const,
-				tiles: [1, 2, 3, 0, 5],
+				chunks: { "0,0": [1, 2, 3, 0, 5] },
 			};
 			expect(() => SerializedLayerSchema.parse(valid)).not.toThrow();
 		});
 
-		it("should default tiles to empty array", () => {
+		it("should default chunks to empty object", () => {
 			const input = {
 				id: "layer-1",
 				name: "Ground",
 				visible: true,
-				type: "tile" as const,
 			};
 			const result = SerializedLayerSchema.parse(input);
-			expect(result.tiles).toEqual([]);
+			expect(result.chunks).toEqual({});
 		});
 
-		it("should accept entity layer type", () => {
+		it("should validate serialized layer with tile dimensions", () => {
 			const valid = {
 				id: "layer-1",
-				name: "Entities",
+				name: "Ground",
 				visible: true,
-				type: "entity" as const,
+				tileWidth: 32,
+				tileHeight: 32,
 			};
 			expect(() => SerializedLayerSchema.parse(valid)).not.toThrow();
 		});
@@ -949,7 +879,7 @@ describe("schemas", () => {
 				const layer = createDefaultLayer();
 				expect(layer.name).toBe("Layer 1");
 				expect(layer.visible).toBe(true);
-				expect(layer.tiles).toEqual([]);
+				expect(layer.chunks).toEqual({});
 				// UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 				expect(layer.id).toMatch(
 					/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
@@ -978,7 +908,7 @@ describe("schemas", () => {
 				expect(layer).toHaveProperty("id");
 				expect(layer).toHaveProperty("name");
 				expect(layer).toHaveProperty("visible");
-				expect(layer).toHaveProperty("tiles");
+				expect(layer).toHaveProperty("chunks");
 			});
 		});
 
@@ -986,8 +916,6 @@ describe("schemas", () => {
 			it("should create map with default parameters", () => {
 				const map = createDefaultMapData();
 				expect(map.name).toBe("Untitled Map");
-				expect(map.width).toBe(32);
-				expect(map.height).toBe(32);
 				expect(map.layers[0].tileWidth).toBe(16);
 				expect(map.layers[0].tileHeight).toBe(16);
 			});
@@ -997,17 +925,10 @@ describe("schemas", () => {
 				expect(map.name).toBe("My Map");
 			});
 
-			it("should create map with custom dimensions", () => {
-				const map = createDefaultMapData("Test", 64, 48);
-				expect(map.width).toBe(64);
-				expect(map.height).toBe(48);
-			});
-
-			it("should include default layer with correct tile count", () => {
-				const map = createDefaultMapData("Test", 10, 20);
+			it("should include default layer with empty chunks", () => {
+				const map = createDefaultMapData("Test");
 				expect(map.layers).toHaveLength(1);
-				expect(map.layers[0].tiles).toHaveLength(200); // 10 * 20
-				expect(map.layers[0].tiles.every((t) => t === 0)).toBe(true);
+				expect(map.layers[0].chunks).toEqual({});
 			});
 
 			it("should initialize entities array", () => {
@@ -1016,11 +937,11 @@ describe("schemas", () => {
 			});
 
 			it("should create valid map that passes schema validation", () => {
-				const map = createDefaultMapData("Valid Map", 16, 16);
+				const map = createDefaultMapData("Valid Map");
 				expect(() => MapDataSchema.parse(map)).not.toThrow();
 			});
 
-			it("should set first layer as tile type", () => {
+			it("should set first layer as visible", () => {
 				const map = createDefaultMapData();
 				expect(map.layers[0].visible).toBe(true);
 			});
@@ -1031,8 +952,6 @@ describe("schemas", () => {
 				const validData = {
 					id: generateId(),
 					name: "Test",
-					width: 10,
-					height: 10,
 					layers: [],
 					entities: [],
 					points: [],
@@ -1045,9 +964,7 @@ describe("schemas", () => {
 			it("should throw on invalid data", () => {
 				const invalidData = {
 					id: generateId(),
-					name: "Test",
-					width: -10, // Invalid negative width
-					height: 10,
+					// Missing required 'name' field
 				};
 				expect(() => ensureValidMapData(invalidData)).toThrow();
 			});
@@ -1055,9 +972,7 @@ describe("schemas", () => {
 			it("should throw on missing required fields", () => {
 				const invalidData = {
 					id: generateId(),
-					name: "Test",
-					width: 10,
-					// missing height, tileWidth, tileHeight
+					// Missing required 'name' field
 				};
 				expect(() => ensureValidMapData(invalidData)).toThrow();
 			});
@@ -1066,10 +981,6 @@ describe("schemas", () => {
 				const minimalData = {
 					id: generateId(),
 					name: "Test",
-					width: 10,
-					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 				};
 				const result = ensureValidMapData(minimalData);
 				expect(result.layers).toEqual([]);
@@ -1087,17 +998,12 @@ describe("schemas", () => {
 				const validData = {
 					id: generateId(),
 					name: "Test",
-					width: 10,
-					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 					layers: [
 						{
 							id: "layer-1",
 							name: "Ground",
 							visible: true,
-							type: "tile" as const,
-							tiles: [1, 2, 3],
+							chunks: { "0,0": [1, 2, 3] },
 						},
 					],
 					entities: [],
@@ -1124,10 +1030,6 @@ describe("schemas", () => {
 				const validData = {
 					id: generateId(),
 					name: "Test",
-					width: 10,
-					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 				};
 				expect(validateMapData(validData)).toBe(true);
 			});
@@ -1135,11 +1037,7 @@ describe("schemas", () => {
 			it("should return false for invalid data", () => {
 				const invalidData = {
 					id: generateId(),
-					name: "Test",
-					width: -10,
-					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
+					// Missing required 'name' field
 				};
 				expect(validateMapData(invalidData)).toBe(false);
 			});
@@ -1147,8 +1045,7 @@ describe("schemas", () => {
 			it("should return false for missing required fields", () => {
 				const invalidData = {
 					id: generateId(),
-					name: "Test",
-					width: 10,
+					// Missing required 'name' field
 				};
 				expect(validateMapData(invalidData)).toBe(false);
 			});
@@ -1168,16 +1065,12 @@ describe("schemas", () => {
 				const validData = {
 					id: generateId(),
 					name: "Test",
-					width: 10,
-					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 					layers: [
 						{
 							id: "layer-1",
 							name: "Ground",
 							visible: true,
-							type: "tile" as const,
+							chunks: { "0,0": [1, 2, 3] },
 						},
 					],
 					entities: [],

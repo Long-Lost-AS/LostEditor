@@ -85,26 +85,22 @@ export const TerrainLayerSchema = z.object({
 	tiles: z.array(TerrainTileSchema).default([]),
 });
 
-// Entity definition is recursive, so we need to define it with z.lazy
-export const EntityDefinitionSchema: z.ZodType<EntityDefinition> = z.lazy(() =>
-	z.object({
-		id: z.string(),
-		name: z.string().default(""),
-		type: z.string().default(""),
-		sprites: z.array(SpriteSchema).default([]),
-		offset: z
-			.object({
-				x: z.number(),
-				y: z.number(),
-			})
-			.default({ x: 0, y: 0 }),
-		rotation: z.number().default(0),
-		colliders: z.array(PolygonColliderSchema).default([]),
-		children: z.array(EntityDefinitionSchema).default([]),
-		properties: z.record(z.string(), z.string()).default({}),
-		filePath: z.string().optional(),
-	}),
-);
+export const EntityDefinitionSchema: z.ZodType<EntityDefinition> = z.object({
+	id: z.string(),
+	name: z.string().default(""),
+	type: z.string().default(""),
+	sprites: z.array(SpriteSchema).default([]),
+	offset: z
+		.object({
+			x: z.number(),
+			y: z.number(),
+		})
+		.default({ x: 0, y: 0 }),
+	rotation: z.number().default(0),
+	colliders: z.array(PolygonColliderSchema).default([]),
+	properties: z.record(z.string(), z.string()).default({}),
+	filePath: z.string().optional(),
+});
 
 export const TilesetDataSchema = z.object({
 	version: z.string().default("1.0"),
@@ -135,7 +131,6 @@ export const EntityInstanceSchema: z.ZodType<EntityInstance> = z.lazy(() =>
 		x: z.number(),
 		y: z.number(),
 		entityDefId: z.string(),
-		tilesetId: z.string(),
 		rotation: z.number().default(0),
 		scale: z
 			.object({
@@ -160,45 +155,45 @@ export const LayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
-	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
+	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
+	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 
 export const MapDataSchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	width: z.number().positive(),
-	height: z.number().positive(),
+	// No width/height - infinite map!
 	layers: z.array(LayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]),
 	points: z.array(PointInstanceSchema).default([]),
 	colliders: z.array(PolygonColliderSchema).default([]),
 });
 
-// Schemas for serialized format (version 4.0 - dense array with regular numbers)
+// Schemas for serialized format (version 5.0 - chunk-based storage)
 export const SerializedLayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
-	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
+	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
+	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 
 export const SerializedMapDataSchema = z.object({
-	version: z.literal("4.0"), // New version
+	version: z.literal("5.0"), // Chunk-based infinite maps
 	id: z.string(),
 	name: z.string(),
-	width: z.number().positive(),
-	height: z.number().positive(),
+	// No width/height - infinite map!
 	layers: z.array(SerializedLayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]), // Entities at map level (required, can be empty)
 	points: z.array(PointInstanceSchema).default([]), // Points at map level (required, can be empty)
 	colliders: z.array(PolygonColliderSchema).default([]), // Colliders at map level (required, can be empty)
 });
 
-// Map file schema (for .lostmap files) - version 4.0 only
+// Map file schema (for .lostmap files) - version 5.0 chunk-based
 export const MapFileSchema = SerializedMapDataSchema;
 
 // ===========================
@@ -415,8 +410,7 @@ export const ProjectDataSchema = z.object({
 
 export const EditorSettingsSchema = z.object({
 	gridVisible: z.boolean(),
-	defaultMapWidth: z.number(),
-	defaultMapHeight: z.number(),
+	// No defaultMapWidth/defaultMapHeight - maps are infinite!
 	defaultTileWidth: z.number(),
 	defaultTileHeight: z.number(),
 	autoSaveInterval: z.number(), // in minutes, 0 = disabled
@@ -435,20 +429,17 @@ export const EditorSettingsSchema = z.object({
  */
 export function createDefaultMapData(
 	name: string = "Untitled Map",
-	width: number = 32,
-	height: number = 32,
 ): z.infer<typeof MapDataSchema> {
 	return MapDataSchema.parse({
 		id: generateId(),
 		name,
-		width,
-		height,
+		// No width/height - infinite map!
 		layers: [
 			{
 				id: generateId(),
 				name: "Layer 1",
 				visible: true,
-				tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
+				chunks: {}, // Empty chunks - tiles created on demand
 				tileWidth: 16,
 				tileHeight: 16,
 			},

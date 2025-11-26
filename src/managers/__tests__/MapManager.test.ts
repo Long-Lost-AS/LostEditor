@@ -21,19 +21,18 @@ describe("MapManager", () => {
 	describe("load", () => {
 		it("should load and deserialize valid map file", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Test Map",
-				width: 32,
-				height: 24,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Layer 1",
 						visible: true,
-						tiles: [0, 0, 0],
+						chunks: { "0,0": [0, 0, 0] },
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 				entities: [],
@@ -49,18 +48,14 @@ describe("MapManager", () => {
 				"/test/project/maps/test.lostmap",
 			);
 			expect(result.name).toBe("Test Map");
-			expect(result.width).toBe(32);
-			expect(result.height).toBe(24);
 			expect(result.layers).toHaveLength(1);
 		});
 
 		it("should cache loaded map", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Cached Map",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -80,11 +75,9 @@ describe("MapManager", () => {
 
 		it("should handle concurrent load requests", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Concurrent Map",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -111,7 +104,7 @@ describe("MapManager", () => {
 
 		it("should throw ValidationError for invalid map data", async () => {
 			const invalidData = {
-				version: "4.0",
+				version: "5.0",
 				// Missing required fields
 				name: "Invalid Map",
 			};
@@ -141,19 +134,18 @@ describe("MapManager", () => {
 
 		it("should deserialize tile layers with BigInt tile IDs", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "BigInt Map",
-				width: 2,
-				height: 2,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Layer 1",
 						visible: true,
-						tiles: [123456789012345, 987654321098765, 0, 1],
+						chunks: { "0,0": [123456789012345, 987654321098765, 0, 1] },
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 				entities: [],
@@ -167,10 +159,10 @@ describe("MapManager", () => {
 
 			const tileLayer = result.layers[0];
 			// Note: Tiles are stored as regular numbers in runtime format
-			expect(tileLayer.tiles[0]).toBe(123456789012345);
-			expect(tileLayer.tiles[1]).toBe(987654321098765);
-			expect(tileLayer.tiles[2]).toBe(0);
-			expect(tileLayer.tiles[3]).toBe(1);
+			expect(tileLayer.chunks["0,0"][0]).toBe(123456789012345);
+			expect(tileLayer.chunks["0,0"][1]).toBe(987654321098765);
+			expect(tileLayer.chunks["0,0"][2]).toBe(0);
+			expect(tileLayer.chunks["0,0"][3]).toBe(1);
 		});
 	});
 
@@ -178,16 +170,15 @@ describe("MapManager", () => {
 		it("should serialize and save map data", async () => {
 			const mapData = createMockMap({
 				name: "Save Test",
-				width: 16,
-				height: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
-						tiles: [0, 1, 2, 3],
+						chunks: { "0,0": [0, 1, 2, 3] },
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 			});
@@ -202,10 +193,12 @@ describe("MapManager", () => {
 
 			// Verify serialized content
 			const saved = JSON.parse(content);
-			expect(saved.version).toBe("4.0");
+			expect(saved.version).toBe("5.0");
 			expect(saved.name).toBe("Save Test");
-			// Serialization converts tiles to strings for BigInt compatibility
-			expect(saved.layers[0].tiles).toEqual([0, 1, 2, 3]);
+			// Serialization pads chunks to full 16x16 (256 elements)
+			const chunk = saved.layers[0].chunks["0,0"];
+			expect(chunk.length).toBe(256);
+			expect(chunk.slice(0, 4)).toEqual([0, 1, 2, 3]);
 		});
 
 		it("should update map name when provided", async () => {
@@ -234,18 +227,24 @@ describe("MapManager", () => {
 			expect(cached).toBe(mapData);
 		});
 
-		it("should format tile arrays with row-based line breaks", async () => {
+		it("should format chunk arrays as 16x16 grid", async () => {
+			// Create a 16x16 chunk (256 elements) with some values in first row
+			const chunk = new Array(256).fill(0);
+			chunk[0] = 1;
+			chunk[1] = 2;
+			chunk[2] = 3;
+			chunk[16] = 4; // Second row, first column
+
 			const mapData = createMockMap({
-				width: 3,
-				height: 2,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
-						tiles: [1, 2, 3, 4, 5, 6],
+						chunks: { "0,0": chunk },
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 			});
@@ -256,23 +255,24 @@ describe("MapManager", () => {
 
 			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
 
-			// Check that tiles are formatted with line breaks
-			expect(content).toContain("1, 2, 3");
-			expect(content).toContain("4, 5, 6");
+			// Check that chunks are formatted as rows (each row on its own line)
+			// First row should contain: 1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0
+			expect(content).toContain("1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,0");
+			// Second row should start with 4
+			expect(content).toContain("4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
 		});
 
-		it("should handle empty tile layer", async () => {
+		it("should handle empty chunk", async () => {
 			const mapData = createMockMap({
-				width: 16,
-				height: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
-						tiles: [],
+						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 			});
@@ -283,7 +283,7 @@ describe("MapManager", () => {
 
 			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
 			const saved = JSON.parse(content);
-			expect(saved.layers[0].tiles).toEqual([]);
+			expect(saved.layers[0].chunks).toEqual({});
 		});
 
 		it("should throw error when file write fails", async () => {
@@ -300,11 +300,9 @@ describe("MapManager", () => {
 	describe("getMap", () => {
 		it("should return cached map by path", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Get Test",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -327,11 +325,9 @@ describe("MapManager", () => {
 
 		it("should resolve relative paths", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Relative Path",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -355,11 +351,9 @@ describe("MapManager", () => {
 
 		it("should return all loaded maps", async () => {
 			const mockMap1: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Map 1",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -367,11 +361,9 @@ describe("MapManager", () => {
 			};
 
 			const mockMap2: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Map 2",
-				width: 32,
-				height: 32,
 				layers: [],
 				entities: [],
 				points: [],
@@ -395,11 +387,9 @@ describe("MapManager", () => {
 	describe("unloadAll", () => {
 		it("should clear all cached maps", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Clear Test",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -422,11 +412,9 @@ describe("MapManager", () => {
 	describe("loadMap (legacy)", () => {
 		it("should call load method", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Legacy Test",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -445,11 +433,9 @@ describe("MapManager", () => {
 		describe("invalidate", () => {
 			it("should remove map from cache", async () => {
 				const mockMapData: SerializedMapData = {
-					version: "4.0",
+					version: "5.0",
 					id: generateId(),
 					name: "Invalidate Test",
-					width: 16,
-					height: 16,
 					layers: [],
 					entities: [],
 					points: [],
@@ -469,11 +455,9 @@ describe("MapManager", () => {
 		describe("updatePath", () => {
 			it("should update cached path", async () => {
 				const mockMapData: SerializedMapData = {
-					version: "4.0",
+					version: "5.0",
 					id: generateId(),
 					name: "Update Path Test",
-					width: 16,
-					height: 16,
 					layers: [],
 					entities: [],
 					points: [],
@@ -506,11 +490,9 @@ describe("MapManager", () => {
 
 			it("should return all cached paths", async () => {
 				const mockMapData: SerializedMapData = {
-					version: "4.0",
+					version: "5.0",
 					id: generateId(),
 					name: "Paths Test",
-					width: 16,
-					height: 16,
 					layers: [],
 					entities: [],
 					points: [],
@@ -532,11 +514,9 @@ describe("MapManager", () => {
 		describe("clearCache", () => {
 			it("should clear all cached data", async () => {
 				const mockMapData: SerializedMapData = {
-					version: "4.0",
+					version: "5.0",
 					id: generateId(),
 					name: "Clear Cache Test",
-					width: 16,
-					height: 16,
 					layers: [],
 					entities: [],
 					points: [],
@@ -559,19 +539,18 @@ describe("MapManager", () => {
 	describe("integration scenarios", () => {
 		it("should handle load-modify-save workflow", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Original Map",
-				width: 16,
-				height: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Layer 1",
 						visible: true,
-						tiles: [0, 0, 0, 0],
+						chunks: { "0,0": [0, 0, 0, 0] },
 						tileWidth: 16,
 						tileHeight: 16,
+						properties: {},
 					},
 				],
 				entities: [],
@@ -588,7 +567,7 @@ describe("MapManager", () => {
 
 			// Modify
 			mapData.name = "Modified Map";
-			mapData.layers[0].tiles[0] = 999;
+			mapData.layers[0].chunks["0,0"][0] = 999;
 
 			// Save
 			await mapManager.saveMap(mapData, "maps/workflow.lostmap");
@@ -596,16 +575,14 @@ describe("MapManager", () => {
 			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
 			const saved = JSON.parse(content);
 			expect(saved.name).toBe("Modified Map");
-			expect(saved.layers[0].tiles[0]).toBe(999);
+			expect(saved.layers[0].chunks["0,0"][0]).toBe(999);
 		});
 
 		it("should handle multiple maps in cache", async () => {
 			const mockMap1: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Map 1",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -613,11 +590,9 @@ describe("MapManager", () => {
 			};
 
 			const mockMap2: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Map 2",
-				width: 32,
-				height: 32,
 				layers: [],
 				entities: [],
 				points: [],
@@ -633,18 +608,14 @@ describe("MapManager", () => {
 
 			expect(map1.name).toBe("Map 1");
 			expect(map2.name).toBe("Map 2");
-			expect(map1.width).toBe(16);
-			expect(map2.width).toBe(32);
 			expect(mapManager.getAllMaps()).toHaveLength(2);
 		});
 
 		it("should handle reload after invalidation", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Reload Test",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -667,19 +638,27 @@ describe("MapManager", () => {
 
 		it("should preserve map integrity through save/load cycle", async () => {
 			// NOTE: This test only uses tile layers due to a bug in MapManager.formatMapJSON
-			// which doesn't replace __TILES_PLACEHOLDER__ for non-tile layers (line 108-130)
+			// which doesn't replace __CHUNKS_PLACEHOLDER__ for non-tile layers (line 108-130)
 			const originalMap = createMockMap({
 				name: "Integrity Test",
-				width: 8,
-				height: 8,
 				layers: [
 					{
 						id: "layer-ground",
 						name: "Ground",
 						visible: true,
-						tiles: [1, 2, 3, 4, 5, 6, 7, 8],
+						// Full 256-element chunk (16x16)
+						chunks: {
+							"0,0": (() => {
+								const chunk = new Array(256).fill(0);
+								chunk[0] = 1;
+								chunk[1] = 2;
+								chunk[16] = 3; // Row 1, col 0
+								return chunk;
+							})(),
+						},
 						tileWidth: 32,
 						tileHeight: 32,
+						properties: {},
 					},
 				],
 			});
@@ -703,16 +682,13 @@ describe("MapManager", () => {
 
 			// Verify integrity
 			expect(reloaded.name).toBe(originalMap.name);
-			expect(reloaded.width).toBe(originalMap.width);
-			expect(reloaded.height).toBe(originalMap.height);
 			expect(reloaded.layers).toHaveLength(originalMap.layers.length);
 
 			const reloadedTileLayer = reloaded.layers[0];
-			// Deserialization pads tiles to match map size (width * height)
-			expect(reloadedTileLayer.tiles.slice(0, 8)).toEqual(
-				originalMap.layers[0].tiles,
+			// Verify chunk data is preserved
+			expect(reloadedTileLayer.chunks["0,0"]).toEqual(
+				originalMap.layers[0].chunks["0,0"],
 			);
-			expect(reloadedTileLayer.tiles.length).toBe(8 * 8); // 64 tiles for 8x8 map
 		});
 	});
 
@@ -725,11 +701,9 @@ describe("MapManager", () => {
 
 		it("should share cache across singleton references", async () => {
 			const mockMapData: SerializedMapData = {
-				version: "4.0",
+				version: "5.0",
 				id: generateId(),
 				name: "Singleton Test",
-				width: 16,
-				height: 16,
 				layers: [],
 				entities: [],
 				points: [],

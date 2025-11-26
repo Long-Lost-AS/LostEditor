@@ -33,6 +33,7 @@ import type {
 	TilesetTab,
 	Tool,
 } from "../types";
+import { setTile } from "../utils/chunkStorage";
 import { generateId } from "../utils/id";
 import { isCompoundTile } from "../utils/tileHelpers";
 import { packTileId, unpackTileId } from "../utils/tileId";
@@ -444,9 +445,10 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			id: generateId(),
 			name: `Layer ${currentMap.layers.length + 1}`,
 			visible: true,
-			tiles: [],
+			chunks: {},
 			tileWidth: 16,
 			tileHeight: 16,
+			properties: {},
 		};
 
 		updateMap(mapTab.mapId, {
@@ -567,13 +569,13 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 				geometry.flipY,
 			);
 
-			// Update layers immutably
-			const mapWidth = currentMap.width;
-			const mapHeight = currentMap.height;
-
+			// Update layers immutably using chunk-based storage
 			const updatedLayers = currentMap.layers.map((layer) => {
 				if (layer.id === currentLayer.id) {
-					const newTiles = [...layer.tiles]; // Copy the dense array
+					// Create a mutable copy of chunks
+					const newChunks = { ...layer.chunks };
+					// Convert to Map for setTile operations
+					const chunksMap = new Map(Object.entries(newChunks));
 
 					// Handle compound tiles
 					if (
@@ -591,43 +593,37 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 							(selectedTileDef.height ?? 0) / tileHeight,
 						);
 
-						// Place all cells of the compound tile
+						// Place all cells of the compound tile (no bounds check - infinite map)
 						for (let dy = 0; dy < heightInTiles; dy++) {
 							for (let dx = 0; dx < widthInTiles; dx++) {
 								const cellX = x + dx;
 								const cellY = y + dy;
 
-								// Check bounds
-								if (
-									cellX >= 0 &&
-									cellY >= 0 &&
-									cellX < mapWidth &&
-									cellY < mapHeight
-								) {
-									// Each cell of the compound tile should reference a different part of the sprite
-									const cellSpriteX = geometry.x + dx * tileWidth;
-									const cellSpriteY = geometry.y + dy * tileHeight;
-									const cellTileId = packTileId(
-										cellSpriteX,
-										cellSpriteY,
-										tilesetIndex,
-										geometry.flipX,
-										geometry.flipY,
-									);
-									const index = cellY * mapWidth + cellX;
-									newTiles[index] = cellTileId;
-								}
+								// Each cell of the compound tile should reference a different part of the sprite
+								const cellSpriteX = geometry.x + dx * tileWidth;
+								const cellSpriteY = geometry.y + dy * tileHeight;
+								const cellTileId = packTileId(
+									cellSpriteX,
+									cellSpriteY,
+									tilesetIndex,
+									geometry.flipX,
+									geometry.flipY,
+								);
+								setTile(chunksMap, cellX, cellY, cellTileId);
 							}
 						}
 					} else {
-						// Regular single tile
-						if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-							const index = y * mapWidth + x;
-							newTiles[index] = globalTileId;
-						}
+						// Regular single tile (no bounds check - infinite map)
+						setTile(chunksMap, x, y, globalTileId);
 					}
 
-					const updatedLayer = { ...layer, tiles: newTiles };
+					// Convert Map back to Record
+					const updatedChunks: Record<string, number[]> = {};
+					for (const [key, chunk] of chunksMap) {
+						updatedChunks[key] = chunk;
+					}
+
+					const updatedLayer = { ...layer, chunks: updatedChunks };
 					setCurrentLayer(updatedLayer);
 					return updatedLayer;
 				}
@@ -660,21 +656,24 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			const currentMap = getMapById(mapTab.mapId);
 			if (!currentMap) return;
 
-			// Update layers immutably
-			const mapWidth = currentMap.width;
-			const mapHeight = currentMap.height;
-
+			// Update layers immutably using chunk-based storage
 			const updatedLayers = currentMap.layers.map((layer) => {
 				if (layer.id === currentLayer.id) {
-					const newTiles = [...layer.tiles]; // Copy the dense array
+					// Create a mutable copy of chunks
+					const newChunks = { ...layer.chunks };
+					// Convert to Map for setTile operations
+					const chunksMap = new Map(Object.entries(newChunks));
 
-					// Erase the tile by setting it to 0
-					if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-						const index = y * mapWidth + x;
-						newTiles[index] = 0;
+					// Erase the tile by setting it to 0 (no bounds check - infinite map)
+					setTile(chunksMap, x, y, 0);
+
+					// Convert Map back to Record
+					const updatedChunks: Record<string, number[]> = {};
+					for (const [key, chunk] of chunksMap) {
+						updatedChunks[key] = chunk;
 					}
 
-					const updatedLayer = { ...layer, tiles: newTiles };
+					const updatedLayer = { ...layer, chunks: updatedChunks };
 
 					setCurrentLayer(updatedLayer);
 					return updatedLayer;
@@ -1292,10 +1291,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 						}
 					} else if (tab.type === "entity-editor") {
 						// Hydrate entity tab from serialized format
-						const entityData = entityManager.getEntityDefinition(
-							"",
-							tab.entityId,
-						);
+						const entityData = entityManager.getEntityDefinition(tab.entityId);
 
 						if (entityData) {
 							const fullEntityTab: EntityEditorTab = {

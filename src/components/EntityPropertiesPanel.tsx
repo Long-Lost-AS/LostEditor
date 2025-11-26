@@ -30,11 +30,12 @@ export const EntityPropertiesPanel = ({
 		return <div className="p-4 text-gray-500">Entity not found</div>;
 	}
 
-	const entityDef = entityManager.getEntityDefinition(
-		entity.tilesetId,
-		entity.entityDefId,
-	);
-	const tileset = tilesets.find((t) => t.id === entity.tilesetId);
+	const entityDef = entityManager.getEntityDefinition(entity.entityDefId);
+	// Get tileset from first sprite (entities can have sprites from multiple tilesets)
+	const firstSpriteTilesetId = entityDef?.sprites?.[0]?.tilesetId;
+	const tileset = firstSpriteTilesetId
+		? tilesets.find((t) => t.id === firstSpriteTilesetId)
+		: undefined;
 
 	const handleUpdatePosition = (x: number, y: number) => {
 		onUpdateEntity?.(entity.id, { x, y });
@@ -95,7 +96,7 @@ export const EntityPropertiesPanel = ({
 							className="text-white text-sm px-2.5 py-1.5 rounded"
 							style={{ background: "#3e3e42", color: "#cccccc" }}
 						>
-							{tileset?.name || entity.tilesetId}
+							{tileset?.name || firstSpriteTilesetId || "Unknown"}
 						</div>
 					</div>
 

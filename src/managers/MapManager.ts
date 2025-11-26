@@ -20,19 +20,19 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 	 * Prepare map data for serialization using serializeMapData
 	 */
 	protected prepareForSave(data: MapData): MapFileJson {
-		// Use serializeMapData to convert to version 4.0 format
+		// Use serializeMapData to convert to version 5.0 format (chunk-based)
 		const serialized = serializeMapData(data);
 		return serialized as MapFileJson;
 	}
 
 	/**
-	 * Post-process validated JSON data (version 4.0 only)
+	 * Post-process validated JSON data (version 5.0 only)
 	 */
 	protected async postProcess(
 		validated: MapFileJson,
 		_filePath: string,
 	): Promise<MapData> {
-		// All maps should be version 4.0 now
+		// All maps should be version 5.0 now (chunk-based)
 		const serialized = validated as unknown as SerializedMapData;
 		return deserializeMapData(serialized);
 	}
@@ -69,15 +69,15 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			mapData.name = mapName;
 		}
 
-		// Serialize to version 3.0 format (BigInt global tile IDs)
+		// Serialize to version 5.0 format (chunk-based storage)
 		const serialized = serializeMapData(mapData);
 
 		// Save the serialized data
 		const fullPath = fileManager.resolvePath(filePath);
 		const normalizedPath = fileManager.normalize(fullPath);
 
-		// Format tiles array with width-based rows for readability
-		const jsonString = this.formatMapJSON(serialized, mapData.width);
+		// Format chunks for readability
+		const jsonString = this.formatMapJSON(serialized);
 		await writeTextFile(fullPath, jsonString);
 
 		// Update cache with the runtime format
@@ -85,50 +85,76 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 	}
 
 	/**
-	 * Format map JSON with tiles arranged in rows matching map width
+	 * Format map JSON with chunks formatted as 16x16 grids for readability
 	 * @private
 	 */
-	private formatMapJSON(
-		serialized: SerializedMapData,
-		mapWidth: number,
-	): string {
-		// First, stringify everything except tiles arrays normally
-		const replacer = (key: string, value: unknown) => {
-			// Don't process tiles arrays here - we'll handle them manually
-			if (key === "tiles" && Array.isArray(value)) {
-				return "__TILES_PLACEHOLDER__";
+	private formatMapJSON(serialized: SerializedMapData): string {
+		const CHUNK_SIZE = 16;
+
+		// Format a chunk array as a 16x16 grid with each row on its own line
+		const formatChunkAsGrid = (chunk: number[], indent: string): string => {
+			// Ensure chunk is padded to full size (256 elements)
+			const fullChunk =
+				chunk.length === CHUNK_SIZE * CHUNK_SIZE
+					? chunk
+					: [
+							...chunk,
+							...new Array(CHUNK_SIZE * CHUNK_SIZE - chunk.length).fill(0),
+						];
+
+			const rows: string[] = [];
+			for (let row = 0; row < CHUNK_SIZE; row++) {
+				const start = row * CHUNK_SIZE;
+				const rowData = fullChunk.slice(start, start + CHUNK_SIZE);
+				rows.push(`${indent}  ${JSON.stringify(rowData).slice(1, -1)}`);
 			}
-			return value;
+			return `[\n${rows.join(",\n")}\n${indent}]`;
 		};
 
-		let jsonString = JSON.stringify(serialized, replacer, 2);
+		// First, stringify without chunk formatting
+		const baseJson = JSON.stringify(serialized, null, 2);
 
-		// Now replace each tiles placeholder with formatted flat array (row-based line breaks)
-		serialized.layers.forEach((layer) => {
-			// Ensure tiles array exists, even if empty
-			const tiles = layer.tiles && layer.tiles.length > 0 ? layer.tiles : [];
+		// Parse and manually rebuild with formatted chunks
+		const parsed = JSON.parse(baseJson);
 
-			// Build a flat array string with line breaks every mapWidth tiles
-			const parts: string[] = [];
-			if (tiles.length > 0) {
-				for (let i = 0; i < tiles.length; i += mapWidth) {
-					const row = tiles.slice(i, i + mapWidth);
-					parts.push(row.join(", "));
-				}
+		// Rebuild JSON manually to control chunk formatting
+		const lines: string[] = ["{"];
+		lines.push(`  "version": ${JSON.stringify(parsed.version)},`);
+		lines.push(`  "id": ${JSON.stringify(parsed.id)},`);
+		lines.push(`  "name": ${JSON.stringify(parsed.name)},`);
+		lines.push('  "layers": [');
+
+		for (let i = 0; i < parsed.layers.length; i++) {
+			const layer = parsed.layers[i];
+			lines.push("    {");
+			lines.push(`      "id": ${JSON.stringify(layer.id)},`);
+			lines.push(`      "name": ${JSON.stringify(layer.name)},`);
+			lines.push(`      "visible": ${layer.visible},`);
+			lines.push('      "chunks": {');
+
+			const chunkKeys = Object.keys(layer.chunks);
+			for (let j = 0; j < chunkKeys.length; j++) {
+				const key = chunkKeys[j];
+				const chunk = layer.chunks[key];
+				const formattedChunk = formatChunkAsGrid(chunk, "        ");
+				const comma = j < chunkKeys.length - 1 ? "," : "";
+				lines.push(`        ${JSON.stringify(key)}: ${formattedChunk}${comma}`);
 			}
-			const formattedTiles =
-				tiles.length > 0
-					? `[\n        ${parts.join(",\n        ")}\n      ]`
-					: "[]";
 
-			// Replace the first occurrence of the placeholder
-			jsonString = jsonString.replace(
-				'"__TILES_PLACEHOLDER__"',
-				formattedTiles,
-			);
-		});
+			lines.push("      },");
+			lines.push(`      "tileWidth": ${layer.tileWidth},`);
+			lines.push(`      "tileHeight": ${layer.tileHeight}`);
+			const layerComma = i < parsed.layers.length - 1 ? "," : "";
+			lines.push(`    }${layerComma}`);
+		}
 
-		return jsonString;
+		lines.push("  ],");
+		lines.push(`  "entities": ${JSON.stringify(parsed.entities)},`);
+		lines.push(`  "points": ${JSON.stringify(parsed.points)},`);
+		lines.push(`  "colliders": ${JSON.stringify(parsed.colliders)}`);
+		lines.push("}");
+
+		return lines.join("\n");
 	}
 
 	/**

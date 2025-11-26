@@ -35,9 +35,10 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 		id: "test-layer-1",
 		name: "Tile Layer 1",
 		visible: true,
-		tiles: [],
+		chunks: {},
 		tileWidth: 16,
 		tileHeight: 16,
+		properties: {},
 		...overrides,
 	};
 }
@@ -46,8 +47,6 @@ export function createMockMap(overrides?: Partial<MapData>): MapData {
 	return {
 		id: generateId(),
 		name: "Test Map",
-		width: 32,
-		height: 24,
 		layers: [createMockLayer()],
 		entities: [],
 		points: [],
@@ -176,8 +175,17 @@ export function createPopulatedTileLayer(
 	tileWidth = 16,
 	tileHeight = 16,
 ): Layer {
-	const tiles = new Array(width * height).fill(fillTileId);
-	return createMockLayer({ tiles, tileWidth, tileHeight });
+	const chunks: Record<string, number[]> = {};
+	const chunkSize = 16;
+	for (let y = 0; y < height; y += chunkSize) {
+		for (let x = 0; x < width; x += chunkSize) {
+			const chunkWidth = Math.min(chunkSize, width - x);
+			const chunkHeight = Math.min(chunkSize, height - y);
+			const chunkKey = `${x},${y}`;
+			chunks[chunkKey] = new Array(chunkWidth * chunkHeight).fill(fillTileId);
+		}
+	}
+	return createMockLayer({ chunks, tileWidth, tileHeight });
 }
 
 /**

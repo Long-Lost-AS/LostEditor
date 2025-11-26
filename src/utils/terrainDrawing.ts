@@ -3,27 +3,23 @@ import {
 	calculateBitmaskFromNeighbors,
 	findTileByBitmask,
 } from "./bitmaskAutotiling";
+import { getTile, setTile } from "./chunkStorage";
 import { packTileId, unpackTileId } from "./tileId";
 
 /**
  * Check if a specific position on the map has terrain from a specific terrain layer
+ * Works with infinite maps - no bounds checking needed
  */
 export function isTerrainAtPosition(
 	layer: Layer,
 	x: number,
 	y: number,
-	mapWidth: number,
-	mapHeight: number,
 	terrainLayerId: string,
 	tilesets: TilesetData[],
 ): boolean {
-	// Bounds check
-	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
-		return false;
-	}
-
-	const index = y * mapWidth + x;
-	const tileId = layer.tiles[index];
+	// Convert chunks Record to Map for getTile
+	const chunksMap = new Map(Object.entries(layer.chunks));
+	const tileId = getTile(chunksMap, x, y);
 
 	// No tile at this position
 	if (tileId === 0) {
@@ -67,13 +63,12 @@ export function getTerrainLayerForTile(
 
 /**
  * Place a terrain tile at the specified position with smart neighbor detection
+ * Works with infinite maps - no bounds checking needed
  */
 export function placeTerrainTile(
 	layer: Layer,
 	x: number,
 	y: number,
-	mapWidth: number,
-	mapHeight: number,
 	terrainLayer: TerrainLayer,
 	tileset: TilesetData,
 	tilesetOrder: number,
@@ -85,8 +80,6 @@ export function placeTerrainTile(
 			layer,
 			x + dx,
 			y + dy,
-			mapWidth,
-			mapHeight,
 			terrainLayer.id,
 			tilesets,
 		);
@@ -102,47 +95,40 @@ export function placeTerrainTile(
 	// Pack the matched tile's coordinates with the tileset order
 	const globalTileId = packTileId(matchingTile.x, matchingTile.y, tilesetOrder);
 
-	// Place the tile
-	const index = y * mapWidth + x;
-	layer.tiles[index] = globalTileId;
+	// Place the tile using chunk storage
+	const chunksMap = new Map(Object.entries(layer.chunks));
+	setTile(chunksMap, x, y, globalTileId);
+
+	// Update layer.chunks with the new data
+	layer.chunks = Object.fromEntries(chunksMap);
 }
 
 /**
- * Remove a terrain tile and update neighbors
+ * Remove a terrain tile
+ * Works with infinite maps - no bounds checking needed
  */
-export function removeTerrainTile(
-	layer: Layer,
-	x: number,
-	y: number,
-	mapWidth: number,
-	_mapHeight: number,
-): void {
-	const index = y * mapWidth + x;
-	layer.tiles[index] = 0;
+export function removeTerrainTile(layer: Layer, x: number, y: number): void {
+	const chunksMap = new Map(Object.entries(layer.chunks));
+	setTile(chunksMap, x, y, 0);
+	layer.chunks = Object.fromEntries(chunksMap);
 }
 
 /**
  * Update the terrain tile at a specific position based on its neighbors
  * Used when a neighbor changes and this tile needs to recalculate its bitmask
+ * Works with infinite maps - no bounds checking needed
  */
 export function updateNeighborTerrain(
 	layer: Layer,
 	x: number,
 	y: number,
-	mapWidth: number,
-	mapHeight: number,
 	terrainLayerId: string,
 	tileset: TilesetData,
 	tilesetOrder: number,
 	tilesets: TilesetData[],
 ): void {
-	// Bounds check
-	if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
-		return;
-	}
-
-	const index = y * mapWidth + x;
-	const currentTileId = layer.tiles[index];
+	const chunksMap = new Map(Object.entries(layer.chunks));
+	const currentTileId = getTile(chunksMap, x, y);
 
 	// Check if this position has terrain from the same layer
 	const belongsToLayer = getTerrainLayerForTile(currentTileId, tilesets);
@@ -160,28 +146,17 @@ export function updateNeighborTerrain(
 	}
 
 	// Recalculate bitmask and place updated tile
-	placeTerrainTile(
-		layer,
-		x,
-		y,
-		mapWidth,
-		mapHeight,
-		terrainLayer,
-		tileset,
-		tilesetOrder,
-		tilesets,
-	);
+	placeTerrainTile(layer, x, y, terrainLayer, tileset, tilesetOrder, tilesets);
 }
 
 /**
  * Update all 8 neighbors around a position after terrain changes
+ * Works with infinite maps - no bounds checking needed
  */
 export function updateNeighborsAround(
 	layer: Layer,
 	x: number,
 	y: number,
-	mapWidth: number,
-	mapHeight: number,
 	terrainLayerId: string,
 	tileset: TilesetData,
 	tilesetOrder: number,
@@ -196,8 +171,6 @@ export function updateNeighborsAround(
 				layer,
 				x + dx,
 				y + dy,
-				mapWidth,
-				mapHeight,
 				terrainLayerId,
 				tileset,
 				tilesetOrder,

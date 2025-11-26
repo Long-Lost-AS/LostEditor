@@ -1,5 +1,10 @@
 import { useCallback, useReducer, useRef } from "react";
 import type { MapData } from "../types";
+import {
+	CHUNK_SIZE,
+	createEmptyChunk,
+	getChunkKey,
+} from "../utils/chunkStorage";
 
 /**
  * Represents a change to a specific chunk of tiles
@@ -8,7 +13,7 @@ interface ChunkPatch {
 	layerId: string;
 	chunkX: number;
 	chunkY: number;
-	chunkSize: number; // 64x64 typically
+	chunkSize: number; // 16x16
 	oldTiles: number[]; // Only the tiles in this chunk
 	newTiles: number[];
 }
@@ -56,56 +61,38 @@ type ChunkedMapAction =
 	| { type: "START_BATCH" }
 	| { type: "END_BATCH" };
 
-const CHUNK_SIZE = 64;
-
 /**
  * Extract tiles for a specific chunk from a layer
+ * With chunk-based storage, this is just a direct lookup
  */
 function extractChunkTiles(
 	layer: MapData["layers"][0],
 	chunkX: number,
 	chunkY: number,
-	mapWidth: number,
-	mapHeight: number,
 ): number[] {
-	const tiles: number[] = [];
-	const startX = chunkX * CHUNK_SIZE;
-	const startY = chunkY * CHUNK_SIZE;
-	const endX = Math.min(startX + CHUNK_SIZE, mapWidth);
-	const endY = Math.min(startY + CHUNK_SIZE, mapHeight);
-
-	for (let y = startY; y < endY; y++) {
-		for (let x = startX; x < endX; x++) {
-			const index = y * mapWidth + x;
-			tiles.push(layer.tiles[index] || 0);
-		}
-	}
-
-	return tiles;
+	const key = getChunkKey(chunkX, chunkY);
+	const chunk = layer.chunks[key];
+	// Return a copy to avoid reference issues, or empty chunk if not found
+	return chunk ? [...chunk] : createEmptyChunk();
 }
 
 /**
  * Apply chunk tiles back to a layer
+ * With chunk-based storage, this is direct assignment
  */
 function applyChunkTiles(
 	layer: MapData["layers"][0],
 	chunkTiles: number[],
 	chunkX: number,
 	chunkY: number,
-	mapWidth: number,
-	mapHeight: number,
 ): void {
-	const startX = chunkX * CHUNK_SIZE;
-	const startY = chunkY * CHUNK_SIZE;
-	const endX = Math.min(startX + CHUNK_SIZE, mapWidth);
-	const endY = Math.min(startY + CHUNK_SIZE, mapHeight);
-
-	let tileIdx = 0;
-	for (let y = startY; y < endY; y++) {
-		for (let x = startX; x < endX; x++) {
-			const index = y * mapWidth + x;
-			layer.tiles[index] = chunkTiles[tileIdx++];
-		}
+	const key = getChunkKey(chunkX, chunkY);
+	// Check if chunk is all zeros - if so, remove it
+	const isEmpty = chunkTiles.every((t) => t === 0);
+	if (isEmpty) {
+		delete layer.chunks[key];
+	} else {
+		layer.chunks[key] = chunkTiles;
 	}
 }
 
@@ -153,13 +140,7 @@ function createPatches(
 		}
 
 		const oldTiles = oldChunk.tiles;
-		const newTiles = extractChunkTiles(
-			newLayer,
-			chunkX,
-			chunkY,
-			newMap.width,
-			newMap.height,
-		);
+		const newTiles = extractChunkTiles(newLayer, chunkX, chunkY);
 
 		// Only create patch if tiles actually changed
 		if (JSON.stringify(oldTiles) !== JSON.stringify(newTiles)) {
@@ -182,10 +163,13 @@ function createPatches(
  */
 function applyPatch(map: MapData, patch: MapPatch, reverse: boolean): MapData {
 	// Create new map structure (shallow copies for React change detection)
-	// but KEEP the same tiles arrays - we'll mutate them in place
+	// but KEEP the same chunks objects - we'll mutate them in place
 	const newMap: MapData = {
 		...map,
-		layers: map.layers.map((layer) => ({ ...layer })),
+		layers: map.layers.map((layer) => ({
+			...layer,
+			chunks: { ...layer.chunks }, // Shallow copy chunks for immutability
+		})),
 	};
 
 	for (const chunkPatch of patch.chunks) {
@@ -193,16 +177,8 @@ function applyPatch(map: MapData, patch: MapPatch, reverse: boolean): MapData {
 		if (!layer) continue;
 
 		// Apply old or new tiles depending on direction
-		// Mutate the tiles array IN PLACE (no cloning!)
 		const tilesToApply = reverse ? chunkPatch.oldTiles : chunkPatch.newTiles;
-		applyChunkTiles(
-			layer,
-			tilesToApply,
-			chunkPatch.chunkX,
-			chunkPatch.chunkY,
-			newMap.width,
-			newMap.height,
-		);
+		applyChunkTiles(layer, tilesToApply, chunkPatch.chunkX, chunkPatch.chunkY);
 	}
 
 	return newMap;
@@ -394,7 +370,7 @@ export interface ChunkedMapControls {
 
 /**
  * Chunk-optimized undo/redo for large maps
- * Only stores changed 64x64 chunks instead of entire map
+ * Only stores changed 16x16 chunks instead of entire map
  */
 export function useChunkedMapUndo(
 	initialState: MapData,
@@ -437,13 +413,7 @@ export function useChunkedMapUndo(
 							(l) => l.id === layerId,
 						);
 						if (!layer) return null;
-						const tiles = extractChunkTiles(
-							layer,
-							chunkX,
-							chunkY,
-							stateRef.current.present.width,
-							stateRef.current.present.height,
-						);
+						const tiles = extractChunkTiles(layer, chunkX, chunkY);
 						return {
 							layerId,
 							chunkX,

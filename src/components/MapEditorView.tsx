@@ -30,6 +30,7 @@ import type {
 	PolygonCollider,
 	Tool,
 } from "../types";
+import { CHUNK_SIZE, getTile, setTile } from "../utils/chunkStorage";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
@@ -38,6 +39,7 @@ import {
 } from "../utils/terrainDrawing";
 import { packTileId, unpackTileId } from "../utils/tileId";
 import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
+import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { PencilIcon, TrashIcon } from "./Icons";
@@ -207,8 +209,6 @@ export const MapEditorView = ({
 		mapData || {
 			id: "",
 			name: "",
-			width: 0,
-			height: 0,
 			layers: [],
 			entities: [],
 			points: [],
@@ -280,7 +280,9 @@ export const MapEditorView = ({
 					chunksByLayer.set(layerId, []);
 				}
 				// Convert chunk coords to tile coords (any tile in the chunk will do)
-				chunksByLayer.get(layerId)?.push({ x: chunkX * 64, y: chunkY * 64 });
+				chunksByLayer
+					.get(layerId)
+					?.push({ x: chunkX * CHUNK_SIZE, y: chunkY * CHUNK_SIZE });
 			}
 			// Invalidate chunks for each layer
 			for (const [layerId, tiles] of chunksByLayer) {
@@ -310,18 +312,18 @@ export const MapEditorView = ({
 	}, [localMapMeta, setLocalMapData]);
 
 	// Sync localLayers structural changes back to localMapData
-	// Preserves tiles from localMapData (managed by useChunkedMapUndo)
+	// Preserves chunks from localMapData (managed by useChunkedMapUndo)
 	// Uses structural properties (name, visible, tileWidth, tileHeight, order) from localLayers
 	useEffect(() => {
 		setLocalMapData((prev) => {
-			// Create a map of existing layer tiles by id
-			const existingTiles = new Map(prev.layers.map((l) => [l.id, l.tiles]));
+			// Create a map of existing layer chunks by id
+			const existingChunks = new Map(prev.layers.map((l) => [l.id, l.chunks]));
 
 			// Build new layers array preserving order from localLayers
-			// and keeping tiles from localMapData (or using localLayers tiles for new layers)
+			// and keeping chunks from localMapData (or using localLayers chunks for new layers)
 			const newLayers = localLayers.map((layer) => ({
 				...layer,
-				tiles: existingTiles.get(layer.id) ?? layer.tiles,
+				chunks: existingChunks.get(layer.id) ?? layer.chunks,
 			}));
 
 			return {
@@ -510,63 +512,7 @@ export const MapEditorView = ({
 		}
 	};
 
-	// Utility function to remap tile arrays when map dimensions change
-	const remapTilesForResize = (
-		tiles: number[],
-		oldWidth: number,
-		oldHeight: number,
-		newWidth: number,
-		newHeight: number,
-	): number[] => {
-		const newSize = newWidth * newHeight;
-		const newTiles = new Array(newSize).fill(0);
-
-		const rowsToCopy = Math.min(oldHeight, newHeight);
-		const tilesPerRowToCopy = Math.min(oldWidth, newWidth);
-
-		for (let y = 0; y < rowsToCopy; y++) {
-			const oldRowStart = y * oldWidth;
-			const newRowStart = y * newWidth;
-
-			for (let x = 0; x < tilesPerRowToCopy; x++) {
-				newTiles[newRowStart + x] = tiles[oldRowStart + x];
-			}
-		}
-
-		return newTiles;
-	};
-
-	const handleMapSizeChange = (field: "width" | "height", value: number) => {
-		if (!localMapData) return;
-
-		const newValue = Math.round(value);
-		const oldWidth = localMapData.width;
-		const oldHeight = localMapData.height;
-		const newWidth = field === "width" ? newValue : oldWidth;
-		const newHeight = field === "height" ? newValue : oldHeight;
-
-		// If dimensions haven't changed, do nothing
-		if (newWidth === oldWidth && newHeight === oldHeight) return;
-
-		// Remap all layers' tile arrays to preserve tile positions
-		const remappedLayers = localMapData.layers.map((layer) => ({
-			...layer,
-			tiles: remapTilesForResize(
-				layer.tiles,
-				oldWidth,
-				oldHeight,
-				newWidth,
-				newHeight,
-			),
-		}));
-
-		setLocalMapData({
-			...localMapData,
-			width: newWidth,
-			height: newHeight,
-			layers: remappedLayers,
-		});
-	};
+	// No map resize functionality needed for infinite maps
 
 	const handleLayerTileSizeChange = (
 		field: "tileWidth" | "tileHeight",
@@ -583,6 +529,15 @@ export const MapEditorView = ({
 		);
 	};
 
+	const handleLayerPropertiesChange = (properties: Record<string, string>) => {
+		if (!currentLayerId) return;
+		setLocalLayers(
+			localLayers.map((layer) =>
+				layer.id === currentLayerId ? { ...layer, properties } : layer,
+			),
+		);
+	};
+
 	// Get current layer from local state
 	const currentLayer = localMapData?.layers?.find(
 		(l) => l.id === currentLayerId,
@@ -593,9 +548,10 @@ export const MapEditorView = ({
 			id: generateId(),
 			name: `Layer ${localLayers.length + 1}`,
 			visible: true,
-			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
+			chunks: {}, // Empty chunks - tiles created on demand
 			tileWidth: 16,
 			tileHeight: 16,
+			properties: {}, // Custom properties
 		};
 
 		setLocalLayers([...localLayers, newLayer]);
@@ -742,7 +698,6 @@ export const MapEditorView = ({
 			if (!currentLayer || tiles.length === 0) return;
 
 			// Calculate affected chunks for undo system
-			const CHUNK_SIZE = 64;
 			const affectedChunksSet = new Set<string>();
 			const affectedTiles: Array<{ x: number; y: number }> = [];
 
@@ -764,24 +719,25 @@ export const MapEditorView = ({
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							const mapWidth = prev.width;
-							const mapHeight = prev.height;
-							const newTiles = layer.tiles;
+							// Convert chunks to Map for efficient operations
+							const chunksMap = new Map(Object.entries(layer.chunks));
 
 							// Erase all tiles (no terrain neighbor updating)
 							for (const { x, y } of tiles) {
-								const index = y * mapWidth + x;
-
-								// Erase the tile
-								if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-									newTiles[index] = 0;
-								}
+								// Erase the tile using chunk storage
+								setTile(chunksMap, x, y, 0);
 
 								// Track affected tile for invalidation (just the erased tile)
 								affectedTiles.push({ x, y });
 							}
 
-							return { ...layer, tiles: newTiles };
+							// Convert Map back to plain object
+							const newChunks: Record<string, number[]> = {};
+							for (const [key, value] of chunksMap) {
+								newChunks[key] = value;
+							}
+
+							return { ...layer, chunks: newChunks };
 						}
 						return layer;
 					}),
@@ -805,8 +761,6 @@ export const MapEditorView = ({
 			endY: number;
 			layerId: string;
 		}) => {
-			if (!localMapData) return;
-
 			const layer = localLayers.find((l) => l.id === selection.layerId);
 			if (!layer) return;
 
@@ -814,11 +768,13 @@ export const MapEditorView = ({
 			const height = selection.endY - selection.startY + 1;
 			const tiles = new Map<string, number>();
 
+			// Convert chunks to Map for efficient operations
+			const chunksMap = new Map(Object.entries(layer.chunks));
+
 			// Extract tiles from selection (including empty tiles)
 			for (let y = selection.startY; y <= selection.endY; y++) {
 				for (let x = selection.startX; x <= selection.endX; x++) {
-					const index = y * localMapData.width + x;
-					const tileId = layer.tiles[index];
+					const tileId = getTile(chunksMap, x, y);
 					const relativeX = x - selection.startX;
 					const relativeY = y - selection.startY;
 					tiles.set(`${relativeX},${relativeY}`, tileId);
@@ -832,7 +788,7 @@ export const MapEditorView = ({
 				sourceLayerId: selection.layerId,
 			});
 		},
-		[localMapData, localLayers],
+		[localLayers],
 	);
 
 	const handleCutTiles = useCallback(
@@ -871,22 +827,14 @@ export const MapEditorView = ({
 				const absX = targetX + relX;
 				const absY = targetY + relY;
 
-				// Bounds check
-				if (
-					absX >= 0 &&
-					absX < localMapData.width &&
-					absY >= 0 &&
-					absY < localMapData.height
-				) {
-					tilesToPlace.push({ x: absX, y: absY, tileId });
-				}
+				// No bounds check - infinite map!
+				tilesToPlace.push({ x: absX, y: absY, tileId });
 			}
 
 			// Use same logic as handlePlaceTilesBatch but with explicit tileIds
 			if (tilesToPlace.length === 0) return;
 
 			// Calculate affected chunks for undo system
-			const CHUNK_SIZE = 64;
 			const affectedChunksSet = new Set<string>();
 
 			for (const { x, y } of tilesToPlace) {
@@ -905,19 +853,20 @@ export const MapEditorView = ({
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							// Mutate tiles array in place for performance (avoid copying entire array)
-							const totalSize = prev.width * prev.height;
-							const tiles =
-								layer.tiles && layer.tiles.length === totalSize
-									? layer.tiles
-									: new Array(totalSize).fill(0);
+							// Convert chunks to Map for efficient operations
+							const chunksMap = new Map(Object.entries(layer.chunks));
 
 							for (const { x, y, tileId } of tilesToPlace) {
-								const index = y * prev.width + x;
-								tiles[index] = tileId;
+								setTile(chunksMap, x, y, tileId);
 							}
 
-							return { ...layer, tiles };
+							// Convert Map back to plain object
+							const newChunks: Record<string, number[]> = {};
+							for (const [key, value] of chunksMap) {
+								newChunks[key] = value;
+							}
+
+							return { ...layer, chunks: newChunks };
 						}
 						return layer;
 					}),
@@ -932,13 +881,7 @@ export const MapEditorView = ({
 			);
 			setProjectModified(true);
 		},
-		[
-			tileClipboard,
-			currentLayer,
-			localMapData,
-			setLocalMapData,
-			setProjectModified,
-		],
+		[tileClipboard, currentLayer, setLocalMapData, setProjectModified],
 	);
 
 	const handleDeleteSelectedTiles = useCallback(
@@ -974,10 +917,9 @@ export const MapEditorView = ({
 
 	const handlePlaceEntity = useCallback(
 		(x: number, y: number) => {
-			if (!selectedTilesetId || !selectedEntityDefId) return;
+			if (!selectedEntityDefId) return;
 
 			const entityInstance = entityManager.createInstance(
-				selectedTilesetId,
 				selectedEntityDefId,
 				x,
 				y,
@@ -995,7 +937,6 @@ export const MapEditorView = ({
 			setProjectModified(true);
 		},
 		[
-			selectedTilesetId,
 			selectedEntityDefId,
 			setProjectModified,
 			setLocalMapMeta,
@@ -1388,7 +1329,6 @@ export const MapEditorView = ({
 				const tilesetOrder = selectedTileset.order;
 
 				// Calculate affected chunks for undo system
-				const CHUNK_SIZE = 64;
 				const affectedChunksSet = new Set<string>();
 				tiles.forEach(({ x, y }) => {
 					// Add chunks for placed tiles + neighbors (terrain updates neighbors)
@@ -1413,14 +1353,12 @@ export const MapEditorView = ({
 							if (layer.id === currentLayer.id) {
 								const mutableLayer = { ...layer };
 
-								// Place all tiles
+								// Place all tiles (infinite maps - no bounds checking)
 								tiles.forEach(({ x, y }) => {
 									placeTerrainTile(
 										mutableLayer,
 										x,
 										y,
-										prev.width,
-										prev.height,
 										terrainLayer,
 										selectedTileset,
 										tilesetOrder,
@@ -1434,8 +1372,6 @@ export const MapEditorView = ({
 										mutableLayer,
 										x,
 										y,
-										prev.width,
-										prev.height,
 										terrainLayer.id,
 										selectedTileset,
 										tilesetOrder,
@@ -1443,7 +1379,7 @@ export const MapEditorView = ({
 									);
 								});
 
-								return { ...layer, tiles: mutableLayer.tiles };
+								return { ...layer, chunks: mutableLayer.chunks };
 							}
 							return layer;
 						}),
@@ -1491,7 +1427,6 @@ export const MapEditorView = ({
 			);
 
 			// Calculate affected chunks for undo system
-			const CHUNK_SIZE = 64;
 			const affectedChunksSet = new Set<string>();
 			tiles.forEach(({ x, y }) => {
 				const chunkX = Math.floor(x / CHUNK_SIZE);
@@ -1508,25 +1443,21 @@ export const MapEditorView = ({
 					...prev,
 					layers: prev.layers.map((layer) => {
 						if (layer.id === currentLayer.id) {
-							// Ensure tiles array is properly sized - mutate in place for performance
-							const totalSize = prev.width * prev.height;
-							const newTiles =
-								layer.tiles && layer.tiles.length === totalSize
-									? layer.tiles
-									: new Array(totalSize).fill(0);
-
-							const mapWidth = prev.width;
-							const mapHeight = prev.height;
+							// Convert chunks to Map for efficient operations
+							const chunksMap = new Map(Object.entries(layer.chunks));
 
 							// Place all tiles
 							tiles.forEach(({ x, y }) => {
-								if (x >= 0 && y >= 0 && x < mapWidth && y < mapHeight) {
-									const index = y * mapWidth + x;
-									newTiles[index] = globalTileId;
-								}
+								setTile(chunksMap, x, y, globalTileId);
 							});
 
-							return { ...layer, tiles: newTiles };
+							// Convert Map back to plain object
+							const newChunks: Record<string, number[]> = {};
+							for (const [key, value] of chunksMap) {
+								newChunks[key] = value;
+							}
+
+							return { ...layer, chunks: newChunks };
 						}
 						return layer;
 					}),
@@ -1729,58 +1660,10 @@ export const MapEditorView = ({
 				{/* Settings */}
 				<div className="flex-1 overflow-auto p-4">
 					<div className="space-y-4">
-						{/* Map Properties */}
-						<div>
-							<div
-								className="text-xs font-semibold uppercase tracking-wide mb-2"
-								style={{ color: "#858585" }}
-							>
-								Map Properties
-							</div>
-							<div className="space-y-2">
-								{/* Map Size */}
-								<div>
-									<div
-										className="text-xs block mb-1"
-										style={{ color: "#858585" }}
-									>
-										Map Size
-									</div>
-									<div className="flex items-center gap-2">
-										<DragNumberInput
-											value={localMapData?.width ?? 10}
-											onChange={(value) => handleMapSizeChange("width", value)}
-											onInput={(value) => handleMapSizeChange("width", value)}
-											onDragStart={startBatch}
-											onDragEnd={endBatch}
-											min={1}
-											max={Number.MAX_SAFE_INTEGER}
-											step={1}
-											precision={0}
-											dragSpeed={0.1}
-											className="flex-1"
-										/>
-										<span style={{ color: "#858585" }}>×</span>
-										<DragNumberInput
-											value={localMapData?.height ?? 10}
-											onChange={(value) => handleMapSizeChange("height", value)}
-											onInput={(value) => handleMapSizeChange("height", value)}
-											onDragStart={startBatch}
-											onDragEnd={endBatch}
-											min={1}
-											max={Number.MAX_SAFE_INTEGER}
-											step={1}
-											precision={0}
-											dragSpeed={0.1}
-											className="flex-1"
-										/>
-									</div>
-								</div>
-							</div>
-						</div>
+						{/* Map Properties section removed - infinite maps don't have size */}
 
 						{/* Layers Panel */}
-						<div className="pt-4" style={{ borderTop: "1px solid #3e3e42" }}>
+						<div>
 							<div>
 								<div
 									className="text-xs font-semibold uppercase tracking-wide mb-2"
@@ -1867,58 +1750,6 @@ export const MapEditorView = ({
 									</DragOverlay>
 								</DndContext>
 
-								{/* Layer Tile Size (shown when a layer is selected) */}
-								{currentLayer && (
-									<div
-										className="mt-3 pt-3"
-										style={{ borderTop: "1px solid #3e3e42" }}
-									>
-										<div
-											className="text-xs block mb-1"
-											style={{ color: "#858585" }}
-										>
-											Layer Tile Size
-										</div>
-										<div className="flex items-center gap-2">
-											<DragNumberInput
-												value={currentLayer.tileWidth ?? 16}
-												onChange={(value) =>
-													handleLayerTileSizeChange("tileWidth", value)
-												}
-												onInput={(value) =>
-													handleLayerTileSizeChange("tileWidth", value)
-												}
-												onDragStart={startBatch}
-												onDragEnd={endBatch}
-												min={1}
-												max={256}
-												step={1}
-												precision={0}
-												dragSpeed={0.1}
-												className="flex-1"
-											/>
-											<span style={{ color: "#858585" }}>×</span>
-											<DragNumberInput
-												value={currentLayer.tileHeight ?? 16}
-												onChange={(value) =>
-													handleLayerTileSizeChange("tileHeight", value)
-												}
-												onInput={(value) =>
-													handleLayerTileSizeChange("tileHeight", value)
-												}
-												onDragStart={startBatch}
-												onDragEnd={endBatch}
-												min={1}
-												max={256}
-												step={1}
-												precision={0}
-												dragSpeed={0.1}
-												className="flex-1"
-											/>
-										</div>
-									</div>
-								)}
-
 								<div className="mt-2">
 									<button
 										type="button"
@@ -1939,6 +1770,74 @@ export const MapEditorView = ({
 										+ Add Layer
 									</button>
 								</div>
+
+								{/* Layer Properties (shown when a layer is selected) */}
+								{currentLayer && (
+									<div
+										className="mt-3 pt-3"
+										style={{ borderTop: "1px solid #3e3e42" }}
+									>
+										<div
+											className="text-xs font-semibold uppercase tracking-wide mb-2"
+											style={{ color: "#858585" }}
+										>
+											Layer Properties
+										</div>
+
+										{/* Tile Size */}
+										<div className="mb-3">
+											<div
+												className="text-xs block mb-1"
+												style={{ color: "#858585" }}
+											>
+												Tile Size
+											</div>
+											<div className="flex items-center gap-2">
+												<DragNumberInput
+													value={currentLayer.tileWidth ?? 16}
+													onChange={(value) =>
+														handleLayerTileSizeChange("tileWidth", value)
+													}
+													onInput={(value) =>
+														handleLayerTileSizeChange("tileWidth", value)
+													}
+													onDragStart={startBatch}
+													onDragEnd={endBatch}
+													min={1}
+													max={256}
+													step={1}
+													precision={0}
+													dragSpeed={0.1}
+													className="flex-1"
+												/>
+												<span style={{ color: "#858585" }}>×</span>
+												<DragNumberInput
+													value={currentLayer.tileHeight ?? 16}
+													onChange={(value) =>
+														handleLayerTileSizeChange("tileHeight", value)
+													}
+													onInput={(value) =>
+														handleLayerTileSizeChange("tileHeight", value)
+													}
+													onDragStart={startBatch}
+													onDragEnd={endBatch}
+													min={1}
+													max={256}
+													step={1}
+													precision={0}
+													dragSpeed={0.1}
+													className="flex-1"
+												/>
+											</div>
+										</div>
+
+										{/* Custom Properties */}
+										<CustomPropertiesEditor
+											properties={currentLayer.properties || {}}
+											onChange={handleLayerPropertiesChange}
+										/>
+									</div>
+								)}
 							</div>
 						</div>
 					</div>
@@ -2007,16 +1906,6 @@ export const MapEditorView = ({
 							borderTop: "1px solid #3e3e42",
 						}}
 					>
-						{/* Map dimensions */}
-						<div className="flex items-center gap-2">
-							<span className="text-gray-500">Map:</span>
-							<span className="font-mono">
-								{localMapData.width}×{localMapData.height}
-							</span>
-						</div>
-
-						<div className="w-px h-4 bg-gray-700" />
-
 						{/* Current layer */}
 						<div className="flex items-center gap-2">
 							<span className="text-gray-500">Layer:</span>

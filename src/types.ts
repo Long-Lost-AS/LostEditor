@@ -114,7 +114,6 @@ export interface EntityInstance {
 	x: number; // Position on map (pixel coordinates)
 	y: number; // Position on map (pixel coordinates)
 	entityDefId: string; // Reference to entity definition
-	tilesetId: string; // Reference to tileset containing the entity
 	rotation: number;
 	scale: { x: number; y: number };
 	properties: Record<string, string>;
@@ -134,10 +133,10 @@ export type MapData = z.infer<typeof MapDataSchema> & {
 // Serialized Map Types (for .lostmap files)
 // ===========================
 
-// Serialized layer format (version 4.0 - dense array) - inferred from schema
+// Serialized layer format (version 5.0 - chunk-based) - inferred from schema
 export type SerializedLayer = z.infer<typeof SerializedLayerSchema>;
 
-// Serialized map format (what's stored in .lostmap files version 4.0) - inferred from schema
+// Serialized map format (what's stored in .lostmap files version 5.0) - inferred from schema
 export type SerializedMapData = z.infer<typeof SerializedMapDataSchema>;
 
 // ===========================
