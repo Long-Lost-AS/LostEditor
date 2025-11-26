@@ -1,7 +1,7 @@
 {
   "name": "lost-editor",
   "productName": "Lost Editor",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A 2D map editor for game development",
   "type": "module",
   "scripts": {

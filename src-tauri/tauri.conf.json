@@ -1,6 +1,6 @@
 {
   "productName": "Lost Editor",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "identifier": "com.losteditor.dev",
   "build": {
     "beforeDevCommand": "npm run dev",
