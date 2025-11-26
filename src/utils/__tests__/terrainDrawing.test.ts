@@ -496,40 +496,59 @@ describe("terrainDrawing", () => {
 			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Unchanged
 		});
 
-		it("should early return when terrain layer not found by ID (line 165)", () => {
-			// Create tileset with ONLY grass layer, no dirt layer
-			const tilesetId = "test-tileset-missing-layer";
-			const order = 1; // Test tileset order
-			const tileset: TilesetData = {
+		it("should early return when terrain layer not found by ID (line 145)", () => {
+			// Create tilesetA with terrainLayer "grass-layer-1"
+			const tilesetA: TilesetData = {
 				version: "1.0",
-				id: tilesetId,
+				id: "tileset-a",
 				order: 1,
-				name: "test",
+				name: "Tileset A",
 				imagePath: "/test.png",
 				tileWidth: 16,
 				tileHeight: 16,
-				tiles: [
-					createSimpleTile(1, 1), // Grass tile (in grass layer)
-				],
+				tiles: [createSimpleTile(1, 1)],
 				terrainLayers: [
 					{
-						id: "grass-layer-only",
+						id: "grass-layer-1",
 						name: "grass",
 						tiles: [{ x: 1, y: 1, bitmask: 16, weight: 100 }],
 					},
-					// NO dirt layer!
 				],
 			};
 
-			const grassTile = createTileWithOrder(tileset, 1, 1);
+			// Create tilesetB WITHOUT "grass-layer-1" (empty terrainLayers)
+			const tilesetB: TilesetData = {
+				version: "1.0",
+				id: "tileset-b",
+				order: 2,
+				name: "Tileset B",
+				imagePath: "/test2.png",
+				tileWidth: 16,
+				tileHeight: 16,
+				tiles: [createSimpleTile(2, 2)],
+				terrainLayers: [], // NO grass-layer-1!
+			};
+
+			// Create a tile from tilesetA's grass layer
+			const grassTile = packTileId(1, 1, tilesetA.order);
 			const layer = createLayer([grassTile], 1);
 
-			// Try to update as if it's a dirt layer (which doesn't exist in tileset.terrainLayers)
-			// The tile DOES belong to grass-layer-only, so it passes the check at line 154-158
-			// But then at line 161-165 it can't find "dirt-layer-missing" in terrainLayers
-			updateNeighborTerrain(layer, 0, 0, "dirt-layer-missing", tileset, order, [
-				tileset,
-			]);
+			// Call with terrainLayerId "grass-layer-1" which exists in tilesetA (via tilesets array)
+			// But pass tilesetB as the tileset parameter, which doesn't have this layer
+			// This should:
+			// - getTerrainLayerForTile returns "grass-layer-1" (found in tilesetA via tilesets)
+			// - belongsToLayer === terrainLayerId passes
+			// - But tileset.terrainLayers.find() returns undefined (tilesetB doesn't have it)
+			// - Returns early at line 145
+			updateNeighborTerrain(
+				layer,
+				0,
+				0,
+				"grass-layer-1",
+				tilesetB,
+				tilesetB.order,
+				[tilesetA, tilesetB],
+			);
 
 			expect(getTileFromLayer(layer, 0, 0)).toBe(grassTile); // Should remain unchanged
 		});

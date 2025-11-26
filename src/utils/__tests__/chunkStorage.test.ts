@@ -129,6 +129,21 @@ describe("chunkStorage", () => {
 			expect(getTile(chunks, -50, -50)).toBe(0);
 		});
 
+		it("should return 0 for sparse chunk with undefined index", () => {
+			const chunks = new Map<string, number[]>();
+			// Create a sparse array with undefined values
+			const sparseChunk: number[] = [];
+			sparseChunk[0] = 123;
+			// Most indices are undefined (sparse array)
+			chunks.set("0,0", sparseChunk);
+
+			// Index 0 should return the set value
+			expect(getTile(chunks, 0, 0)).toBe(123);
+			// Other indices should return 0 via nullish coalescing
+			expect(getTile(chunks, 1, 0)).toBe(0);
+			expect(getTile(chunks, 15, 15)).toBe(0);
+		});
+
 		it("should create chunks on demand when setting tiles", () => {
 			const chunks = new Map<string, number[]>();
 			expect(chunks.size).toBe(0);

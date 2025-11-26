@@ -66,6 +66,32 @@ describe("mapSerializer", () => {
 			expect(result.layers[1].visible).toBe(false);
 		});
 
+		it("should handle layer with undefined properties", () => {
+			const mapData = {
+				id: generateId(),
+				name: "Map with undefined properties",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Test",
+						visible: true,
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						// properties is undefined
+					},
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			} as unknown as MapData;
+
+			const result = serializeMapData(mapData);
+
+			// Should default to empty object
+			expect(result.layers[0].properties).toEqual({});
+		});
+
 		it("should handle map with entities", () => {
 			const mapData: MapData = {
 				id: generateId(),
@@ -141,6 +167,45 @@ describe("mapSerializer", () => {
 			const result = serializeMapData(mapData);
 
 			expect(result.layers[0].chunks).toEqual(chunks);
+		});
+
+		it("should filter out empty chunks during serialization", () => {
+			// Create chunks with one empty and one non-empty
+			const CHUNK_SIZE = 16;
+			const emptyChunk = new Array(CHUNK_SIZE * CHUNK_SIZE).fill(0);
+			const nonEmptyChunk = new Array(CHUNK_SIZE * CHUNK_SIZE).fill(0);
+			nonEmptyChunk[0] = 123; // Make it non-empty
+
+			const chunks: Record<string, number[]> = {
+				"0,0": emptyChunk,
+				"1,0": nonEmptyChunk,
+			};
+
+			const mapData: MapData = {
+				id: generateId(),
+				name: "Map with empty chunk",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Test",
+						visible: true,
+						chunks,
+						tileWidth: 16,
+						tileHeight: 16,
+						properties: {},
+					},
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = serializeMapData(mapData);
+
+			// Empty chunk should be filtered out
+			expect(result.layers[0].chunks["0,0"]).toBeUndefined();
+			// Non-empty chunk should be preserved
+			expect(result.layers[0].chunks["1,0"]).toEqual(nonEmptyChunk);
 		});
 	});
 

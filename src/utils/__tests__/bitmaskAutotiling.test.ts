@@ -433,7 +433,7 @@ describe("bitmaskAutotiling", () => {
 				expect(results.size).toBe(2);
 			});
 
-			it("should fall back to uniform random when all weights are 0", () => {
+			it("should use uniform random when all weights are 0", () => {
 				const terrainLayer: TerrainLayer = {
 					id: "test",
 					name: "test",
@@ -443,12 +443,65 @@ describe("bitmaskAutotiling", () => {
 					],
 				};
 
+				// When all weights are 0, falls back to uniform random (line 105-108)
 				const results = new Set<number>();
-				for (let i = 0; i < 50; i++) {
+				for (let i = 0; i < 100; i++) {
 					const result = findTileByBitmask(mockTileset, terrainLayer, 16);
 					if (result) results.add(result.x);
 				}
-				// Should still select from both tiles (uniform random fallback)
+				// Uniform random should select from both tiles over 100 iterations
+				expect(results.size).toBe(2);
+			});
+
+			it("should use safety fallback when random equals cumulative weight (floating point edge case)", () => {
+				// Mock Math.random to return exactly 1.0 (edge case that shouldn't normally happen)
+				// This forces the safety fallback at line 123 when random >= cumulativeWeight for all tiles
+				const originalRandom = Math.random;
+				Math.random = () => 1.0; // Force exactly 1.0 to hit the fallback
+
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 16, weight: 50 },
+						{ x: 16, y: 0, bitmask: 16, weight: 50 },
+					],
+				};
+
+				// With random = 1.0, random * totalWeight = 100
+				// cumulativeWeight after both tiles = 100
+				// 100 < 100 is false for all tiles, so safety fallback returns last tile
+				const result = findTileByBitmask(mockTileset, terrainLayer, 16);
+				expect(result).toEqual({ x: 16, y: 0 }); // Should return last tile
+
+				// Restore Math.random
+				Math.random = originalRandom;
+			});
+
+			it("should collect multiple tiles with same partial match score", () => {
+				// Create tiles with different bitmasks but same number of matching bits
+				// Target: 0b000000111 (bits 0, 1, 2 set = bottom row)
+				// Tile A: 0b000000011 (bits 0, 1 set) - 2 matching bits
+				// Tile B: 0b000000101 (bits 0, 2 set) - 2 matching bits
+				const terrainLayer: TerrainLayer = {
+					id: "test",
+					name: "test",
+					tiles: [
+						{ x: 0, y: 0, bitmask: 0b000000011, weight: 100 },
+						{ x: 16, y: 0, bitmask: 0b000000101, weight: 100 },
+					],
+				};
+
+				const results = new Set<number>();
+				for (let i = 0; i < 100; i++) {
+					const result = findTileByBitmask(
+						mockTileset,
+						terrainLayer,
+						0b000000111,
+					);
+					if (result) results.add(result.x);
+				}
+				// Both tiles have same match score (2 bits), should see both
 				expect(results.size).toBe(2);
 			});
 		});
