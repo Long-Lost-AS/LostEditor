@@ -988,8 +988,8 @@ describe("schemas", () => {
 				expect(map.name).toBe("Untitled Map");
 				expect(map.width).toBe(32);
 				expect(map.height).toBe(32);
-				expect(map.tileWidth).toBe(16);
-				expect(map.tileHeight).toBe(16);
+				expect(map.layers[0].tileWidth).toBe(16);
+				expect(map.layers[0].tileHeight).toBe(16);
 			});
 
 			it("should create map with custom name", () => {
@@ -1033,8 +1033,6 @@ describe("schemas", () => {
 					name: "Test",
 					width: 10,
 					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 					layers: [],
 					entities: [],
 					points: [],
@@ -1050,8 +1048,6 @@ describe("schemas", () => {
 					name: "Test",
 					width: -10, // Invalid negative width
 					height: 10,
-					tileWidth: 16,
-					tileHeight: 16,
 				};
 				expect(() => ensureValidMapData(invalidData)).toThrow();
 			});

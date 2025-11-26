@@ -319,6 +319,14 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			pointId: string | null;
 		}>({ visible: false, x: 0, y: 0, entityId: null, pointId: null });
 
+		// Get current layer's tile dimensions (used for coordinate conversions and grid)
+		const currentLayer = useMemo(
+			() => mapData.layers.find((l) => l.id === currentLayerId),
+			[mapData.layers, currentLayerId],
+		);
+		const currentTileWidth = currentLayer?.tileWidth ?? 16;
+		const currentTileHeight = currentLayer?.tileHeight ?? 16;
+
 		// Helper functions for collider manipulation
 		// Helper wrappers using the shared collision geometry utilities
 		const isPointInPolygon = (
@@ -774,9 +782,13 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			(layer: (typeof mapData.layers)[0], chunkX: number, chunkY: number) => {
 				if (!mapData) return null;
 
+				// Use the layer's own tile dimensions for rendering
+				const layerTileWidth = layer.tileWidth ?? 16;
+				const layerTileHeight = layer.tileHeight ?? 16;
+
 				// Calculate canvas dimensions
-				const canvasWidth = CHUNK_SIZE * mapData.tileWidth;
-				const canvasHeight = CHUNK_SIZE * mapData.tileHeight;
+				const canvasWidth = CHUNK_SIZE * layerTileWidth;
+				const canvasHeight = CHUNK_SIZE * layerTileHeight;
 
 				// Use LayerChunkCache to get or render chunk
 				return chunkCacheRef.current.getChunkCanvas(
@@ -836,8 +848,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									geometry.y,
 									sourceWidth,
 									sourceHeight,
-									(x - startX) * mapData.tileWidth,
-									(y - startY) * mapData.tileHeight,
+									(x - startX) * layerTileWidth,
+									(y - startY) * layerTileHeight,
 									sourceWidth,
 									sourceHeight,
 								);
@@ -999,16 +1011,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				// Calculate visible tile range for viewport culling (performance optimization)
 				const visibleMinX =
-					Math.floor(-currentPan.x / currentZoom / mapData.tileWidth) - 1;
+					Math.floor(-currentPan.x / currentZoom / currentTileWidth) - 1;
 				const visibleMinY =
-					Math.floor(-currentPan.y / currentZoom / mapData.tileHeight) - 1;
+					Math.floor(-currentPan.y / currentZoom / currentTileHeight) - 1;
 				const visibleMaxX =
 					Math.ceil(
-						(canvas.width - currentPan.x) / currentZoom / mapData.tileWidth,
+						(canvas.width - currentPan.x) / currentZoom / currentTileWidth,
 					) + 1;
 				const visibleMaxY =
 					Math.ceil(
-						(canvas.height - currentPan.y) / currentZoom / mapData.tileHeight,
+						(canvas.height - currentPan.y) / currentZoom / currentTileHeight,
 					) + 1;
 
 				// Clamp to map bounds
@@ -1033,6 +1045,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				mapData.layers.forEach((layer) => {
 					if (!layer.visible) return;
 
+					// Use each layer's own tile dimensions for positioning
+					const layerTileWidth = layer.tileWidth ?? 16;
+					const layerTileHeight = layer.tileHeight ?? 16;
+
 					// Render all visible chunks for this layer
 					for (let cy = minChunkY; cy <= maxChunkY; cy++) {
 						for (let cx = minChunkX; cx <= maxChunkX; cx++) {
@@ -1041,8 +1057,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							if (!cachedChunk) continue;
 
 							// Calculate world position for this chunk
-							const worldX = cx * CHUNK_SIZE * mapData.tileWidth;
-							const worldY = cy * CHUNK_SIZE * mapData.tileHeight;
+							const worldX = cx * CHUNK_SIZE * layerTileWidth;
+							const worldY = cy * CHUNK_SIZE * layerTileHeight;
 
 							// Draw the cached chunk canvas at the correct position
 							ctx.drawImage(cachedChunk, worldX, worldY);
@@ -1056,16 +1072,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const entityCullingBuffer = 3; // Buffer in tiles to account for large entities
 					const visibleWorldMinX = Math.max(
 						0,
-						(startX - entityCullingBuffer) * mapData.tileWidth,
+						(startX - entityCullingBuffer) * currentTileWidth,
 					);
 					const visibleWorldMinY = Math.max(
 						0,
-						(startY - entityCullingBuffer) * mapData.tileHeight,
+						(startY - entityCullingBuffer) * currentTileHeight,
 					);
 					const visibleWorldMaxX =
-						(endX + entityCullingBuffer) * mapData.tileWidth;
+						(endX + entityCullingBuffer) * currentTileWidth;
 					const visibleWorldMaxY =
-						(endY + entityCullingBuffer) * mapData.tileHeight;
+						(endY + entityCullingBuffer) * currentTileHeight;
 
 					// Helper function to calculate Y-sort position for an entity
 					const getEntityYSortPosition = (instance: EntityInstance) => {
@@ -1144,15 +1160,14 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const pointBuffer = 50; // Buffer in pixels for point visibility
 					const visibleWorldMinX = Math.max(
 						0,
-						(startX - 1) * mapData.tileWidth - pointBuffer,
+						(startX - 1) * currentTileWidth - pointBuffer,
 					);
 					const visibleWorldMinY = Math.max(
 						0,
-						(startY - 1) * mapData.tileHeight - pointBuffer,
+						(startY - 1) * currentTileHeight - pointBuffer,
 					);
-					const visibleWorldMaxX = (endX + 1) * mapData.tileWidth + pointBuffer;
-					const visibleWorldMaxY =
-						(endY + 1) * mapData.tileHeight + pointBuffer;
+					const visibleWorldMaxX = (endX + 1) * currentTileWidth + pointBuffer;
+					const visibleWorldMaxY = (endY + 1) * currentTileHeight + pointBuffer;
 
 					mapData.points.forEach((point) => {
 						// Skip points outside visible viewport
@@ -1225,16 +1240,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const colliderBuffer = 100; // Buffer in pixels for collider visibility
 					const visibleWorldMinX = Math.max(
 						0,
-						(startX - 1) * mapData.tileWidth - colliderBuffer,
+						(startX - 1) * currentTileWidth - colliderBuffer,
 					);
 					const visibleWorldMinY = Math.max(
 						0,
-						(startY - 1) * mapData.tileHeight - colliderBuffer,
+						(startY - 1) * currentTileHeight - colliderBuffer,
 					);
 					const visibleWorldMaxX =
-						(endX + 1) * mapData.tileWidth + colliderBuffer;
+						(endX + 1) * currentTileWidth + colliderBuffer;
 					const visibleWorldMaxY =
-						(endY + 1) * mapData.tileHeight + colliderBuffer;
+						(endY + 1) * currentTileHeight + colliderBuffer;
 
 					mapData.colliders.forEach((collider) => {
 						if (collider.points.length < 2) return;
@@ -1402,16 +1417,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					// Use single path for all vertical lines for better performance
 					ctx.beginPath();
 					for (let x = startX; x <= endX; x++) {
-						ctx.moveTo(x * mapData.tileWidth, startY * mapData.tileHeight);
-						ctx.lineTo(x * mapData.tileWidth, endY * mapData.tileHeight);
+						ctx.moveTo(x * currentTileWidth, startY * currentTileHeight);
+						ctx.lineTo(x * currentTileWidth, endY * currentTileHeight);
 					}
 					ctx.stroke();
 
 					// Use single path for all horizontal lines for better performance
 					ctx.beginPath();
 					for (let y = startY; y <= endY; y++) {
-						ctx.moveTo(startX * mapData.tileWidth, y * mapData.tileHeight);
-						ctx.lineTo(endX * mapData.tileWidth, y * mapData.tileHeight);
+						ctx.moveTo(startX * currentTileWidth, y * currentTileHeight);
+						ctx.lineTo(endX * currentTileWidth, y * currentTileHeight);
 					}
 					ctx.stroke();
 				}
@@ -1436,8 +1451,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const canvasY = mousePos.y - rect.top;
 					const worldX = (canvasX - currentPan.x) / currentZoom;
 					const worldY = (canvasY - currentPan.y) / currentZoom;
-					const tileX = Math.floor(worldX / mapData.tileWidth);
-					const tileY = Math.floor(worldY / mapData.tileHeight);
+					const tileX = Math.floor(worldX / currentTileWidth);
+					const tileY = Math.floor(worldY / currentTileHeight);
 
 					// Unpack tileId to get geometry
 					const geometry = unpackTileId(tileId);
@@ -1466,8 +1481,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							geometry.y,
 							sourceWidth,
 							sourceHeight,
-							tileX * mapData.tileWidth,
-							tileY * mapData.tileHeight,
+							tileX * currentTileWidth,
+							tileY * currentTileHeight,
 							sourceWidth,
 							sourceHeight,
 						);
@@ -1497,8 +1512,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							const canvasY = mousePos.y - rect.top;
 							const worldX = (canvasX - currentPan.x) / currentZoom;
 							const worldY = (canvasY - currentPan.y) / currentZoom;
-							const tileX = Math.floor(worldX / mapData.tileWidth);
-							const tileY = Math.floor(worldY / mapData.tileHeight);
+							const tileX = Math.floor(worldX / currentTileWidth);
+							const tileY = Math.floor(worldY / currentTileHeight);
 
 							// Calculate the bitmask based on surrounding tiles (same logic as actual placement)
 							const currentLayer = mapData.layers.find(
@@ -1548,8 +1563,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								previewTile.y,
 								tileset.tileWidth,
 								tileset.tileHeight,
-								tileX * mapData.tileWidth,
-								tileY * mapData.tileHeight,
+								tileX * currentTileWidth,
+								tileY * currentTileHeight,
 								tileset.tileWidth,
 								tileset.tileHeight,
 							);
@@ -1882,8 +1897,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const canvasY = mousePos.y - rect.top;
 					const worldX = (canvasX - currentPan.x) / currentZoom;
 					const worldY = (canvasY - currentPan.y) / currentZoom;
-					const currentTileX = Math.floor(worldX / mapData.tileWidth);
-					const currentTileY = Math.floor(worldY / mapData.tileHeight);
+					const currentTileX = Math.floor(worldX / currentTileWidth);
+					const currentTileY = Math.floor(worldY / currentTileHeight);
 
 					// Calculate rectangle bounds
 					const minX = Math.min(rectStartTile.x, currentTileX);
@@ -1894,20 +1909,20 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					// Draw semi-transparent fill
 					ctx.fillStyle = "rgba(0, 150, 255, 0.2)";
 					ctx.fillRect(
-						minX * mapData.tileWidth,
-						minY * mapData.tileHeight,
-						(maxX - minX + 1) * mapData.tileWidth,
-						(maxY - minY + 1) * mapData.tileHeight,
+						minX * currentTileWidth,
+						minY * currentTileHeight,
+						(maxX - minX + 1) * currentTileWidth,
+						(maxY - minY + 1) * currentTileHeight,
 					);
 
 					// Draw rectangle outline
 					ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
 					ctx.lineWidth = 2 / currentZoom;
 					ctx.strokeRect(
-						minX * mapData.tileWidth,
-						minY * mapData.tileHeight,
-						(maxX - minX + 1) * mapData.tileWidth,
-						(maxY - minY + 1) * mapData.tileHeight,
+						minX * currentTileWidth,
+						minY * currentTileHeight,
+						(maxX - minX + 1) * currentTileWidth,
+						(maxY - minY + 1) * currentTileHeight,
 					);
 				}
 
@@ -1918,8 +1933,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					const canvasY = mousePos.y - rect.top;
 					const worldX = (canvasX - currentPan.x) / currentZoom;
 					const worldY = (canvasY - currentPan.y) / currentZoom;
-					const currentTileX = Math.floor(worldX / mapData.tileWidth);
-					const currentTileY = Math.floor(worldY / mapData.tileHeight);
+					const currentTileX = Math.floor(worldX / currentTileWidth);
+					const currentTileY = Math.floor(worldY / currentTileHeight);
 
 					// Calculate selection bounds
 					const minX = Math.min(tileSelectionStart.x, currentTileX);
@@ -1930,10 +1945,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					// Draw semi-transparent fill
 					ctx.fillStyle = "rgba(0, 150, 255, 0.15)";
 					ctx.fillRect(
-						minX * mapData.tileWidth,
-						minY * mapData.tileHeight,
-						(maxX - minX + 1) * mapData.tileWidth,
-						(maxY - minY + 1) * mapData.tileHeight,
+						minX * currentTileWidth,
+						minY * currentTileHeight,
+						(maxX - minX + 1) * currentTileWidth,
+						(maxY - minY + 1) * currentTileHeight,
 					);
 
 					// Draw dashed rectangle outline
@@ -1941,10 +1956,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					ctx.lineWidth = 2 / currentZoom;
 					ctx.setLineDash([8 / currentZoom, 4 / currentZoom]);
 					ctx.strokeRect(
-						minX * mapData.tileWidth,
-						minY * mapData.tileHeight,
-						(maxX - minX + 1) * mapData.tileWidth,
-						(maxY - minY + 1) * mapData.tileHeight,
+						minX * currentTileWidth,
+						minY * currentTileHeight,
+						(maxX - minX + 1) * currentTileWidth,
+						(maxY - minY + 1) * currentTileHeight,
 					);
 					ctx.setLineDash([]); // Reset dash pattern
 				}
@@ -1959,10 +1974,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					// Draw semi-transparent fill
 					ctx.fillStyle = "rgba(0, 150, 255, 0.1)";
 					ctx.fillRect(
-						startX * mapData.tileWidth,
-						startY * mapData.tileHeight,
-						(endX - startX + 1) * mapData.tileWidth,
-						(endY - startY + 1) * mapData.tileHeight,
+						startX * currentTileWidth,
+						startY * currentTileHeight,
+						(endX - startX + 1) * currentTileWidth,
+						(endY - startY + 1) * currentTileHeight,
 					);
 
 					// Draw dashed outline
@@ -1970,10 +1985,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					ctx.lineWidth = 2 / currentZoom;
 					ctx.setLineDash([6 / currentZoom, 6 / currentZoom]);
 					ctx.strokeRect(
-						startX * mapData.tileWidth,
-						startY * mapData.tileHeight,
-						(endX - startX + 1) * mapData.tileWidth,
-						(endY - startY + 1) * mapData.tileHeight,
+						startX * currentTileWidth,
+						startY * currentTileHeight,
+						(endX - startX + 1) * currentTileWidth,
+						(endY - startY + 1) * currentTileHeight,
 					);
 					ctx.setLineDash([]); // Reset dash pattern
 				}
@@ -2065,8 +2080,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 		const getTileCoords = (screenX: number, screenY: number) => {
 			const { worldX, worldY } = screenToWorld(screenX, screenY);
-			const tileX = Math.floor(worldX / mapData.tileWidth);
-			const tileY = Math.floor(worldY / mapData.tileHeight);
+			const tileX = Math.floor(worldX / currentTileWidth);
+			const tileY = Math.floor(worldY / currentTileHeight);
 			return { tileX, tileY };
 		};
 
@@ -2343,8 +2358,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						onColliderSelected?.(null);
 
 						// Start tile selection drag
-						const tileX = Math.floor(worldX / mapData.tileWidth);
-						const tileY = Math.floor(worldY / mapData.tileHeight);
+						const tileX = Math.floor(worldX / currentTileWidth);
+						const tileY = Math.floor(worldY / currentTileHeight);
 						setIsSelectingTiles(true);
 						setTileSelectionStart({ x: tileX, y: tileY });
 						setSelectedTileRegion(null); // Clear previous selection
@@ -3402,8 +3417,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						const currentZoom = getZoom();
 						const worldX = (canvasX - currentPan.x) / currentZoom;
 						const worldY = (canvasY - currentPan.y) / currentZoom;
-						tileX = Math.floor(worldX / mapData.tileWidth);
-						tileY = Math.floor(worldY / mapData.tileHeight);
+						tileX = Math.floor(worldX / currentTileWidth);
+						tileY = Math.floor(worldY / currentTileHeight);
 					}
 
 					_onPasteTiles?.(tileX, tileY);
@@ -3440,9 +3455,10 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			_onPasteTiles,
 			_onDeleteSelectedTiles,
 			_onClearTileSelection,
-			mapData,
 			getPan,
 			getZoom,
+			currentTileWidth,
+			currentTileHeight,
 		]);
 
 		// Clear tile selection when switching tools or layers

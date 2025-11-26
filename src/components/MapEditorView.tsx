@@ -209,8 +209,6 @@ export const MapEditorView = ({
 			name: "",
 			width: 0,
 			height: 0,
-			tileWidth: 16,
-			tileHeight: 16,
 			layers: [],
 			entities: [],
 			points: [],
@@ -236,13 +234,27 @@ export const MapEditorView = ({
 		colliders: mapData?.colliders || [],
 	});
 
-	// Register undo/redo keyboard shortcuts (combined tile + metadata)
+	// Separate undo/redo for layer operations (add, delete, rename, visibility, reorder, tile size)
+	const [
+		localLayers,
+		setLocalLayers,
+		{
+			undo: undoLayers,
+			redo: redoLayers,
+			canUndo: canUndoLayers,
+			canRedo: canRedoLayers,
+		},
+	] = useUndoableReducer(mapData?.layers || []);
+
+	// Register undo/redo keyboard shortcuts (combined tile + metadata + layers)
 	useRegisterUndoRedo({
 		undo: () => {
 			if (canUndo) {
 				undo();
 			} else if (canUndoMeta) {
 				undoMeta();
+			} else if (canUndoLayers) {
+				undoLayers();
 			}
 		},
 		redo: () => {
@@ -250,10 +262,12 @@ export const MapEditorView = ({
 				redo();
 			} else if (canRedoMeta) {
 				redoMeta();
+			} else if (canRedoLayers) {
+				redoLayers();
 			}
 		},
-		canUndo: canUndo || canUndoMeta,
-		canRedo: canRedo || canRedoMeta,
+		canUndo: canUndo || canUndoMeta || canUndoLayers,
+		canRedo: canRedo || canRedoMeta || canRedoLayers,
 	});
 
 	// Invalidate canvas chunks after undo/redo
@@ -294,6 +308,28 @@ export const MapEditorView = ({
 			colliders: localMapMeta.colliders,
 		}));
 	}, [localMapMeta, setLocalMapData]);
+
+	// Sync localLayers structural changes back to localMapData
+	// Preserves tiles from localMapData (managed by useChunkedMapUndo)
+	// Uses structural properties (name, visible, tileWidth, tileHeight, order) from localLayers
+	useEffect(() => {
+		setLocalMapData((prev) => {
+			// Create a map of existing layer tiles by id
+			const existingTiles = new Map(prev.layers.map((l) => [l.id, l.tiles]));
+
+			// Build new layers array preserving order from localLayers
+			// and keeping tiles from localMapData (or using localLayers tiles for new layers)
+			const newLayers = localLayers.map((layer) => ({
+				...layer,
+				tiles: existingTiles.get(layer.id) ?? layer.tiles,
+			}));
+
+			return {
+				...prev,
+				layers: newLayers,
+			};
+		});
+	}, [localLayers, setLocalMapData]);
 
 	// Wrapper functions to batch both tile and metadata operations
 	const handleStartBatch = useCallback(() => {
@@ -346,10 +382,10 @@ export const MapEditorView = ({
 
 	// Initialize currentLayerId when map loads
 	useEffect(() => {
-		if (currentLayerId === null && localMapData?.layers?.length > 0) {
-			setCurrentLayerId(localMapData.layers[0].id);
+		if (currentLayerId === null && localLayers.length > 0) {
+			setCurrentLayerId(localLayers[0].id);
 		}
-	}, [currentLayerId, localMapData?.layers]);
+	}, [currentLayerId, localLayers]);
 	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
 	const [editingLayerName, setEditingLayerName] = useState("");
 	const layerInputRef = useRef<HTMLInputElement>(null);
@@ -444,10 +480,9 @@ export const MapEditorView = ({
 
 	// Sync current layer to EditorContext for MapCanvas and other components
 	useEffect(() => {
-		if (!localMapData?.layers) return;
-		const layer = localMapData.layers.find((l) => l.id === currentLayerId);
+		const layer = localLayers.find((l) => l.id === currentLayerId);
 		setCurrentLayer(layer || null);
-	}, [currentLayerId, localMapData?.layers, setCurrentLayer]);
+	}, [currentLayerId, localLayers, setCurrentLayer]);
 
 	const handleNameClick = () => {
 		setIsEditingName(true);
@@ -533,15 +568,19 @@ export const MapEditorView = ({
 		});
 	};
 
-	const handleTileSizeChange = (
+	const handleLayerTileSizeChange = (
 		field: "tileWidth" | "tileHeight",
 		value: number,
 	) => {
-		if (!localMapData) return;
-		setLocalMapData({
-			...localMapData,
-			[field]: Math.max(1, Math.min(256, Math.round(value))),
-		});
+		if (!currentLayerId) return;
+		const clampedValue = Math.max(1, Math.min(256, Math.round(value)));
+		setLocalLayers(
+			localLayers.map((layer) =>
+				layer.id === currentLayerId
+					? { ...layer, [field]: clampedValue }
+					: layer,
+			),
+		);
 	};
 
 	// Get current layer from local state
@@ -552,25 +591,22 @@ export const MapEditorView = ({
 	const handleAddLayer = () => {
 		const newLayer = {
 			id: generateId(),
-			name: `Layer ${localMapData.layers.length + 1}`,
+			name: `Layer ${localLayers.length + 1}`,
 			visible: true,
 			tiles: new Array(localMapData.width * localMapData.height).fill(0), // Dense array initialized with zeros
+			tileWidth: 16,
+			tileHeight: 16,
 		};
 
-		setLocalMapData({
-			...localMapData,
-			layers: [...(localMapData.layers || []), newLayer],
-		});
+		setLocalLayers([...localLayers, newLayer]);
 		setCurrentLayerId(newLayer.id);
 	};
 
 	const handleRemoveLayer = (layerId: string) => {
-		setLocalMapData({
-			...localMapData,
-			layers: localMapData.layers.filter((l) => l.id !== layerId),
-		});
+		const newLayers = localLayers.filter((l) => l.id !== layerId);
+		setLocalLayers(newLayers);
 		if (currentLayerId === layerId) {
-			setCurrentLayerId(localMapData.layers[0]?.id || null);
+			setCurrentLayerId(newLayers[0]?.id || null);
 		}
 	};
 
@@ -584,21 +620,15 @@ export const MapEditorView = ({
 	};
 
 	const handleUpdateLayerVisibility = (layerId: string, visible: boolean) => {
-		setLocalMapData({
-			...localMapData,
-			layers: localMapData.layers.map((l) =>
-				l.id === layerId ? { ...l, visible } : l,
-			),
-		});
+		setLocalLayers(
+			localLayers.map((l) => (l.id === layerId ? { ...l, visible } : l)),
+		);
 	};
 
 	const handleUpdateLayerName = (layerId: string, name: string) => {
-		setLocalMapData({
-			...localMapData,
-			layers: localMapData.layers.map((l) =>
-				l.id === layerId ? { ...l, name } : l,
-			),
-		});
+		setLocalLayers(
+			localLayers.map((l) => (l.id === layerId ? { ...l, name } : l)),
+		);
 	};
 
 	const handleLayerDoubleClick = (layer: Layer) => {
@@ -647,9 +677,7 @@ export const MapEditorView = ({
 
 	const handleRenameLayer = () => {
 		if (contextMenu?.layerId) {
-			const layer = localMapData?.layers.find(
-				(l) => l.id === contextMenu.layerId,
-			);
+			const layer = localLayers.find((l) => l.id === contextMenu.layerId);
 			if (layer) {
 				setEditingLayerId(layer.id);
 				setEditingLayerName(layer.name);
@@ -670,9 +698,7 @@ export const MapEditorView = ({
 		setActiveLayerId(event.active.id as string);
 
 		// Select the layer being dragged
-		const draggedLayer = localMapData?.layers.find(
-			(l) => l.id === event.active.id,
-		);
+		const draggedLayer = localLayers.find((l) => l.id === event.active.id);
 		if (draggedLayer) {
 			setCurrentLayerId(draggedLayer.id);
 		}
@@ -682,12 +708,12 @@ export const MapEditorView = ({
 		const { active, over } = event;
 		setActiveLayerId(null);
 
-		if (!over || active.id === over.id || !localMapData) {
+		if (!over || active.id === over.id || localLayers.length === 0) {
 			return;
 		}
 
 		// Get the reversed array (UI order: top layer at top)
-		const reversedLayers = [...localMapData.layers].reverse();
+		const reversedLayers = [...localLayers].reverse();
 
 		// Find indices in the reversed array
 		const oldIndex = reversedLayers.findIndex((l) => l.id === active.id);
@@ -703,11 +729,8 @@ export const MapEditorView = ({
 		// Reverse back to get the correct internal order (bottom to top)
 		const newLayersOrder = reorderedReversed.reverse();
 
-		// Update local map data
-		setLocalMapData({
-			...localMapData,
-			layers: newLayersOrder,
-		});
+		// Update local layers (will sync to localMapData via effect)
+		setLocalLayers(newLayersOrder);
 
 		// Also update global state through reorderLayers
 		reorderLayers(newLayersOrder);
@@ -784,7 +807,7 @@ export const MapEditorView = ({
 		}) => {
 			if (!localMapData) return;
 
-			const layer = localMapData.layers.find((l) => l.id === selection.layerId);
+			const layer = localLayers.find((l) => l.id === selection.layerId);
 			if (!layer) return;
 
 			const width = selection.endX - selection.startX + 1;
@@ -809,7 +832,7 @@ export const MapEditorView = ({
 				sourceLayerId: selection.layerId,
 			});
 		},
-		[localMapData],
+		[localMapData, localLayers],
 	);
 
 	const handleCutTiles = useCallback(
@@ -1753,53 +1776,6 @@ export const MapEditorView = ({
 										/>
 									</div>
 								</div>
-
-								{/* Tile Size */}
-								<div>
-									<div
-										className="text-xs block mb-1"
-										style={{ color: "#858585" }}
-									>
-										Tile Size
-									</div>
-									<div className="flex items-center gap-2">
-										<DragNumberInput
-											value={localMapData?.tileWidth ?? 16}
-											onChange={(value) =>
-												handleTileSizeChange("tileWidth", value)
-											}
-											onInput={(value) =>
-												handleTileSizeChange("tileWidth", value)
-											}
-											onDragStart={startBatch}
-											onDragEnd={endBatch}
-											min={1}
-											max={256}
-											step={1}
-											precision={0}
-											dragSpeed={0.1}
-											className="flex-1"
-										/>
-										<span style={{ color: "#858585" }}>×</span>
-										<DragNumberInput
-											value={localMapData?.tileHeight ?? 16}
-											onChange={(value) =>
-												handleTileSizeChange("tileHeight", value)
-											}
-											onInput={(value) =>
-												handleTileSizeChange("tileHeight", value)
-											}
-											onDragStart={startBatch}
-											onDragEnd={endBatch}
-											min={1}
-											max={256}
-											step={1}
-											precision={0}
-											dragSpeed={0.1}
-											className="flex-1"
-										/>
-									</div>
-								</div>
 							</div>
 						</div>
 
@@ -1819,15 +1795,15 @@ export const MapEditorView = ({
 									onDragEnd={handleDragEnd}
 								>
 									<SortableContext
-										items={(localMapData?.layers || [])
+										items={localLayers
 											.slice()
 											.reverse()
 											.map((l) => l.id)}
 										strategy={verticalListSortingStrategy}
 									>
 										<div className="space-y-1">
-											{localMapData?.layers
-												?.slice()
+											{localLayers
+												.slice()
 												.reverse()
 												.map((layer) => (
 													<SortableLayerItem
@@ -1855,7 +1831,7 @@ export const MapEditorView = ({
 										</div>
 									</SortableContext>
 									<DragOverlay>
-										{activeLayerId && localMapData ? (
+										{activeLayerId && localLayers.length > 0 ? (
 											<div
 												className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
 												style={{
@@ -1866,7 +1842,7 @@ export const MapEditorView = ({
 												}}
 											>
 												{(() => {
-													const activeLayer = localMapData.layers.find(
+													const activeLayer = localLayers.find(
 														(l) => l.id === activeLayerId,
 													);
 													if (!activeLayer) return null;
@@ -1890,6 +1866,59 @@ export const MapEditorView = ({
 										) : null}
 									</DragOverlay>
 								</DndContext>
+
+								{/* Layer Tile Size (shown when a layer is selected) */}
+								{currentLayer && (
+									<div
+										className="mt-3 pt-3"
+										style={{ borderTop: "1px solid #3e3e42" }}
+									>
+										<div
+											className="text-xs block mb-1"
+											style={{ color: "#858585" }}
+										>
+											Layer Tile Size
+										</div>
+										<div className="flex items-center gap-2">
+											<DragNumberInput
+												value={currentLayer.tileWidth ?? 16}
+												onChange={(value) =>
+													handleLayerTileSizeChange("tileWidth", value)
+												}
+												onInput={(value) =>
+													handleLayerTileSizeChange("tileWidth", value)
+												}
+												onDragStart={startBatch}
+												onDragEnd={endBatch}
+												min={1}
+												max={256}
+												step={1}
+												precision={0}
+												dragSpeed={0.1}
+												className="flex-1"
+											/>
+											<span style={{ color: "#858585" }}>×</span>
+											<DragNumberInput
+												value={currentLayer.tileHeight ?? 16}
+												onChange={(value) =>
+													handleLayerTileSizeChange("tileHeight", value)
+												}
+												onInput={(value) =>
+													handleLayerTileSizeChange("tileHeight", value)
+												}
+												onDragStart={startBatch}
+												onDragEnd={endBatch}
+												min={1}
+												max={256}
+												step={1}
+												precision={0}
+												dragSpeed={0.1}
+												className="flex-1"
+											/>
+										</div>
+									</div>
+								)}
+
 								<div className="mt-2">
 									<button
 										type="button"

@@ -445,6 +445,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			name: `Layer ${currentMap.layers.length + 1}`,
 			visible: true,
 			tiles: [],
+			tileWidth: 16,
+			tileHeight: 16,
 		};
 
 		updateMap(mapTab.mapId, {

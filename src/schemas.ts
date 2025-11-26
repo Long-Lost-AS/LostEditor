@@ -161,6 +161,8 @@ export const LayerSchema = z.object({
 	name: z.string(),
 	visible: z.boolean(),
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
+	tileWidth: z.number().positive().default(16),
+	tileHeight: z.number().positive().default(16),
 });
 
 export const MapDataSchema = z.object({
@@ -168,8 +170,6 @@ export const MapDataSchema = z.object({
 	name: z.string(),
 	width: z.number().positive(),
 	height: z.number().positive(),
-	tileWidth: z.number().positive(),
-	tileHeight: z.number().positive(),
 	layers: z.array(LayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]),
 	points: z.array(PointInstanceSchema).default([]),
@@ -182,6 +182,8 @@ export const SerializedLayerSchema = z.object({
 	name: z.string(),
 	visible: z.boolean(),
 	tiles: z.array(z.number()).default([]), // Dense array of packed tile IDs
+	tileWidth: z.number().positive().default(16),
+	tileHeight: z.number().positive().default(16),
 });
 
 export const SerializedMapDataSchema = z.object({
@@ -190,8 +192,6 @@ export const SerializedMapDataSchema = z.object({
 	name: z.string(),
 	width: z.number().positive(),
 	height: z.number().positive(),
-	tileWidth: z.number().positive(),
-	tileHeight: z.number().positive(),
 	layers: z.array(SerializedLayerSchema).default([]),
 	entities: z.array(EntityInstanceSchema).default([]), // Entities at map level (required, can be empty)
 	points: z.array(PointInstanceSchema).default([]), // Points at map level (required, can be empty)
@@ -443,14 +443,14 @@ export function createDefaultMapData(
 		name,
 		width,
 		height,
-		tileWidth: 16,
-		tileHeight: 16,
 		layers: [
 			{
 				id: generateId(),
 				name: "Layer 1",
 				visible: true,
 				tiles: new Array(width * height).fill(0), // Initialize dense array with zeros
+				tileWidth: 16,
+				tileHeight: 16,
 			},
 		],
 		entities: [], // Map-level entities

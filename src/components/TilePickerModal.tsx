@@ -12,7 +12,6 @@ interface TilePickerModalProps {
 export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 	const {
 		currentTileset,
-		getActiveMap,
 		selectedTileX,
 		selectedTileY,
 		selectedTileId,
@@ -35,8 +34,6 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 		maxScale: 8,
 		zoomSpeed: 0.01,
 	});
-
-	const activeMap = getActiveMap();
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -79,9 +76,8 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
 			ctx.lineWidth = 1 / scale;
 
-			const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-			const tileHeight =
-				currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+			const tileWidth = currentTileset?.tileWidth || 16;
+			const tileHeight = currentTileset?.tileHeight || 16;
 
 			// Calculate visible area in world coordinates
 			const visibleLeft = Math.max(0, -pan.x / scale);
@@ -290,7 +286,6 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 	}, [
 		isOpen,
 		currentTileset,
-		activeMap,
 		selectedTileX,
 		selectedTileY,
 		selectedTileId,
@@ -329,9 +324,8 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 				e.clientY,
 			);
 
-			const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-			const tileHeight =
-				currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+			const tileWidth = currentTileset?.tileWidth || 16;
+			const tileHeight = currentTileset?.tileHeight || 16;
 
 			// Clear terrain layer selection when selecting a tile
 			if (currentTileset) {
@@ -384,7 +378,6 @@ export const TilePickerModal = ({ isOpen, onClose }: TilePickerModalProps) => {
 		},
 		[
 			currentTileset,
-			activeMap,
 			setSelectedTile,
 			setSelectedTerrainLayerId,
 			onClose,

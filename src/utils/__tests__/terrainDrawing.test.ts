@@ -29,6 +29,8 @@ describe("terrainDrawing", () => {
 			name: "Test Layer",
 			visible: true,
 			tiles,
+			tileWidth: 16,
+			tileHeight: 16,
 		};
 	}
 

@@ -11,8 +11,6 @@ describe("mapSerializer", () => {
 				name: "Test Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -25,8 +23,6 @@ describe("mapSerializer", () => {
 			expect(result.name).toBe("Test Map");
 			expect(result.width).toBe(10);
 			expect(result.height).toBe(10);
-			expect(result.tileWidth).toBe(16);
-			expect(result.tileHeight).toBe(16);
 			expect(result.layers).toEqual([]);
 			expect(result.entities).toEqual([]);
 		});
@@ -37,20 +33,22 @@ describe("mapSerializer", () => {
 				name: "Map with Layers",
 				width: 2,
 				height: 2,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
 						tiles: [1, 2, 3, 4],
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 					{
 						id: "layer-2",
 						name: "Objects",
 						visible: false,
 						tiles: [0, 0, 0, 0],
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -65,6 +63,8 @@ describe("mapSerializer", () => {
 			expect(result.layers[0].name).toBe("Ground");
 			expect(result.layers[0].visible).toBe(true);
 			expect(result.layers[0].tiles).toEqual([1, 2, 3, 4]);
+			expect(result.layers[0].tileWidth).toBe(16);
+			expect(result.layers[0].tileHeight).toBe(16);
 
 			expect(result.layers[1].id).toBe("layer-2");
 			expect(result.layers[1].visible).toBe(false);
@@ -76,8 +76,6 @@ describe("mapSerializer", () => {
 				name: "Map with Entities",
 				width: 5,
 				height: 5,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [
 					{
@@ -118,8 +116,6 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -138,14 +134,14 @@ describe("mapSerializer", () => {
 				name: "Large Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Test",
 						visible: true,
 						tiles,
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -168,8 +164,6 @@ describe("mapSerializer", () => {
 				name: "Test Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [],
 				points: [],
@@ -192,14 +186,14 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 2,
 				height: 2,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
 						tiles: [1, 2, 3, 4],
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -211,6 +205,8 @@ describe("mapSerializer", () => {
 
 			expect(result.layers).toHaveLength(1);
 			expect(result.layers[0].tiles).toEqual([1, 2, 3, 4]);
+			expect(result.layers[0].tileWidth).toBe(16);
+			expect(result.layers[0].tileHeight).toBe(16);
 		});
 
 		it("should pad tiles array if too small", () => {
@@ -220,14 +216,14 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 5,
 				height: 5,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
 						tiles: [1, 2, 3], // Only 3 tiles, but should be 25
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -254,13 +250,13 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 3,
 				height: 3,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
+						tileWidth: 16,
+						tileHeight: 16,
 						// tiles is undefined (covered by line 53)
 					} as Partial<SerializedLayer> as SerializedLayer,
 				],
@@ -276,6 +272,34 @@ describe("mapSerializer", () => {
 			expect(result.layers[0].tiles.every((t) => t === 0)).toBe(true);
 		});
 
+		it("should default tileWidth and tileHeight to 16 when not provided", () => {
+			const serialized: SerializedMapData = {
+				version: "4.0",
+				id: generateId(),
+				name: "Map",
+				width: 2,
+				height: 2,
+				layers: [
+					{
+						id: "layer-1",
+						name: "Ground",
+						visible: true,
+						tiles: [0, 0, 0, 0],
+						// tileWidth and tileHeight are undefined
+					} as Partial<SerializedLayer> as SerializedLayer,
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			// Should default to 16x16
+			expect(result.layers[0].tileWidth).toBe(16);
+			expect(result.layers[0].tileHeight).toBe(16);
+		});
+
 		it("should handle map with entities", () => {
 			const serialized: SerializedMapData = {
 				version: "4.0",
@@ -283,8 +307,6 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [
 					{
@@ -314,8 +336,6 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 10,
 				height: 10,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				// entities is undefined (covered by line 77)
 			} as Partial<SerializedMapData> as SerializedMapData;
@@ -332,14 +352,14 @@ describe("mapSerializer", () => {
 				name: "Map",
 				width: 2,
 				height: 2,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Test Layer",
 						visible: false,
 						tiles: [0, 0, 0, 0],
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -362,14 +382,14 @@ describe("mapSerializer", () => {
 				name: "Large Map",
 				width: 100,
 				height: 100,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Large",
 						visible: true,
 						tiles: largeTiles,
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				entities: [],
@@ -392,14 +412,14 @@ describe("mapSerializer", () => {
 				name: "Round Trip Test",
 				width: 4,
 				height: 4,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [
 					{
 						id: "layer-1",
 						name: "Ground",
 						visible: true,
 						tiles: new Array(16).fill(0).map((_, i) => i),
+						tileWidth: 16,
+						tileHeight: 16,
 					},
 				],
 				points: [],
@@ -434,8 +454,6 @@ describe("mapSerializer", () => {
 				name: "Empty",
 				width: 1,
 				height: 1,
-				tileWidth: 16,
-				tileHeight: 16,
 				layers: [],
 				entities: [],
 				points: [],

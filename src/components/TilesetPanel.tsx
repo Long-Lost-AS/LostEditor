@@ -11,7 +11,6 @@ export const TilesetPanel = () => {
 		tilesets,
 		currentTileset,
 		setCurrentTileset,
-		getActiveMap,
 		selectedTileX,
 		selectedTileY,
 		selectedTileId,
@@ -36,8 +35,6 @@ export const TilesetPanel = () => {
 		maxScale: 8,
 		zoomSpeed: 0.01,
 	});
-
-	const activeMap = getActiveMap();
 
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -74,9 +71,8 @@ export const TilesetPanel = () => {
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
 			ctx.lineWidth = 1 / scale;
 
-			const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-			const tileHeight =
-				currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+			const tileWidth = currentTileset?.tileWidth || 16;
+			const tileHeight = currentTileset?.tileHeight || 16;
 
 			// Draw vertical lines
 			for (let x = 0; x <= displayImage.width; x += tileWidth) {
@@ -267,7 +263,6 @@ export const TilesetPanel = () => {
 	}, [
 		displayImage,
 		currentTileset,
-		activeMap,
 		selectedTileX,
 		selectedTileY,
 		selectedTileId,
@@ -304,9 +299,8 @@ export const TilesetPanel = () => {
 			return;
 		}
 
-		const tileWidth = currentTileset?.tileWidth || activeMap?.tileWidth || 16;
-		const tileHeight =
-			currentTileset?.tileHeight || activeMap?.tileHeight || 16;
+		const tileWidth = currentTileset?.tileWidth || 16;
+		const tileHeight = currentTileset?.tileHeight || 16;
 
 		// If using new tileset system
 		if (currentTileset) {

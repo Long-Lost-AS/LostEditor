@@ -23,6 +23,8 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		name: layer.name,
 		visible: layer.visible,
 		tiles: layer.tiles, // Dense array - already serializable!
+		tileWidth: layer.tileWidth,
+		tileHeight: layer.tileHeight,
 	}));
 
 	return {
@@ -31,8 +33,6 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		name: mapData.name,
 		width: mapData.width,
 		height: mapData.height,
-		tileWidth: mapData.tileWidth,
-		tileHeight: mapData.tileHeight,
 		layers: serializedLayers,
 		entities: mapData.entities, // Entities at map level
 		points: mapData.points, // Points at map level
@@ -63,6 +63,8 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			name: layer.name,
 			visible: layer.visible,
 			tiles,
+			tileWidth: layer.tileWidth ?? 16,
+			tileHeight: layer.tileHeight ?? 16,
 		};
 	});
 
@@ -71,8 +73,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		name: serialized.name,
 		width: serialized.width,
 		height: serialized.height,
-		tileWidth: serialized.tileWidth,
-		tileHeight: serialized.tileHeight,
 		layers,
 		entities: serialized.entities || [], // Entities at map level
 		points: serialized.points || [], // Points at map level
