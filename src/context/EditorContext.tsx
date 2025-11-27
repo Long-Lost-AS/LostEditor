@@ -25,6 +25,7 @@ import type {
 	EntityDefinition,
 	EntityEditorTab,
 	Layer,
+	LayerGroup,
 	MapData,
 	MapTab,
 	ProjectData,
@@ -157,6 +158,13 @@ interface EditorContextType {
 	updateLayerVisibility: (layerId: string, visible: boolean) => void;
 	updateLayerName: (layerId: string, name: string) => void;
 	reorderLayers: (newLayersOrder: Layer[]) => void;
+
+	// Group Actions
+	addGroup: () => void;
+	removeGroup: (groupId: string) => void;
+	updateGroup: (groupId: string, updates: Partial<LayerGroup>) => void;
+	assignLayerToGroup: (layerId: string, groupId: string | undefined) => void;
+	toggleGroupExpanded: (groupId: string) => void;
 
 	// Tile Actions
 	placeTile: (x: number, y: number) => void;
@@ -532,6 +540,104 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			setProjectModified(true);
 		},
 		[getActiveMapTab, updateMap],
+	);
+
+	// Group management functions
+	const addGroup = useCallback(() => {
+		const mapTab = getActiveMapTab();
+		if (!mapTab) return;
+
+		const currentMap = getMapById(mapTab.mapId);
+		if (!currentMap) return;
+
+		const newGroup: LayerGroup = {
+			id: generateId(),
+			name: `Group ${(currentMap.groups?.length || 0) + 1}`,
+			expanded: true,
+			visible: true,
+			parallaxX: 1.0,
+			parallaxY: 1.0,
+			tint: { r: 255, g: 255, b: 255, a: 255 },
+		};
+
+		updateMap(mapTab.mapId, {
+			groups: [...(currentMap.groups || []), newGroup],
+		});
+		setProjectModified(true);
+	}, [getActiveMapTab, getMapById, updateMap]);
+
+	const removeGroup = useCallback(
+		(groupId: string) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			// Remove group and unassign all layers from it
+			updateMap(mapTab.mapId, {
+				groups: (currentMap.groups || []).filter((g) => g.id !== groupId),
+				layers: currentMap.layers.map((l) =>
+					l.groupId === groupId ? { ...l, groupId: undefined } : l,
+				),
+			});
+			setProjectModified(true);
+		},
+		[getActiveMapTab, getMapById, updateMap],
+	);
+
+	const updateGroup = useCallback(
+		(groupId: string, updates: Partial<LayerGroup>) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				groups: (currentMap.groups || []).map((g) =>
+					g.id === groupId ? { ...g, ...updates } : g,
+				),
+			});
+			setProjectModified(true);
+		},
+		[getActiveMapTab, getMapById, updateMap],
+	);
+
+	const assignLayerToGroup = useCallback(
+		(layerId: string, groupId: string | undefined) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				layers: currentMap.layers.map((l) =>
+					l.id === layerId ? { ...l, groupId } : l,
+				),
+			});
+			setProjectModified(true);
+		},
+		[getActiveMapTab, getMapById, updateMap],
+	);
+
+	const toggleGroupExpanded = useCallback(
+		(groupId: string) => {
+			const mapTab = getActiveMapTab();
+			if (!mapTab) return;
+
+			const currentMap = getMapById(mapTab.mapId);
+			if (!currentMap) return;
+
+			updateMap(mapTab.mapId, {
+				groups: (currentMap.groups || []).map((g) =>
+					g.id === groupId ? { ...g, expanded: !g.expanded } : g,
+				),
+			});
+			// Note: don't set projectModified for UI state change
+		},
+		[getActiveMapTab, getMapById, updateMap],
 	);
 
 	const placeTile = useCallback(
@@ -2271,6 +2377,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		updateLayerVisibility,
 		updateLayerName,
 		reorderLayers,
+		addGroup,
+		removeGroup,
+		updateGroup,
+		assignLayerToGroup,
+		toggleGroupExpanded,
 		placeTile,
 		eraseTile,
 		saveProject,
