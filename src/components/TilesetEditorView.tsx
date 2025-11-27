@@ -1694,17 +1694,14 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 								className="text-xs font-semibold uppercase tracking-wide mb-2"
 								style={{ color: "#858585" }}
 							>
-								Tileset Properties
+								Tile Size
 							</div>
-							<div className="space-y-2">
-								<div className="grid grid-cols-2 gap-2">
-									<div>
-										<div
-											className="text-xs block mb-1"
-											style={{ color: "#858585" }}
-										>
-											Tile Width
-										</div>
+							<div className="grid grid-cols-2 gap-2">
+								<div className="flex">
+									<div className="text-xs w-6 font-bold bg-purple-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+										W
+									</div>
+									<div className="flex-1">
 										<DragNumberInput
 											value={localTileWidth}
 											onChange={(value) => {
@@ -1725,15 +1722,15 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											step={1}
 											precision={0}
 											dragSpeed={1}
+											roundedLeft={false}
 										/>
 									</div>
-									<div>
-										<div
-											className="text-xs block mb-1"
-											style={{ color: "#858585" }}
-										>
-											Tile Height
-										</div>
+								</div>
+								<div className="flex">
+									<div className="text-xs w-6 font-bold bg-orange-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+										H
+									</div>
+									<div className="flex-1">
 										<DragNumberInput
 											value={localTileHeight}
 											onChange={(value) => {
@@ -1754,6 +1751,7 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 											step={1}
 											precision={0}
 											dragSpeed={1}
+											roundedLeft={false}
 										/>
 									</div>
 								</div>
