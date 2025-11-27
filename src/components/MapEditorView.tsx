@@ -46,6 +46,7 @@ import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { PencilIcon, TrashIcon } from "./Icons";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PointPropertiesPanel } from "./PointPropertiesPanel";
+import { TintInput } from "./TintInput";
 import { Toolbar } from "./Toolbar";
 
 interface MapEditorViewProps {
@@ -2032,66 +2033,11 @@ export const MapEditorView = ({
 											>
 												Tint
 											</div>
-											<div className="flex items-center gap-2">
-												<input
-													type="color"
-													key={currentLayer.id}
-													defaultValue={`#${(currentLayer.tint?.r ?? 255).toString(16).padStart(2, "0")}${(currentLayer.tint?.g ?? 255).toString(16).padStart(2, "0")}${(currentLayer.tint?.b ?? 255).toString(16).padStart(2, "0")}`}
-													onInput={(e) => {
-														const hex = (e.target as HTMLInputElement).value;
-														const r = Number.parseInt(hex.slice(1, 3), 16);
-														const g = Number.parseInt(hex.slice(3, 5), 16);
-														const b = Number.parseInt(hex.slice(5, 7), 16);
-														handleLayerTintChange({
-															r,
-															g,
-															b,
-															a: currentLayer.tint?.a ?? 255,
-														});
-													}}
-													className="flex-1 h-[36px] rounded cursor-pointer border-0"
-													style={{
-														backgroundColor: "transparent",
-														padding: 0,
-													}}
-													title="Layer tint color"
-												/>
-												<div className="flex w-20">
-													<div className="text-xs w-6 font-bold bg-pink-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
-														O
-													</div>
-													<div className="flex-1">
-														<DragNumberInput
-															value={Math.round(
-																((currentLayer.tint?.a ?? 255) / 255) * 100,
-															)}
-															onChange={(val) => {
-																const a = Math.round((val / 100) * 255);
-																handleLayerTintChange({
-																	r: currentLayer.tint?.r ?? 255,
-																	g: currentLayer.tint?.g ?? 255,
-																	b: currentLayer.tint?.b ?? 255,
-																	a: Math.max(0, Math.min(255, a)),
-																});
-															}}
-															onInput={(val) => {
-																const a = Math.round((val / 100) * 255);
-																handleLayerTintChange({
-																	r: currentLayer.tint?.r ?? 255,
-																	g: currentLayer.tint?.g ?? 255,
-																	b: currentLayer.tint?.b ?? 255,
-																	a: Math.max(0, Math.min(255, a)),
-																});
-															}}
-															min={0}
-															max={100}
-															dragSpeed={1}
-															precision={0}
-															roundedLeft={false}
-														/>
-													</div>
-												</div>
-											</div>
+											<TintInput
+												tint={currentLayer.tint}
+												onChange={handleLayerTintChange}
+												inputKey={currentLayer.id}
+											/>
 										</div>
 
 										{/* Custom Properties */}

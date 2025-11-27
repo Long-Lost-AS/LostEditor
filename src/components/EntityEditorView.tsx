@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RgbaColorPicker } from "react-colorful";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
 import { useRegisterUndoRedo } from "../context/UndoRedoContext";
@@ -20,6 +19,7 @@ import { ColliderPropertiesPanel } from "./ColliderPropertiesPanel";
 import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { Dropdown } from "./Dropdown";
+import { TintInput } from "./TintInput";
 
 interface EntityEditorViewProps {
 	tab: EntityEditorTab;
@@ -148,7 +148,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 	const [selectedSpriteId, setSelectedSpriteId] = useState<string | null>(
 		tab.viewState.selectedSpriteId,
 	);
-	const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
 	// Sprite dragging state
 	const [isDraggingSprite, setIsDraggingSprite] = useState(false);
@@ -1706,7 +1705,6 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 										? "crosshair"
 										: "default",
 					background: "#1e1e1e",
-					pointerEvents: colorPickerOpen ? "none" : "auto",
 				}}
 			>
 				<canvas
@@ -2136,112 +2134,20 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 									</div>
 
 									{/* Tint Color */}
-									<div style={{ position: "relative" }}>
+									<div>
 										<div
 											className="text-xs font-medium block mb-1.5"
 											style={{ color: "#858585" }}
 										>
 											Tint Color
 										</div>
-										<div className="flex gap-2 items-center">
-											{/* Color Swatch Button */}
-											<button
-												type="button"
-												onClick={() => setColorPickerOpen(!colorPickerOpen)}
-												className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:opacity-80 transition-opacity"
-												style={{
-													background: "#3e3e42",
-													border: "1px solid #555",
-												}}
-											>
-												<div
-													style={{
-														width: "32px",
-														height: "20px",
-														borderRadius: "3px",
-														background: `rgba(${selectedLayer.tint?.r || 255}, ${selectedLayer.tint?.g || 255}, ${selectedLayer.tint?.b || 255}, ${(selectedLayer.tint?.a ?? 255) / 255})`,
-														border: "1px solid #555",
-													}}
-												/>
-												<span className="text-xs" style={{ color: "#cccccc" }}>
-													{selectedLayer.tint?.r || 255},{" "}
-													{selectedLayer.tint?.g || 255},{" "}
-													{selectedLayer.tint?.b || 255}
-												</span>
-											</button>
-											{/* Reset Button */}
-											<button
-												type="button"
-												onClick={() => {
-													handleUpdateSprite(selectedLayer.id, {
-														tint: { r: 255, g: 255, b: 255, a: 255 },
-													});
-												}}
-												className="px-2.5 py-1.5 text-xs rounded hover:opacity-80 transition-opacity"
-												style={{
-													background: "#3e3e42",
-													color: "#cccccc",
-													border: "1px solid #555",
-												}}
-											>
-												Reset
-											</button>
-										</div>
-
-										{/* Color Picker Popover */}
-										{colorPickerOpen &&
-											createPortal(
-												<>
-													{/* Backdrop */}
-													<div
-														className="fixed inset-0"
-														style={{ zIndex: 9998 }}
-														onClick={() => setColorPickerOpen(false)}
-														onKeyDown={(e) => {
-															if (e.key === "Escape") {
-																setColorPickerOpen(false);
-															}
-														}}
-														role="button"
-														tabIndex={-1}
-														aria-label="Close color picker"
-													/>
-													<div
-														className="fixed rounded shadow-lg"
-														style={{
-															background: "#252526",
-															border: "1px solid #3e3e42",
-															right: "310px",
-															top: "50%",
-															transform: "translateY(-50%)",
-															zIndex: 9999,
-															width: "200px",
-															padding: "8px",
-														}}
-													>
-														<RgbaColorPicker
-															color={{
-																r: selectedLayer.tint?.r || 255,
-																g: selectedLayer.tint?.g || 255,
-																b: selectedLayer.tint?.b || 255,
-																a: (selectedLayer.tint?.a ?? 255) / 255,
-															}}
-															onChange={(color) => {
-																handleUpdateSprite(selectedLayer.id, {
-																	tint: {
-																		r: color.r,
-																		g: color.g,
-																		b: color.b,
-																		a: Math.round(color.a * 255),
-																	},
-																});
-															}}
-															style={{ width: "100%" }}
-														/>
-													</div>
-												</>,
-												document.body,
-											)}
+										<TintInput
+											tint={selectedLayer.tint}
+											onChange={(tint) =>
+												handleUpdateSprite(selectedLayer.id, { tint })
+											}
+											inputKey={selectedLayer.id}
+										/>
 									</div>
 								</div>
 							</div>
