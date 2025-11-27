@@ -52,6 +52,7 @@ export function createMockMap(overrides?: Partial<MapData>): MapData {
 		id: generateId(),
 		name: "Test Map",
 		layers: [createMockLayer()],
+		groups: [],
 		entities: [],
 		points: [],
 		colliders: [],

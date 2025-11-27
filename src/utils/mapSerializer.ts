@@ -6,8 +6,10 @@
 
 import type {
 	Layer,
+	LayerGroup,
 	MapData,
 	SerializedLayer,
+	SerializedLayerGroup,
 	SerializedMapData,
 } from "../types";
 import { isChunkEmpty } from "./chunkStorage";
@@ -28,7 +30,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			}
 		}
 
-		return {
+		const serializedLayer: SerializedLayer = {
 			id: layer.id,
 			name: layer.name,
 			visible: layer.visible,
@@ -40,7 +42,40 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			parallaxY: layer.parallaxY,
 			properties: layer.properties || {},
 		};
+
+		// Only include groupId if it's defined
+		if (layer.groupId) {
+			serializedLayer.groupId = layer.groupId;
+		}
+
+		return serializedLayer;
 	});
+
+	// Serialize groups - only include non-default values
+	const serializedGroups: SerializedLayerGroup[] = (mapData.groups || []).map(
+		(group) => {
+			const serializedGroup: SerializedLayerGroup = {
+				id: group.id,
+				name: group.name,
+			};
+
+			// Only include non-default values
+			if (!group.expanded) serializedGroup.expanded = group.expanded;
+			if (!group.visible) serializedGroup.visible = group.visible;
+			if (group.parallaxX !== 1.0) serializedGroup.parallaxX = group.parallaxX;
+			if (group.parallaxY !== 1.0) serializedGroup.parallaxY = group.parallaxY;
+			if (
+				group.tint.r !== 255 ||
+				group.tint.g !== 255 ||
+				group.tint.b !== 255 ||
+				group.tint.a !== 255
+			) {
+				serializedGroup.tint = group.tint;
+			}
+
+			return serializedGroup;
+		},
+	);
 
 	return {
 		version: "5.0",
@@ -48,6 +83,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 		name: mapData.name,
 		// No width/height - infinite map!
 		layers: serializedLayers,
+		groups: serializedGroups,
 		entities: mapData.entities,
 		points: mapData.points,
 		colliders: mapData.colliders,
@@ -67,6 +103,7 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			name: layer.name,
 			visible: layer.visible,
 			foreground: layer.foreground ?? false,
+			groupId: layer.groupId, // Optional - undefined if not in a group
 			chunks: layer.chunks || {}, // Already a Record, use as-is
 			tileWidth: layer.tileWidth ?? 16,
 			tileHeight: layer.tileHeight ?? 16,
@@ -77,11 +114,25 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		};
 	});
 
+	// Deserialize groups with defaults
+	const groups: LayerGroup[] = (serialized.groups || []).map((group) => {
+		return {
+			id: group.id,
+			name: group.name,
+			expanded: group.expanded ?? true,
+			visible: group.visible ?? true,
+			parallaxX: group.parallaxX ?? 1.0,
+			parallaxY: group.parallaxY ?? 1.0,
+			tint: group.tint ?? { r: 255, g: 255, b: 255, a: 255 },
+		};
+	});
+
 	return {
 		id: serialized.id,
 		name: serialized.name,
 		// No width/height - infinite map!
 		layers,
+		groups,
 		entities: serialized.entities || [],
 		points: serialized.points || [],
 		colliders: serialized.colliders || [],

@@ -6,6 +6,7 @@ import type {
 	EntityDefinitionSchema,
 	EntityEditorTabSchema,
 	EntityEditorViewStateSchema,
+	LayerGroupSchema,
 	LayerSchema,
 	MapDataSchema,
 	MapTabSchema,
@@ -14,6 +15,7 @@ import type {
 	PointSchema,
 	PolygonColliderSchema,
 	ProjectDataSchema,
+	SerializedLayerGroupSchema,
 	SerializedLayerSchema,
 	SerializedMapDataSchema,
 	SpriteRectSchema,
@@ -124,6 +126,8 @@ export type PointInstance = z.infer<typeof PointInstanceSchema>;
 
 export type Layer = z.infer<typeof LayerSchema>;
 
+export type LayerGroup = z.infer<typeof LayerGroupSchema>;
+
 // MapData inferred from schema, with runtime-only filePath field
 export type MapData = z.infer<typeof MapDataSchema> & {
 	filePath?: string; // Runtime-only field for tracking where map was loaded from
@@ -135,6 +139,9 @@ export type MapData = z.infer<typeof MapDataSchema> & {
 
 // Serialized layer format (version 5.0 - chunk-based) - inferred from schema
 export type SerializedLayer = z.infer<typeof SerializedLayerSchema>;
+
+// Serialized layer group format - inferred from schema
+export type SerializedLayerGroup = z.infer<typeof SerializedLayerGroupSchema>;
 
 // Serialized map format (what's stored in .lostmap files version 5.0) - inferred from schema
 export type SerializedMapData = z.infer<typeof SerializedMapDataSchema>;

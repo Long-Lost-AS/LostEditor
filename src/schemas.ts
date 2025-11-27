@@ -37,6 +37,20 @@ export const TintColorSchema = z.object({
 	a: z.number().min(0).max(255),
 });
 
+// ===========================
+// Layer Group Schema
+// ===========================
+
+export const LayerGroupSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	expanded: z.boolean().default(true), // UI state for collapse
+	visible: z.boolean().default(true),
+	parallaxX: z.number().default(1.0),
+	parallaxY: z.number().default(1.0),
+	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
+});
+
 export const SpriteSchema = z.object({
 	id: z.string(),
 	name: z.string().default(""),
@@ -156,6 +170,7 @@ export const LayerSchema = z.object({
 	name: z.string(),
 	visible: z.boolean(),
 	foreground: z.boolean().default(false), // true = render above entities, false = render below
+	groupId: z.string().optional(), // References a LayerGroup's id
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
@@ -170,17 +185,29 @@ export const MapDataSchema = z.object({
 	name: z.string(),
 	// No width/height - infinite map!
 	layers: z.array(LayerSchema).default([]),
+	groups: z.array(LayerGroupSchema).default([]), // Layer groups for organization
 	entities: z.array(EntityInstanceSchema).default([]),
 	points: z.array(PointInstanceSchema).default([]),
 	colliders: z.array(PolygonColliderSchema).default([]),
 });
 
 // Schemas for serialized format (version 5.0 - chunk-based storage)
+export const SerializedLayerGroupSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	expanded: z.boolean().optional(), // UI state for collapse (default true)
+	visible: z.boolean().optional(), // default true
+	parallaxX: z.number().optional(), // default 1.0
+	parallaxY: z.number().optional(), // default 1.0
+	tint: TintColorSchema.optional(), // default white
+});
+
 export const SerializedLayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
 	foreground: z.boolean().optional(), // true = render above entities, false/undefined = render below
+	groupId: z.string().optional(), // References a LayerGroup's id
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
@@ -196,6 +223,7 @@ export const SerializedMapDataSchema = z.object({
 	name: z.string(),
 	// No width/height - infinite map!
 	layers: z.array(SerializedLayerSchema).default([]),
+	groups: z.array(SerializedLayerGroupSchema).default([]), // Layer groups for organization
 	entities: z.array(EntityInstanceSchema).default([]), // Entities at map level (required, can be empty)
 	points: z.array(PointInstanceSchema).default([]), // Points at map level (required, can be empty)
 	colliders: z.array(PolygonColliderSchema).default([]), // Colliders at map level (required, can be empty)

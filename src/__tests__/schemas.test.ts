@@ -953,6 +953,7 @@ describe("schemas", () => {
 					id: generateId(),
 					name: "Test",
 					layers: [],
+					groups: [],
 					entities: [],
 					points: [],
 					colliders: [],

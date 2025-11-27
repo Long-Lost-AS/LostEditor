@@ -239,6 +239,7 @@ export const MapEditorView = ({
 			id: "",
 			name: "",
 			layers: [],
+			groups: [],
 			entities: [],
 			points: [],
 			colliders: [],
