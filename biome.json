@@ -39,6 +39,10 @@
 				"noNonNullAssertion": "error",
 				"useConst": "error"
 			},
+			"complexity": {
+				"noImportantStyles": "error",
+				"useOptionalChain": "error"
+			},
 			"correctness": {
 				"noUnusedVariables": "error",
 				"useExhaustiveDependencies": "error",

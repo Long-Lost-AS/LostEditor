@@ -1478,11 +1478,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					if (entityDefId) {
 						const entityDef = entityManager.getEntityDefinition(entityDefId);
 
-						if (
-							entityDef &&
-							entityDef.sprites &&
-							entityDef.sprites.length > 0
-						) {
+						if (entityDef?.sprites && entityDef.sprites.length > 0) {
 							// Calculate world position from screen coordinates
 							const rect = canvas.getBoundingClientRect();
 							const canvasX = mousePos.x - rect.left;
@@ -1662,11 +1658,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							selectedEntity.entityDefId,
 						);
 
-						if (
-							entityDef &&
-							entityDef.sprites &&
-							entityDef.sprites.length > 0
-						) {
+						if (entityDef?.sprites && entityDef.sprites.length > 0) {
 							// Use temp position if dragging, otherwise use actual position
 							const entityX =
 								isDraggingEntity && currentTempPos
