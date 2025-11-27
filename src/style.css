@@ -533,22 +533,3 @@ input[type="number"] {
 	-moz-appearance: textfield;
 	appearance: textfield;
 }
-
-/* react-colorful overrides - using repeated selectors for higher specificity */
-.react-colorful.react-colorful {
-	width: 100%;
-	height: auto;
-}
-
-.react-colorful .react-colorful__saturation.react-colorful__saturation {
-	width: 100%;
-	padding-bottom: 100%; /* Makes it square */
-	border-radius: 4px 4px 0 0;
-}
-
-.react-colorful .react-colorful__hue.react-colorful__hue,
-.react-colorful .react-colorful__alpha.react-colorful__alpha {
-	height: 12px;
-	border-radius: 4px;
-	margin-top: 8px;
-}
