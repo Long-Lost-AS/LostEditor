@@ -143,7 +143,10 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 
 			lines.push("      },");
 			lines.push(`      "tileWidth": ${layer.tileWidth},`);
-			lines.push(`      "tileHeight": ${layer.tileHeight}`);
+			lines.push(`      "tileHeight": ${layer.tileHeight},`);
+			lines.push(
+				`      "properties": ${JSON.stringify(layer.properties || {})}`,
+			);
 			const layerComma = i < parsed.layers.length - 1 ? "," : "";
 			lines.push(`    }${layerComma}`);
 		}
