@@ -1691,7 +1691,13 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						{/* Tileset Properties */}
 						<div>
 							<div
-								className="text-xs font-semibold uppercase tracking-wide mb-2"
+								className="text-xs font-semibold uppercase tracking-wide mb-3"
+								style={{ color: "#858585" }}
+							>
+								Tileset Properties
+							</div>
+							<div
+								className="text-xs font-medium mb-1.5"
 								style={{ color: "#858585" }}
 							>
 								Tile Size
