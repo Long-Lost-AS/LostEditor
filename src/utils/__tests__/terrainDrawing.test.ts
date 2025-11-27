@@ -38,6 +38,7 @@ describe("terrainDrawing", () => {
 			id: "test-layer-1",
 			name: "Test Layer",
 			visible: true,
+			foreground: false,
 			chunks,
 			tileWidth: 16,
 			tileHeight: 16,

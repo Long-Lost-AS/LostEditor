@@ -13,6 +13,7 @@ import { entityManager } from "../managers/EntityManager";
 import type {
 	EntityDefinition,
 	EntityInstance,
+	Layer,
 	MapData,
 	PointInstance,
 	PolygonCollider,
@@ -951,7 +952,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Render each layer bottom-to-top using chunked offscreen canvas caching
 				// Each chunk is 16x16 tiles, allowing granular dirty tracking when painting tiles
 
-				mapData.layers.forEach((layer) => {
+				// Helper to render a single layer
+				const renderLayer = (layer: Layer) => {
 					if (!layer.visible) return;
 
 					// Use each layer's own tile dimensions for positioning
@@ -973,9 +975,14 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							ctx.drawImage(cachedChunk, worldX, worldY);
 						}
 					}
-				});
+				};
 
-				// Render map-level entities (on top of all layers)
+				// Render background layers (foreground: false)
+				mapData.layers
+					.filter((layer) => !layer.foreground)
+					.forEach(renderLayer);
+
+				// Render map-level entities
 				if (mapData.entities && mapData.entities.length > 0) {
 					// Calculate visible world bounds for entity viewport culling
 					const entityCullingBuffer = 3; // Buffer in tiles to account for large entities
@@ -1054,6 +1061,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						renderEntity(ctx, entityDef, instanceToRender);
 					});
 				}
+
+				// Render foreground layers (foreground: true)
+				mapData.layers.filter((layer) => layer.foreground).forEach(renderLayer);
 
 				// Render map-level points (on top of entities) with viewport culling
 				if (mapData.points && mapData.points.length > 0) {

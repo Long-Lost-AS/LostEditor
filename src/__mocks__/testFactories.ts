@@ -35,6 +35,7 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 		id: "test-layer-1",
 		name: "Tile Layer 1",
 		visible: true,
+		foreground: false,
 		chunks: {},
 		tileWidth: 16,
 		tileHeight: 16,

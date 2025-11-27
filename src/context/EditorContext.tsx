@@ -445,6 +445,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			id: generateId(),
 			name: `Layer ${currentMap.layers.length + 1}`,
 			visible: true,
+			foreground: false,
 			chunks: {},
 			tileWidth: 16,
 			tileHeight: 16,

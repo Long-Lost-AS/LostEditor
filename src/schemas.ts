@@ -155,6 +155,7 @@ export const LayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
+	foreground: z.boolean().default(false), // true = render above entities, false = render below
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
@@ -176,6 +177,7 @@ export const SerializedLayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
+	foreground: z.boolean().optional(), // true = render above entities, false/undefined = render below
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
@@ -439,6 +441,7 @@ export function createDefaultMapData(
 				id: generateId(),
 				name: "Layer 1",
 				visible: true,
+				foreground: false, // Background layer (below entities)
 				chunks: {}, // Empty chunks - tiles created on demand
 				tileWidth: 16,
 				tileHeight: 16,

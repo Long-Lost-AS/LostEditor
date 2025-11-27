@@ -32,6 +32,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			id: layer.id,
 			name: layer.name,
 			visible: layer.visible,
+			foreground: layer.foreground,
 			chunks, // Chunk-based storage
 			tileWidth: layer.tileWidth,
 			tileHeight: layer.tileHeight,
@@ -63,6 +64,7 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			id: layer.id,
 			name: layer.name,
 			visible: layer.visible,
+			foreground: layer.foreground ?? false,
 			chunks: layer.chunks || {}, // Already a Record, use as-is
 			tileWidth: layer.tileWidth ?? 16,
 			tileHeight: layer.tileHeight ?? 16,

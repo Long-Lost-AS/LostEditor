@@ -5,6 +5,7 @@ import {
 	DragOverlay,
 	type DragStartEvent,
 	PointerSensor,
+	useDroppable,
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
@@ -162,6 +163,33 @@ const SortableLayerItem = ({
 			) : (
 				<span className="flex-1 select-none">{layer.name}</span>
 			)}
+		</div>
+	);
+};
+
+// Droppable separator line - allows dropping layers to move them across the entity boundary
+const DroppableEntitySeparator = () => {
+	const { setNodeRef, isOver } = useDroppable({
+		id: "entity-separator",
+	});
+
+	return (
+		<div
+			ref={setNodeRef}
+			className={`flex items-center gap-2 py-2 select-none transition-colors ${
+				isOver ? "bg-[#0e639c]/30 rounded" : ""
+			}`}
+			style={{ color: "#858585" }}
+		>
+			<div
+				className="flex-1 border-t border-dashed"
+				style={{ borderColor: isOver ? "#0e639c" : "#585858" }}
+			/>
+			<span className="text-xs">Entities</span>
+			<div
+				className="flex-1 border-t border-dashed"
+				style={{ borderColor: isOver ? "#0e639c" : "#585858" }}
+			/>
 		</div>
 	);
 };
@@ -544,10 +572,11 @@ export const MapEditorView = ({
 	);
 
 	const handleAddLayer = () => {
-		const newLayer = {
+		const newLayer: Layer = {
 			id: generateId(),
 			name: `Layer ${localLayers.length + 1}`,
 			visible: true,
+			foreground: false, // New layers render below entities by default
 			chunks: {}, // Empty chunks - tiles created on demand
 			tileWidth: 16,
 			tileHeight: 16,
@@ -561,6 +590,7 @@ export const MapEditorView = ({
 	const handleRemoveLayer = (layerId: string) => {
 		const newLayers = localLayers.filter((l) => l.id !== layerId);
 		setLocalLayers(newLayers);
+
 		if (currentLayerId === layerId) {
 			setCurrentLayerId(newLayers[0]?.id || null);
 		}
@@ -664,7 +694,28 @@ export const MapEditorView = ({
 		const { active, over } = event;
 		setActiveLayerId(null);
 
-		if (!over || active.id === over.id || localLayers.length === 0) {
+		if (!over || localLayers.length === 0) {
+			return;
+		}
+
+		const draggedLayerId = active.id as string;
+		const draggedLayer = localLayers.find((l) => l.id === draggedLayerId);
+		if (!draggedLayer) return;
+
+		// Handle dropping on the entity separator - toggle foreground
+		if (over.id === "entity-separator") {
+			// Toggle the layer's foreground property
+			const newForeground = !draggedLayer.foreground;
+			setLocalLayers(
+				localLayers.map((l) =>
+					l.id === draggedLayerId ? { ...l, foreground: newForeground } : l,
+				),
+			);
+			return;
+		}
+
+		// Normal layer-to-layer drag
+		if (active.id === over.id) {
 			return;
 		}
 
@@ -676,6 +727,23 @@ export const MapEditorView = ({
 		const newIndex = reversedLayers.findIndex((l) => l.id === over.id);
 
 		if (oldIndex === -1 || newIndex === -1) {
+			return;
+		}
+
+		// Check if the layer is crossing the entity separator boundary
+		const targetLayer = localLayers.find((l) => l.id === over.id);
+		if (targetLayer && draggedLayer.foreground !== targetLayer.foreground) {
+			// Layer is crossing to the other side - toggle its foreground property
+			const reorderedReversed = arrayMove(reversedLayers, oldIndex, newIndex);
+			const newLayersOrder = reorderedReversed
+				.reverse()
+				.map((l) =>
+					l.id === draggedLayerId
+						? { ...l, foreground: targetLayer.foreground }
+						: l,
+				);
+			setLocalLayers(newLayersOrder);
+			reorderLayers(newLayersOrder);
 			return;
 		}
 
@@ -1677,77 +1745,99 @@ export const MapEditorView = ({
 									onDragStart={handleDragStart}
 									onDragEnd={handleDragEnd}
 								>
-									<SortableContext
-										items={localLayers
-											.slice()
-											.reverse()
-											.map((l) => l.id)}
-										strategy={verticalListSortingStrategy}
-									>
-										<div className="space-y-1">
-											{localLayers
-												.slice()
-												.reverse()
-												.map((layer) => (
-													<SortableLayerItem
-														key={layer.id}
-														layer={layer}
-														isActive={currentLayer?.id === layer.id}
-														isEditing={editingLayerId === layer.id}
-														editingName={editingLayerName}
-														inputRef={layerInputRef}
-														onClick={() => setCurrentLayerId(layer.id)}
-														onDoubleClick={() => handleLayerDoubleClick(layer)}
-														onContextMenu={(e) =>
-															handleLayerContextMenu(e, layer.id)
-														}
-														onVisibilityChange={(visible) =>
-															handleUpdateLayerVisibility(layer.id, visible)
-														}
-														onNameChange={setEditingLayerName}
-														onNameSubmit={() => handleLayerNameSubmit(layer.id)}
-														onKeyDown={(e) =>
-															handleLayerNameKeyDown(e, layer.id)
-														}
-													/>
-												))}
-										</div>
-									</SortableContext>
-									<DragOverlay>
-										{activeLayerId && localLayers.length > 0 ? (
-											<div
-												className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
-												style={{
-													border: "none",
-													padding: 0,
-													minWidth: 0,
-													cursor: "grabbing",
-												}}
-											>
-												{(() => {
-													const activeLayer = localLayers.find(
-														(l) => l.id === activeLayerId,
-													);
-													if (!activeLayer) return null;
-													return (
-														<>
-															<input
-																type="checkbox"
-																checked={activeLayer.visible}
-																readOnly
-																title="Toggle visibility"
-																style={{ accentColor: "#007acc" }}
-																spellCheck={false}
-															/>
-															<span className="flex-1 select-none">
-																{activeLayer.name}
-															</span>
-														</>
-													);
-												})()}
-											</div>
-										) : null}
-									</DragOverlay>
+									{(() => {
+										// Split layers by foreground property
+										const foregroundLayers = localLayers
+											.filter((l) => l.foreground)
+											.reverse();
+										const backgroundLayers = localLayers
+											.filter((l) => !l.foreground)
+											.reverse();
+
+										// Include entity-separator in the items list so sorting respects the boundary
+										const sortableItems = [
+											...foregroundLayers.map((l) => l.id),
+											"entity-separator",
+											...backgroundLayers.map((l) => l.id),
+										];
+
+										const renderLayer = (layer: Layer) => (
+											<SortableLayerItem
+												key={layer.id}
+												layer={layer}
+												isActive={currentLayer?.id === layer.id}
+												isEditing={editingLayerId === layer.id}
+												editingName={editingLayerName}
+												inputRef={layerInputRef}
+												onClick={() => setCurrentLayerId(layer.id)}
+												onDoubleClick={() => handleLayerDoubleClick(layer)}
+												onContextMenu={(e) =>
+													handleLayerContextMenu(e, layer.id)
+												}
+												onVisibilityChange={(visible) =>
+													handleUpdateLayerVisibility(layer.id, visible)
+												}
+												onNameChange={setEditingLayerName}
+												onNameSubmit={() => handleLayerNameSubmit(layer.id)}
+												onKeyDown={(e) => handleLayerNameKeyDown(e, layer.id)}
+											/>
+										);
+
+										return (
+											<>
+												<SortableContext
+													items={sortableItems}
+													strategy={verticalListSortingStrategy}
+												>
+													<div className="space-y-1">
+														{/* Foreground layers (above entities) */}
+														{foregroundLayers.map(renderLayer)}
+
+														{/* Entity separator line - droppable target */}
+														<DroppableEntitySeparator />
+
+														{/* Background layers (below entities) */}
+														{backgroundLayers.map(renderLayer)}
+													</div>
+												</SortableContext>
+												<DragOverlay>
+													{activeLayerId && localLayers.length > 0 ? (
+														<div
+															className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
+															style={{
+																border: "none",
+																padding: 0,
+																minWidth: 0,
+																cursor: "grabbing",
+															}}
+														>
+															{(() => {
+																const activeLayer = localLayers.find(
+																	(l) => l.id === activeLayerId,
+																);
+																if (!activeLayer) return null;
+																return (
+																	<>
+																		<input
+																			type="checkbox"
+																			checked={activeLayer.visible}
+																			readOnly
+																			title="Toggle visibility"
+																			style={{ accentColor: "#007acc" }}
+																			spellCheck={false}
+																		/>
+																		<span className="flex-1 select-none">
+																			{activeLayer.name}
+																		</span>
+																	</>
+																);
+															})()}
+														</div>
+													) : null}
+												</DragOverlay>
+											</>
+										);
+									})()}
 								</DndContext>
 
 								<div className="mt-2">

@@ -175,6 +175,7 @@ describe("MapManager", () => {
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
+						foreground: false,
 						chunks: { "0,0": [0, 1, 2, 3] },
 						tileWidth: 16,
 						tileHeight: 16,
@@ -241,6 +242,7 @@ describe("MapManager", () => {
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
+						foreground: false,
 						chunks: { "0,0": chunk },
 						tileWidth: 16,
 						tileHeight: 16,
@@ -269,6 +271,7 @@ describe("MapManager", () => {
 						id: "layer-1",
 						name: "Tile Layer",
 						visible: true,
+						foreground: false,
 						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,
@@ -646,6 +649,7 @@ describe("MapManager", () => {
 						id: "layer-ground",
 						name: "Ground",
 						visible: true,
+						foreground: false,
 						// Full 256-element chunk (16x16)
 						chunks: {
 							"0,0": (() => {

@@ -130,6 +130,7 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			lines.push(`      "id": ${JSON.stringify(layer.id)},`);
 			lines.push(`      "name": ${JSON.stringify(layer.name)},`);
 			lines.push(`      "visible": ${layer.visible},`);
+			lines.push(`      "foreground": ${layer.foreground ?? false},`);
 			lines.push('      "chunks": {');
 
 			const chunkKeys = Object.keys(layer.chunks);
