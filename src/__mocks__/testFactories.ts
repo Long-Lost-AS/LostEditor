@@ -39,6 +39,9 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 		chunks: {},
 		tileWidth: 16,
 		tileHeight: 16,
+		parallaxX: 1.0,
+		parallaxY: 1.0,
+		tint: { r: 255, g: 255, b: 255, a: 255 },
 		properties: {},
 		...overrides,
 	};

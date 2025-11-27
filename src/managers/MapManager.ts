@@ -145,6 +145,8 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			lines.push("      },");
 			lines.push(`      "tileWidth": ${layer.tileWidth},`);
 			lines.push(`      "tileHeight": ${layer.tileHeight},`);
+			lines.push(`      "parallaxX": ${layer.parallaxX ?? 1.0},`);
+			lines.push(`      "parallaxY": ${layer.parallaxY ?? 1.0},`);
 			lines.push(
 				`      "properties": ${JSON.stringify(layer.properties || {})}`,
 			);

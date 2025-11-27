@@ -441,6 +441,7 @@ export const MapEditorView = ({
 
 	// Drag-and-drop state
 	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
+
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
@@ -557,6 +558,32 @@ export const MapEditorView = ({
 		);
 	};
 
+	const handleLayerParallaxChange = (
+		field: "parallaxX" | "parallaxY",
+		value: number,
+	) => {
+		if (!currentLayerId) return;
+		setLocalLayers(
+			localLayers.map((layer) =>
+				layer.id === currentLayerId ? { ...layer, [field]: value } : layer,
+			),
+		);
+	};
+
+	const handleLayerTintChange = (tint: {
+		r: number;
+		g: number;
+		b: number;
+		a: number;
+	}) => {
+		if (!currentLayerId) return;
+		setLocalLayers(
+			localLayers.map((layer) =>
+				layer.id === currentLayerId ? { ...layer, tint } : layer,
+			),
+		);
+	};
+
 	const handleLayerPropertiesChange = (properties: Record<string, string>) => {
 		if (!currentLayerId) return;
 		setLocalLayers(
@@ -580,6 +607,9 @@ export const MapEditorView = ({
 			chunks: {}, // Empty chunks - tiles created on demand
 			tileWidth: 16,
 			tileHeight: 16,
+			parallaxX: 1.0,
+			parallaxY: 1.0,
+			tint: { r: 255, g: 255, b: 255, a: 255 }, // White = no tint
 			properties: {}, // Custom properties
 		};
 
@@ -1877,47 +1907,190 @@ export const MapEditorView = ({
 										{/* Tile Size */}
 										<div className="mb-3">
 											<div
-												className="text-xs block mb-1"
+												className="text-xs font-medium block mb-1.5"
 												style={{ color: "#858585" }}
 											>
 												Tile Size
 											</div>
+											<div className="grid grid-cols-2 gap-2">
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-blue-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														W
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={currentLayer.tileWidth}
+															onChange={(value) =>
+																handleLayerTileSizeChange("tileWidth", value)
+															}
+															onInput={(value) =>
+																handleLayerTileSizeChange("tileWidth", value)
+															}
+															onDragStart={startBatch}
+															onDragEnd={endBatch}
+															min={1}
+															max={256}
+															step={1}
+															precision={0}
+															dragSpeed={0.1}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-violet-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														H
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={currentLayer.tileHeight}
+															onChange={(value) =>
+																handleLayerTileSizeChange("tileHeight", value)
+															}
+															onInput={(value) =>
+																handleLayerTileSizeChange("tileHeight", value)
+															}
+															onDragStart={startBatch}
+															onDragEnd={endBatch}
+															min={1}
+															max={256}
+															step={1}
+															precision={0}
+															dragSpeed={0.1}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										{/* Parallax Speed */}
+										<div className="mb-3">
+											<div
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Parallax Speed
+											</div>
+											<div className="grid grid-cols-2 gap-2">
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														X
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={currentLayer.parallaxX}
+															onChange={(value) =>
+																handleLayerParallaxChange("parallaxX", value)
+															}
+															onInput={(value) =>
+																handleLayerParallaxChange("parallaxX", value)
+															}
+															onDragStart={startBatch}
+															onDragEnd={endBatch}
+															min={0}
+															max={10}
+															step={0.1}
+															precision={2}
+															dragSpeed={0.01}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														Y
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={currentLayer.parallaxY}
+															onChange={(value) =>
+																handleLayerParallaxChange("parallaxY", value)
+															}
+															onInput={(value) =>
+																handleLayerParallaxChange("parallaxY", value)
+															}
+															onDragStart={startBatch}
+															onDragEnd={endBatch}
+															min={0}
+															max={10}
+															step={0.1}
+															precision={2}
+															dragSpeed={0.01}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										{/* Layer Tint */}
+										<div className="mb-3">
+											<div
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Tint
+											</div>
 											<div className="flex items-center gap-2">
-												<DragNumberInput
-													value={currentLayer.tileWidth ?? 16}
-													onChange={(value) =>
-														handleLayerTileSizeChange("tileWidth", value)
-													}
-													onInput={(value) =>
-														handleLayerTileSizeChange("tileWidth", value)
-													}
-													onDragStart={startBatch}
-													onDragEnd={endBatch}
-													min={1}
-													max={256}
-													step={1}
-													precision={0}
-													dragSpeed={0.1}
-													className="flex-1"
+												<input
+													type="color"
+													key={currentLayer.id}
+													defaultValue={`#${(currentLayer.tint?.r ?? 255).toString(16).padStart(2, "0")}${(currentLayer.tint?.g ?? 255).toString(16).padStart(2, "0")}${(currentLayer.tint?.b ?? 255).toString(16).padStart(2, "0")}`}
+													onInput={(e) => {
+														const hex = (e.target as HTMLInputElement).value;
+														const r = Number.parseInt(hex.slice(1, 3), 16);
+														const g = Number.parseInt(hex.slice(3, 5), 16);
+														const b = Number.parseInt(hex.slice(5, 7), 16);
+														handleLayerTintChange({
+															r,
+															g,
+															b,
+															a: currentLayer.tint?.a ?? 255,
+														});
+													}}
+													className="flex-1 h-[36px] rounded cursor-pointer border-0"
+													style={{
+														backgroundColor: "transparent",
+														padding: 0,
+													}}
+													title="Layer tint color"
 												/>
-												<span style={{ color: "#858585" }}>×</span>
-												<DragNumberInput
-													value={currentLayer.tileHeight ?? 16}
-													onChange={(value) =>
-														handleLayerTileSizeChange("tileHeight", value)
-													}
-													onInput={(value) =>
-														handleLayerTileSizeChange("tileHeight", value)
-													}
-													onDragStart={startBatch}
-													onDragEnd={endBatch}
-													min={1}
-													max={256}
-													step={1}
-													precision={0}
-													dragSpeed={0.1}
-													className="flex-1"
-												/>
+												<div className="flex w-20">
+													<div className="text-xs w-6 font-bold bg-pink-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														O
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={Math.round(
+																((currentLayer.tint?.a ?? 255) / 255) * 100,
+															)}
+															onChange={(val) => {
+																const a = Math.round((val / 100) * 255);
+																handleLayerTintChange({
+																	r: currentLayer.tint?.r ?? 255,
+																	g: currentLayer.tint?.g ?? 255,
+																	b: currentLayer.tint?.b ?? 255,
+																	a: Math.max(0, Math.min(255, a)),
+																});
+															}}
+															onInput={(val) => {
+																const a = Math.round((val / 100) * 255);
+																handleLayerTintChange({
+																	r: currentLayer.tint?.r ?? 255,
+																	g: currentLayer.tint?.g ?? 255,
+																	b: currentLayer.tint?.b ?? 255,
+																	a: Math.max(0, Math.min(255, a)),
+																});
+															}}
+															min={0}
+															max={100}
+															dragSpeed={1}
+															precision={0}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
 											</div>
 										</div>
 

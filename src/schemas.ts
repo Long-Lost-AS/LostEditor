@@ -159,6 +159,9 @@ export const LayerSchema = z.object({
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
+	parallaxX: z.number().default(1.0), // Parallax scroll speed X (1.0 = normal, 0.5 = half speed, 0 = fixed)
+	parallaxY: z.number().default(1.0), // Parallax scroll speed Y (1.0 = normal, 0.5 = half speed, 0 = fixed)
+	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }), // Layer tint color (white = no tint)
 	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 
@@ -181,6 +184,9 @@ export const SerializedLayerSchema = z.object({
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
+	parallaxX: z.number().optional(), // Parallax scroll speed X (default 1.0)
+	parallaxY: z.number().optional(), // Parallax scroll speed Y (default 1.0)
+	tint: TintColorSchema.optional(), // Layer tint color (default white = no tint)
 	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 

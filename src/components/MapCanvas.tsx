@@ -939,30 +939,96 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				const endX = visibleMaxX;
 				const endY = visibleMaxY;
 
-				// Calculate which chunks are visible in the viewport
-				const { chunkX: minChunkX, chunkY: minChunkY } = getChunkCoordinates(
-					startX,
-					startY,
-				);
-				const { chunkX: maxChunkX, chunkY: maxChunkY } = getChunkCoordinates(
-					endX - 1,
-					endY - 1,
-				);
-
 				// Render each layer bottom-to-top using chunked offscreen canvas caching
 				// Each chunk is 16x16 tiles, allowing granular dirty tracking when painting tiles
 
-				// Helper to render a single layer
+				// Helper to render a single layer with parallax support
 				const renderLayer = (layer: Layer) => {
 					if (!layer.visible) return;
 
 					// Use each layer's own tile dimensions for positioning
-					const layerTileWidth = layer.tileWidth ?? 16;
-					const layerTileHeight = layer.tileHeight ?? 16;
+					const layerTileWidth = layer.tileWidth;
+					const layerTileHeight = layer.tileHeight;
+
+					// Get parallax values (1.0 = normal scrolling)
+					const parallaxX = layer.parallaxX;
+					const parallaxY = layer.parallaxY;
+
+					// Apply parallax transform if layer has non-default parallax
+					// Parallax uses viewport center as anchor - stable during zoom-to-mouse
+					const hasParallax = parallaxX !== 1.0 || parallaxY !== 1.0;
+					if (hasParallax) {
+						ctx.restore(); // Restore to pre-transform state
+						ctx.save();
+						// Calculate world position at viewport center (the "focus point")
+						const viewCenterX = canvas.width / 2;
+						const viewCenterY = canvas.height / 2;
+						const focusWorldX = (viewCenterX - currentPan.x) / currentZoom;
+						const focusWorldY = (viewCenterY - currentPan.y) / currentZoom;
+						// Parallax offset: layers with parallax < 1 appear farther, move slower
+						// Positive offset shifts layer in camera direction, making it lag behind
+						const parallaxOffsetX = focusWorldX * (1 - parallaxX);
+						const parallaxOffsetY = focusWorldY * (1 - parallaxY);
+						// Apply standard transform, then world-space parallax offset
+						ctx.translate(currentPan.x, currentPan.y);
+						ctx.scale(currentZoom, currentZoom);
+						ctx.translate(parallaxOffsetX, parallaxOffsetY);
+					}
+
+					// Calculate visible chunk range for this layer based on its parallax
+					// Use viewport-center-based offset for consistency with render transform
+					const viewCenterX = canvas.width / 2;
+					const viewCenterY = canvas.height / 2;
+					const focusWorldX = (viewCenterX - currentPan.x) / currentZoom;
+					const focusWorldY = (viewCenterY - currentPan.y) / currentZoom;
+					const layerOffsetX = focusWorldX * (1 - parallaxX);
+					const layerOffsetY = focusWorldY * (1 - parallaxY);
+					// Visible world range accounting for parallax offset
+					const layerVisibleMinX =
+						Math.floor(
+							(-currentPan.x / currentZoom - layerOffsetX) / layerTileWidth,
+						) - 1;
+					const layerVisibleMinY =
+						Math.floor(
+							(-currentPan.y / currentZoom - layerOffsetY) / layerTileHeight,
+						) - 1;
+					const layerVisibleMaxX =
+						Math.ceil(
+							((canvas.width - currentPan.x) / currentZoom - layerOffsetX) /
+								layerTileWidth,
+						) + 1;
+					const layerVisibleMaxY =
+						Math.ceil(
+							((canvas.height - currentPan.y) / currentZoom - layerOffsetY) /
+								layerTileHeight,
+						) + 1;
+					const { chunkX: layerMinChunkX, chunkY: layerMinChunkY } =
+						getChunkCoordinates(layerVisibleMinX, layerVisibleMinY);
+					const { chunkX: layerMaxChunkX, chunkY: layerMaxChunkY } =
+						getChunkCoordinates(layerVisibleMaxX - 1, layerVisibleMaxY - 1);
+
+					// Check if layer has a non-default tint (not white with full alpha)
+					const layerTint = layer.tint;
+					const hasLayerTint =
+						layerTint &&
+						(layerTint.r !== 255 ||
+							layerTint.g !== 255 ||
+							layerTint.b !== 255 ||
+							layerTint.a !== 255);
+
+					// Reusable tint canvas for this layer (created once, reused for all chunks)
+					let tintCanvas: HTMLCanvasElement | null = null;
+					let tintCtx: CanvasRenderingContext2D | null = null;
+					if (hasLayerTint) {
+						tintCanvas = document.createElement("canvas");
+						tintCtx = tintCanvas.getContext("2d", {
+							willReadFrequently: false,
+						});
+					}
 
 					// Render all visible chunks for this layer
-					for (let cy = minChunkY; cy <= maxChunkY; cy++) {
-						for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+					for (let cy = layerMinChunkY; cy <= layerMaxChunkY; cy++) {
+						for (let cx = layerMinChunkX; cx <= layerMaxChunkX; cx++) {
 							// Render chunk to offscreen canvas (or use cached version if not dirty)
 							const cachedChunk = renderChunkToCache(layer, cx, cy);
 							if (!cachedChunk) continue;
@@ -972,8 +1038,43 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							const worldY = cy * CHUNK_SIZE * layerTileHeight;
 
 							// Draw the cached chunk canvas at the correct position
-							ctx.drawImage(cachedChunk, worldX, worldY);
+							// Apply layer tint if present
+							if (hasLayerTint && layerTint && tintCanvas && tintCtx) {
+								// Resize tint canvas if needed
+								if (
+									tintCanvas.width !== cachedChunk.width ||
+									tintCanvas.height !== cachedChunk.height
+								) {
+									tintCanvas.width = cachedChunk.width;
+									tintCanvas.height = cachedChunk.height;
+								}
+								// Clear and draw original chunk
+								tintCtx.globalCompositeOperation = "source-over";
+								tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
+								tintCtx.drawImage(cachedChunk, 0, 0);
+								// Apply color tint with multiply blend mode
+								tintCtx.globalCompositeOperation = "multiply";
+								tintCtx.fillStyle = `rgb(${layerTint.r}, ${layerTint.g}, ${layerTint.b})`;
+								tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+								// Restore alpha from original with destination-in
+								tintCtx.globalCompositeOperation = "destination-in";
+								tintCtx.drawImage(cachedChunk, 0, 0);
+								// Draw tinted chunk with layer alpha
+								ctx.globalAlpha = layerTint.a / 255;
+								ctx.drawImage(tintCanvas, worldX, worldY);
+								ctx.globalAlpha = 1.0;
+							} else {
+								ctx.drawImage(cachedChunk, worldX, worldY);
+							}
 						}
+					}
+
+					// Restore normal transform for next layer
+					if (hasParallax) {
+						ctx.restore();
+						ctx.save();
+						ctx.translate(currentPan.x, currentPan.y);
+						ctx.scale(currentZoom, currentZoom);
 					}
 				};
 
@@ -1957,8 +2058,27 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 			// Use getPan() to get current values (may be from refs during drag)
 			const currentPan = getPan();
-			const worldX = (x - currentPan.x) / zoom;
-			const worldY = (y - currentPan.y) / zoom;
+			let worldX = (x - currentPan.x) / zoom;
+			let worldY = (y - currentPan.y) / zoom;
+
+			// Account for parallax offset on current layer
+			const currentLayer = mapData.layers.find((l) => l.id === currentLayerId);
+			if (currentLayer) {
+				const parallaxX = currentLayer.parallaxX;
+				const parallaxY = currentLayer.parallaxY;
+				if (parallaxX !== 1.0 || parallaxY !== 1.0) {
+					// Calculate the same parallax offset used in rendering
+					const viewCenterX = canvas.width / 2;
+					const viewCenterY = canvas.height / 2;
+					const focusWorldX = (viewCenterX - currentPan.x) / zoom;
+					const focusWorldY = (viewCenterY - currentPan.y) / zoom;
+					const parallaxOffsetX = focusWorldX * (1 - parallaxX);
+					const parallaxOffsetY = focusWorldY * (1 - parallaxY);
+					// Subtract offset to convert from visual position to actual world position
+					worldX -= parallaxOffsetX;
+					worldY -= parallaxOffsetY;
+				}
+			}
 
 			return { worldX, worldY };
 		};

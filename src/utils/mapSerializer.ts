@@ -36,6 +36,8 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			chunks, // Chunk-based storage
 			tileWidth: layer.tileWidth,
 			tileHeight: layer.tileHeight,
+			parallaxX: layer.parallaxX,
+			parallaxY: layer.parallaxY,
 			properties: layer.properties || {},
 		};
 	});
@@ -68,6 +70,9 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			chunks: layer.chunks || {}, // Already a Record, use as-is
 			tileWidth: layer.tileWidth ?? 16,
 			tileHeight: layer.tileHeight ?? 16,
+			parallaxX: layer.parallaxX ?? 1.0, // Default for old maps without parallax
+			parallaxY: layer.parallaxY ?? 1.0, // Default for old maps without parallax
+			tint: layer.tint ?? { r: 255, g: 255, b: 255, a: 255 }, // Default white = no tint
 			properties: layer.properties || {},
 		};
 	});
