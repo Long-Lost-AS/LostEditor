@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createMockSerializedLayer } from "../../__mocks__/testFactories";
 import type { MapData, SerializedLayer, SerializedMapData } from "../../types";
 import { generateId } from "../id";
 import { deserializeMapData, serializeMapData } from "../mapSerializer";
@@ -34,6 +35,7 @@ describe("mapSerializer", () => {
 						name: "Ground",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,
@@ -47,6 +49,7 @@ describe("mapSerializer", () => {
 						name: "Objects",
 						visible: false,
 						foreground: false,
+						order: 1,
 						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,
@@ -167,6 +170,7 @@ describe("mapSerializer", () => {
 						name: "Test",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks,
 						tileWidth: 16,
 						tileHeight: 16,
@@ -208,6 +212,7 @@ describe("mapSerializer", () => {
 						name: "Test",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks,
 						tileWidth: 16,
 						tileHeight: 16,
@@ -257,17 +262,7 @@ describe("mapSerializer", () => {
 				version: "5.0",
 				id: generateId(),
 				name: "Map",
-				layers: [
-					{
-						id: "layer-1",
-						name: "Ground",
-						visible: true,
-						chunks: {},
-						tileWidth: 16,
-						tileHeight: 16,
-						properties: {},
-					},
-				],
+				layers: [createMockSerializedLayer({ id: "layer-1", name: "Ground" })],
 				groups: [],
 				entities: [],
 				points: [],
@@ -287,17 +282,7 @@ describe("mapSerializer", () => {
 				version: "5.0",
 				id: generateId(),
 				name: "Map",
-				layers: [
-					{
-						id: "layer-1",
-						name: "Ground",
-						visible: true,
-						chunks: {},
-						tileWidth: 16,
-						tileHeight: 16,
-						properties: {},
-					},
-				],
+				layers: [createMockSerializedLayer({ id: "layer-1", name: "Ground" })],
 				groups: [],
 				entities: [],
 				points: [],
@@ -410,15 +395,11 @@ describe("mapSerializer", () => {
 				id: generateId(),
 				name: "Map",
 				layers: [
-					{
+					createMockSerializedLayer({
 						id: "layer-1",
 						name: "Test Layer",
 						visible: false,
-						chunks: {},
-						tileWidth: 16,
-						tileHeight: 16,
-						properties: {},
-					},
+					}),
 				],
 				groups: [],
 				entities: [],
@@ -438,17 +419,7 @@ describe("mapSerializer", () => {
 				version: "5.0",
 				id: generateId(),
 				name: "Large Map",
-				layers: [
-					{
-						id: "layer-1",
-						name: "Large",
-						visible: true,
-						chunks: {},
-						tileWidth: 16,
-						tileHeight: 16,
-						properties: {},
-					},
-				],
+				layers: [createMockSerializedLayer({ id: "layer-1", name: "Large" })],
 				groups: [],
 				entities: [],
 				points: [],
@@ -473,6 +444,7 @@ describe("mapSerializer", () => {
 						name: "Ground",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,

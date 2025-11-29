@@ -1,21 +1,3 @@
-import {
-	closestCenter,
-	DndContext,
-	type DragEndEvent,
-	DragOverlay,
-	type DragStartEvent,
-	PointerSensor,
-	useDroppable,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
-import {
-	arrayMove,
-	SortableContext,
-	useSortable,
-	verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEditor } from "../context/EditorContext";
@@ -26,6 +8,7 @@ import { entityManager } from "../managers/EntityManager";
 import type {
 	EntityInstance,
 	Layer,
+	LayerGroup,
 	MapTab,
 	PointInstance,
 	PolygonCollider,
@@ -44,6 +27,7 @@ import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { PencilIcon, TrashIcon } from "./Icons";
+import { LayersPanel } from "./LayersPanel";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PointPropertiesPanel } from "./PointPropertiesPanel";
 import { TintInput } from "./TintInput";
@@ -56,144 +40,6 @@ interface MapEditorViewProps {
 	onOpenTilePicker: () => void;
 	onOpenTerrainPicker: () => void;
 }
-
-interface SortableLayerItemProps {
-	layer: Layer;
-	isActive: boolean;
-	isEditing: boolean;
-	editingName: string;
-	inputRef?: React.RefObject<HTMLInputElement | null>;
-	onClick: () => void;
-	onDoubleClick: () => void;
-	onContextMenu: (e: React.MouseEvent) => void;
-	onVisibilityChange: (visible: boolean) => void;
-	onNameChange: (name: string) => void;
-	onNameSubmit: () => void;
-	onKeyDown: (e: React.KeyboardEvent) => void;
-}
-
-const SortableLayerItem = ({
-	layer,
-	isActive,
-	isEditing,
-	editingName,
-	inputRef,
-	onClick,
-	onDoubleClick,
-	onContextMenu,
-	onVisibilityChange,
-	onNameChange,
-	onNameSubmit,
-	onKeyDown,
-}: SortableLayerItemProps) => {
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging,
-	} = useSortable({ id: layer.id });
-
-	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition,
-		opacity: isDragging ? 0.5 : 1,
-	};
-
-	return (
-		<div
-			ref={setNodeRef}
-			style={style}
-			{...attributes}
-			{...listeners}
-			role="button"
-			tabIndex={0}
-			className={`px-2 py-1.5 text-xs rounded transition-colors flex items-center gap-2 ${
-				isActive
-					? "bg-[#0e639c] text-white"
-					: "bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3e3e42]"
-			} ${isDragging ? "opacity-50 cursor-grabbing" : "cursor-grab"}`}
-			onClick={onClick}
-			onDoubleClick={onDoubleClick}
-			onContextMenu={onContextMenu}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					onClick();
-				}
-			}}
-			aria-pressed={isActive}
-			onMouseDown={(e) => {
-				if (e.detail > 1) {
-					e.preventDefault();
-				}
-			}}
-		>
-			<input
-				type="checkbox"
-				checked={layer.visible}
-				onChange={(e) => {
-					e.stopPropagation();
-					onVisibilityChange(e.target.checked);
-				}}
-				onClick={(e) => e.stopPropagation()}
-				title="Toggle visibility"
-				style={{ accentColor: "#007acc" }}
-				spellCheck={false}
-			/>
-			{isEditing ? (
-				<input
-					ref={inputRef}
-					type="text"
-					value={editingName}
-					onChange={(e) => onNameChange(e.target.value)}
-					onBlur={onNameSubmit}
-					onKeyDown={onKeyDown}
-					onClick={(e) => e.stopPropagation()}
-					className="flex-1 text-xs focus:outline-none"
-					style={{
-						background: "transparent",
-						color: "#cccccc",
-						border: "none",
-						padding: 0,
-						minWidth: 0,
-					}}
-					spellCheck={false}
-				/>
-			) : (
-				<span className="flex-1 select-none">{layer.name}</span>
-			)}
-		</div>
-	);
-};
-
-// Droppable separator line - allows dropping layers to move them across the entity boundary
-const DroppableEntitySeparator = () => {
-	const { setNodeRef, isOver } = useDroppable({
-		id: "entity-separator",
-	});
-
-	return (
-		<div
-			ref={setNodeRef}
-			className={`flex items-center gap-2 py-2 select-none transition-colors ${
-				isOver ? "bg-[#0e639c]/30 rounded" : ""
-			}`}
-			style={{ color: "#858585" }}
-		>
-			<div
-				className="flex-1 border-t border-dashed"
-				style={{ borderColor: isOver ? "#0e639c" : "#585858" }}
-			/>
-			<span className="text-xs">Entities</span>
-			<div
-				className="flex-1 border-t border-dashed"
-				style={{ borderColor: isOver ? "#0e639c" : "#585858" }}
-			/>
-		</div>
-	);
-};
 
 export const MapEditorView = ({
 	tab,
@@ -213,7 +59,6 @@ export const MapEditorView = ({
 		selectedTerrainLayerId,
 		tilesets,
 		setProjectModified,
-		reorderLayers,
 		zoom,
 	} = useEditor();
 
@@ -276,7 +121,19 @@ export const MapEditorView = ({
 		},
 	] = useUndoableReducer(mapData?.layers || []);
 
-	// Register undo/redo keyboard shortcuts (combined tile + metadata + layers)
+	// Separate undo/redo for group operations
+	const [
+		localGroups,
+		setLocalGroups,
+		{
+			undo: undoGroups,
+			redo: redoGroups,
+			canUndo: canUndoGroups,
+			canRedo: canRedoGroups,
+		},
+	] = useUndoableReducer<LayerGroup[]>(mapData?.groups || []);
+
+	// Register undo/redo keyboard shortcuts (combined tile + metadata + layers + groups)
 	useRegisterUndoRedo({
 		undo: () => {
 			if (canUndo) {
@@ -285,6 +142,8 @@ export const MapEditorView = ({
 				undoMeta();
 			} else if (canUndoLayers) {
 				undoLayers();
+			} else if (canUndoGroups) {
+				undoGroups();
 			}
 		},
 		redo: () => {
@@ -294,10 +153,12 @@ export const MapEditorView = ({
 				redoMeta();
 			} else if (canRedoLayers) {
 				redoLayers();
+			} else if (canRedoGroups) {
+				redoGroups();
 			}
 		},
-		canUndo: canUndo || canUndoMeta || canUndoLayers,
-		canRedo: canRedo || canRedoMeta || canRedoLayers,
+		canUndo: canUndo || canUndoMeta || canUndoLayers || canUndoGroups,
+		canRedo: canRedo || canRedoMeta || canRedoLayers || canRedoGroups,
 	});
 
 	// Invalidate canvas chunks after undo/redo
@@ -363,6 +224,14 @@ export const MapEditorView = ({
 		});
 	}, [localLayers, setLocalMapData]);
 
+	// Sync localGroups changes back to localMapData
+	useEffect(() => {
+		setLocalMapData((prev) => ({
+			...prev,
+			groups: localGroups,
+		}));
+	}, [localGroups, setLocalMapData]);
+
 	// Wrapper functions to batch both tile and metadata operations
 	const handleStartBatch = useCallback(() => {
 		startBatch(); // Tile batching
@@ -418,17 +287,8 @@ export const MapEditorView = ({
 			setCurrentLayerId(localLayers[0].id);
 		}
 	}, [currentLayerId, localLayers]);
-	const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
-	const [editingLayerName, setEditingLayerName] = useState("");
-	const layerInputRef = useRef<HTMLInputElement>(null);
-
-	// Auto-focus layer input when editing starts
-	useEffect(() => {
-		if (editingLayerId && layerInputRef.current) {
-			layerInputRef.current.focus();
-			layerInputRef.current.select();
-		}
-	}, [editingLayerId]);
+	// Group management state
+	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
 	// Context menu state
 	const [contextMenu, setContextMenu] = useState<{
@@ -440,18 +300,6 @@ export const MapEditorView = ({
 		edgeIndex?: number;
 		insertPosition?: { x: number; y: number };
 	} | null>(null);
-
-	// Drag-and-drop state
-	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
-
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				delay: 150, // 150ms delay before drag starts
-				tolerance: 5, // 5px tolerance during delay
-			},
-		}),
-	);
 
 	// Track if this is the first run to avoid marking dirty on initial mount
 	const isFirstRun = useRef(true);
@@ -601,11 +449,21 @@ export const MapEditorView = ({
 	);
 
 	const handleAddLayer = () => {
+		// Calculate order for new layer (higher than existing background layers)
+		const backgroundLayers = localLayers.filter(
+			(l) => !l.foreground && !l.groupId,
+		);
+		const maxOrder =
+			backgroundLayers.length > 0
+				? Math.max(...backgroundLayers.map((l) => l.order))
+				: -1;
+
 		const newLayer: Layer = {
 			id: generateId(),
 			name: `Layer ${localLayers.length + 1}`,
 			visible: true,
 			foreground: false, // New layers render below entities by default
+			order: maxOrder + 1, // Place at top of background section
 			chunks: {}, // Empty chunks - tiles created on demand
 			tileWidth: 16,
 			tileHeight: 16,
@@ -637,40 +495,6 @@ export const MapEditorView = ({
 		});
 	};
 
-	const handleUpdateLayerVisibility = (layerId: string, visible: boolean) => {
-		setLocalLayers(
-			localLayers.map((l) => (l.id === layerId ? { ...l, visible } : l)),
-		);
-	};
-
-	const handleUpdateLayerName = (layerId: string, name: string) => {
-		setLocalLayers(
-			localLayers.map((l) => (l.id === layerId ? { ...l, name } : l)),
-		);
-	};
-
-	const handleLayerDoubleClick = (layer: Layer) => {
-		setEditingLayerId(layer.id);
-		setEditingLayerName(layer.name);
-	};
-
-	const handleLayerNameSubmit = (layerId: string) => {
-		if (editingLayerName.trim()) {
-			handleUpdateLayerName(layerId, editingLayerName.trim());
-		}
-		setEditingLayerId(null);
-		setEditingLayerName("");
-	};
-
-	const handleLayerNameKeyDown = (e: React.KeyboardEvent, layerId: string) => {
-		if (e.key === "Enter") {
-			handleLayerNameSubmit(layerId);
-		} else if (e.key === "Escape") {
-			setEditingLayerId(null);
-			setEditingLayerName("");
-		}
-	};
-
 	const handleLayerContextMenu = (e: React.MouseEvent, layerId: string) => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -694,13 +518,7 @@ export const MapEditorView = ({
 	};
 
 	const handleRenameLayer = () => {
-		if (contextMenu?.layerId) {
-			const layer = localLayers.find((l) => l.id === contextMenu.layerId);
-			if (layer) {
-				setEditingLayerId(layer.id);
-				setEditingLayerName(layer.name);
-			}
-		}
+		// Renaming is now handled by double-click in LayersPanel
 		setContextMenu(null);
 	};
 
@@ -711,86 +529,56 @@ export const MapEditorView = ({
 		setContextMenu(null);
 	};
 
-	// Drag-and-drop handlers for layer reordering
-	const handleDragStart = (event: DragStartEvent) => {
-		setActiveLayerId(event.active.id as string);
+	// Group handler functions
+	const handleAddGroup = () => {
+		// Calculate order - put at the end
+		const maxOrder = localGroups.reduce((max, g) => Math.max(max, g.order), -1);
+		const newGroup: LayerGroup = {
+			id: generateId(),
+			name: `Group ${localGroups.length + 1}`,
+			expanded: true,
+			visible: true,
+			foreground: false,
+			parallaxX: 1.0,
+			parallaxY: 1.0,
+			tint: { r: 255, g: 255, b: 255, a: 255 },
+			order: maxOrder + 1,
+		};
+		setLocalGroups([...localGroups, newGroup]);
+		setSelectedGroupId(newGroup.id);
+	};
 
-		// Select the layer being dragged
-		const draggedLayer = localLayers.find((l) => l.id === event.active.id);
-		if (draggedLayer) {
-			setCurrentLayerId(draggedLayer.id);
+	const handleRemoveGroup = (groupId: string) => {
+		// Unassign all layers from this group
+		setLocalLayers(
+			localLayers.map((l) =>
+				l.groupId === groupId ? { ...l, groupId: undefined } : l,
+			),
+		);
+		// Remove the group
+		setLocalGroups(localGroups.filter((g) => g.id !== groupId));
+		if (selectedGroupId === groupId) {
+			setSelectedGroupId(null);
 		}
 	};
 
-	const handleDragEnd = (event: DragEndEvent) => {
-		const { active, over } = event;
-		setActiveLayerId(null);
-
-		if (!over || localLayers.length === 0) {
-			return;
-		}
-
-		const draggedLayerId = active.id as string;
-		const draggedLayer = localLayers.find((l) => l.id === draggedLayerId);
-		if (!draggedLayer) return;
-
-		// Handle dropping on the entity separator - toggle foreground
-		if (over.id === "entity-separator") {
-			// Toggle the layer's foreground property
-			const newForeground = !draggedLayer.foreground;
-			setLocalLayers(
-				localLayers.map((l) =>
-					l.id === draggedLayerId ? { ...l, foreground: newForeground } : l,
-				),
-			);
-			return;
-		}
-
-		// Normal layer-to-layer drag
-		if (active.id === over.id) {
-			return;
-		}
-
-		// Get the reversed array (UI order: top layer at top)
-		const reversedLayers = [...localLayers].reverse();
-
-		// Find indices in the reversed array
-		const oldIndex = reversedLayers.findIndex((l) => l.id === active.id);
-		const newIndex = reversedLayers.findIndex((l) => l.id === over.id);
-
-		if (oldIndex === -1 || newIndex === -1) {
-			return;
-		}
-
-		// Check if the layer is crossing the entity separator boundary
-		const targetLayer = localLayers.find((l) => l.id === over.id);
-		if (targetLayer && draggedLayer.foreground !== targetLayer.foreground) {
-			// Layer is crossing to the other side - toggle its foreground property
-			const reorderedReversed = arrayMove(reversedLayers, oldIndex, newIndex);
-			const newLayersOrder = reorderedReversed
-				.reverse()
-				.map((l) =>
-					l.id === draggedLayerId
-						? { ...l, foreground: targetLayer.foreground }
-						: l,
-				);
-			setLocalLayers(newLayersOrder);
-			reorderLayers(newLayersOrder);
-			return;
-		}
-
-		// Reorder in the reversed array
-		const reorderedReversed = arrayMove(reversedLayers, oldIndex, newIndex);
-
-		// Reverse back to get the correct internal order (bottom to top)
-		const newLayersOrder = reorderedReversed.reverse();
-
-		// Update local layers (will sync to localMapData via effect)
-		setLocalLayers(newLayersOrder);
-
-		// Also update global state through reorderLayers
-		reorderLayers(newLayersOrder);
+	// Group property handlers (used by Group Properties panel)
+	const handleUpdateGroupName = (groupId: string, name: string) => {
+		setLocalGroups(
+			localGroups.map((g) => (g.id === groupId ? { ...g, name } : g)),
+		);
 	};
+
+	const handleToggleGroupVisibility = (groupId: string) => {
+		setLocalGroups(
+			localGroups.map((g) =>
+				g.id === groupId ? { ...g, visible: !g.visible } : g,
+			),
+		);
+	};
+
+	// Get selected group from local state
+	const selectedGroup = localGroups.find((g) => g.id === selectedGroupId);
 
 	// Paint functions (tile placement, erasing, entity placement)
 	const handleEraseTilesBatch = useCallback(
@@ -1771,127 +1559,18 @@ export const MapEditorView = ({
 								>
 									Layers
 								</div>
-								<DndContext
-									sensors={sensors}
-									collisionDetection={closestCenter}
-									onDragStart={handleDragStart}
-									onDragEnd={handleDragEnd}
-								>
-									{(() => {
-										// Split layers by foreground property
-										const foregroundLayers = localLayers
-											.filter((l) => l.foreground)
-											.reverse();
-										const backgroundLayers = localLayers
-											.filter((l) => !l.foreground)
-											.reverse();
 
-										// Include entity-separator in the items list so sorting respects the boundary
-										const sortableItems = [
-											...foregroundLayers.map((l) => l.id),
-											"entity-separator",
-											...backgroundLayers.map((l) => l.id),
-										];
-
-										const renderLayer = (layer: Layer) => (
-											<SortableLayerItem
-												key={layer.id}
-												layer={layer}
-												isActive={currentLayer?.id === layer.id}
-												isEditing={editingLayerId === layer.id}
-												editingName={editingLayerName}
-												inputRef={layerInputRef}
-												onClick={() => setCurrentLayerId(layer.id)}
-												onDoubleClick={() => handleLayerDoubleClick(layer)}
-												onContextMenu={(e) =>
-													handleLayerContextMenu(e, layer.id)
-												}
-												onVisibilityChange={(visible) =>
-													handleUpdateLayerVisibility(layer.id, visible)
-												}
-												onNameChange={setEditingLayerName}
-												onNameSubmit={() => handleLayerNameSubmit(layer.id)}
-												onKeyDown={(e) => handleLayerNameKeyDown(e, layer.id)}
-											/>
-										);
-
-										return (
-											<>
-												<SortableContext
-													items={sortableItems}
-													strategy={verticalListSortingStrategy}
-												>
-													<div className="space-y-1">
-														{/* Foreground layers (above entities) */}
-														{foregroundLayers.map(renderLayer)}
-
-														{/* Entity separator line - droppable target */}
-														<DroppableEntitySeparator />
-
-														{/* Background layers (below entities) */}
-														{backgroundLayers.map(renderLayer)}
-													</div>
-												</SortableContext>
-												<DragOverlay>
-													{activeLayerId && localLayers.length > 0 ? (
-														<div
-															className="px-2 py-1.5 text-xs rounded bg-[#0e639c] text-white flex items-center gap-2 shadow-lg"
-															style={{
-																border: "none",
-																padding: 0,
-																minWidth: 0,
-																cursor: "grabbing",
-															}}
-														>
-															{(() => {
-																const activeLayer = localLayers.find(
-																	(l) => l.id === activeLayerId,
-																);
-																if (!activeLayer) return null;
-																return (
-																	<>
-																		<input
-																			type="checkbox"
-																			checked={activeLayer.visible}
-																			readOnly
-																			title="Toggle visibility"
-																			style={{ accentColor: "#007acc" }}
-																			spellCheck={false}
-																		/>
-																		<span className="flex-1 select-none">
-																			{activeLayer.name}
-																		</span>
-																	</>
-																);
-															})()}
-														</div>
-													) : null}
-												</DragOverlay>
-											</>
-										);
-									})()}
-								</DndContext>
-
-								<div className="mt-2">
-									<button
-										type="button"
-										onClick={handleAddLayer}
-										className="w-full px-2 py-1.5 text-xs rounded transition-colors"
-										style={{
-											background: "#0e639c",
-											color: "#ffffff",
-											border: "none",
-										}}
-										onMouseEnter={(e) => {
-											e.currentTarget.style.background = "#1177bb";
-										}}
-										onMouseLeave={(e) => {
-											e.currentTarget.style.background = "#0e639c";
-										}}
-									>
-										+ Add Layer
-									</button>
-								</div>
+								<LayersPanel
+									layers={localLayers}
+									groups={localGroups}
+									currentLayerId={currentLayer?.id || null}
+									onLayersChange={setLocalLayers}
+									onGroupsChange={setLocalGroups}
+									onSelectLayer={setCurrentLayerId}
+									onAddLayer={handleAddLayer}
+									onAddGroup={handleAddGroup}
+									onLayerContextMenu={handleLayerContextMenu}
+								/>
 
 								{/* Layer Properties (shown when a layer is selected) */}
 								{currentLayer && (
@@ -2046,6 +1725,174 @@ export const MapEditorView = ({
 											properties={currentLayer.properties || {}}
 											onChange={handleLayerPropertiesChange}
 										/>
+									</div>
+								)}
+
+								{/* Group Properties (shown when a group is selected) */}
+								{selectedGroup && (
+									<div
+										className="mt-3 pt-3"
+										style={{ borderTop: "1px solid #3e3e42" }}
+									>
+										<div className="flex items-center justify-between mb-2">
+											<div
+												className="text-xs font-semibold uppercase tracking-wide"
+												style={{ color: "#858585" }}
+											>
+												Group Properties
+											</div>
+											<button
+												type="button"
+												onClick={() => handleRemoveGroup(selectedGroup.id)}
+												className="p-1 rounded hover:bg-red-500/20"
+												title="Delete group"
+											>
+												<TrashIcon className="w-3 h-3 text-red-400" />
+											</button>
+										</div>
+
+										{/* Group Name */}
+										<div className="mb-3">
+											<div
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Name
+											</div>
+											<input
+												type="text"
+												value={selectedGroup.name}
+												onChange={(e) =>
+													handleUpdateGroupName(
+														selectedGroup.id,
+														e.target.value,
+													)
+												}
+												className="w-full px-2 py-1.5 text-xs rounded"
+												style={{
+													background: "#3c3c3c",
+													color: "#cccccc",
+													border: "1px solid #4e4e4e",
+												}}
+												spellCheck={false}
+											/>
+										</div>
+
+										{/* Group Visibility */}
+										<div className="mb-3 flex items-center gap-2">
+											<input
+												type="checkbox"
+												checked={selectedGroup.visible}
+												onChange={() =>
+													handleToggleGroupVisibility(selectedGroup.id)
+												}
+												style={{ accentColor: "#007acc" }}
+											/>
+											<span className="text-xs" style={{ color: "#cccccc" }}>
+												Visible
+											</span>
+										</div>
+
+										{/* Group Parallax Speed */}
+										<div className="mb-3">
+											<div
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Parallax Speed
+											</div>
+											<div className="grid grid-cols-2 gap-2">
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-red-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														X
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={selectedGroup.parallaxX}
+															onChange={(value) =>
+																setLocalGroups(
+																	localGroups.map((g) =>
+																		g.id === selectedGroup.id
+																			? { ...g, parallaxX: value }
+																			: g,
+																	),
+																)
+															}
+															onInput={(value) =>
+																setLocalGroups(
+																	localGroups.map((g) =>
+																		g.id === selectedGroup.id
+																			? { ...g, parallaxX: value }
+																			: g,
+																	),
+																)
+															}
+															min={0}
+															max={10}
+															step={0.1}
+															precision={2}
+															dragSpeed={0.01}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+												<div className="flex">
+													<div className="text-xs w-6 font-bold bg-green-500 px-1 py-1.5 text-center flex items-center justify-center rounded-l">
+														Y
+													</div>
+													<div className="flex-1">
+														<DragNumberInput
+															value={selectedGroup.parallaxY}
+															onChange={(value) =>
+																setLocalGroups(
+																	localGroups.map((g) =>
+																		g.id === selectedGroup.id
+																			? { ...g, parallaxY: value }
+																			: g,
+																	),
+																)
+															}
+															onInput={(value) =>
+																setLocalGroups(
+																	localGroups.map((g) =>
+																		g.id === selectedGroup.id
+																			? { ...g, parallaxY: value }
+																			: g,
+																	),
+																)
+															}
+															min={0}
+															max={10}
+															step={0.1}
+															precision={2}
+															dragSpeed={0.01}
+															roundedLeft={false}
+														/>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										{/* Group Tint */}
+										<div className="mb-3">
+											<div
+												className="text-xs font-medium block mb-1.5"
+												style={{ color: "#858585" }}
+											>
+												Tint
+											</div>
+											<TintInput
+												tint={selectedGroup.tint}
+												onChange={(tint) =>
+													setLocalGroups(
+														localGroups.map((g) =>
+															g.id === selectedGroup.id ? { ...g, tint } : g,
+														),
+													)
+												}
+												inputKey={selectedGroup.id}
+											/>
+										</div>
 									</div>
 								)}
 							</div>

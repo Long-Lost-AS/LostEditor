@@ -1,6 +1,9 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMockMap } from "../../__mocks__/testFactories";
+import {
+	createMockMap,
+	createMockSerializedLayer,
+} from "../../__mocks__/testFactories";
 import { FileOperationError, ValidationError } from "../../errors/FileErrors";
 import type { SerializedMapData } from "../../types";
 import { generateId } from "../../utils/id";
@@ -25,18 +28,11 @@ describe("MapManager", () => {
 				id: generateId(),
 				name: "Test Map",
 				layers: [
-					{
+					createMockSerializedLayer({
 						id: "layer-1",
 						name: "Layer 1",
-						visible: true,
 						chunks: { "0,0": [0, 0, 0] },
-						tileWidth: 16,
-						tileHeight: 16,
-						parallaxX: 1.0,
-						parallaxY: 1.0,
-						tint: { r: 255, g: 255, b: 255, a: 255 },
-						properties: {},
-					},
+					}),
 				],
 				groups: [],
 				entities: [],
@@ -144,18 +140,11 @@ describe("MapManager", () => {
 				id: generateId(),
 				name: "BigInt Map",
 				layers: [
-					{
+					createMockSerializedLayer({
 						id: "layer-1",
 						name: "Layer 1",
-						visible: true,
 						chunks: { "0,0": [123456789012345, 987654321098765, 0, 1] },
-						tileWidth: 16,
-						tileHeight: 16,
-						parallaxX: 1.0,
-						parallaxY: 1.0,
-						tint: { r: 255, g: 255, b: 255, a: 255 },
-						properties: {},
-					},
+					}),
 				],
 				groups: [],
 				entities: [],
@@ -186,6 +175,7 @@ describe("MapManager", () => {
 						name: "Tile Layer",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks: { "0,0": [0, 1, 2, 3] },
 						tileWidth: 16,
 						tileHeight: 16,
@@ -256,6 +246,7 @@ describe("MapManager", () => {
 						name: "Tile Layer",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks: { "0,0": chunk },
 						tileWidth: 16,
 						tileHeight: 16,
@@ -288,6 +279,7 @@ describe("MapManager", () => {
 						name: "Tile Layer",
 						visible: true,
 						foreground: false,
+						order: 0,
 						chunks: {},
 						tileWidth: 16,
 						tileHeight: 16,
@@ -575,18 +567,11 @@ describe("MapManager", () => {
 				id: generateId(),
 				name: "Original Map",
 				layers: [
-					{
+					createMockSerializedLayer({
 						id: "layer-1",
 						name: "Layer 1",
-						visible: true,
 						chunks: { "0,0": [0, 0, 0, 0] },
-						tileWidth: 16,
-						tileHeight: 16,
-						parallaxX: 1.0,
-						parallaxY: 1.0,
-						tint: { r: 255, g: 255, b: 255, a: 255 },
-						properties: {},
-					},
+					}),
 				],
 				groups: [],
 				entities: [],
@@ -686,6 +671,7 @@ describe("MapManager", () => {
 						name: "Ground",
 						visible: true,
 						foreground: false,
+						order: 0,
 						// Full 256-element chunk (16x16)
 						chunks: {
 							"0,0": (() => {

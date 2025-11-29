@@ -39,6 +39,7 @@ describe("terrainDrawing", () => {
 			name: "Test Layer",
 			visible: true,
 			foreground: false,
+			order: 0,
 			chunks,
 			tileWidth: 16,
 			tileHeight: 16,

@@ -35,46 +35,33 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			name: layer.name,
 			visible: layer.visible,
 			foreground: layer.foreground,
+			groupId: layer.groupId,
+			order: layer.order,
 			chunks, // Chunk-based storage
 			tileWidth: layer.tileWidth,
 			tileHeight: layer.tileHeight,
 			parallaxX: layer.parallaxX,
 			parallaxY: layer.parallaxY,
+			tint: layer.tint,
 			properties: layer.properties || {},
 		};
-
-		// Only include groupId if it's defined
-		if (layer.groupId) {
-			serializedLayer.groupId = layer.groupId;
-		}
 
 		return serializedLayer;
 	});
 
-	// Serialize groups - only include non-default values
+	// Serialize groups
 	const serializedGroups: SerializedLayerGroup[] = (mapData.groups || []).map(
-		(group) => {
-			const serializedGroup: SerializedLayerGroup = {
-				id: group.id,
-				name: group.name,
-			};
-
-			// Only include non-default values
-			if (!group.expanded) serializedGroup.expanded = group.expanded;
-			if (!group.visible) serializedGroup.visible = group.visible;
-			if (group.parallaxX !== 1.0) serializedGroup.parallaxX = group.parallaxX;
-			if (group.parallaxY !== 1.0) serializedGroup.parallaxY = group.parallaxY;
-			if (
-				group.tint.r !== 255 ||
-				group.tint.g !== 255 ||
-				group.tint.b !== 255 ||
-				group.tint.a !== 255
-			) {
-				serializedGroup.tint = group.tint;
-			}
-
-			return serializedGroup;
-		},
+		(group) => ({
+			id: group.id,
+			name: group.name,
+			expanded: group.expanded,
+			visible: group.visible,
+			foreground: group.foreground,
+			parallaxX: group.parallaxX,
+			parallaxY: group.parallaxY,
+			tint: group.tint,
+			order: group.order,
+		}),
 	);
 
 	return {
@@ -96,36 +83,37 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
  * @returns Runtime map data
  */
 export function deserializeMapData(serialized: SerializedMapData): MapData {
-	// Convert layers - chunks are already in the correct format
-	const layers: Layer[] = serialized.layers.map((layer) => {
-		return {
-			id: layer.id,
-			name: layer.name,
-			visible: layer.visible,
-			foreground: layer.foreground ?? false,
-			groupId: layer.groupId, // Optional - undefined if not in a group
-			chunks: layer.chunks || {}, // Already a Record, use as-is
-			tileWidth: layer.tileWidth ?? 16,
-			tileHeight: layer.tileHeight ?? 16,
-			parallaxX: layer.parallaxX ?? 1.0, // Default for old maps without parallax
-			parallaxY: layer.parallaxY ?? 1.0, // Default for old maps without parallax
-			tint: layer.tint ?? { r: 255, g: 255, b: 255, a: 255 }, // Default white = no tint
-			properties: layer.properties || {},
-		};
-	});
+	// Convert layers - apply defaults for backwards compatibility with old files
+	const layers: Layer[] = serialized.layers.map((layer, index) => ({
+		id: layer.id,
+		name: layer.name,
+		visible: layer.visible,
+		foreground: layer.foreground ?? false,
+		groupId: layer.groupId,
+		order: layer.order ?? index, // Use index for old files without order
+		chunks: layer.chunks ?? {},
+		tileWidth: layer.tileWidth ?? 16,
+		tileHeight: layer.tileHeight ?? 16,
+		parallaxX: layer.parallaxX ?? 1.0,
+		parallaxY: layer.parallaxY ?? 1.0,
+		tint: layer.tint ?? { r: 255, g: 255, b: 255, a: 255 },
+		properties: layer.properties ?? {},
+	}));
 
-	// Deserialize groups with defaults
-	const groups: LayerGroup[] = (serialized.groups || []).map((group) => {
-		return {
+	// Deserialize groups (schema provides defaults, but we use index for order backwards compat)
+	const groups: LayerGroup[] = (serialized.groups || []).map(
+		(group, index) => ({
 			id: group.id,
 			name: group.name,
-			expanded: group.expanded ?? true,
-			visible: group.visible ?? true,
-			parallaxX: group.parallaxX ?? 1.0,
-			parallaxY: group.parallaxY ?? 1.0,
-			tint: group.tint ?? { r: 255, g: 255, b: 255, a: 255 },
-		};
-	});
+			expanded: group.expanded,
+			visible: group.visible,
+			foreground: group.foreground ?? false,
+			parallaxX: group.parallaxX,
+			parallaxY: group.parallaxY,
+			tint: group.tint,
+			order: group.order === 0 && index > 0 ? index : group.order, // Use index for old files
+		}),
+	);
 
 	return {
 		id: serialized.id,

@@ -449,11 +449,21 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const currentMap = getMapById(mapTab.mapId);
 		if (!currentMap) return;
 
+		// Calculate order for new layer (higher than existing background layers)
+		const backgroundLayers = currentMap.layers.filter(
+			(l) => !l.foreground && !l.groupId,
+		);
+		const maxOrder =
+			backgroundLayers.length > 0
+				? Math.max(...backgroundLayers.map((l) => l.order))
+				: -1;
+
 		const newLayer: Layer = {
 			id: generateId(),
 			name: `Layer ${currentMap.layers.length + 1}`,
 			visible: true,
 			foreground: false,
+			order: maxOrder + 1, // Place at top of background section
 			chunks: {},
 			tileWidth: 16,
 			tileHeight: 16,
@@ -550,14 +560,21 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 		const currentMap = getMapById(mapTab.mapId);
 		if (!currentMap) return;
 
+		// Calculate order - put at the end
+		const maxOrder = (currentMap.groups || []).reduce(
+			(max, g) => Math.max(max, g.order),
+			-1,
+		);
 		const newGroup: LayerGroup = {
 			id: generateId(),
 			name: `Group ${(currentMap.groups?.length || 0) + 1}`,
 			expanded: true,
 			visible: true,
+			foreground: false,
 			parallaxX: 1.0,
 			parallaxY: 1.0,
 			tint: { r: 255, g: 255, b: 255, a: 255 },
+			order: maxOrder + 1,
 		};
 
 		updateMap(mapTab.mapId, {

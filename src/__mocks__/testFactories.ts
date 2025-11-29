@@ -4,6 +4,7 @@ import type {
 	MapData,
 	PolygonCollider,
 	ProjectData,
+	SerializedLayer,
 	TileDefinition,
 	TilesetData,
 } from "../types";
@@ -36,6 +37,27 @@ export function createMockLayer(overrides?: Partial<Layer>): Layer {
 		name: "Tile Layer 1",
 		visible: true,
 		foreground: false,
+		order: 0,
+		chunks: {},
+		tileWidth: 16,
+		tileHeight: 16,
+		parallaxX: 1.0,
+		parallaxY: 1.0,
+		tint: { r: 255, g: 255, b: 255, a: 255 },
+		properties: {},
+		...overrides,
+	};
+}
+
+export function createMockSerializedLayer(
+	overrides?: Partial<SerializedLayer>,
+): SerializedLayer {
+	return {
+		id: "test-layer-1",
+		name: "Tile Layer 1",
+		visible: true,
+		foreground: false,
+		order: 0,
 		chunks: {},
 		tileWidth: 16,
 		tileHeight: 16,

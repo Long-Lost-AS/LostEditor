@@ -46,9 +46,11 @@ export const LayerGroupSchema = z.object({
 	name: z.string(),
 	expanded: z.boolean().default(true), // UI state for collapse
 	visible: z.boolean().default(true),
+	foreground: z.boolean().default(false), // Whether group is above entities
 	parallaxX: z.number().default(1.0),
 	parallaxY: z.number().default(1.0),
 	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
+	order: z.number().default(0), // Sort order for positioning among layers (higher = renders on top)
 });
 
 export const SpriteSchema = z.object({
@@ -171,6 +173,7 @@ export const LayerSchema = z.object({
 	visible: z.boolean(),
 	foreground: z.boolean().default(false), // true = render above entities, false = render below
 	groupId: z.string().optional(), // References a LayerGroup's id
+	order: z.number().default(0), // Sort order for positioning (higher = renders on top in display)
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
@@ -195,25 +198,28 @@ export const MapDataSchema = z.object({
 export const SerializedLayerGroupSchema = z.object({
 	id: z.string(),
 	name: z.string(),
-	expanded: z.boolean().optional(), // UI state for collapse (default true)
-	visible: z.boolean().optional(), // default true
-	parallaxX: z.number().optional(), // default 1.0
-	parallaxY: z.number().optional(), // default 1.0
-	tint: TintColorSchema.optional(), // default white
+	expanded: z.boolean().default(true),
+	visible: z.boolean().default(true),
+	foreground: z.boolean().default(false),
+	parallaxX: z.number().default(1.0),
+	parallaxY: z.number().default(1.0),
+	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
+	order: z.number().default(0),
 });
 
 export const SerializedLayerSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	visible: z.boolean(),
-	foreground: z.boolean().optional(), // true = render above entities, false/undefined = render below
-	groupId: z.string().optional(), // References a LayerGroup's id
+	foreground: z.boolean().default(false), // true = render above entities, false = render below
+	groupId: z.string().optional(), // References a LayerGroup's id (optional - layer may not be in a group)
+	order: z.number().default(0), // Sort order for positioning (higher = renders on top in display)
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
-	parallaxX: z.number().optional(), // Parallax scroll speed X (default 1.0)
-	parallaxY: z.number().optional(), // Parallax scroll speed Y (default 1.0)
-	tint: TintColorSchema.optional(), // Layer tint color (default white = no tint)
+	parallaxX: z.number().default(1.0), // Parallax scroll speed X
+	parallaxY: z.number().default(1.0), // Parallax scroll speed Y
+	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }), // Layer tint color (white = no tint)
 	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 
@@ -476,6 +482,7 @@ export function createDefaultMapData(
 				name: "Layer 1",
 				visible: true,
 				foreground: false, // Background layer (below entities)
+				order: 0, // First layer in background section
 				chunks: {}, // Empty chunks - tiles created on demand
 				tileWidth: 16,
 				tileHeight: 16,

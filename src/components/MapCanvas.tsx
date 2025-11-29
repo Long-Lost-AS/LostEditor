@@ -14,6 +14,7 @@ import type {
 	EntityDefinition,
 	EntityInstance,
 	Layer,
+	LayerGroup,
 	MapData,
 	PointInstance,
 	PolygonCollider,
@@ -942,6 +943,30 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				// Render each layer bottom-to-top using chunked offscreen canvas caching
 				// Each chunk is 16x16 tiles, allowing granular dirty tracking when painting tiles
 
+				// Helper to compute effective layer properties (combining group and layer props)
+				const getEffectiveLayerProps = (
+					layer: Layer,
+					groups: LayerGroup[],
+				): Layer => {
+					const group = layer.groupId
+						? groups.find((g) => g.id === layer.groupId)
+						: null;
+					if (!group) return layer;
+
+					return {
+						...layer,
+						visible: layer.visible && group.visible,
+						parallaxX: layer.parallaxX * group.parallaxX,
+						parallaxY: layer.parallaxY * group.parallaxY,
+						tint: {
+							r: Math.round((layer.tint.r * group.tint.r) / 255),
+							g: Math.round((layer.tint.g * group.tint.g) / 255),
+							b: Math.round((layer.tint.b * group.tint.b) / 255),
+							a: Math.round((layer.tint.a * group.tint.a) / 255),
+						},
+					};
+				};
+
 				// Helper to render a single layer with parallax support
 				const renderLayer = (layer: Layer) => {
 					if (!layer.visible) return;
@@ -1079,7 +1104,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				};
 
 				// Render background layers (foreground: false)
+				// Apply group properties to get effective layer settings
 				mapData.layers
+					.map((layer) => getEffectiveLayerProps(layer, mapData.groups))
 					.filter((layer) => !layer.foreground)
 					.forEach(renderLayer);
 
@@ -1164,7 +1191,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 				}
 
 				// Render foreground layers (foreground: true)
-				mapData.layers.filter((layer) => layer.foreground).forEach(renderLayer);
+				// Apply group properties to get effective layer settings
+				mapData.layers
+					.map((layer) => getEffectiveLayerProps(layer, mapData.groups))
+					.filter((layer) => layer.foreground)
+					.forEach(renderLayer);
 
 				// Render map-level points (on top of entities) with viewport culling
 				if (mapData.points && mapData.points.length > 0) {
