@@ -1,6 +1,6 @@
 [package]
 name = "lost-editor"
-version = "0.5.1"
+version = "0.6.0"
 description = "A 2D map editor for game development"
 authors = ["Richard Strømland Egeli"]
 license = "Custom"
