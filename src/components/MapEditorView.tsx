@@ -60,6 +60,8 @@ export const MapEditorView = ({
 		tilesets,
 		setProjectModified,
 		zoom,
+		gridVisible,
+		setGridVisible,
 	} = useEditor();
 
 	// Fetch map data by ID (following TilesetEditorView pattern)
@@ -1922,6 +1924,8 @@ export const MapEditorView = ({
 					onOpenTilesetSelect={onOpenTilesetSelect}
 					onOpenTilePicker={onOpenTilePicker}
 					onOpenTerrainPicker={onOpenTerrainPicker}
+					gridVisible={gridVisible}
+					onGridToggle={() => setGridVisible(!gridVisible)}
 				/>
 
 				{/* Map Canvas */}

@@ -17,6 +17,8 @@ interface ToolbarProps {
 	onOpenTilesetSelect: () => void;
 	onOpenTilePicker: () => void;
 	onOpenTerrainPicker: () => void;
+	gridVisible: boolean;
+	onGridToggle: () => void;
 }
 
 export const Toolbar = ({
@@ -26,6 +28,8 @@ export const Toolbar = ({
 	onOpenTilesetSelect,
 	onOpenTilePicker,
 	onOpenTerrainPicker,
+	gridVisible,
+	onGridToggle,
 }: ToolbarProps) => {
 	// Determine which context-sensitive buttons to show
 	const isEntityTool = currentTool === "entity";
@@ -98,6 +102,25 @@ export const Toolbar = ({
 				title="Point Tool"
 			>
 				<PointOfInterestIcon size={20} />
+			</button>
+			<button
+				type="button"
+				className={`tool-btn ${gridVisible ? "active" : ""}`}
+				onClick={onGridToggle}
+				title={gridVisible ? "Hide Grid" : "Show Grid"}
+			>
+				<svg
+					aria-hidden="true"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+				>
+					<rect x="3" y="3" width="18" height="18" rx="1" />
+					<path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+				</svg>
 			</button>
 
 			{/* Context-sensitive buttons */}

@@ -582,6 +582,12 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			new LayerChunkCache(CHUNK_SIZE),
 		);
 
+		// Cache for tinted chunks to avoid re-applying tint every frame
+		// Key format: `${layerId}:${chunkX},${chunkY}:${r},${g},${b},${a}`
+		const tintedChunkCacheRef = useRef<
+			Map<string, { canvas: HTMLCanvasElement; sourceVersion: number }>
+		>(new Map());
+
 		// Helper function to get chunk coordinates from tile coordinates
 		const getChunkCoordinates = useCallback((tileX: number, tileY: number) => {
 			return {
@@ -1071,19 +1077,19 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							layerTint.b !== 255 ||
 							layerTint.a !== 255);
 
-					// Reusable tint canvas for this layer (created once, reused for all chunks)
-					let tintCanvas: HTMLCanvasElement | null = null;
-					let tintCtx: CanvasRenderingContext2D | null = null;
-					if (hasLayerTint) {
-						tintCanvas = document.createElement("canvas");
-						tintCtx = tintCanvas.getContext("2d", {
-							willReadFrequently: false,
-						});
-					}
+					// Get tinted chunk cache and current version for cache invalidation
+					const tintedChunkCache = tintedChunkCacheRef.current;
+					const currentVersion = mapDataVersionRef.current;
 
 					// Render all visible chunks for this layer
+					// Only iterate over chunks that actually have data (sparse iteration)
+					const layerChunks = layer.chunks || {};
 					for (let cy = layerMinChunkY; cy <= layerMaxChunkY; cy++) {
 						for (let cx = layerMinChunkX; cx <= layerMaxChunkX; cx++) {
+							// Skip chunks that don't have any tile data
+							const chunkKey = `${cx},${cy}`;
+							if (!layerChunks[chunkKey]) continue;
+
 							// Render chunk to offscreen canvas (or use cached version if not dirty)
 							const cachedChunk = renderChunkToCache(layer, cx, cy);
 							if (!cachedChunk) continue;
@@ -1093,31 +1099,59 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							const worldY = cy * CHUNK_SIZE * layerTileHeight;
 
 							// Draw the cached chunk canvas at the correct position
-							// Apply layer tint if present
-							if (hasLayerTint && layerTint && tintCanvas && tintCtx) {
-								// Resize tint canvas if needed
+							// Apply layer tint if present (using cached tinted version)
+							if (hasLayerTint && layerTint) {
+								// Create cache key including tint values
+								const tintCacheKey = `${layer.id}:${cx},${cy}:${layerTint.r},${layerTint.g},${layerTint.b}`;
+								let tintedEntry = tintedChunkCache.get(tintCacheKey);
+
+								// Check if we need to create/update the tinted cache
 								if (
-									tintCanvas.width !== cachedChunk.width ||
-									tintCanvas.height !== cachedChunk.height
+									!tintedEntry ||
+									tintedEntry.sourceVersion !== currentVersion ||
+									tintedEntry.canvas.width !== cachedChunk.width ||
+									tintedEntry.canvas.height !== cachedChunk.height
 								) {
+									// Create or reuse tinted canvas
+									const tintCanvas =
+										tintedEntry?.canvas || document.createElement("canvas");
 									tintCanvas.width = cachedChunk.width;
 									tintCanvas.height = cachedChunk.height;
+									const tintCtx = tintCanvas.getContext("2d", {
+										willReadFrequently: false,
+									});
+
+									if (tintCtx) {
+										// Apply tint to cached chunk
+										tintCtx.globalCompositeOperation = "source-over";
+										tintCtx.clearRect(
+											0,
+											0,
+											tintCanvas.width,
+											tintCanvas.height,
+										);
+										tintCtx.drawImage(cachedChunk, 0, 0);
+										tintCtx.globalCompositeOperation = "multiply";
+										tintCtx.fillStyle = `rgb(${layerTint.r}, ${layerTint.g}, ${layerTint.b})`;
+										tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+										tintCtx.globalCompositeOperation = "destination-in";
+										tintCtx.drawImage(cachedChunk, 0, 0);
+
+										// Store in cache
+										tintedEntry = {
+											canvas: tintCanvas,
+											sourceVersion: currentVersion,
+										};
+										tintedChunkCache.set(tintCacheKey, tintedEntry);
+									}
 								}
-								// Clear and draw original chunk
-								tintCtx.globalCompositeOperation = "source-over";
-								tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
-								tintCtx.drawImage(cachedChunk, 0, 0);
-								// Apply color tint with multiply blend mode
-								tintCtx.globalCompositeOperation = "multiply";
-								tintCtx.fillStyle = `rgb(${layerTint.r}, ${layerTint.g}, ${layerTint.b})`;
-								tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
-								// Restore alpha from original with destination-in
-								tintCtx.globalCompositeOperation = "destination-in";
-								tintCtx.drawImage(cachedChunk, 0, 0);
-								// Draw tinted chunk with layer alpha
-								ctx.globalAlpha = layerTint.a / 255;
-								ctx.drawImage(tintCanvas, worldX, worldY);
-								ctx.globalAlpha = 1.0;
+
+								// Draw cached tinted chunk with layer alpha
+								if (tintedEntry) {
+									ctx.globalAlpha = layerTint.a / 255;
+									ctx.drawImage(tintedEntry.canvas, worldX, worldY);
+									ctx.globalAlpha = 1.0;
+								}
 							} else {
 								ctx.drawImage(cachedChunk, worldX, worldY);
 							}
