@@ -964,17 +964,36 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						: null;
 					if (!group) return layer;
 
+					// Default tints if not set
+					const layerTint = layer.tint ?? { r: 255, g: 255, b: 255, a: 255 };
+					const groupTint = group.tint ?? { r: 255, g: 255, b: 255, a: 255 };
+
+					// Check if a tint is effectively "no tint" (white)
+					const isWhite = (t: typeof layerTint) =>
+						t.r >= 250 && t.g >= 250 && t.b >= 250;
+
+					// Combine tints: if one is white use the other, otherwise average them
+					let combinedTint: typeof layerTint;
+					if (isWhite(groupTint)) {
+						combinedTint = layerTint;
+					} else if (isWhite(layerTint)) {
+						combinedTint = groupTint;
+					} else {
+						// Average the tints for intuitive color mixing
+						combinedTint = {
+							r: Math.round((layerTint.r + groupTint.r) / 2),
+							g: Math.round((layerTint.g + groupTint.g) / 2),
+							b: Math.round((layerTint.b + groupTint.b) / 2),
+							a: Math.round((layerTint.a * groupTint.a) / 255),
+						};
+					}
+
 					return {
 						...layer,
 						visible: layer.visible && group.visible,
 						parallaxX: layer.parallaxX * group.parallaxX,
 						parallaxY: layer.parallaxY * group.parallaxY,
-						tint: {
-							r: Math.round((layer.tint.r * group.tint.r) / 255),
-							g: Math.round((layer.tint.g * group.tint.g) / 255),
-							b: Math.round((layer.tint.b * group.tint.b) / 255),
-							a: Math.round((layer.tint.a * group.tint.a) / 255),
-						},
+						tint: combinedTint,
 					};
 				};
 
