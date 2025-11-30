@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createMockSerializedLayer } from "../../__mocks__/testFactories";
+import {
+	createMockLayerGroup,
+	createMockSerializedLayer,
+	createMockSerializedLayerGroup,
+} from "../../__mocks__/testFactories";
 import type { MapData, SerializedLayer, SerializedMapData } from "../../types";
 import { generateId } from "../id";
 import { deserializeMapData, serializeMapData } from "../mapSerializer";
@@ -235,6 +239,119 @@ describe("mapSerializer", () => {
 			// Non-empty chunk should be preserved
 			expect(result.layers[0].chunks["1,0"]).toEqual(nonEmptyChunk);
 		});
+
+		it("should serialize map with groups", () => {
+			const mapData: MapData = {
+				id: generateId(),
+				name: "Map with Groups",
+				layers: [],
+				groups: [
+					createMockLayerGroup({
+						id: "group-1",
+						name: "Foreground Group",
+						foreground: true,
+						order: 1,
+					}),
+					createMockLayerGroup({
+						id: "group-2",
+						name: "Background Group",
+						foreground: false,
+						order: 0,
+						tint: { r: 200, g: 150, b: 100, a: 255 },
+					}),
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = serializeMapData(mapData);
+
+			expect(result.groups).toHaveLength(2);
+			expect(result.groups[0].id).toBe("group-1");
+			expect(result.groups[0].name).toBe("Foreground Group");
+			expect(result.groups[0].foreground).toBe(true);
+			expect(result.groups[0].order).toBe(1);
+			expect(result.groups[1].id).toBe("group-2");
+			expect(result.groups[1].tint).toEqual({ r: 200, g: 150, b: 100, a: 255 });
+		});
+
+		it("should serialize layer with groupId", () => {
+			const mapData: MapData = {
+				id: generateId(),
+				name: "Map with Grouped Layer",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Grouped Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						groupId: "group-1",
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+				groups: [createMockLayerGroup({ id: "group-1" })],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = serializeMapData(mapData);
+
+			expect(result.layers[0].groupId).toBe("group-1");
+		});
+
+		it("should handle undefined groups array", () => {
+			const mapData = {
+				id: generateId(),
+				name: "Map without groups",
+				layers: [],
+				// groups is undefined
+				entities: [],
+				points: [],
+				colliders: [],
+			} as unknown as MapData;
+
+			const result = serializeMapData(mapData);
+
+			expect(result.groups).toEqual([]);
+		});
+
+		it("should handle group with undefined properties", () => {
+			const mapData: MapData = {
+				id: generateId(),
+				name: "Map with Group",
+				layers: [],
+				groups: [
+					{
+						id: "group-1",
+						name: "Test Group",
+						expanded: true,
+						visible: true,
+						foreground: false,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						order: 0,
+						// properties is undefined
+					} as unknown as MapData["groups"][0],
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = serializeMapData(mapData);
+
+			expect(result.groups[0].properties).toEqual({});
+		});
 	});
 
 	describe("deserializeMapData", () => {
@@ -430,6 +547,167 @@ describe("mapSerializer", () => {
 
 			expect(result.layers[0].chunks).toBeDefined();
 			expect(typeof result.layers[0].chunks).toBe("object");
+		});
+
+		it("should deserialize map with groups", () => {
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map with Groups",
+				layers: [],
+				groups: [
+					createMockSerializedLayerGroup({
+						id: "group-1",
+						name: "Test Group",
+						foreground: true,
+						order: 5,
+						tint: { r: 100, g: 150, b: 200, a: 255 },
+					}),
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.groups).toHaveLength(1);
+			expect(result.groups[0].id).toBe("group-1");
+			expect(result.groups[0].name).toBe("Test Group");
+			expect(result.groups[0].foreground).toBe(true);
+			expect(result.groups[0].order).toBe(5);
+			expect(result.groups[0].tint).toEqual({ r: 100, g: 150, b: 200, a: 255 });
+		});
+
+		it("should deserialize layer with groupId", () => {
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map",
+				layers: [
+					createMockSerializedLayer({
+						id: "layer-1",
+						name: "Grouped Layer",
+						groupId: "group-1",
+					}),
+				],
+				groups: [createMockSerializedLayerGroup({ id: "group-1" })],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.layers[0].groupId).toBe("group-1");
+		});
+
+		it("should handle undefined groups in serialized data", () => {
+			const serialized = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map without groups",
+				layers: [],
+				// groups is undefined
+				entities: [],
+				points: [],
+				colliders: [],
+			} as unknown as SerializedMapData;
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.groups).toEqual([]);
+		});
+
+		it("should handle group with undefined foreground", () => {
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map with Group",
+				layers: [],
+				groups: [
+					{
+						id: "group-1",
+						name: "Test Group",
+						expanded: true,
+						visible: true,
+						// foreground is undefined
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						order: 1,
+						properties: {},
+					} as unknown as SerializedMapData["groups"][0],
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.groups[0].foreground).toBe(false);
+		});
+
+		it("should handle group with undefined properties", () => {
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map with Group",
+				layers: [],
+				groups: [
+					{
+						id: "group-1",
+						name: "Test Group",
+						expanded: true,
+						visible: true,
+						foreground: false,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						order: 1,
+						// properties is undefined
+					} as unknown as SerializedMapData["groups"][0],
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.groups[0].properties).toEqual({});
+		});
+
+		it("should use index for group order when order is 0 and not first group", () => {
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map with Groups",
+				layers: [],
+				groups: [
+					createMockSerializedLayerGroup({
+						id: "group-1",
+						name: "First Group",
+						order: 0,
+					}),
+					createMockSerializedLayerGroup({
+						id: "group-2",
+						name: "Second Group",
+						order: 0, // order is 0 but index is 1
+					}),
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			// First group with order 0 at index 0 keeps order 0
+			expect(result.groups[0].order).toBe(0);
+			// Second group with order 0 at index 1 gets order = index = 1
+			expect(result.groups[1].order).toBe(1);
 		});
 	});
 

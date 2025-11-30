@@ -1,11 +1,13 @@
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	createMockLayerGroup,
 	createMockMap,
 	createMockSerializedLayer,
+	createMockSerializedLayerGroup,
 } from "../../__mocks__/testFactories";
 import { FileOperationError, ValidationError } from "../../errors/FileErrors";
-import type { SerializedMapData } from "../../types";
+import type { MapData, SerializedMapData } from "../../types";
 import { generateId } from "../../utils/id";
 import { fileManager } from "../FileManager";
 import { mapManager } from "../MapManager";
@@ -163,6 +165,43 @@ describe("MapManager", () => {
 			expect(tileLayer.chunks["0,0"][2]).toBe(0);
 			expect(tileLayer.chunks["0,0"][3]).toBe(1);
 		});
+
+		it("should load map with groups and grouped layers", async () => {
+			const mockMapData: SerializedMapData = {
+				version: "5.0",
+				id: generateId(),
+				name: "Map with Groups",
+				layers: [
+					createMockSerializedLayer({
+						id: "layer-1",
+						name: "Grouped Layer",
+						groupId: "group-1",
+					}),
+				],
+				groups: [
+					createMockSerializedLayerGroup({
+						id: "group-1",
+						name: "Test Group",
+						foreground: true,
+						order: 5,
+					}),
+				],
+				entities: [],
+				points: [],
+				colliders: [],
+			};
+
+			vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(mockMapData));
+
+			const result = await mapManager.load("maps/groups.lostmap");
+
+			expect(result.groups).toHaveLength(1);
+			expect(result.groups[0].id).toBe("group-1");
+			expect(result.groups[0].name).toBe("Test Group");
+			expect(result.groups[0].foreground).toBe(true);
+			expect(result.groups[0].order).toBe(5);
+			expect(result.layers[0].groupId).toBe("group-1");
+		});
 	});
 
 	describe("saveMap", () => {
@@ -300,6 +339,180 @@ describe("MapManager", () => {
 			expect(saved.layers[0].chunks).toEqual({});
 		});
 
+		it("should use default values for undefined layer properties in formatMapJSON", async () => {
+			// Create map data with a layer that has undefined optional properties
+			const mapData = createMockMap({
+				name: "Map with sparse layer",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Sparse Layer",
+						visible: true,
+						// foreground is undefined
+						// order is undefined
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						// parallaxX is undefined
+						// parallaxY is undefined
+						// tint is undefined
+						// properties is undefined
+					} as unknown as MapData["layers"][0],
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/sparse.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			// Verify defaults were applied
+			expect(saved.layers[0].foreground).toBe(false);
+			expect(saved.layers[0].order).toBe(0); // Uses index when undefined
+			expect(saved.layers[0].parallaxX).toBe(1.0);
+			expect(saved.layers[0].parallaxY).toBe(1.0);
+			expect(saved.layers[0].tint).toEqual({ r: 255, g: 255, b: 255, a: 255 });
+			expect(saved.layers[0].properties).toEqual({});
+		});
+
+		it("should handle layer without groupId in formatMapJSON", async () => {
+			// Test that layers without groupId don't add the groupId field
+			const mapData = createMockMap({
+				name: "Map without groupId",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Ungrouped Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						// groupId is undefined
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/no-groupid.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+
+			// Verify groupId is not in the output
+			expect(content).not.toContain('"groupId"');
+		});
+
+		it("should format multiple chunks with proper commas", async () => {
+			// Test multiple chunks to hit the comma branch
+			const mapData = createMockMap({
+				name: "Map with multiple chunks",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Multi-chunk Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						chunks: {
+							"0,0": new Array(256).fill(1),
+							"1,0": new Array(256).fill(2),
+						},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/multi-chunk.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			expect(Object.keys(saved.layers[0].chunks)).toHaveLength(2);
+		});
+
+		it("should format multiple layers with proper commas", async () => {
+			// Test multiple layers to hit the layerComma branch
+			const mapData = createMockMap({
+				name: "Map with multiple layers",
+				layers: [
+					{
+						id: "layer-1",
+						name: "First Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+					{
+						id: "layer-2",
+						name: "Second Layer",
+						visible: true,
+						foreground: true,
+						order: 1,
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/multi-layer.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			expect(saved.layers).toHaveLength(2);
+		});
+
+		it("should handle undefined groups, entities, points, colliders in formatMapJSON", async () => {
+			// Test that undefined arrays default to empty arrays
+			const mapData = {
+				id: generateId(),
+				name: "Map with undefined arrays",
+				layers: [],
+				// groups, entities, points, colliders are undefined
+			} as unknown as MapData;
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/undefined-arrays.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			expect(saved.groups).toEqual([]);
+			expect(saved.entities).toEqual([]);
+			expect(saved.points).toEqual([]);
+			expect(saved.colliders).toEqual([]);
+		});
+
 		it("should throw error when file write fails", async () => {
 			const mapData = createMockMap();
 
@@ -308,6 +521,112 @@ describe("MapManager", () => {
 			await expect(
 				mapManager.saveMap(mapData, "maps/fail.lostmap"),
 			).rejects.toThrow("Disk full");
+		});
+
+		it("should serialize layer with groupId", async () => {
+			const mapData = createMockMap({
+				name: "Map with Grouped Layer",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Grouped Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						groupId: "group-1",
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+				groups: [createMockLayerGroup({ id: "group-1", name: "Test Group" })],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/grouped.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			expect(saved.layers[0].groupId).toBe("group-1");
+			expect(saved.groups).toHaveLength(1);
+			expect(saved.groups[0].id).toBe("group-1");
+		});
+
+		it("should serialize and save map with groups", async () => {
+			const mapData = createMockMap({
+				name: "Map with Groups",
+				layers: [],
+				groups: [
+					createMockLayerGroup({
+						id: "group-1",
+						name: "Foreground Group",
+						foreground: true,
+						order: 2,
+					}),
+					createMockLayerGroup({
+						id: "group-2",
+						name: "Background Group",
+						foreground: false,
+						order: 1,
+						tint: { r: 200, g: 150, b: 100, a: 255 },
+					}),
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			await mapManager.saveMap(mapData, "maps/with-groups.lostmap");
+
+			const [, content] = vi.mocked(writeTextFile).mock.calls[0];
+			const saved = JSON.parse(content);
+
+			expect(saved.groups).toHaveLength(2);
+			expect(saved.groups[0].id).toBe("group-1");
+			expect(saved.groups[0].foreground).toBe(true);
+			expect(saved.groups[1].tint).toEqual({ r: 200, g: 150, b: 100, a: 255 });
+		});
+	});
+
+	describe("save (base class method)", () => {
+		it("should use prepareForSave to serialize map data", async () => {
+			const mapData = createMockMap({
+				name: "Base Save Test",
+				layers: [
+					{
+						id: "layer-1",
+						name: "Test Layer",
+						visible: true,
+						foreground: false,
+						order: 0,
+						chunks: {},
+						tileWidth: 16,
+						tileHeight: 16,
+						parallaxX: 1.0,
+						parallaxY: 1.0,
+						tint: { r: 255, g: 255, b: 255, a: 255 },
+						properties: {},
+					},
+				],
+			});
+
+			vi.mocked(writeTextFile).mockResolvedValue();
+
+			// Use the base class save method which calls prepareForSave
+			await mapManager.save(mapData, "maps/base-save.lostmap");
+
+			expect(writeTextFile).toHaveBeenCalledTimes(1);
+			const [filePath, content] = vi.mocked(writeTextFile).mock.calls[0];
+			expect(filePath).toBe("/test/project/maps/base-save.lostmap");
+
+			const saved = JSON.parse(content);
+			expect(saved.version).toBe("5.0");
+			expect(saved.name).toBe("Base Save Test");
 		});
 	});
 

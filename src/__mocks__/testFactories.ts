@@ -1,10 +1,12 @@
 import type {
 	EntityDefinition,
 	Layer,
+	LayerGroup,
 	MapData,
 	PolygonCollider,
 	ProjectData,
 	SerializedLayer,
+	SerializedLayerGroup,
 	TileDefinition,
 	TilesetData,
 } from "../types";
@@ -64,6 +66,42 @@ export function createMockSerializedLayer(
 		parallaxX: 1.0,
 		parallaxY: 1.0,
 		tint: { r: 255, g: 255, b: 255, a: 255 },
+		properties: {},
+		...overrides,
+	};
+}
+
+export function createMockLayerGroup(
+	overrides?: Partial<LayerGroup>,
+): LayerGroup {
+	return {
+		id: "test-group-1",
+		name: "Test Group",
+		expanded: true,
+		visible: true,
+		foreground: false,
+		parallaxX: 1.0,
+		parallaxY: 1.0,
+		tint: { r: 255, g: 255, b: 255, a: 255 },
+		order: 0,
+		properties: {},
+		...overrides,
+	};
+}
+
+export function createMockSerializedLayerGroup(
+	overrides?: Partial<SerializedLayerGroup>,
+): SerializedLayerGroup {
+	return {
+		id: "test-group-1",
+		name: "Test Group",
+		expanded: true,
+		visible: true,
+		foreground: false,
+		parallaxX: 1.0,
+		parallaxY: 1.0,
+		tint: { r: 255, g: 255, b: 255, a: 255 },
+		order: 0,
 		properties: {},
 		...overrides,
 	};
