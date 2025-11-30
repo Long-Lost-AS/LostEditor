@@ -27,7 +27,7 @@ import { CustomPropertiesEditor } from "./CustomPropertiesEditor";
 import { DragNumberInput } from "./DragNumberInput";
 import { EntityPropertiesPanel } from "./EntityPropertiesPanel";
 import { PencilIcon, TrashIcon } from "./Icons";
-import { LayersPanel } from "./LayersPanel";
+import { LayersPanel, type LayersPanelHandle } from "./LayersPanel";
 import { MapCanvas, type MapCanvasHandle } from "./MapCanvas";
 import { PointPropertiesPanel } from "./PointPropertiesPanel";
 import { TintInput } from "./TintInput";
@@ -202,9 +202,9 @@ export const MapEditorView = ({
 		}));
 	}, [localMapMeta, setLocalMapData]);
 
-	// Sync localLayers structural changes back to localMapData
-	// Preserves chunks from localMapData (managed by useChunkedMapUndo)
-	// Uses structural properties (name, visible, tileWidth, tileHeight, order) from localLayers
+	// Sync localLayers and localGroups changes back to localMapData
+	// Combined into a single effect to prevent race conditions when both change simultaneously
+	// (e.g., when moving a group between foreground/background sections)
 	useEffect(() => {
 		setLocalMapData((prev) => {
 			// Create a map of existing layer chunks by id
@@ -220,17 +220,10 @@ export const MapEditorView = ({
 			return {
 				...prev,
 				layers: newLayers,
+				groups: localGroups,
 			};
 		});
-	}, [localLayers, setLocalMapData]);
-
-	// Sync localGroups changes back to localMapData
-	useEffect(() => {
-		setLocalMapData((prev) => ({
-			...prev,
-			groups: localGroups,
-		}));
-	}, [localGroups, setLocalMapData]);
+	}, [localLayers, localGroups, setLocalMapData]);
 
 	// Wrapper functions to batch both tile and metadata operations
 	const handleStartBatch = useCallback(() => {
@@ -257,6 +250,9 @@ export const MapEditorView = ({
 	// Ref to MapCanvas for imperative chunk invalidation
 	const mapCanvasRef = useRef<MapCanvasHandle>(null);
 
+	// Ref to LayersPanel for triggering rename mode
+	const layersPanelRef = useRef<LayersPanelHandle>(null);
+
 	// Collider selection state
 	const [selectedColliderId, setSelectedColliderId] = useState<string | null>(
 		null,
@@ -281,20 +277,26 @@ export const MapEditorView = ({
 	// Layer management state
 	const [currentLayerId, setCurrentLayerId] = useState<string | null>(null);
 
-	// Initialize currentLayerId when map loads
-	useEffect(() => {
-		if (currentLayerId === null && localLayers.length > 0) {
-			setCurrentLayerId(localLayers[0].id);
-		}
-	}, [currentLayerId, localLayers]);
 	// Group management state
 	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+	// Initialize currentLayerId when map loads (only if no group is selected)
+	useEffect(() => {
+		if (
+			currentLayerId === null &&
+			selectedGroupId === null &&
+			localLayers.length > 0
+		) {
+			setCurrentLayerId(localLayers[0].id);
+		}
+	}, [currentLayerId, selectedGroupId, localLayers]);
 
 	// Context menu state
 	const [contextMenu, setContextMenu] = useState<{
 		x: number;
 		y: number;
 		layerId?: string;
+		groupId?: string;
 		colliderId?: string;
 		pointIndex?: number;
 		edgeIndex?: number;
@@ -475,6 +477,7 @@ export const MapEditorView = ({
 
 		setLocalLayers([...localLayers, newLayer]);
 		setCurrentLayerId(newLayer.id);
+		setSelectedGroupId(null); // Clear group selection when adding a layer
 	};
 
 	const handleRemoveLayer = (layerId: string) => {
@@ -483,6 +486,21 @@ export const MapEditorView = ({
 
 		if (currentLayerId === layerId) {
 			setCurrentLayerId(newLayers[0]?.id || null);
+		}
+	};
+
+	// Mutually exclusive selection handlers - selecting a layer clears group and vice versa
+	const handleSelectLayer = (layerId: string | null) => {
+		setCurrentLayerId(layerId);
+		if (layerId !== null) {
+			setSelectedGroupId(null); // Clear group selection when selecting a layer
+		}
+	};
+
+	const handleSelectGroup = (groupId: string | null) => {
+		setSelectedGroupId(groupId);
+		if (groupId !== null) {
+			setCurrentLayerId(null); // Clear layer selection when selecting a group
 		}
 	};
 
@@ -517,8 +535,46 @@ export const MapEditorView = ({
 		});
 	};
 
+	const handleGroupContextMenu = (e: React.MouseEvent, groupId: string) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Estimate menu dimensions
+		const menuWidth = 160;
+		const menuHeight = 80; // Two item menu (Rename + Delete)
+
+		const position = calculateMenuPosition(
+			e.clientX,
+			e.clientY,
+			menuWidth,
+			menuHeight,
+		);
+
+		setContextMenu({
+			x: position.x,
+			y: position.y,
+			groupId,
+		});
+	};
+
 	const handleRenameLayer = () => {
-		// Renaming is now handled by double-click in LayersPanel
+		if (contextMenu?.layerId && layersPanelRef.current) {
+			layersPanelRef.current.startLayerRename(contextMenu.layerId);
+		}
+		setContextMenu(null);
+	};
+
+	const handleRenameGroup = () => {
+		if (contextMenu?.groupId && layersPanelRef.current) {
+			layersPanelRef.current.startGroupRename(contextMenu.groupId);
+		}
+		setContextMenu(null);
+	};
+
+	const handleDeleteGroupFromMenu = () => {
+		if (contextMenu?.groupId) {
+			handleRemoveGroup(contextMenu.groupId);
+		}
 		setContextMenu(null);
 	};
 
@@ -543,9 +599,11 @@ export const MapEditorView = ({
 			parallaxY: 1.0,
 			tint: { r: 255, g: 255, b: 255, a: 255 },
 			order: maxOrder + 1,
+			properties: {},
 		};
 		setLocalGroups([...localGroups, newGroup]);
 		setSelectedGroupId(newGroup.id);
+		setCurrentLayerId(null); // Clear layer selection when adding a group
 	};
 
 	const handleRemoveGroup = (groupId: string) => {
@@ -563,16 +621,11 @@ export const MapEditorView = ({
 	};
 
 	// Group property handlers (used by Group Properties panel)
-	const handleUpdateGroupName = (groupId: string, name: string) => {
-		setLocalGroups(
-			localGroups.map((g) => (g.id === groupId ? { ...g, name } : g)),
-		);
-	};
-
-	const handleToggleGroupVisibility = (groupId: string) => {
+	const handleGroupPropertiesChange = (properties: Record<string, string>) => {
+		if (!selectedGroupId) return;
 		setLocalGroups(
 			localGroups.map((g) =>
-				g.id === groupId ? { ...g, visible: !g.visible } : g,
+				g.id === selectedGroupId ? { ...g, properties } : g,
 			),
 		);
 	};
@@ -1561,15 +1614,19 @@ export const MapEditorView = ({
 								</div>
 
 								<LayersPanel
+									ref={layersPanelRef}
 									layers={localLayers}
 									groups={localGroups}
-									currentLayerId={currentLayer?.id || null}
+									currentLayerId={currentLayerId}
+									selectedGroupId={selectedGroupId}
 									onLayersChange={setLocalLayers}
 									onGroupsChange={setLocalGroups}
-									onSelectLayer={setCurrentLayerId}
+									onSelectLayer={handleSelectLayer}
+									onSelectGroup={handleSelectGroup}
 									onAddLayer={handleAddLayer}
 									onAddGroup={handleAddGroup}
 									onLayerContextMenu={handleLayerContextMenu}
+									onGroupContextMenu={handleGroupContextMenu}
 								/>
 
 								{/* Layer Properties (shown when a layer is selected) */}
@@ -1734,63 +1791,11 @@ export const MapEditorView = ({
 										className="mt-3 pt-3"
 										style={{ borderTop: "1px solid #3e3e42" }}
 									>
-										<div className="flex items-center justify-between mb-2">
-											<div
-												className="text-xs font-semibold uppercase tracking-wide"
-												style={{ color: "#858585" }}
-											>
-												Group Properties
-											</div>
-											<button
-												type="button"
-												onClick={() => handleRemoveGroup(selectedGroup.id)}
-												className="p-1 rounded hover:bg-red-500/20"
-												title="Delete group"
-											>
-												<TrashIcon className="w-3 h-3 text-red-400" />
-											</button>
-										</div>
-
-										{/* Group Name */}
-										<div className="mb-3">
-											<div
-												className="text-xs font-medium block mb-1.5"
-												style={{ color: "#858585" }}
-											>
-												Name
-											</div>
-											<input
-												type="text"
-												value={selectedGroup.name}
-												onChange={(e) =>
-													handleUpdateGroupName(
-														selectedGroup.id,
-														e.target.value,
-													)
-												}
-												className="w-full px-2 py-1.5 text-xs rounded"
-												style={{
-													background: "#3c3c3c",
-													color: "#cccccc",
-													border: "1px solid #4e4e4e",
-												}}
-												spellCheck={false}
-											/>
-										</div>
-
-										{/* Group Visibility */}
-										<div className="mb-3 flex items-center gap-2">
-											<input
-												type="checkbox"
-												checked={selectedGroup.visible}
-												onChange={() =>
-													handleToggleGroupVisibility(selectedGroup.id)
-												}
-												style={{ accentColor: "#007acc" }}
-											/>
-											<span className="text-xs" style={{ color: "#cccccc" }}>
-												Visible
-											</span>
+										<div
+											className="text-xs font-semibold uppercase tracking-wide mb-2"
+											style={{ color: "#858585" }}
+										>
+											Group Properties
 										</div>
 
 										{/* Group Parallax Speed */}
@@ -1893,6 +1898,12 @@ export const MapEditorView = ({
 												inputKey={selectedGroup.id}
 											/>
 										</div>
+
+										{/* Custom Properties */}
+										<CustomPropertiesEditor
+											properties={selectedGroup.properties || {}}
+											onChange={handleGroupPropertiesChange}
+										/>
 									</div>
 								)}
 							</div>
@@ -2249,6 +2260,57 @@ export const MapEditorView = ({
 											if (e.key === "Enter" || e.key === " ") {
 												e.preventDefault();
 												handleDeleteLayerFromMenu();
+											}
+										}}
+										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+										style={{ color: "#f48771" }}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
+										role="menuitem"
+										tabIndex={0}
+									>
+										<TrashIcon size={16} />
+										<span>Delete</span>
+									</div>
+								</>
+							) : contextMenu.groupId ? (
+								// Right-clicked on group
+								<>
+									{/* Rename */}
+									<div
+										onClick={handleRenameGroup}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleRenameGroup();
+											}
+										}}
+										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"
+										style={{ color: "#cccccc" }}
+										onMouseEnter={(e) => {
+											e.currentTarget.style.background = "#3e3e42";
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.background = "transparent";
+										}}
+										role="menuitem"
+										tabIndex={0}
+									>
+										<PencilIcon size={16} />
+										<span>Rename</span>
+									</div>
+
+									{/* Delete */}
+									<div
+										onClick={handleDeleteGroupFromMenu}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" || e.key === " ") {
+												e.preventDefault();
+												handleDeleteGroupFromMenu();
 											}
 										}}
 										className="px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2"

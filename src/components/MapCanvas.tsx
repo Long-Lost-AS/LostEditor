@@ -325,8 +325,19 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			() => mapData.layers.find((l) => l.id === currentLayerId),
 			[mapData.layers, currentLayerId],
 		);
-		const currentTileWidth = currentLayer?.tileWidth ?? 16;
-		const currentTileHeight = currentLayer?.tileHeight ?? 16;
+
+		// Track last used tile dimensions so grid doesn't change when selecting a group
+		const lastTileDimensionsRef = useRef({ width: 16, height: 16 });
+		if (currentLayer) {
+			lastTileDimensionsRef.current = {
+				width: currentLayer.tileWidth,
+				height: currentLayer.tileHeight,
+			};
+		}
+		const currentTileWidth =
+			currentLayer?.tileWidth ?? lastTileDimensionsRef.current.width;
+		const currentTileHeight =
+			currentLayer?.tileHeight ?? lastTileDimensionsRef.current.height;
 
 		// Helper functions for collider manipulation
 		// Helper wrappers using the shared collision geometry utilities
@@ -1105,9 +1116,21 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				// Render background layers (foreground: false)
 				// Apply group properties to get effective layer settings
+				// Sort by order ascending so lower order renders first (at back), higher order renders last (on top)
+				// For grouped layers, use group's order as primary sort key
+				const getLayerSortOrder = (layer: Layer) => {
+					if (layer.groupId) {
+						const group = mapData.groups?.find((g) => g.id === layer.groupId);
+						// Use group order as primary, layer order as secondary (fractional)
+						return (group?.order ?? 0) + (layer.order ?? 0) * 0.001;
+					}
+					return layer.order ?? 0;
+				};
+
 				mapData.layers
 					.map((layer) => getEffectiveLayerProps(layer, mapData.groups))
 					.filter((layer) => !layer.foreground)
+					.sort((a, b) => getLayerSortOrder(a) - getLayerSortOrder(b))
 					.forEach(renderLayer);
 
 				// Render map-level entities
@@ -1192,9 +1215,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 				// Render foreground layers (foreground: true)
 				// Apply group properties to get effective layer settings
+				// Sort by order ascending so lower order renders first (at back), higher order renders last (on top)
 				mapData.layers
 					.map((layer) => getEffectiveLayerProps(layer, mapData.groups))
 					.filter((layer) => layer.foreground)
+					.sort((a, b) => getLayerSortOrder(a) - getLayerSortOrder(b))
 					.forEach(renderLayer);
 
 				// Render map-level points (on top of entities) with viewport culling

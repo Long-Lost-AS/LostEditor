@@ -131,6 +131,10 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			lines.push(`      "name": ${JSON.stringify(layer.name)},`);
 			lines.push(`      "visible": ${layer.visible},`);
 			lines.push(`      "foreground": ${layer.foreground ?? false},`);
+			if (layer.groupId !== undefined) {
+				lines.push(`      "groupId": ${JSON.stringify(layer.groupId)},`);
+			}
+			lines.push(`      "order": ${layer.order ?? i},`);
 			lines.push('      "chunks": {');
 
 			const chunkKeys = Object.keys(layer.chunks);
@@ -148,6 +152,9 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			lines.push(`      "parallaxX": ${layer.parallaxX ?? 1.0},`);
 			lines.push(`      "parallaxY": ${layer.parallaxY ?? 1.0},`);
 			lines.push(
+				`      "tint": ${JSON.stringify(layer.tint ?? { r: 255, g: 255, b: 255, a: 255 })},`,
+			);
+			lines.push(
 				`      "properties": ${JSON.stringify(layer.properties || {})}`,
 			);
 			const layerComma = i < parsed.layers.length - 1 ? "," : "";
@@ -155,9 +162,18 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 		}
 
 		lines.push("  ],");
-		lines.push(`  "entities": ${JSON.stringify(parsed.entities)},`);
-		lines.push(`  "points": ${JSON.stringify(parsed.points)},`);
-		lines.push(`  "colliders": ${JSON.stringify(parsed.colliders)}`);
+
+		// Helper to indent multi-line JSON
+		const indentJson = (obj: unknown, baseIndent: string): string => {
+			const json = JSON.stringify(obj, null, 2);
+			// Indent all lines except the first
+			return json.replace(/\n/g, `\n${baseIndent}`);
+		};
+
+		lines.push(`  "groups": ${indentJson(parsed.groups || [], "  ")},`);
+		lines.push(`  "entities": ${indentJson(parsed.entities || [], "  ")},`);
+		lines.push(`  "points": ${indentJson(parsed.points || [], "  ")},`);
+		lines.push(`  "colliders": ${indentJson(parsed.colliders || [], "  ")}`);
 		lines.push("}");
 
 		return lines.join("\n");

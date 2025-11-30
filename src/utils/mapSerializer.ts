@@ -61,6 +61,7 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			parallaxY: group.parallaxY,
 			tint: group.tint,
 			order: group.order,
+			properties: group.properties || {},
 		}),
 	);
 
@@ -112,6 +113,7 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 			parallaxY: group.parallaxY,
 			tint: group.tint,
 			order: group.order === 0 && index > 0 ? index : group.order, // Use index for old files
+			properties: group.properties ?? {},
 		}),
 	);
 

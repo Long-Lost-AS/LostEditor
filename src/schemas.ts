@@ -51,6 +51,7 @@ export const LayerGroupSchema = z.object({
 	parallaxY: z.number().default(1.0),
 	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
 	order: z.number().default(0), // Sort order for positioning among layers (higher = renders on top)
+	properties: z.record(z.string(), z.string()).default({}), // Custom key-value properties
 });
 
 export const SpriteSchema = z.object({
@@ -205,6 +206,7 @@ export const SerializedLayerGroupSchema = z.object({
 	parallaxY: z.number().default(1.0),
 	tint: TintColorSchema.default({ r: 255, g: 255, b: 255, a: 255 }),
 	order: z.number().default(0),
+	properties: z.record(z.string(), z.string()).default({}),
 });
 
 export const SerializedLayerSchema = z.object({
