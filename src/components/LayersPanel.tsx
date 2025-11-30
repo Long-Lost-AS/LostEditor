@@ -181,7 +181,7 @@ const SortableGroupContainer = ({
 	};
 
 	return (
-		<div ref={setNodeRef} style={style} className="mb-1">
+		<div ref={setNodeRef} style={style}>
 			{/* Group header - draggable */}
 			<div
 				{...attributes}
@@ -1182,10 +1182,13 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 																layer={layer}
 																isLast={idx === item.layers.length - 1}
 															/>
-															<GroupLayerDropZone
-																id={`group-dropzone:${item.group.id}:${idx + 1}`}
-																isActive={isDragging}
-															/>
+															{/* Only show drop zone between layers, not after the last one */}
+															{idx < item.layers.length - 1 && (
+																<GroupLayerDropZone
+																	id={`group-dropzone:${item.group.id}:${idx + 1}`}
+																	isActive={isDragging}
+																/>
+															)}
 														</Fragment>
 													))}
 												</div>
