@@ -6,9 +6,11 @@
 import { useCallback, useState } from "react";
 import type { PolygonCollider } from "../types";
 import {
+	calculatePolygonCenter,
 	canClosePolygon,
 	findEdgeAtPosition,
 	findPointAtPosition,
+	getWorldPoints,
 	isPointInPolygon,
 	type Point,
 } from "../utils/collisionGeometry";
@@ -157,11 +159,19 @@ export function useCollisionEditor(
 				return colliders;
 			}
 
+			// Calculate center and convert points to offsets
+			const center = calculatePolygonCenter(drawingPoints);
+			const offsetPoints = drawingPoints.map((p) => ({
+				x: p.x - center.x,
+				y: p.y - center.y,
+			}));
+
 			const newCollider: PolygonCollider = {
 				id: generateId(),
 				name,
 				type,
-				points: [...drawingPoints],
+				position: center,
+				points: offsetPoints,
 				properties: {},
 			};
 
@@ -305,20 +315,23 @@ export function useCollisionEditor(
 
 	const updateColliderPosition = useCallback(
 		(collider: PolygonCollider, dx: number, dy: number): PolygonCollider => {
-			const newPoints = collider.points.map((point) => ({
-				x: point.x + dx,
-				y: point.y + dy,
-			}));
+			// Just update position - points are offsets that stay the same
+			const posX = collider.position?.x ?? 0;
+			const posY = collider.position?.y ?? 0;
 
 			return {
 				...collider,
-				points: newPoints,
+				position: {
+					x: posX + dx,
+					y: posY + dy,
+				},
 			};
 		},
 		[],
 	);
 
 	// Helper functions that wrap the collision geometry utilities
+	// Note: These use world coordinates for hit detection
 	const findClickedPoint = useCallback(
 		(
 			collider: PolygonCollider,
@@ -326,7 +339,9 @@ export function useCollisionEditor(
 			y: number,
 			threshold: number,
 		): number | null => {
-			return findPointAtPosition(collider.points, x, y, threshold);
+			// Use world points for hit detection
+			const worldPoints = getWorldPoints(collider);
+			return findPointAtPosition(worldPoints, x, y, threshold);
 		},
 		[],
 	);
@@ -340,7 +355,9 @@ export function useCollisionEditor(
 			// Search in reverse order (top to bottom)
 			for (let i = colliders.length - 1; i >= 0; i--) {
 				const collider = colliders[i];
-				if (isPointInPolygon(x, y, collider.points)) {
+				// Use world points for hit detection
+				const worldPoints = getWorldPoints(collider);
+				if (isPointInPolygon(x, y, worldPoints)) {
 					return collider;
 				}
 			}
@@ -356,7 +373,9 @@ export function useCollisionEditor(
 			y: number,
 			threshold: number,
 		): { edgeIndex: number; insertX: number; insertY: number } | null => {
-			return findEdgeAtPosition(collider.points, x, y, threshold);
+			// Use world points for edge detection
+			const worldPoints = getWorldPoints(collider);
+			return findEdgeAtPosition(worldPoints, x, y, threshold);
 		},
 		[],
 	);

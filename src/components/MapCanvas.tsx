@@ -30,6 +30,7 @@ import {
 	calculateDistance as calcDistance,
 	findEdgeAtPosition as findEdgeAtPos,
 	findPointAtPosition as findPointAtPos,
+	getWorldPoints,
 	isPointInPolygon as pointInPolygon,
 } from "../utils/collisionGeometry";
 import { getArrowKeyDelta, isArrowKey } from "../utils/keyboardMovement";
@@ -297,6 +298,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			x: number;
 			y: number;
 			originalPoints: Array<{ x: number; y: number }>;
+			originalPosition: { x: number; y: number }; // Collider center position
 			pointIndex: number | null; // null = dragging whole collider, number = dragging specific point
 		} | null>(null);
 		const [tempColliderPointPosition, setTempColliderPointPosition] = useState<{
@@ -358,7 +360,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			if (!collider) return null;
 
 			const threshold = 8 / zoom; // Click tolerance in world pixels
-			return findPointAtPos(collider.points, worldX, worldY, threshold);
+			// Use world points for hit detection
+			const worldPoints = getWorldPoints(collider);
+			return findPointAtPos(worldPoints, worldX, worldY, threshold);
 		};
 
 		const calculateDistance = (
@@ -1366,9 +1370,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					mapData.colliders.forEach((collider) => {
 						if (collider.points.length < 2) return;
 
+						// Get position (center) of collider
+						const posX = collider.position?.x ?? 0;
+						const posY = collider.position?.y ?? 0;
+
+						// Get world points for rendering and visibility check
+						const worldPoints = getWorldPoints(collider);
+
 						// Simple AABB check for collider visibility
 						// Check if any point of the collider is within visible bounds
-						const isVisible = collider.points.some(
+						const isVisible = worldPoints.some(
 							(point) =>
 								point.x >= visibleWorldMinX &&
 								point.x <= visibleWorldMaxX &&
@@ -1389,6 +1400,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						ctx.beginPath();
 
 						// Handle temp point position if dragging a point (for pointer tool)
+						// Returns world coordinates
 						const getPointPosition = (index: number) => {
 							if (
 								currentTool === "pointer" &&
@@ -1397,9 +1409,9 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 								selectedColliderPointIndex === index &&
 								tempColliderPointPosition
 							) {
-								return tempColliderPointPosition;
+								return tempColliderPointPosition; // Already in world coords
 							}
-							return collider.points[index];
+							return worldPoints[index];
 						};
 
 						// Draw the collider polygon
@@ -1454,18 +1466,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 
 						// Draw collider name if selected and zoomed in enough
 						if (isSelected && currentZoom > 0.5 && collider.name) {
-							// Calculate center point
-							const centerX =
-								collider.points.reduce((sum, p) => sum + p.x, 0) /
-								collider.points.length;
-							const centerY =
-								collider.points.reduce((sum, p) => sum + p.y, 0) /
-								collider.points.length;
-
+							// Use position directly as center
 							ctx.fillStyle = "#ffffff";
 							ctx.font = `${12 / currentZoom}px sans-serif`;
 							ctx.textAlign = "center";
-							ctx.fillText(collider.name, centerX, centerY);
+							ctx.fillText(collider.name, posX, posY);
 							ctx.textAlign = "left"; // Reset
 						}
 					});
@@ -2226,6 +2231,8 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							);
 							if (pointIndex !== null) {
 								// Clicked on a collider point - start dragging it
+								const posX = selectedCollider.position?.x ?? 0;
+								const posY = selectedCollider.position?.y ?? 0;
 								setSelectedColliderPointIndex(pointIndex);
 								setColliderDragStart({
 									x: e.clientX,
@@ -2233,12 +2240,14 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									originalPoints: selectedCollider.points.map((p) => ({
 										...p,
 									})),
+									originalPosition: { x: posX, y: posY },
 									pointIndex: pointIndex, // Dragging specific point
 								});
 								setIsDraggingColliderPoint(true);
+								// Set temp position in WORLD coordinates for rendering
 								setTempColliderPointPosition({
-									x: selectedCollider.points[pointIndex].x,
-									y: selectedCollider.points[pointIndex].y,
+									x: selectedCollider.points[pointIndex].x + posX,
+									y: selectedCollider.points[pointIndex].y + posY,
 								});
 								onStartBatch?.();
 								renderMap.current();
@@ -2247,12 +2256,16 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							}
 
 							// Not clicking on a point - check if clicking inside the collider body
+							// Use world points for hit detection
+							const worldPoints = getWorldPoints(selectedCollider);
 							if (
 								selectedCollider.points.length >= 3 &&
-								isPointInPolygon(worldX, worldY, selectedCollider.points)
+								isPointInPolygon(worldX, worldY, worldPoints)
 							) {
 								// Clicked inside collider body - start dragging the whole collider
 								// Clear selected point index so we drag all points
+								const posX = selectedCollider.position?.x ?? 0;
+								const posY = selectedCollider.position?.y ?? 0;
 								setSelectedColliderPointIndex(null);
 								setColliderDragStart({
 									x: e.clientX,
@@ -2260,6 +2273,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 									originalPoints: selectedCollider.points.map((p) => ({
 										...p,
 									})),
+									originalPosition: { x: posX, y: posY },
 									pointIndex: null, // Dragging whole collider
 								});
 								_setIsDraggingCollider(true);
@@ -2337,15 +2351,18 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 							const collider = mapData.colliders[i];
 							if (collider.points.length < 3) continue;
 
+							// Get world points for hit detection
+							const worldPoints = getWorldPoints(collider);
+
 							// Check if point is inside polygon
-							if (isPointInPolygon(worldX, worldY, collider.points)) {
+							if (isPointInPolygon(worldX, worldY, worldPoints)) {
 								clickableObjects.push({ type: "collider", collider });
 								continue;
 							}
 
 							// Also check if near any control point (for easier selection of small colliders)
 							const threshold = 8 / zoom;
-							for (const point of collider.points) {
+							for (const point of worldPoints) {
 								const dx = worldX - point.x;
 								const dy = worldY - point.y;
 								const distance = Math.sqrt(dx * dx + dy * dy);
@@ -2751,28 +2768,35 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						}
 						const originalPoint =
 							colliderDragStart.originalPoints[colliderDragStart.pointIndex];
-						const newX = Math.floor(originalPoint.x + deltaX);
-						const newY = Math.floor(originalPoint.y + deltaY);
-						setTempColliderPointPosition({ x: newX, y: newY });
-						// Update the actual collider point position
+						// Calculate new offset (originalOffset + delta)
+						const newOffsetX = Math.floor(originalPoint.x + deltaX);
+						const newOffsetY = Math.floor(originalPoint.y + deltaY);
+						// tempColliderPointPosition needs WORLD coords for rendering
+						const posX = colliderDragStart.originalPosition.x;
+						const posY = colliderDragStart.originalPosition.y;
+						setTempColliderPointPosition({
+							x: newOffsetX + posX,
+							y: newOffsetY + posY,
+						});
+						// Update the actual collider point position (expects offset coords)
 						onUpdateColliderPoint?.(
 							selectedColliderId,
 							colliderDragStart.pointIndex,
-							newX,
-							newY,
+							newOffsetX,
+							newOffsetY,
 						);
 					} else {
-						// Dragging the whole collider - update all points at once
+						// Dragging the whole collider - update position only (points stay as offsets)
 						if (!_isDraggingCollider) {
 							_setIsDraggingCollider(true);
 						}
-						// Calculate new points all at once
-						const newPoints = colliderDragStart.originalPoints.map((p) => ({
-							x: Math.floor(p.x + deltaX),
-							y: Math.floor(p.y + deltaY),
-						}));
+						// Calculate new position
+						const newPosition = {
+							x: Math.floor(colliderDragStart.originalPosition.x + deltaX),
+							y: Math.floor(colliderDragStart.originalPosition.y + deltaY),
+						};
 						// Use dragging callback for smooth updates (doesn't mark as modified)
-						onColliderDragging?.(selectedColliderId, { points: newPoints });
+						onColliderDragging?.(selectedColliderId, { position: newPosition });
 					}
 				}
 			} else if (isDrawing) {
@@ -2889,7 +2913,7 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			) {
 				// Commit final position and mark as modified
 				if (_isDraggingCollider) {
-					// Whole collider was dragged - get final positions from colliderDragStart
+					// Whole collider was dragged - update position only (points stay as offsets)
 					const { worldX, worldY } = screenToWorld(e.clientX, e.clientY);
 					const startWorldPos = screenToWorld(
 						colliderDragStart.x,
@@ -2897,22 +2921,25 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 					);
 					const deltaX = worldX - startWorldPos.worldX;
 					const deltaY = worldY - startWorldPos.worldY;
-					const newPoints = colliderDragStart.originalPoints.map((p) => ({
-						x: Math.floor(p.x + deltaX),
-						y: Math.floor(p.y + deltaY),
-					}));
-					onUpdateCollider?.(selectedColliderId, { points: newPoints });
+					const newPosition = {
+						x: Math.floor(colliderDragStart.originalPosition.x + deltaX),
+						y: Math.floor(colliderDragStart.originalPosition.y + deltaY),
+					};
+					onUpdateCollider?.(selectedColliderId, { position: newPosition });
 				} else if (
 					isDraggingColliderPoint &&
 					tempColliderPointPosition &&
 					colliderDragStart.pointIndex !== null
 				) {
 					// Single point was dragged - commit final position
+					// tempColliderPointPosition is in world coords, convert to offset
+					const posX = colliderDragStart.originalPosition.x;
+					const posY = colliderDragStart.originalPosition.y;
 					onUpdateColliderPoint?.(
 						selectedColliderId,
 						colliderDragStart.pointIndex,
-						tempColliderPointPosition.x,
-						tempColliderPointPosition.y,
+						tempColliderPointPosition.x - posX,
+						tempColliderPointPosition.y - posY,
 					);
 				}
 				// End batching to commit as one undo/redo entry
@@ -3175,9 +3202,11 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 			// Check if we right-clicked on a collider
 			if (mapData.colliders) {
 				for (const collider of mapData.colliders) {
+					// Use world points for hit detection
+					const worldPoints = getWorldPoints(collider);
 					if (
 						collider.points.length >= 3 &&
-						isPointInPolygon(worldX, worldY, collider.points)
+						isPointInPolygon(worldX, worldY, worldPoints)
 					) {
 						onContextMenuRequest?.({
 							x: e.clientX,
@@ -3355,24 +3384,31 @@ const MapCanvasComponent = forwardRef<MapCanvasHandle, MapCanvasProps>(
 						return;
 					}
 
+					const posX = collider.position?.x ?? 0;
+					const posY = collider.position?.y ?? 0;
+
 					// If a specific point is selected, move only that point
 					if (selectedColliderPointIndex !== null) {
-						const point = collider.points[selectedColliderPointIndex];
-						if (point) {
+						const offsetPoint = collider.points[selectedColliderPointIndex];
+						if (offsetPoint) {
+							// Convert offset to world coords, add delta, pass new offset
+							const newOffsetX = offsetPoint.x + delta.deltaX;
+							const newOffsetY = offsetPoint.y + delta.deltaY;
 							onUpdateColliderPoint?.(
 								selectedColliderId,
 								selectedColliderPointIndex,
-								point.x + delta.deltaX,
-								point.y + delta.deltaY,
+								newOffsetX,
+								newOffsetY,
 							);
 						}
 					} else {
-						// Move entire collider
-						const newPoints = collider.points.map((p) => ({
-							x: p.x + delta.deltaX,
-							y: p.y + delta.deltaY,
-						}));
-						onUpdateCollider?.(selectedColliderId, { points: newPoints });
+						// Move entire collider - just update position
+						onUpdateCollider?.(selectedColliderId, {
+							position: {
+								x: posX + delta.deltaX,
+								y: posY + delta.deltaY,
+							},
+						});
 					}
 				}
 			};

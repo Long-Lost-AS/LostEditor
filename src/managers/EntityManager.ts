@@ -5,6 +5,7 @@ import type {
 	EntityInstance,
 	Transform,
 } from "../types";
+import { migrateColliderToPositionFormat } from "../utils/collisionGeometry";
 import { generateId } from "../utils/id";
 import { FileLoader } from "./FileLoader";
 import { fileManager } from "./FileManager";
@@ -30,15 +31,21 @@ class EntityManager extends FileLoader<EntityDefinition, EntityDefinitionJson> {
 	}
 
 	/**
-	 * Post-process validated JSON data by adding filePath
+	 * Post-process validated JSON data by adding filePath and migrating colliders
 	 */
 	protected async postProcess(
 		validated: EntityDefinitionJson,
 		filePath: string,
 	): Promise<EntityDefinition> {
+		// Migrate colliders to new format with position (backwards compatibility)
+		const migratedColliders = (validated.colliders || []).map((c) =>
+			migrateColliderToPositionFormat(c),
+		);
+
 		// Add filePath as a runtime field
 		return {
 			...validated,
+			colliders: migratedColliders,
 			filePath: filePath,
 		};
 	}

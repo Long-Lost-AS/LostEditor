@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { FileNotFoundError } from "../errors/FileErrors";
 import { TilesetDataSchema } from "../schemas";
 import type { TileDefinition, TilesetData, TilesetDataJson } from "../types";
+import { migrateColliderToPositionFormat } from "../utils/collisionGeometry";
 import { isCompoundTile } from "../utils/tileHelpers";
 import { unpackTileId } from "../utils/tileId";
 import { tilesetIndexManager } from "../utils/tilesetIndexManager";
@@ -98,9 +99,12 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		const imageElement = await this.loadImage(imagePath);
 
 		// Add default values for properties that may not exist in older files
+		// Also migrate colliders to new format with position (backwards compatibility)
 		const tilesWithDefaults = (validated.tiles || []).map((tile) => ({
 			...tile,
-			colliders: tile.colliders || [],
+			colliders: (tile.colliders || []).map((c) =>
+				migrateColliderToPositionFormat(c),
+			),
 		}));
 
 		// Handle tileset order assignment

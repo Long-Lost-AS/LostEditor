@@ -575,7 +575,7 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 								? {
 										...l,
 										foreground: newForeground,
-										groupId: undefined,
+										groupId: null,
 									}
 								: l,
 						),
@@ -713,7 +713,7 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 										...l,
 										order: newOrder,
 										foreground: dropIsForeground,
-										groupId: undefined,
+										groupId: null,
 									}
 								: l,
 						),
@@ -809,7 +809,7 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 						l.id === activeId
 							? {
 									...l,
-									groupId: undefined,
+									groupId: null,
 									foreground: targetIsForeground,
 									order: targetOrder,
 								}
@@ -858,7 +858,7 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 			// Collect all order updates
 			const layerUpdates = new Map<
 				string,
-				{ order: number; foreground: boolean; groupId?: string }
+				{ order: number; foreground: boolean; groupId: string | null }
 			>();
 			const groupUpdates = new Map<
 				string,
@@ -873,7 +873,7 @@ export const LayersPanel = forwardRef<LayersPanelHandle, LayersPanelProps>(
 					layerUpdates.set(item.layer.id, {
 						order: maxOrder - idx,
 						foreground: targetIsForeground,
-						groupId: isActive ? undefined : item.layer.groupId,
+						groupId: isActive ? null : item.layer.groupId,
 					});
 				} else if (item.type === "group") {
 					groupUpdates.set(item.group.id, {

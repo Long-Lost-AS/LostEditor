@@ -15,7 +15,13 @@ export const PolygonColliderSchema = z.object({
 	id: z.string().default(""),
 	name: z.string().default(""),
 	type: z.string().default(""),
-	points: z.array(PointSchema),
+	position: z
+		.object({
+			x: z.number(),
+			y: z.number(),
+		})
+		.default({ x: 0, y: 0 }), // Center position, points are offsets from this
+	points: z.array(PointSchema), // Offset points relative to position
 	properties: z.record(z.string(), z.string()).default({}),
 });
 
@@ -173,9 +179,11 @@ export const LayerSchema = z.object({
 	name: z.string(),
 	visible: z.boolean(),
 	foreground: z.boolean().default(false), // true = render above entities, false = render below
-	groupId: z.string().optional(), // References a LayerGroup's id
+	groupId: z.string().nullable().default(null), // References a LayerGroup's id (null = not in a group)
 	order: z.number().default(0), // Sort order for positioning (higher = renders on top in display)
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
+	chunkWidth: z.number().positive().default(16), // Chunk width in tiles
+	chunkHeight: z.number().positive().default(16), // Chunk height in tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
 	parallaxX: z.number().default(1.0), // Parallax scroll speed X (1.0 = normal, 0.5 = half speed, 0 = fixed)
@@ -214,9 +222,11 @@ export const SerializedLayerSchema = z.object({
 	name: z.string(),
 	visible: z.boolean(),
 	foreground: z.boolean().default(false), // true = render above entities, false = render below
-	groupId: z.string().optional(), // References a LayerGroup's id (optional - layer may not be in a group)
+	groupId: z.string().nullable().default(null), // References a LayerGroup's id (null = not in a group)
 	order: z.number().default(0), // Sort order for positioning (higher = renders on top in display)
 	chunks: z.record(z.string(), z.array(z.number())).default({}), // Chunk-based storage: "chunkX,chunkY" -> tiles
+	chunkWidth: z.number().positive().default(16), // Chunk width in tiles
+	chunkHeight: z.number().positive().default(16), // Chunk height in tiles
 	tileWidth: z.number().positive().default(16),
 	tileHeight: z.number().positive().default(16),
 	parallaxX: z.number().default(1.0), // Parallax scroll speed X

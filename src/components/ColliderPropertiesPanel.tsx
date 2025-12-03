@@ -48,11 +48,9 @@ export const ColliderPropertiesPanel = ({
 		return <div className="p-4 text-gray-500">{emptyMessage}</div>;
 	}
 
-	// Calculate center position from all points
-	const centerX =
-		collider.points.reduce((sum, p) => sum + p.x, 0) / collider.points.length;
-	const centerY =
-		collider.points.reduce((sum, p) => sum + p.y, 0) / collider.points.length;
+	// Get center position (now stored directly in collider.position)
+	const posX = collider.position?.x ?? 0;
+	const posY = collider.position?.y ?? 0;
 
 	const handleUpdateName = (e: React.ChangeEvent<HTMLInputElement>) => {
 		onUpdateCollider?.(collider.id, { name: e.target.value });
@@ -66,25 +64,23 @@ export const ColliderPropertiesPanel = ({
 		onUpdateCollider?.(collider.id, { properties });
 	};
 
-	const handleCenterPositionChange = (
-		newCenterX: number,
-		newCenterY: number,
-	) => {
-		const deltaX = newCenterX - centerX;
-		const deltaY = newCenterY - centerY;
-
-		const newPoints = collider.points.map((p) => ({
-			x: Math.round(p.x + deltaX),
-			y: Math.round(p.y + deltaY),
-		}));
-
-		onUpdateCollider?.(collider.id, { points: newPoints });
+	const handlePositionChange = (newPosX: number, newPosY: number) => {
+		// Just update position directly - points are offsets from position
+		onUpdateCollider?.(collider.id, {
+			position: { x: Math.round(newPosX), y: Math.round(newPosY) },
+		});
 	};
 
-	const selectedPoint =
+	// Get selected point in world coordinates for display
+	const selectedPointOffset =
 		selectedPointIndex !== null && selectedPointIndex < collider.points.length
 			? collider.points[selectedPointIndex]
 			: null;
+
+	// Convert to world coordinates for user-friendly display
+	const selectedPointWorld = selectedPointOffset
+		? { x: selectedPointOffset.x + posX, y: selectedPointOffset.y + posY }
+		: null;
 
 	// Input style based on border style variant
 	const inputStyle =
@@ -222,18 +218,14 @@ export const ColliderPropertiesPanel = ({
 											className="flex-1 px-2.5 py-1.5 text-sm rounded-r"
 											style={{ background: "#3e3e42", color: "#858585" }}
 										>
-											{Math.round(centerX)}
+											{Math.round(posX)}
 										</div>
 									) : (
 										<div className="flex-1">
 											<DragNumberInput
-												value={centerX}
-												onChange={(newX) =>
-													handleCenterPositionChange(newX, centerY)
-												}
-												onInput={(newX) =>
-													handleCenterPositionChange(newX, centerY)
-												}
+												value={posX}
+												onChange={(newX) => handlePositionChange(newX, posY)}
+												onInput={(newX) => handlePositionChange(newX, posY)}
 												onDragStart={onDragStart}
 												onDragEnd={onDragEnd}
 												dragSpeed={1}
@@ -252,18 +244,14 @@ export const ColliderPropertiesPanel = ({
 											className="flex-1 px-2.5 py-1.5 text-sm rounded-r"
 											style={{ background: "#3e3e42", color: "#858585" }}
 										>
-											{Math.round(centerY)}
+											{Math.round(posY)}
 										</div>
 									) : (
 										<div className="flex-1">
 											<DragNumberInput
-												value={centerY}
-												onChange={(newY) =>
-													handleCenterPositionChange(centerX, newY)
-												}
-												onInput={(newY) =>
-													handleCenterPositionChange(centerX, newY)
-												}
+												value={posY}
+												onChange={(newY) => handlePositionChange(posX, newY)}
+												onInput={(newY) => handlePositionChange(posX, newY)}
 												onDragStart={onDragStart}
 												onDragEnd={onDragEnd}
 												dragSpeed={1}
@@ -303,8 +291,8 @@ export const ColliderPropertiesPanel = ({
 						</div>
 					)}
 
-					{/* Selected Point Position */}
-					{selectedPoint && selectedPointIndex !== null && (
+					{/* Selected Point Position (shown in world coordinates) */}
+					{selectedPointWorld && selectedPointIndex !== null && (
 						<div>
 							<div
 								className="text-xs font-medium block mb-1.5"
@@ -321,21 +309,21 @@ export const ColliderPropertiesPanel = ({
 									</div>
 									<div className="flex-1">
 										<DragNumberInput
-											value={selectedPoint.x}
-											onChange={(x) =>
+											value={selectedPointWorld.x}
+											onChange={(worldX) =>
 												onUpdateColliderPoint?.(
 													collider.id,
 													selectedPointIndex,
-													x,
-													selectedPoint.y,
+													worldX - posX, // Convert to offset
+													selectedPointWorld.y - posY,
 												)
 											}
-											onInput={(x) =>
+											onInput={(worldX) =>
 												onUpdateColliderPoint?.(
 													collider.id,
 													selectedPointIndex,
-													x,
-													selectedPoint.y,
+													worldX - posX, // Convert to offset
+													selectedPointWorld.y - posY,
 												)
 											}
 											onDragStart={onDragStart}
@@ -352,21 +340,21 @@ export const ColliderPropertiesPanel = ({
 									</div>
 									<div className="flex-1">
 										<DragNumberInput
-											value={selectedPoint.y}
-											onChange={(y) =>
+											value={selectedPointWorld.y}
+											onChange={(worldY) =>
 												onUpdateColliderPoint?.(
 													collider.id,
 													selectedPointIndex,
-													selectedPoint.x,
-													y,
+													selectedPointWorld.x - posX,
+													worldY - posY, // Convert to offset
 												)
 											}
-											onInput={(y) =>
+											onInput={(worldY) =>
 												onUpdateColliderPoint?.(
 													collider.id,
 													selectedPointIndex,
-													selectedPoint.x,
-													y,
+													selectedPointWorld.x - posX,
+													worldY - posY, // Convert to offset
 												)
 											}
 											onDragStart={onDragStart}

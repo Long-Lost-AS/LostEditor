@@ -5,9 +5,11 @@ import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { PolygonCollider } from "../types";
 import { drawCheckerboard, drawGrid } from "../utils/canvasUtils";
 import {
+	calculatePolygonCenter,
 	canClosePolygon,
 	findEdgeAtPosition as findEdgeAtPos,
 	findPointAtPosition as findPointAtPos,
+	getWorldPoints,
 	isPointInPolygon,
 } from "../utils/collisionGeometry";
 import {
@@ -196,11 +198,11 @@ export const CollisionEditor = ({
 						: "rgba(255, 0, 255, 0.5)",
 				});
 
-				// Draw control points for selected collider
+				// Draw control points for selected collider (using world coordinates)
 				if (isSelected) {
 					renderControlPoints(
 						ctx,
-						collider.points,
+						getWorldPoints(collider),
 						{
 							color: "rgba(255, 0, 255, 0.9)",
 							radius: 4 / scale,
@@ -295,7 +297,9 @@ export const CollisionEditor = ({
 			const collider = localColliders[i];
 			if (collider.points.length < 3) continue;
 
-			if (isPointInPolygon(x, y, collider.points) && collider.id) {
+			// Use world points for hit detection
+			const worldPoints = getWorldPoints(collider);
+			if (isPointInPolygon(x, y, worldPoints) && collider.id) {
 				return collider.id;
 			}
 		}
@@ -329,12 +333,19 @@ export const CollisionEditor = ({
 
 				// Check if clicking near first point to close polygon
 				if (canClosePolygon(drawingPoints, snapped.x, snapped.y, 8 / scale)) {
-					// Close the polygon
+					// Close the polygon - calculate center and convert to offsets
+					const center = calculatePolygonCenter(drawingPoints);
+					const offsetPoints = drawingPoints.map((p) => ({
+						x: p.x - center.x,
+						y: p.y - center.y,
+					}));
+
 					const newCollider: PolygonCollider = {
 						id: generateId(),
 						name: "",
 						type: "",
-						points: drawingPoints,
+						position: center,
+						points: offsetPoints,
 						properties: {},
 					};
 					setLocalColliders([...localColliders, newCollider]);
@@ -351,9 +362,10 @@ export const CollisionEditor = ({
 				const selectedCollider = getSelectedCollider();
 
 				if (selectedCollider) {
-					// Check if clicking on a point of selected collider
+					// Check if clicking on a point of selected collider (use world points for hit detection)
+					const worldPoints = getWorldPoints(selectedCollider);
 					const pointIndex = findPointAtPosition(
-						selectedCollider.points,
+						worldPoints,
 						coords.x,
 						coords.y,
 					);
@@ -402,10 +414,13 @@ export const CollisionEditor = ({
 			const snappedCoords = getCanvasCoords(e);
 			const newColliders = localColliders.map((c) => {
 				if (c.id === selectedColliderId) {
+					// Convert world coords to offset from position
+					const posX = c.position?.x ?? 0;
+					const posY = c.position?.y ?? 0;
 					const newPoints = [...c.points];
 					newPoints[selectedPointIndex] = {
-						x: snappedCoords.x,
-						y: snappedCoords.y,
+						x: snappedCoords.x - posX,
+						y: snappedCoords.y - posY,
 					};
 					return { ...c, points: newPoints };
 				}
@@ -413,18 +428,22 @@ export const CollisionEditor = ({
 			});
 			setLocalColliders(newColliders);
 		} else if (isDraggingCollider && colliderDragStart && selectedColliderId) {
-			// Drag entire collider
+			// Drag entire collider - just update position
 			const currentCoords = getCanvasCoords(e);
 			const deltaX = currentCoords.x - colliderDragStart.x;
 			const deltaY = currentCoords.y - colliderDragStart.y;
 
 			const newColliders = localColliders.map((c) => {
 				if (c.id === selectedColliderId) {
-					const newPoints = c.points.map((p) => ({
-						x: Math.round(p.x + deltaX),
-						y: Math.round(p.y + deltaY),
-					}));
-					return { ...c, points: newPoints };
+					const posX = c.position?.x ?? 0;
+					const posY = c.position?.y ?? 0;
+					return {
+						...c,
+						position: {
+							x: Math.round(posX + deltaX),
+							y: Math.round(posY + deltaY),
+						},
+					};
 				}
 				return c;
 			});
@@ -476,31 +495,36 @@ export const CollisionEditor = ({
 			const collider = getSelectedCollider();
 			if (!collider) return;
 
+			const posX = collider.position?.x ?? 0;
+			const posY = collider.position?.y ?? 0;
+
 			// If a specific point is selected, move only that point
 			if (selectedPointIndex !== null) {
+				// Calculate new world position and clamp, then convert back to offset
+				const worldX =
+					collider.points[selectedPointIndex].x + posX + delta.deltaX;
+				const worldY =
+					collider.points[selectedPointIndex].y + posY + delta.deltaY;
+				const clampedWorldX = Math.max(0, Math.min(width, worldX));
+				const clampedWorldY = Math.max(0, Math.min(height, worldY));
+
 				const newPoints = [...collider.points];
 				newPoints[selectedPointIndex] = {
-					x: Math.max(
-						0,
-						Math.min(width, newPoints[selectedPointIndex].x + delta.deltaX),
-					),
-					y: Math.max(
-						0,
-						Math.min(height, newPoints[selectedPointIndex].y + delta.deltaY),
-					),
+					x: clampedWorldX - posX,
+					y: clampedWorldY - posY,
 				};
 				const newColliders = localColliders.map((c) =>
 					c.id === selectedColliderId ? { ...c, points: newPoints } : c,
 				);
 				setLocalColliders(newColliders);
 			} else {
-				// Move entire collider
-				const newPoints = collider.points.map((p) => ({
-					x: Math.max(0, Math.min(width, p.x + delta.deltaX)),
-					y: Math.max(0, Math.min(height, p.y + delta.deltaY)),
-				}));
+				// Move entire collider - just update position
+				const newPosX = Math.max(0, Math.min(width, posX + delta.deltaX));
+				const newPosY = Math.max(0, Math.min(height, posY + delta.deltaY));
 				const newColliders = localColliders.map((c) =>
-					c.id === selectedColliderId ? { ...c, points: newPoints } : c,
+					c.id === selectedColliderId
+						? { ...c, position: { x: newPosX, y: newPosY } }
+						: c,
 				);
 				setLocalColliders(newColliders);
 			}
@@ -516,8 +540,10 @@ export const CollisionEditor = ({
 
 		// Check all colliders for points first (highest priority)
 		for (const collider of localColliders) {
+			// Use world points for hit detection
+			const worldPoints = getWorldPoints(collider);
 			const pointIndex = findPointAtPosition(
-				collider.points,
+				worldPoints,
 				unsnappedCoords.x,
 				unsnappedCoords.y,
 			);
@@ -535,19 +561,28 @@ export const CollisionEditor = ({
 
 		// Check all colliders for edges (second priority)
 		for (const collider of localColliders) {
+			// Use world points for edge detection
+			const worldPoints = getWorldPoints(collider);
 			const edge = findEdgeAtPosition(
-				collider.points,
+				worldPoints,
 				unsnappedCoords.x,
 				unsnappedCoords.y,
 			);
 			if (edge && collider.id) {
+				// Convert insert position from world to offset
+				const posX = collider.position?.x ?? 0;
+				const posY = collider.position?.y ?? 0;
+				const insertOffset = {
+					x: edge.insertPosition.x - posX,
+					y: edge.insertPosition.y - posY,
+				};
 				const position = calculateMenuPosition(e.clientX, e.clientY, 180, 100);
 				setContextMenu({
 					x: position.x,
 					y: position.y,
 					colliderId: collider.id,
 					edgeIndex: edge.edgeIndex,
-					insertPosition: edge.insertPosition,
+					insertPosition: insertOffset,
 				});
 				return;
 			}

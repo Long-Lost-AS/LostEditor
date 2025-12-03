@@ -180,3 +180,63 @@ export function canClosePolygon(
 	);
 	return distance <= threshold;
 }
+
+/**
+ * Collider with position and offset points (new format)
+ */
+export interface PositionedCollider {
+	id: string;
+	name: string;
+	type: string;
+	position: Point;
+	points: Point[];
+	properties: Record<string, string>;
+}
+
+/**
+ * Migrate a collider from old format (absolute points) to new format (position + offsets)
+ * If the collider already has a valid position, it's returned as-is.
+ * @param collider Collider to migrate (may or may not have position)
+ * @returns Collider with position set to centroid and points as offsets
+ */
+export function migrateColliderToPositionFormat(
+	collider: Partial<PositionedCollider> & { points: Point[] },
+): PositionedCollider {
+	// If collider already has a non-default position, assume it's already migrated
+	if (
+		collider.position &&
+		(collider.position.x !== 0 || collider.position.y !== 0)
+	) {
+		return collider as PositionedCollider;
+	}
+
+	// Calculate centroid of the points
+	const center = calculatePolygonCenter(collider.points);
+
+	// Convert points to offsets from center
+	const offsetPoints = collider.points.map((p) => ({
+		x: p.x - center.x,
+		y: p.y - center.y,
+	}));
+
+	return {
+		id: collider.id || "",
+		name: collider.name || "",
+		type: collider.type || "",
+		position: center,
+		points: offsetPoints,
+		properties: collider.properties || {},
+	};
+}
+
+/**
+ * Convert a collider's offset points to world coordinates
+ * @param collider Collider with position and offset points
+ * @returns Array of points in world coordinates
+ */
+export function getWorldPoints(collider: PositionedCollider): Point[] {
+	return collider.points.map((p) => ({
+		x: p.x + collider.position.x,
+		y: p.y + collider.position.y,
+	}));
+}

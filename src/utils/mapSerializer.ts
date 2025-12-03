@@ -8,11 +8,13 @@ import type {
 	Layer,
 	LayerGroup,
 	MapData,
+	PolygonCollider,
 	SerializedLayer,
 	SerializedLayerGroup,
 	SerializedMapData,
 } from "../types";
 import { isChunkEmpty } from "./chunkStorage";
+import { migrateColliderToPositionFormat } from "./collisionGeometry";
 
 /**
  * Serialize map data to file format (chunk-based storage)
@@ -38,6 +40,8 @@ export function serializeMapData(mapData: MapData): SerializedMapData {
 			groupId: layer.groupId,
 			order: layer.order,
 			chunks, // Chunk-based storage
+			chunkWidth: layer.chunkWidth,
+			chunkHeight: layer.chunkHeight,
 			tileWidth: layer.tileWidth,
 			tileHeight: layer.tileHeight,
 			parallaxX: layer.parallaxX,
@@ -93,6 +97,8 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		groupId: layer.groupId,
 		order: layer.order ?? index, // Use index for old files without order
 		chunks: layer.chunks ?? {},
+		chunkWidth: layer.chunkWidth ?? 16,
+		chunkHeight: layer.chunkHeight ?? 16,
 		tileWidth: layer.tileWidth ?? 16,
 		tileHeight: layer.tileHeight ?? 16,
 		parallaxX: layer.parallaxX ?? 1.0,
@@ -117,6 +123,11 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		}),
 	);
 
+	// Migrate colliders to new format with position (backwards compatibility)
+	const colliders: PolygonCollider[] = (serialized.colliders || []).map(
+		(collider) => migrateColliderToPositionFormat(collider) as PolygonCollider,
+	);
+
 	return {
 		id: serialized.id,
 		name: serialized.name,
@@ -125,6 +136,6 @@ export function deserializeMapData(serialized: SerializedMapData): MapData {
 		groups,
 		entities: serialized.entities || [],
 		points: serialized.points || [],
-		colliders: serialized.colliders || [],
+		colliders,
 	};
 }

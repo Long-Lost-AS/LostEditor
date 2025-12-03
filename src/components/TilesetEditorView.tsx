@@ -562,11 +562,21 @@ export const TilesetEditorView = ({ tab }: TilesetEditorViewProps) => {
 						ctx.save();
 						ctx.translate(tileX, tileY);
 
+						// Get collider center position (points are offsets from this)
+						const posX = collider.position?.x ?? 0;
+						const posY = collider.position?.y ?? 0;
+
 						// Draw filled polygon
 						ctx.beginPath();
-						ctx.moveTo(collider.points[0].x, collider.points[0].y);
+						ctx.moveTo(
+							collider.points[0].x + posX,
+							collider.points[0].y + posY,
+						);
 						for (let i = 1; i < collider.points.length; i++) {
-							ctx.lineTo(collider.points[i].x, collider.points[i].y);
+							ctx.lineTo(
+								collider.points[i].x + posX,
+								collider.points[i].y + posY,
+							);
 						}
 						ctx.closePath();
 						ctx.fill();

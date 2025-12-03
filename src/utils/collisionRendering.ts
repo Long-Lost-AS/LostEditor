@@ -55,6 +55,7 @@ export interface DrawingPreviewOptions {
 
 /**
  * Render a single polygon collider
+ * Points are stored as offsets from collider.position
  */
 export function renderCollider(
 	ctx: CanvasRenderingContext2D,
@@ -72,14 +73,18 @@ export function renderCollider(
 		selectionFillOpacity = 1.5,
 	} = options;
 
+	// Get position offset (default to 0,0 for backwards compatibility)
+	const posX = collider.position?.x ?? 0;
+	const posY = collider.position?.y ?? 0;
+
 	ctx.save();
 
 	// Draw filled polygon
 	if (collider.points.length >= 3) {
 		ctx.beginPath();
-		ctx.moveTo(collider.points[0].x, collider.points[0].y);
+		ctx.moveTo(collider.points[0].x + posX, collider.points[0].y + posY);
 		for (let i = 1; i < collider.points.length; i++) {
-			ctx.lineTo(collider.points[i].x, collider.points[i].y);
+			ctx.lineTo(collider.points[i].x + posX, collider.points[i].y + posY);
 		}
 		ctx.closePath();
 
@@ -99,9 +104,9 @@ export function renderCollider(
 
 	// Draw polygon outline
 	ctx.beginPath();
-	ctx.moveTo(collider.points[0].x, collider.points[0].y);
+	ctx.moveTo(collider.points[0].x + posX, collider.points[0].y + posY);
 	for (let i = 1; i < collider.points.length; i++) {
-		ctx.lineTo(collider.points[i].x, collider.points[i].y);
+		ctx.lineTo(collider.points[i].x + posX, collider.points[i].y + posY);
 	}
 	if (collider.points.length >= 3) {
 		ctx.closePath();

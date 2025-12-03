@@ -7,9 +7,11 @@ import { useUndoableReducer } from "../hooks/useUndoableReducer";
 import type { EntityEditorTab, PolygonCollider, Sprite } from "../types";
 import { drawGrid } from "../utils/canvasUtils";
 import {
+	calculatePolygonCenter,
 	canClosePolygon,
 	findEdgeAtPosition as findEdgeAtPos,
 	findPointAtPosition as findPointAtPos,
+	getWorldPoints,
 	isPointInPolygon as pointInPolygon,
 } from "../utils/collisionGeometry";
 import { generateId } from "../utils/id";
@@ -425,11 +427,19 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 			return;
 		}
 
+		// Calculate center and convert points to offsets
+		const center = calculatePolygonCenter(drawingPoints);
+		const offsetPoints = drawingPoints.map((p) => ({
+			x: p.x - center.x,
+			y: p.y - center.y,
+		}));
+
 		const newCollider: PolygonCollider = {
 			id: generateId(),
 			name: "",
 			type: "",
-			points: drawingPoints,
+			position: center,
+			points: offsetPoints,
 			properties: {},
 		};
 
@@ -661,19 +671,26 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							const spriteOffsetX = layer.rect.x - tileX;
 							const spriteOffsetY = layer.rect.y - tileY;
 
+							// Get collider center position (points are offsets from this)
+							const posX = collider.position?.x ?? 0;
+							const posY = collider.position?.y ?? 0;
+
 							ctx.strokeStyle = "rgba(0, 255, 0, 0.7)";
 							ctx.lineWidth = 2 / scale;
 							ctx.beginPath();
 
 							const firstPoint = collider.points[0];
 							ctx.moveTo(
-								firstPoint.x - spriteOffsetX,
-								firstPoint.y - spriteOffsetY,
+								firstPoint.x + posX - spriteOffsetX,
+								firstPoint.y + posY - spriteOffsetY,
 							);
 
 							for (let i = 1; i < collider.points.length; i++) {
 								const point = collider.points[i];
-								ctx.lineTo(point.x - spriteOffsetX, point.y - spriteOffsetY);
+								ctx.lineTo(
+									point.x + posX - spriteOffsetX,
+									point.y + posY - spriteOffsetY,
+								);
 							}
 
 							ctx.closePath();
@@ -692,6 +709,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 					const isSelected = collider.id === selectedColliderId;
 
+					// Get collider center position (points are offsets from this)
+					const posX = collider.position?.x ?? 0;
+					const posY = collider.position?.y ?? 0;
+
 					// Draw collider polygon with selection highlighting
 					ctx.strokeStyle = isSelected
 						? "rgba(255, 200, 0, 1)"
@@ -703,11 +724,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					ctx.beginPath();
 
 					const firstPoint = collider.points[0];
-					ctx.moveTo(firstPoint.x, firstPoint.y);
+					ctx.moveTo(firstPoint.x + posX, firstPoint.y + posY);
 
 					for (let i = 1; i < collider.points.length; i++) {
 						const point = collider.points[i];
-						ctx.lineTo(point.x, point.y);
+						ctx.lineTo(point.x + posX, point.y + posY);
 					}
 
 					ctx.closePath();
@@ -723,8 +744,8 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 								: "rgba(255, 200, 0, 0.9)";
 							ctx.beginPath();
 							ctx.arc(
-								point.x,
-								point.y,
+								point.x + posX,
+								point.y + posY,
 								(isPointSelected ? 6 : 4) / scale,
 								0,
 								Math.PI * 2,
@@ -736,16 +757,14 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 							ctx.font = `${10 / scale}px monospace`;
 							ctx.fillText(
 								index.toString(),
-								point.x + 8 / scale,
-								point.y - 8 / scale,
+								point.x + posX + 8 / scale,
+								point.y + posY - 8 / scale,
 							);
 						});
 
-						// Draw center marker
-						const sumX = collider.points.reduce((sum, p) => sum + p.x, 0);
-						const sumY = collider.points.reduce((sum, p) => sum + p.y, 0);
-						const centerX = sumX / collider.points.length;
-						const centerY = sumY / collider.points.length;
+						// Draw center marker (use the collider position directly)
+						const centerX = posX;
+						const centerY = posY;
 
 						const crossSize = 10 / scale;
 
@@ -995,11 +1014,9 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					(c) => c.id === selectedColliderId,
 				);
 				if (selectedCollider) {
-					const pointIndex = findPointAtPosition(
-						selectedCollider.points,
-						worldX,
-						worldY,
-					);
+					// Use world points for hit detection
+					const worldPoints = getWorldPoints(selectedCollider);
+					const pointIndex = findPointAtPosition(worldPoints, worldX, worldY);
 					if (pointIndex !== null) {
 						// Start dragging this point
 						setSelectedColliderPointIndex(pointIndex);
@@ -1009,7 +1026,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 					}
 
 					// Check if clicking on the collider body (not on a point) to drag the whole collider
-					if (isPointInPolygon(worldX, worldY, selectedCollider.points)) {
+					if (isPointInPolygon(worldX, worldY, worldPoints)) {
 						startBatch();
 						setIsDraggingCollider(true);
 						setColliderDragStart({
@@ -1024,9 +1041,10 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 
 			// Check if we clicked on a collider
 			for (const collider of localColliders || []) {
+				const worldPoints = getWorldPoints(collider);
 				if (
 					collider.points.length >= 3 &&
-					isPointInPolygon(worldX, worldY, collider.points)
+					isPointInPolygon(worldX, worldY, worldPoints)
 				) {
 					setSelectedColliderId(collider.id || null);
 					setSelectedSpriteId(null); // Deselect sprite when selecting collider
@@ -1257,12 +1275,11 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				(c) => c.id === selectedColliderId,
 			);
 			if (selectedCollider) {
+				// Use world points for hit detection (position + offset points)
+				const worldPoints = getWorldPoints(selectedCollider);
+
 				// Check if clicking on a point
-				const pointIndex = findPointAtPosition(
-					selectedCollider.points,
-					worldX,
-					worldY,
-				);
+				const pointIndex = findPointAtPosition(worldPoints, worldX, worldY);
 				if (pointIndex !== null) {
 					const position = calculateMenuPosition(
 						e.clientX,
@@ -1281,11 +1298,7 @@ export const EntityEditorView = ({ tab }: EntityEditorViewProps) => {
 				}
 
 				// Check if clicking on an edge
-				const edge = findEdgeAtPosition(
-					selectedCollider.points,
-					worldX,
-					worldY,
-				);
+				const edge = findEdgeAtPosition(worldPoints, worldX, worldY);
 				if (edge) {
 					const position = calculateMenuPosition(
 						e.clientX,

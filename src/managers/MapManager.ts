@@ -131,7 +131,7 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			lines.push(`      "name": ${JSON.stringify(layer.name)},`);
 			lines.push(`      "visible": ${layer.visible},`);
 			lines.push(`      "foreground": ${layer.foreground ?? false},`);
-			if (layer.groupId !== undefined) {
+			if (layer.groupId != null) {
 				lines.push(`      "groupId": ${JSON.stringify(layer.groupId)},`);
 			}
 			lines.push(`      "order": ${layer.order ?? i},`);
@@ -147,6 +147,8 @@ class MapManager extends FileLoader<MapData, MapFileJson> {
 			}
 
 			lines.push("      },");
+			lines.push(`      "chunkWidth": ${layer.chunkWidth ?? 16},`);
+			lines.push(`      "chunkHeight": ${layer.chunkHeight ?? 16},`);
 			lines.push(`      "tileWidth": ${layer.tileWidth},`);
 			lines.push(`      "tileHeight": ${layer.tileHeight},`);
 			lines.push(`      "parallaxX": ${layer.parallaxX ?? 1.0},`);

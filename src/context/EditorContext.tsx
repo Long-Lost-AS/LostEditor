@@ -163,7 +163,7 @@ interface EditorContextType {
 	addGroup: () => void;
 	removeGroup: (groupId: string) => void;
 	updateGroup: (groupId: string, updates: Partial<LayerGroup>) => void;
-	assignLayerToGroup: (layerId: string, groupId: string | undefined) => void;
+	assignLayerToGroup: (layerId: string, groupId: string | null) => void;
 	toggleGroupExpanded: (groupId: string) => void;
 
 	// Tile Actions
@@ -463,8 +463,11 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			name: `Layer ${currentMap.layers.length + 1}`,
 			visible: true,
 			foreground: false,
+			groupId: null,
 			order: maxOrder + 1, // Place at top of background section
 			chunks: {},
+			chunkWidth: 16,
+			chunkHeight: 16,
 			tileWidth: 16,
 			tileHeight: 16,
 			parallaxX: 1.0,
@@ -596,7 +599,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 			updateMap(mapTab.mapId, {
 				groups: (currentMap.groups || []).filter((g) => g.id !== groupId),
 				layers: currentMap.layers.map((l) =>
-					l.groupId === groupId ? { ...l, groupId: undefined } : l,
+					l.groupId === groupId ? { ...l, groupId: null } : l,
 				),
 			});
 			setProjectModified(true);
@@ -623,7 +626,7 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 	);
 
 	const assignLayerToGroup = useCallback(
-		(layerId: string, groupId: string | undefined) => {
+		(layerId: string, groupId: string | null) => {
 			const mapTab = getActiveMapTab();
 			if (!mapTab) return;
 

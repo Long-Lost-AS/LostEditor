@@ -15,6 +15,7 @@ import type {
 	Tool,
 } from "../types";
 import { CHUNK_SIZE, getTile, setTile } from "../utils/chunkStorage";
+import { calculatePolygonCenter } from "../utils/collisionGeometry";
 import { generateId } from "../utils/id";
 import { calculateMenuPosition } from "../utils/menuPositioning";
 import {
@@ -467,8 +468,11 @@ export const MapEditorView = ({
 			name: `Layer ${localLayers.length + 1}`,
 			visible: true,
 			foreground: false, // New layers render below entities by default
+			groupId: null,
 			order: maxOrder + 1, // Place at top of background section
 			chunks: {}, // Empty chunks - tiles created on demand
+			chunkWidth: 16,
+			chunkHeight: 16,
 			tileWidth: 16,
 			tileHeight: 16,
 			parallaxX: 1.0,
@@ -612,7 +616,7 @@ export const MapEditorView = ({
 		// Unassign all layers from this group
 		setLocalLayers(
 			localLayers.map((l) =>
-				l.groupId === groupId ? { ...l, groupId: undefined } : l,
+				l.groupId === groupId ? { ...l, groupId: null } : l,
 			),
 		);
 		// Remove the group
@@ -1084,11 +1088,23 @@ export const MapEditorView = ({
 	// Handle adding a new collider
 	const handleAddCollider = useCallback(
 		(points: Array<{ x: number; y: number }>) => {
+			// Calculate center position and convert points to offsets
+			const floored = points.map((p) => ({
+				x: Math.floor(p.x),
+				y: Math.floor(p.y),
+			}));
+			const center = calculatePolygonCenter(floored);
+			const offsetPoints = floored.map((p) => ({
+				x: p.x - center.x,
+				y: p.y - center.y,
+			}));
+
 			const collider: PolygonCollider = {
 				id: generateId(),
 				name: "",
 				type: "",
-				points: points.map((p) => ({ x: Math.floor(p.x), y: Math.floor(p.y) })),
+				position: center,
+				points: offsetPoints,
 				properties: {},
 			};
 
