@@ -789,5 +789,43 @@ describe("mapSerializer", () => {
 
 			expect(deserialized).toEqual(original);
 		});
+
+		it("should migrate colliders without position to new format", () => {
+			// Simulate old format without position field
+			const serialized: SerializedMapData = {
+				version: "5.0",
+				id: "test-id",
+				name: "Test Map",
+				layers: [],
+				groups: [],
+				entities: [],
+				points: [],
+				colliders: [
+					{
+						id: "collider-1",
+						name: "Test Collider",
+						type: "polygon",
+						points: [
+							{ x: 10, y: 10 },
+							{ x: 20, y: 10 },
+							{ x: 20, y: 20 },
+							{ x: 10, y: 20 },
+						],
+						properties: {},
+					} as unknown as import("../../types").PolygonCollider,
+				],
+			};
+
+			const result = deserializeMapData(serialized);
+
+			expect(result.colliders).toHaveLength(1);
+			expect(result.colliders[0].position).toEqual({ x: 15, y: 15 });
+			expect(result.colliders[0].points).toEqual([
+				{ x: -5, y: -5 },
+				{ x: 5, y: -5 },
+				{ x: 5, y: 5 },
+				{ x: -5, y: 5 },
+			]);
+		});
 	});
 });
