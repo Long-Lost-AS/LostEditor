@@ -1,10 +1,10 @@
 [package]
 name = "lost-editor"
-version = "0.6.1"
+version = "0.6.2"
 description = "A 2D map editor for game development"
 authors = ["Richard Strømland Egeli"]
 license = "Custom"
-repository = "https://github.com/Long-Lost-AS/LostEditor"
+repository = "https://github.com/LostSuite/LostEditor"
 edition = "2021"
 
 [build-dependencies]
