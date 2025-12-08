@@ -134,6 +134,40 @@ export const CollisionEditor = ({
 			needsUpdate = true;
 		}
 
+		// Normalize positions to integers (fix for fractional centers causing off-by-one display issues)
+		const needsPositionFix = updated.some((c) => {
+			const posX = c.position?.x ?? 0;
+			const posY = c.position?.y ?? 0;
+			return posX !== Math.round(posX) || posY !== Math.round(posY);
+		});
+		if (needsPositionFix) {
+			updated = updated.map((c) => {
+				const posX = c.position?.x ?? 0;
+				const posY = c.position?.y ?? 0;
+				const roundedX = Math.round(posX);
+				const roundedY = Math.round(posY);
+
+				if (posX === roundedX && posY === roundedY) {
+					return c;
+				}
+
+				// Adjust offset points to maintain same world coordinates
+				const deltaX = posX - roundedX;
+				const deltaY = posY - roundedY;
+				const adjustedPoints = c.points.map((p) => ({
+					x: p.x + deltaX,
+					y: p.y + deltaY,
+				}));
+
+				return {
+					...c,
+					position: { x: roundedX, y: roundedY },
+					points: adjustedPoints,
+				};
+			});
+			needsUpdate = true;
+		}
+
 		if (needsUpdate) {
 			setLocalColliders(updated);
 		}
@@ -334,7 +368,12 @@ export const CollisionEditor = ({
 				// Check if clicking near first point to close polygon
 				if (canClosePolygon(drawingPoints, snapped.x, snapped.y, 8 / scale)) {
 					// Close the polygon - calculate center and convert to offsets
-					const center = calculatePolygonCenter(drawingPoints);
+					const rawCenter = calculatePolygonCenter(drawingPoints);
+					// Round the center to ensure points stay on pixel grid
+					const center = {
+						x: Math.round(rawCenter.x),
+						y: Math.round(rawCenter.y),
+					};
 					const offsetPoints = drawingPoints.map((p) => ({
 						x: p.x - center.x,
 						y: p.y - center.y,
@@ -518,9 +557,13 @@ export const CollisionEditor = ({
 				);
 				setLocalColliders(newColliders);
 			} else {
-				// Move entire collider - just update position
-				const newPosX = Math.max(0, Math.min(width, posX + delta.deltaX));
-				const newPosY = Math.max(0, Math.min(height, posY + delta.deltaY));
+				// Move entire collider - just update position (round to ensure grid alignment)
+				const newPosX = Math.round(
+					Math.max(0, Math.min(width, posX + delta.deltaX)),
+				);
+				const newPosY = Math.round(
+					Math.max(0, Math.min(height, posY + delta.deltaY)),
+				);
 				const newColliders = localColliders.map((c) =>
 					c.id === selectedColliderId
 						? { ...c, position: { x: newPosX, y: newPosY } }

@@ -210,10 +210,14 @@ export function migrateColliderToPositionFormat(
 		return collider as PositionedCollider;
 	}
 
-	// Calculate centroid of the points
-	const center = calculatePolygonCenter(collider.points);
+	// Calculate centroid of the points and round to ensure grid alignment
+	const rawCenter = calculatePolygonCenter(collider.points);
+	const center = {
+		x: Math.round(rawCenter.x),
+		y: Math.round(rawCenter.y),
+	};
 
-	// Convert points to offsets from center
+	// Convert points to offsets from rounded center
 	const offsetPoints = collider.points.map((p) => ({
 		x: p.x - center.x,
 		y: p.y - center.y,
