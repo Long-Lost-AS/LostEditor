@@ -321,7 +321,6 @@ function renderLayer(
 
 	// Clip to original alpha with destination-in
 	offCtx.globalCompositeOperation = "destination-in";
-	offCtx.globalAlpha = tint.a / 255;
 
 	// Re-render tiles to get the alpha mask
 	const alphaCanvas = document.createElement("canvas");
@@ -333,8 +332,10 @@ function renderLayer(
 		offCtx.drawImage(alphaCanvas, 0, 0);
 	}
 
-	// Draw tinted layer to main canvas
+	// Draw tinted layer to main canvas with alpha applied
+	ctx.globalAlpha = tint.a / 255;
 	ctx.drawImage(offscreen, 0, 0);
+	ctx.globalAlpha = 1.0;
 }
 
 /**
