@@ -1897,6 +1897,8 @@ export const EditorProvider = ({ children }: EditorProviderProps) => {
 
 		// Load the image to get dimensions
 		const img = new Image();
+		// Set crossOrigin before src to prevent canvas tainting for PNG export
+		img.crossOrigin = "anonymous";
 		const convertFileSrc = await import("@tauri-apps/api/core").then(
 			(m) => m.convertFileSrc,
 		);

@@ -16,8 +16,10 @@ import { TilesetEditorView } from "./components/TilesetEditorView";
 import { TilesetSelectMenu } from "./components/TilesetSelectMenu";
 import { EditorProvider, useEditor } from "./context/EditorContext";
 import { UndoRedoProvider } from "./context/UndoRedoContext";
+import { entityManager } from "./managers/EntityManager";
 import type { CollisionEditorTab } from "./types";
 import { isEditableElementFocused } from "./utils/keyboardUtils";
+import { exportMapToPng } from "./utils/mapExport";
 import { testUpdaterConfiguration } from "./utils/testUpdater";
 import { checkForUpdates } from "./utils/updater";
 import "./style.css";
@@ -32,6 +34,8 @@ const AppContent = () => {
 		getActiveMapTab,
 		getActiveTilesetTab,
 		getActiveEntityTab,
+		getMapById,
+		tilesets,
 		newProject,
 		newMap,
 		newTileset,
@@ -71,6 +75,9 @@ const AppContent = () => {
 	const saveTilesetRef = useRef(saveTileset);
 	const saveAllRef = useRef(saveAll);
 	const getActiveTilesetTabRef = useRef(getActiveTilesetTab);
+	const getActiveMapTabRef = useRef(getActiveMapTab);
+	const getMapByIdRef = useRef(getMapById);
+	const tilesetsRef = useRef(tilesets);
 
 	useEffect(() => {
 		newProjectRef.current = newProject;
@@ -85,6 +92,9 @@ const AppContent = () => {
 		saveTilesetRef.current = saveTileset;
 		saveAllRef.current = saveAll;
 		getActiveTilesetTabRef.current = getActiveTilesetTab;
+		getActiveMapTabRef.current = getActiveMapTab;
+		getMapByIdRef.current = getMapById;
+		tilesetsRef.current = tilesets;
 	}, [
 		newProject,
 		newMap,
@@ -98,6 +108,9 @@ const AppContent = () => {
 		saveTileset,
 		saveAll,
 		getActiveTilesetTab,
+		getActiveMapTab,
+		getMapById,
+		tilesets,
 	]);
 
 	useEffect(() => {
@@ -228,6 +241,78 @@ const AppContent = () => {
 					// No-op: Tilesets are automatically loaded from project
 				});
 				if (mounted) unlisteners.push(unlisten10);
+
+				// Export Map as PNG
+				const unlisten12 = await listen("menu:export-map-png", async () => {
+					if (!mounted) return;
+
+					// Get active map
+					const mapTab = getActiveMapTabRef.current();
+					if (!mapTab) {
+						alert("No map is currently open");
+						return;
+					}
+
+					const map = getMapByIdRef.current(mapTab.mapId);
+					if (!map) {
+						alert("Could not find map data");
+						return;
+					}
+
+					// Export to PNG
+					const result = exportMapToPng({
+						map,
+						tilesets: tilesetsRef.current,
+						entityDefs: entityManager.getAllEntities(),
+					});
+
+					if (!result) {
+						alert("Map is empty - nothing to export");
+						return;
+					}
+
+					// Show save dialog
+					const saveResult = await invoke<{
+						canceled: boolean;
+						filePath?: string;
+					}>("show_save_dialog", {
+						options: {
+							title: "Export Map as PNG",
+							defaultPath: `${map.name || "map"}.png`,
+							filters: [{ name: "PNG Image", extensions: ["png"] }],
+						},
+					});
+
+					if (saveResult.filePath) {
+						try {
+							// Get PNG as base64 data URL and extract the base64 part
+							const dataUrl = result.toDataURL();
+							const base64Data = dataUrl.replace(
+								/^data:image\/png;base64,/,
+								"",
+							);
+
+							// Decode base64 to binary and write file
+							const binaryStr = atob(base64Data);
+							const bytes = new Uint8Array(binaryStr.length);
+							for (let i = 0; i < binaryStr.length; i++) {
+								bytes[i] = binaryStr.charCodeAt(i);
+							}
+
+							// Use Tauri FS plugin to write binary file
+							const { writeFile } = await import("@tauri-apps/plugin-fs");
+							await writeFile(saveResult.filePath, bytes);
+
+							alert(
+								`Exported ${result.width}x${result.height} PNG to:\n${saveResult.filePath}`,
+							);
+						} catch (error) {
+							console.error("Failed to save PNG:", error);
+							alert(`Failed to save PNG: ${error}`);
+						}
+					}
+				});
+				if (mounted) unlisteners.push(unlisten12);
 
 				// Check for Updates
 				const unlisten11 = await listen("menu:check-for-updates", async () => {

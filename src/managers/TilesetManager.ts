@@ -153,6 +153,10 @@ class TilesetManager extends FileLoader<TilesetData, TilesetDataJson> {
 		return new Promise((resolve, reject) => {
 			const img = new Image();
 
+			// Set crossOrigin before src to prevent canvas tainting
+			// This allows toDataURL() to work for PNG export
+			img.crossOrigin = "anonymous";
+
 			img.onload = () => {
 				resolve(img);
 			};

@@ -389,6 +389,8 @@ fn create_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>>
                     &MenuItemBuilder::with_id("save-project-as", "Save Project As")
                         .accelerator("CmdOrCtrl+Shift+S")
                         .build(app)?,
+                    &MenuItemBuilder::with_id("export-map-png", "Export Map as PNG")
+                        .build(app)?,
                 ])
                 .build()?,
             // Edit menu
@@ -477,6 +479,9 @@ fn main() {
                         }
                         "save-project-as" => {
                             let _ = window.emit("menu:save-project-as", ());
+                        }
+                        "export-map-png" => {
+                            let _ = window.emit("menu:export-map-png", ());
                         }
                         "reload" => {
                             #[cfg(debug_assertions)]
